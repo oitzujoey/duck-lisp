@@ -1,0 +1,15 @@
+
+We start with two blocks. The first block is the block list; the second block is unallocated memory.
+We can split blocks; we can merge blocks.
+
+Can I call realloc on the block list?
+
+malloc
+	splitBlock // Maybe
+		realloc(bl, +1)
+			free(bl)
+				mergeBlocks // Maybe
+			malloc(nbl, +1)
+				// Recursion?
+			copy(nbl, bl)
+			bl = nbl

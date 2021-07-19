@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1 (c4e8f9ed74, 2021-05-24)"
+   sodipodi:docname="dl_memory_pushBlockEntry_recursive.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="true"
+     inkscape:zoom="0.76167929"
+     inkscape:cx="500.21053"
+     inkscape:cy="312.46747"
+     inkscape:window-width="1920"
+     inkscape:window-height="1015"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       type="xygrid"
+       id="grid9" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.499999"
+       id="rect33"
+       width="21.166666"
+       height="142.875"
+       x="0"
+       y="15.875" />
+    <rect
+       style="fill:#ffff00;stroke:#000000;stroke-width:0.499999"
+       id="rect227"
+       width="21.166666"
+       height="142.875"
+       x="0"
+       y="15.875" />
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="0"
+       y="169.33333"
+       id="text5445"><tspan
+         sodipodi:role="line"
+         id="tspan5443"
+         style="stroke-width:0.264583"
+         x="0"
+         y="169.33333">Initial</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.499999"
+       id="rect8250"
+       width="21.166666"
+       height="142.875"
+       x="26.458332"
+       y="15.875" />
+    <rect
+       style="fill:#00ffff;stroke:#000000;stroke-width:0.499999"
+       id="rect8288"
+       width="21.166666"
+       height="10.583333"
+       x="26.458332"
+       y="15.875" />
+    <rect
+       style="fill:#ffff00;stroke:#000000;stroke-width:0.499999"
+       id="rect8312"
+       width="21.166666"
+       height="132.29167"
+       x="26.458332"
+       y="26.458332" />
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="26.458332"
+       y="169.33333"
+       id="text9350"><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="26.458332"
+         y="169.33333"
+         id="tspan9352">Add BL</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.499999"
+       id="rect10084"
+       width="21.166666"
+       height="142.875"
+       x="58.208332"
+       y="15.875" />
+    <rect
+       style="fill:#008080;stroke:#000000;stroke-width:0.499999"
+       id="rect10108"
+       width="21.166666"
+       height="10.583333"
+       x="58.208332"
+       y="15.875" />
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="58.208332"
+       y="10.583333"
+       id="text11806"><tspan
+         sodipodi:role="line"
+         id="tspan11804"
+         style="stroke-width:0.264583"
+         x="58.208332"
+         y="10.583333">Allocate 1 byte</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="58.208332"
+       y="169.33333"
+       id="text13910"><tspan
+         sodipodi:role="line"
+         id="tspan13908"
+         style="stroke-width:0.264583"
+         x="58.208332"
+         y="169.33333">Free BL</tspan></text>
+    <rect
+       style="fill:#ffff00;stroke:#000000;stroke-width:0.499999"
+       id="rect15064"
+       width="21.166666"
+       height="132.29167"
+       x="58.208332"
+       y="26.458332" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.499999"
+       id="rect15088"
+       width="21.166666"
+       height="142.875"
+       x="84.666664"
+       y="15.875" />
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="84.666664"
+       y="169.33333"
+       id="text16016"><tspan
+         sodipodi:role="line"
+         id="tspan16014"
+         style="stroke-width:0.264583"
+         x="84.666664"
+         y="169.33333">Merge</tspan></text>
+    <rect
+       style="fill:#ffff00;stroke:#000000;stroke-width:0.499999"
+       id="rect17044"
+       width="21.166666"
+       height="142.875"
+       x="84.666664"
+       y="15.875" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 84.666666,26.458333 H 105.83333"
+       id="path17101" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.499999"
+       id="rect17311"
+       width="21.166666"
+       height="142.875"
+       x="111.125"
+       y="15.875" />
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="111.125"
+       y="169.33333"
+       id="text18591"><tspan
+         sodipodi:role="line"
+         id="tspan18589"
+         style="stroke-width:0.264583"
+         x="111.125"
+         y="169.33333">Split</tspan></text>
+  </g>
+</svg>

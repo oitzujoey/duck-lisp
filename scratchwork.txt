@@ -1,0 +1,28 @@
+
+Goal: Small scripting language that can be embedded anywhere.
+Features:
+	Lisp syntax
+	No dependency on any library.
+	C/C++
+Drawbacks:
+	Lisp syntax
+	Redundant code due to lack of libraries.
+
+Types
+	constant
+	name
+	function
+Composite Types
+	enum
+	array
+	struct
+	union
+
+Objects
+	int
+	bool
+	enum
+	array
+	string
+	struct
+	union
