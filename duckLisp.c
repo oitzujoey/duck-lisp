@@ -1,6 +1,6 @@
 
 #include "duckLisp.h"
-#include "duckLib/memory.h"
+#include "DuckLib/memory.h"
 
 typedef struct {
 	

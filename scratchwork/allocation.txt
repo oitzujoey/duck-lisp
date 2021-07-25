@@ -13,3 +13,33 @@ malloc
 				// Recursion?
 			copy(nbl, bl)
 			bl = nbl
+
+
+
+malloc
+	reserveTableEntry
+	findBlock
+	splitBlock
+	block.allocated = true
+
+free
+	pointerToBlock
+	block.allocated = false
+	mergeBlocks
+
+realloc
+	pointerToBlock
+	block.allocated = false
+	mergeBlockAfter
+	bf = blockFits
+	if !bf
+		mergeBlockBefore
+	block.allocated = true
+	reserveTableEntry
+	block.allocated = false
+	if !bf
+		findBlock
+	splitBlock
+	if !bf
+		copy
+	block.allocated = true
