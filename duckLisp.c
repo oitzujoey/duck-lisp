@@ -11,28 +11,24 @@ typedef struct {
 	dl_size_t nodes_length;
 } duck_ast_t;
 
-typedef struct {
-	dl_memory_t memory;
-} duck_t;
-
-static void *duck_malloc(dl_size_t size) {
+dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
+	dl_error_t error = dl_error_ok;
 	
+	error = dl_memory_init(&duckLisp->memoryAllocation, memory, size, dl_memoryFit_best);
+	if (error) {
+		goto l_cleanup;
+	}
+	
+	error = dl_error_ok;
+	l_cleanup:
+	
+	return error;
 }
 
-duck_t duck_init(void *memory, dl_size_t size) {
-	
-	duck_t duck;
-	
-	duck.memory = memory;
-	duck.memory_length = size;
-	
-	return duck;
+void duckLisp_quit(duckLisp_t *duckLisp) {
+	/* No error */ dl_memory_quit(&duckLisp->memoryAllocation);
 }
 
-void duck_quit(void) {
-
-}
-
-void duck_loadString(const char *source) {
+void duckLisp_loadString(const char *source) {
 	
 }
