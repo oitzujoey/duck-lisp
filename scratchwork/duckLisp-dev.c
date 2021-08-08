@@ -15,6 +15,8 @@ int main(int argc, char *argv[]) {
 	void *duckLispMemory = dl_null;
 	size_t tempMemory_size;
 	dl_ptrdiff_t script_handle = -1;
+	duckLisp_error_t error;
+	const char source[] = "((string s \"Hello, world!\") (print s))";
 	
 	tempMemory_size = 1024*1024;
 	duckLispMemory = malloc(tempMemory_size);
@@ -32,9 +34,28 @@ int main(int argc, char *argv[]) {
 	}
 	d.duckLisp_init = dl_true;
 	
-	e = duckLisp_loadString(&duckLisp, &script_handle, DL_STR("((string s \"Hello, world!\") (print s)"));
+	e = duckLisp_loadString(&duckLisp, &script_handle, DL_STR(source));
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
+		
+		while (dl_true) {
+			e = array_popElement(&duckLisp.errors, (void *) &error);
+			if (e) {
+				break;
+			}
+			
+			for (dl_ptrdiff_t i = 0; i < error.message_length; i++) {
+				putchar(error.message[i]);
+			}
+			putchar('\n');
+			
+			printf("%s\n", source);
+			for (dl_ptrdiff_t i = 0; i < error.index; i++) {
+				putchar(' ');
+			}
+			puts("^");
+		}
+		
 		goto l_cleanup;
 	}
 	

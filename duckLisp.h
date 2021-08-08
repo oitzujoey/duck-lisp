@@ -140,7 +140,7 @@ typedef struct {
 
 typedef struct {
 	const char *message;
-	const dl_size_t error_length;
+	dl_size_t message_length;
 	dl_size_t index;
 	// dl_size_t line;
 	// dl_size_t offset;

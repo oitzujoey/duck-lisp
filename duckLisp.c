@@ -18,19 +18,6 @@ static dl_error_t duckLisp_error_push(duckLisp_t *duckLisp, const char *message,
 		goto l_cleanup;
 	}
 	
-	printf("%s\n", message);
-	
-	for (dl_size_t i = 0; i < duckLisp->source_lengths[duckLisp->sources_length - 1]; i++) {
-		putchar(duckLisp->sources[duckLisp->sources_length - 1][i]);
-	}
-	putchar('\n');
-	
-	for (dl_size_t i = 0; i < index; i++) {
-		putchar('-');
-	}
-	putchar('^');
-	putchar('\n');
-	
 	e = dl_malloc(&duckLisp->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
 	if (e) {
 		goto l_cleanup;
@@ -40,6 +27,7 @@ static dl_error_t duckLisp_error_push(duckLisp_t *duckLisp, const char *message,
 		goto l_cleanup;
 	}
 	
+	error.message_length = message_length;
 	error.index = index;
 	
 	e = array_pushElement(&duckLisp->errors, &error);
