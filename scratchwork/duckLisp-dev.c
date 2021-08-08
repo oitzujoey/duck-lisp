@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 	size_t tempMemory_size;
 	dl_ptrdiff_t script_handle = -1;
 	
-	tempMemory_size = 1024;
+	tempMemory_size = 1024*1024;
 	duckLispMemory = malloc(tempMemory_size);
 	if (duckLispMemory == NULL) {
 		e = dl_error_outOfMemory;
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 	}
 	d.duckLisp_init = dl_true;
 	
-	e = duckLisp_loadString(&duckLisp, &script_handle, DL_STR("(string s \"Hello, world!\") (print s)"));
+	e = duckLisp_loadString(&duckLisp, &script_handle, DL_STR("((string s \"Hello, world!\") (print s)"));
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;

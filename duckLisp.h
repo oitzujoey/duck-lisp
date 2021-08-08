@@ -4,6 +4,7 @@
 
 #include "DuckLib/core.h"
 #include "DuckLib/memory.h"
+#include "DuckLib/array.h"
 
 /*
 node
@@ -129,8 +130,25 @@ typedef struct {
 	dl_size_t tree_length;
 } duckLisp_ast_t;
 
+// typedef enum {
+// 	duckLisp_error_code_none = 0,
+// 	duckLisp_error_code_notAnExpression,
+// 	duckLisp_error_code_extraOpenParenthesis,
+// 	duckLisp_error_code_unexpectedEndOfFile,
+// 	duckLisp_error_code_syntax
+// } duckLisp_error_code_t;
+
+typedef struct {
+	const char *message;
+	const dl_size_t error_length;
+	dl_size_t index;
+	// dl_size_t line;
+	// dl_size_t offset;
+} duckLisp_error_t;
+
 typedef struct {
 	dl_memoryAllocation_t memoryAllocation;
+	array_t errors;
 	duckLisp_ast_t ast;
 	duckLisp_cst_compoundExpression_t cst;
 	char **sources;
