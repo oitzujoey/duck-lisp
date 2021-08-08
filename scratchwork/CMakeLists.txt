@@ -10,7 +10,7 @@ add_executable(memory-dev memory-dev.c)
 add_executable(duckLisp-dev duckLisp-dev.c)
 
 target_link_libraries(memory-dev PUBLIC DuckLib)
-target_link_libraries(duckLisp-dev PUBLIC DuckLisp)
+target_link_libraries(duckLisp-dev PUBLIC DuckLisp DuckLib)
 
 # target_include_directories(memory-dev PUBLIC
 # 	"${PROJECT_BINARY_DIR}"

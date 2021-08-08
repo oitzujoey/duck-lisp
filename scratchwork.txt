@@ -26,3 +26,30 @@ Objects
 	string
 	struct
 	union
+	function
+
+There will be a parent table called _. This table is the parent of all global variables.
+There is no type difference between a string and an identifier. A string constant can contain any character. An identifier must start with a letter or identifier_symbol and the rest of the characters must be letters identifier_symbols or numbers.
+If an identifier is passed to a expression or subexpression, the value will be used in the operation if possible. If the identifier cannot be found in the variable list, then the identifier will be converted into a string literal.
+Every expression is a table. When executing a table, the first value must be a function.
+("a" "b" "c") is {"a", "b", "c"}.
+
+((a ('a' 'b' 'c')) 'b' 'c')
+
+a/b/c
+a/b:
+
+When calling a function, there are two tables. The first is the table that passed to the function. The second is the table that defines how the function is called.
+
+[function f [a b c] [
+	[return [+ a b c]]
+]]
+[f 1 2 3]
+
+The calling list is f [1 2 3]
+The definition list is f [a b c]
+This is the same call expressed in a different way: [f f.b:2 f.c:3 f.a:1], or [f .b:2 .c:3 .a:1] (shorthand) This can be represented in the AST, but it will not necessarily execute sucessfully if the members are defined outside the function call.
+
+evaluateSubexpression -> Returns a bool, an int, a float, a string, or an identifier.
+identifierToValue
+stringToIdentifier

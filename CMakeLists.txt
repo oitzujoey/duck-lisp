@@ -14,6 +14,8 @@ add_library(
 	SHARED
 	DuckLib/core.c
 	DuckLib/memory.c
+	DuckLib/string.c
+	DuckLib/array.c
 )
 
 target_include_directories(
