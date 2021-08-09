@@ -14,9 +14,10 @@ int main(int argc, char *argv[]) {
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
 	size_t tempMemory_size;
-	dl_ptrdiff_t script_handle = -1;
 	duckLisp_error_t error;
-	const char source[] = "((string s \"Hello, world!\") (print s))";
+	const char source0[] = "((string s \"Hello, world!\") (print s))";
+	const char source1[] = "((int i 5) (print i))";
+	const char source2[] = "((float f 1.4e6546) (echo 'float) (print f))";
 	
 	tempMemory_size = 1024*1024;
 	duckLispMemory = malloc(tempMemory_size);
@@ -34,7 +35,7 @@ int main(int argc, char *argv[]) {
 	}
 	d.duckLisp_init = dl_true;
 	
-	e = duckLisp_loadString(&duckLisp, &script_handle, DL_STR(source));
+	e = duckLisp_loadString(&duckLisp, DL_STR(source0));
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
 		
@@ -44,18 +45,116 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 			
+			for (dl_ptrdiff_t i = 0; i < duckLisp.source.elements_length; i++) {
+				putchar(((char *) duckLisp.source.elements)[i]);
+			}
+			putchar('\n');
+			
 			for (dl_ptrdiff_t i = 0; i < error.message_length; i++) {
 				putchar(error.message[i]);
 			}
 			putchar('\n');
 			
-			printf("%s\n", source);
-			for (dl_ptrdiff_t i = 0; i < error.index; i++) {
+			printf("%s\n", source0);
+			for (dl_ptrdiff_t i = duckLisp.source.elements_length - sizeof(source0); i < error.index; i++) {
 				putchar(' ');
 			}
 			puts("^");
 		}
 		
+		goto l_cleanup;
+	}
+	
+	e = dl_memory_checkHealth(duckLisp.memoryAllocation);
+	if (e) {
+		printf("Memory health check failed. (%s)\n", dl_errorString[e]);
+	}
+	
+	e = duckLisp_cst_print(&duckLisp);
+	if (e) {
+		printf("Error printing DuckLisp CST. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
+	e = duckLisp_loadString(&duckLisp, DL_STR(source1));
+	if (e) {
+		printf("Error loading string. (%s)\n", dl_errorString[e]);
+		
+		while (dl_true) {
+			e = array_popElement(&duckLisp.errors, (void *) &error);
+			if (e) {
+				break;
+			}
+			
+			for (dl_ptrdiff_t i = 0; i < duckLisp.source.elements_length; i++) {
+				putchar(((char *) duckLisp.source.elements)[i]);
+			}
+			putchar('\n');
+			
+			for (dl_ptrdiff_t i = 0; i < error.message_length; i++) {
+				putchar(error.message[i]);
+			}
+			putchar('\n');
+			
+			printf("%s\n", source1);
+			for (dl_ptrdiff_t i = duckLisp.source.elements_length - sizeof(source1); i < error.index; i++) {
+				putchar(' ');
+			}
+			puts("^");
+		}
+		
+		goto l_cleanup;
+	}
+	
+	e = dl_memory_checkHealth(duckLisp.memoryAllocation);
+	if (e) {
+		printf("Memory health check failed. (%s)\n", dl_errorString[e]);
+	}
+	
+	e = duckLisp_cst_print(&duckLisp);
+	if (e) {
+		printf("Error printing DuckLisp CST. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
+	e = duckLisp_loadString(&duckLisp, DL_STR(source2));
+	if (e) {
+		printf("Error loading string. (%s)\n", dl_errorString[e]);
+		
+		while (dl_true) {
+			e = array_popElement(&duckLisp.errors, (void *) &error);
+			if (e) {
+				break;
+			}
+			
+			for (dl_ptrdiff_t i = 0; i < duckLisp.source.elements_length; i++) {
+				putchar(((char *) duckLisp.source.elements)[i]);
+			}
+			putchar('\n');
+			
+			for (dl_ptrdiff_t i = 0; i < error.message_length; i++) {
+				putchar(error.message[i]);
+			}
+			putchar('\n');
+			
+			printf("%s\n", source2);
+			for (dl_ptrdiff_t i = duckLisp.source.elements_length - sizeof(source2); i < error.index; i++) {
+				putchar(' ');
+			}
+			puts("^");
+		}
+		
+		goto l_cleanup;
+	}
+	
+	e = dl_memory_checkHealth(duckLisp.memoryAllocation);
+	if (e) {
+		printf("Memory health check failed. (%s)\n", dl_errorString[e]);
+	}
+	
+	e = duckLisp_cst_print(&duckLisp);
+	if (e) {
+		printf("Error printing DuckLisp CST. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;
 	}
 	

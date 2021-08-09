@@ -21,27 +21,23 @@ CST
 */
 
 typedef struct {
-	char *token;
 	dl_size_t token_length;
-	dl_ptrdiff_t string_index;
+	dl_ptrdiff_t token_index;
 } duckLisp_cst_bool_t;
 
 typedef struct {
-	char *token;
 	dl_size_t token_length;
-	dl_ptrdiff_t string_index;
+	dl_ptrdiff_t token_index;
 } duckLisp_cst_integer_t;
 
 typedef struct {
-	char *token;
 	dl_size_t token_length;
-	dl_ptrdiff_t string_index;
+	dl_ptrdiff_t token_index;
 } duckLisp_cst_float_t;
 
 typedef struct {
-	char *token;
 	dl_size_t token_length;
-	dl_ptrdiff_t string_index;
+	dl_ptrdiff_t token_index;
 } duckLisp_cst_string_t;
 
 
@@ -78,9 +74,8 @@ typedef struct {
 
 
 typedef struct {
-	char *token;
 	dl_size_t token_length;
-	dl_ptrdiff_t string_index;
+	dl_ptrdiff_t token_index;
 } duckLisp_cst_identifier_t;
 
 typedef struct {
@@ -91,9 +86,9 @@ typedef struct {
 
 typedef enum {
 	cst_compoundExpression_type_none = 0,
-	cst_compoundExpression_type_expression,
+	cst_compoundExpression_type_constant,
 	cst_compoundExpression_type_identifier,
-	cst_compoundExpression_type_constant
+	cst_compoundExpression_type_expression
 } duckLisp_cst_compoundExpression_type_t;
 
 typedef struct duckLisp_cst_compoundExpression_s {
@@ -150,15 +145,14 @@ typedef struct {
 	dl_memoryAllocation_t memoryAllocation;
 	array_t errors;
 	duckLisp_ast_t ast;
-	duckLisp_cst_compoundExpression_t cst;
-	char **sources;
-	dl_size_t *source_lengths;
-	dl_size_t sources_length;
+	duckLisp_cst_expression_t cst;
+	array_t source;
 } duckLisp_t;
 
 dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size);
 void duckLisp_quit(duckLisp_t *duckLisp);
 
-dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, dl_ptrdiff_t *script_handle, const char *source, const dl_size_t source_length);
+dl_error_t duckLisp_cst_print(duckLisp_t *duckLisp);
+dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *source, const dl_size_t source_length);
 
 #endif // DUCKLISP_H
