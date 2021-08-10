@@ -9,7 +9,8 @@ Error reporting
 ===============
 */
 
-static dl_error_t duckLisp_error_push(duckLisp_t *duckLisp, const char *message, const dl_size_t message_length, const dl_size_t index, dl_bool_t throwErrors) {
+static dl_error_t duckLisp_error_push(duckLisp_t *duckLisp, const char *message, const dl_size_t message_length, const dl_ptrdiff_t index,
+                                      dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	
 	duckLisp_error_t error;
@@ -50,7 +51,9 @@ static void cst_compoundExpression_init(duckLisp_cst_compoundExpression_t *compo
 static dl_error_t cst_parse_compoundExpression(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression, char *source,
                                                const dl_ptrdiff_t start_index, const dl_size_t length, dl_bool_t throwErrors);
 static dl_error_t cst_print_compoundExpression(duckLisp_t duckLisp, duckLisp_cst_compoundExpression_t compoundExpression);
-
+static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression,
+                                                  duckLisp_cst_compoundExpression_t compoundExpressionCST, dl_bool_t throwErrors);
+static dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 
 static void cst_isIdentifierSymbol(dl_bool_t *result, const char character) {
 	switch (character) {
@@ -322,6 +325,77 @@ static dl_error_t cst_print_expression(duckLisp_t duckLisp, duckLisp_cst_express
 	return e;
 }
 
+static void ast_expression_init(duckLisp_ast_expression_t *expression) {
+	expression->compoundExpressions = dl_null;
+	expression->compoundExpressions_length = 0;
+}
+
+static dl_error_t ast_expression_quit(duckLisp_t *duckLisp, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	
+	expression->compoundExpressions_length = 0;
+	
+	e = dl_free(&duckLisp->memoryAllocation, (void **) &expression);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static dl_error_t ast_generate_expression(duckLisp_t *duckLisp, duckLisp_ast_expression_t *expression,
+                                       const duckLisp_cst_expression_t expressionCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	e = dl_malloc(&duckLisp->memoryAllocation, (void **) &expression->compoundExpressions,
+	              expressionCST.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	for (dl_size_t i = 0; i < expressionCST.compoundExpressions_length; i++) {
+		e = ast_generate_compoundExpression(duckLisp, &expression->compoundExpressions[i], expressionCST.compoundExpressions[i], throwErrors);
+		if (e) {
+			goto l_cleanup;
+		}
+	}
+	
+	expression->compoundExpressions_length = expressionCST.compoundExpressions_length;
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression) {
+	dl_error_t e = dl_error_ok;
+	
+	if (expression.compoundExpressions_length == 0) {
+		printf("{NULL}");
+		goto l_cleanup;
+	}
+	putchar('(');
+	for (dl_size_t i = 0; i < expression.compoundExpressions_length; i++) {
+		e = ast_print_compoundExpression(duckLisp, expression.compoundExpressions[i]);
+		if (i == expression.compoundExpressions_length - 1) {
+			putchar(')');
+		}
+		else {
+			putchar(' ');
+		}
+		if (e) {
+			goto l_cleanup;
+		}
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
 
 static void cst_identifier_init(duckLisp_cst_identifier_t *identifier) {
 	identifier->token_index = 0;
@@ -395,6 +469,58 @@ static void cst_print_identifier(duckLisp_t duckLisp, duckLisp_cst_identifier_t 
 	}
 }
 
+static void ast_identifier_init(duckLisp_ast_identifier_t *identifier) {
+	identifier->value = dl_null;
+	identifier->value_length = 0;
+}
+
+static dl_error_t ast_identifier_quit(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *identifier) {
+	dl_error_t e = dl_error_ok;
+	
+	identifier->value_length = 0;
+	
+	e = dl_free(&duckLisp->memoryAllocation, (void **) &identifier->value);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static dl_error_t ast_generate_identifier(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *identifier,
+                                               const duckLisp_cst_identifier_t identifierCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	identifier->value_length = 0;
+	
+	e = dl_malloc(&duckLisp->memoryAllocation, (void **) &identifier->value, identifierCST.token_length * sizeof(char));
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	/**/ dl_memcopy_noOverlap(identifier->value, &((char *) duckLisp->source.elements)[identifierCST.token_index], identifierCST.token_length);
+	
+	identifier->value_length = identifierCST.token_length;
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static void ast_print_identifier(duckLisp_t duckLisp, duckLisp_ast_identifier_t identifier) {
+	if (identifier.value_length == 0) {
+		printf("{NULL}");
+		return;
+	}
+	
+	for (dl_size_t i = 0; i < identifier.value_length; i++) {
+		putchar(identifier.value[i]);
+	}
+}
+
 
 static void cst_bool_init(duckLisp_cst_bool_t *boolean) {
 	boolean->token_length = 0;
@@ -442,6 +568,35 @@ static void cst_print_bool(duckLisp_t duckLisp, duckLisp_cst_bool_t boolean) {
 	for (dl_size_t i = boolean.token_index; i < boolean.token_index + boolean.token_length; i++) {
 		putchar(((char *) duckLisp.source.elements)[i]);
 	}
+}
+
+static void ast_bool_init(duckLisp_ast_bool_t *boolean) {
+	boolean->value = dl_false;
+}
+
+static void ast_bool_quit(duckLisp_t *duckLisp, duckLisp_ast_bool_t *boolean) {
+	boolean->value = dl_false;
+}
+
+static dl_error_t ast_generate_bool(duckLisp_t *duckLisp, duckLisp_ast_bool_t *boolean,
+                                               const duckLisp_cst_bool_t booleanCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	e = dl_string_toBool(&boolean->value, &((char *) duckLisp->source.elements)[booleanCST.token_index], booleanCST.token_length);
+	if (e) {
+		eError = duckLisp_error_push(duckLisp, DL_STR("Could not convert token to bool."), booleanCST.token_index, throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static void ast_print_bool(duckLisp_t duckLisp, duckLisp_ast_bool_t boolean) {
+	printf("%s", boolean.value ? "true" : "false");
 }
 
 
@@ -514,6 +669,35 @@ static void cst_print_int(duckLisp_t duckLisp, duckLisp_cst_integer_t integer) {
 	for (dl_size_t i = integer.token_index; i < integer.token_index + integer.token_length; i++) {
 		putchar(((char *) duckLisp.source.elements)[i]);
 	}
+}
+
+static void ast_int_init(duckLisp_ast_integer_t *integer) {
+	integer->value = 0;
+}
+
+static void ast_int_quit(duckLisp_t *duckLisp, duckLisp_ast_integer_t *integer) {
+	integer->value = 0;
+}
+
+static dl_error_t ast_generate_int(duckLisp_t *duckLisp, duckLisp_ast_integer_t *integer,
+                                               const duckLisp_cst_integer_t integerCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	e = dl_string_toPtrdiff(&integer->value, &((char *) duckLisp->source.elements)[integerCST.token_index], integerCST.token_length);
+	if (e) {
+		eError = duckLisp_error_push(duckLisp, DL_STR("Could not convert token to int."), integerCST.token_index, throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static void ast_print_int(duckLisp_t duckLisp, duckLisp_ast_integer_t integer) {
+	printf("%lli", integer.value);
 }
 
 
@@ -638,6 +822,16 @@ static dl_error_t cst_parse_float(duckLisp_t *duckLisp, duckLisp_cst_float_t *fl
 			goto l_cleanup;
 		}
 		
+		if (source[index] == '-') {
+			index++;
+			
+			if (index >= stop_index) {
+				eError = duckLisp_error_push(duckLisp, DL_STR("Expected a digit after minus sign."), index, throwErrors);
+				e = eError ? eError : dl_error_invalidValue;
+				goto l_cleanup;
+			}
+		}
+		
 		/* No error */ dl_string_isDigit(&tempBool, source[index]);
 		if (!tempBool) {
 			eError = duckLisp_error_push(duckLisp, DL_STR("Expected a digit in exponent of float."), index, throwErrors);
@@ -682,6 +876,35 @@ static void cst_print_float(duckLisp_t duckLisp, duckLisp_cst_float_t floatingPo
 	for (dl_size_t i = floatingPoint.token_index; i < floatingPoint.token_index + floatingPoint.token_length; i++) {
 		putchar(((char *) duckLisp.source.elements)[i]);
 	}
+}
+
+static void ast_float_init(duckLisp_ast_float_t *floatingPoint) {
+	floatingPoint->value = 0.0;
+}
+
+static void ast_float_quit(duckLisp_t *duckLisp, duckLisp_ast_float_t *floatingPoint) {
+	floatingPoint->value = 0.0;
+}
+
+static dl_error_t ast_generate_float(duckLisp_t *duckLisp, duckLisp_ast_float_t *floatingPoint,
+                                               const duckLisp_cst_float_t floatingPointCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	e = dl_string_toDouble(&floatingPoint->value, &((char *) duckLisp->source.elements)[floatingPointCST.token_index], floatingPointCST.token_length);
+	if (e) {
+		eError = duckLisp_error_push(duckLisp, DL_STR("Could not convert token to float."), floatingPointCST.token_index, throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static void ast_print_float(duckLisp_t duckLisp, duckLisp_ast_float_t floatingPoint) {
+	printf("%e", floatingPoint.value);
 }
 
 
@@ -788,6 +1011,85 @@ static dl_error_t cst_print_number(duckLisp_t duckLisp, duckLisp_cst_number_t nu
 	return e;
 }
 
+static void ast_number_init(duckLisp_ast_number_t *number) {
+	number->type = ast_number_type_none;
+}
+
+static dl_error_t ast_number_quit(duckLisp_t *duckLisp, duckLisp_ast_number_t *number) {
+	dl_error_t e = dl_error_ok;
+	
+	switch (number->type) {
+	case ast_number_type_bool:
+		/**/ ast_bool_quit(duckLisp, &number->value.boolean);
+		break;
+	case ast_number_type_int:
+		/**/ ast_int_quit(duckLisp, &number->value.integer);
+		break;
+	case ast_number_type_float:
+		/**/ ast_float_quit(duckLisp, &number->value.floatingPoint);
+		break;
+	default:
+		e = dl_error_shouldntHappen;
+	}
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	number->type = ast_number_type_none;
+	
+	return e;
+}
+
+static dl_error_t ast_generate_number(duckLisp_t *duckLisp, duckLisp_ast_number_t *number,
+                                      const duckLisp_cst_number_t numberCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	number->type = numberCST.type;
+	switch (number->type) {
+	case ast_number_type_bool:
+		e = ast_generate_bool(duckLisp, &number->value.boolean, numberCST.value.boolean, throwErrors);
+		break;
+	case ast_number_type_int:
+		e = ast_generate_int(duckLisp, &number->value.integer, numberCST.value.integer, throwErrors);
+		break;
+	case ast_number_type_float:
+		e = ast_generate_float(duckLisp, &number->value.floatingPoint, numberCST.value.floatingPoint, throwErrors);
+		break;
+	default:
+		e = dl_error_shouldntHappen;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static dl_error_t ast_print_number(duckLisp_t duckLisp, duckLisp_ast_number_t number) {
+	dl_error_t e = dl_error_ok;
+	
+	switch (number.type) {
+	case ast_number_type_bool:
+		/**/ ast_print_bool(duckLisp, number.value.boolean);
+		break;
+	case ast_number_type_int:
+		/**/ ast_print_int(duckLisp, number.value.integer);
+		break;
+	case ast_number_type_float:
+		/**/ ast_print_float(duckLisp, number.value.floatingPoint);
+		break;
+	default:
+		printf("Number: Type %llu\n", number.type);
+		e = dl_error_shouldntHappen;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
 
 static void cst_string_init(duckLisp_cst_string_t *string) {
 	string->token_length = 0;
@@ -882,6 +1184,58 @@ static void cst_print_string(duckLisp_t duckLisp, duckLisp_cst_string_t string) 
 	}
 }
 
+static void ast_string_init(duckLisp_ast_string_t *string) {
+	string->value = dl_null;
+	string->value_length = 0;
+}
+
+static dl_error_t ast_string_quit(duckLisp_t *duckLisp, duckLisp_ast_string_t *string) {
+	dl_error_t e = dl_error_ok;
+	
+	string->value_length = 0;
+	
+	e = dl_free(&duckLisp->memoryAllocation, (void **) &string->value);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static dl_error_t ast_generate_string(duckLisp_t *duckLisp, duckLisp_ast_string_t *string,
+                                      const duckLisp_cst_string_t stringCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	string->value_length = 0;
+	
+	e = dl_malloc(&duckLisp->memoryAllocation, (void **) &string->value, stringCST.token_length * sizeof(char));
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	/**/ dl_memcopy_noOverlap(string->value, &((char *) duckLisp->source.elements)[stringCST.token_index], stringCST.token_length);
+	
+	string->value_length = stringCST.token_length;
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static void ast_print_string(duckLisp_t duckLisp, duckLisp_ast_string_t string) {
+	if (string.value_length == 0) {
+		puts("{NULL}");
+		return;
+	}
+	
+	for (dl_size_t i = 0; i < string.value_length; i++) {
+		putchar(string.value[i]);
+	}
+}
+
 
 static void cst_constant_init(duckLisp_cst_constant_t *constant) {
 	constant->type = cst_constant_type_none;
@@ -958,6 +1312,74 @@ static dl_error_t cst_print_constant(duckLisp_t duckLisp, duckLisp_cst_constant_
 		break;
 	case cst_constant_type_string:
 		/**/ cst_print_string(duckLisp, constant.value.string);
+		break;
+	default:
+		printf("Constant: No type\n");
+		e = dl_error_shouldntHappen;
+	}
+	
+	return e;
+}
+
+static void ast_constant_init(duckLisp_ast_constant_t *constant) {
+	constant->type = ast_constant_type_none;
+}
+
+static dl_error_t ast_constant_quit(duckLisp_t *duckLisp, duckLisp_ast_constant_t *constant) {
+	dl_error_t e = dl_error_ok;
+	
+	switch (constant->type) {
+	case ast_constant_type_number:
+		e = ast_number_quit(duckLisp, &constant->value.number);
+		break;
+	case ast_constant_type_string:
+		e = ast_string_quit(duckLisp, &constant->value.string);
+		break;
+	default:
+		e = dl_error_shouldntHappen;
+	}
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	constant->type = ast_constant_type_none;
+	
+	return e;
+}
+
+static dl_error_t ast_generate_constant(duckLisp_t *duckLisp, duckLisp_ast_constant_t *constant,
+                                        const duckLisp_cst_constant_t constantCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	constant->type = constantCST.type;
+	switch (constant->type) {
+	case ast_constant_type_number:
+		e = ast_generate_number(duckLisp, &constant->value.number, constantCST.value.number, throwErrors);
+		break;
+	case ast_constant_type_string:
+		e = ast_generate_string(duckLisp, &constant->value.string, constantCST.value.string, throwErrors);
+		break;
+	default:
+		e = dl_error_shouldntHappen;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static dl_error_t ast_print_constant(duckLisp_t duckLisp, duckLisp_ast_constant_t constant) {
+	dl_error_t e = dl_error_ok;
+	
+	switch (constant.type) {
+	case ast_constant_type_number:
+		e = ast_print_number(duckLisp, constant.value.number);
+		break;
+	case ast_constant_type_string:
+		/**/ ast_print_string(duckLisp, constant.value.string);
 		break;
 	default:
 		printf("Constant: No type\n");
@@ -1072,12 +1494,90 @@ static dl_error_t cst_print_compoundExpression(duckLisp_t duckLisp, duckLisp_cst
 	return e;
 }
 
+static void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression) {
+	compoundExpression->type = ast_compoundExpression_type_none;
+}
+
+static dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression) {
+	dl_error_t e = dl_error_ok;
+	
+	switch (compoundExpression->type) {
+	case ast_compoundExpression_type_constant:
+		e = ast_constant_quit(duckLisp, &compoundExpression->value.constant);
+		break;
+	case ast_compoundExpression_type_identifier:
+		e = ast_identifier_quit(duckLisp, &compoundExpression->value.identifier);
+		break;
+	case ast_compoundExpression_type_expression:
+		e = ast_expression_quit(duckLisp, &compoundExpression->value.expression);
+		break;
+	default:
+		e = dl_error_shouldntHappen;
+	}
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	compoundExpression->type = ast_compoundExpression_type_none;
+	
+	return e;
+}
+
+static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression,
+                                                  duckLisp_cst_compoundExpression_t compoundExpressionCST, dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	
+	compoundExpression->type = compoundExpressionCST.type;
+	switch (compoundExpression->type) {
+	case ast_compoundExpression_type_constant:
+		e = ast_generate_constant(duckLisp, &compoundExpression->value.constant, compoundExpressionCST.value.constant, throwErrors);
+		break;
+	case ast_compoundExpression_type_identifier:
+		e = ast_generate_identifier(duckLisp, &compoundExpression->value.identifier, compoundExpressionCST.value.identifier, throwErrors);
+		break;
+	case ast_compoundExpression_type_expression:
+		e = ast_generate_expression(duckLisp, &compoundExpression->value.expression, compoundExpressionCST.value.expression, throwErrors);
+		break;
+	default:
+		e = dl_error_shouldntHappen;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+static dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression) {
+	dl_error_t e = dl_error_ok;
+	
+	switch (compoundExpression.type) {
+	case ast_compoundExpression_type_constant:
+		e = ast_print_constant(duckLisp, compoundExpression.value.constant);
+		break;
+	case ast_compoundExpression_type_identifier:
+		/**/ ast_print_identifier(duckLisp, compoundExpression.value.identifier);
+		break;
+	case ast_compoundExpression_type_expression:
+		e = ast_print_expression(duckLisp, compoundExpression.value.expression);
+		break;
+	default:
+		printf("Compound expression: Type %llu\n", compoundExpression.type);
+		e = dl_error_shouldntHappen;
+	}
+	
+	return e;
+}
+
 
 static dl_error_t cst_append(duckLisp_t *duckLisp, const int index, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	
 	char *source = duckLisp->source.elements;
-	const char source_length = duckLisp->source.elements_length;
+	const dl_size_t source_length = duckLisp->source.elements_length;
 	
 	e = dl_realloc(&duckLisp->memoryAllocation, (void **) &duckLisp->cst.compoundExpressions,
 	               (duckLisp->cst.compoundExpressions_length + 1) * sizeof(duckLisp_cst_compoundExpression_t));
@@ -1086,9 +1586,26 @@ static dl_error_t cst_append(duckLisp_t *duckLisp, const int index, dl_bool_t th
 	}
 	duckLisp->cst.compoundExpressions_length++;
 	
+	e = dl_realloc(&duckLisp->memoryAllocation, (void **) &duckLisp->ast.compoundExpressions,
+	               (duckLisp->ast.compoundExpressions_length + 1) * sizeof(duckLisp_ast_compoundExpression_t));
+	if (e) {
+		goto l_cleanup;
+	}
+	duckLisp->ast.compoundExpressions_length++;
+	
 	e = cst_parse_compoundExpression(duckLisp, &duckLisp->cst.compoundExpressions[duckLisp->cst.compoundExpressions_length - 1], source, index,
 	                                 source_length - index, throwErrors);
 	if (e) {
+		eError = duckLisp_error_push(duckLisp, DL_STR("Error parsing expression."), 0, throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto l_cleanup;
+	}
+	
+	e = ast_generate_compoundExpression(duckLisp, &duckLisp->ast.compoundExpressions[duckLisp->ast.compoundExpressions_length - 1],
+	                                    duckLisp->cst.compoundExpressions[duckLisp->cst.compoundExpressions_length - 1], throwErrors);
+	if (e) {
+		eError = duckLisp_error_push(duckLisp, DL_STR("Error converting CST to AST."), 0, throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
 		goto l_cleanup;
 	}
 	
@@ -1114,6 +1631,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	array_init(&duckLisp->source, &duckLisp->memoryAllocation, sizeof(char), array_strategy_fit);
 	
 	/* No error */ cst_expression_init(&duckLisp->cst);
+	/* No error */ ast_expression_init(&duckLisp->ast);
 	/* No error */ array_init(&duckLisp->errors, &duckLisp->memoryAllocation, sizeof(duckLisp_error_t), array_strategy_fit);
 	
 	// duckLisp->ast.node.nodes = dl_null;
@@ -1128,9 +1646,9 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 void duckLisp_quit(duckLisp_t *duckLisp) {
 	
 	// Don't bother freeing since we are going to run `dl_memory_quit`.
-	/* e = */ array_quit(&duckLisp->source);
+	// /* e = */ array_quit(&duckLisp->source);
 	// duckLisp->cst.type = cst_compoundExpression_type_none;
-	/* e = */ array_quit(&duckLisp->errors);
+	// /* e = */ array_quit(&duckLisp->errors);
 	
 	/* No error */ dl_memory_quit(&duckLisp->memoryAllocation);
 }
@@ -1149,7 +1667,21 @@ dl_error_t duckLisp_cst_print(duckLisp_t *duckLisp) {
 	return e;
 }
 
-dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *source, const dl_size_t source_length) {
+dl_error_t duckLisp_ast_print(duckLisp_t *duckLisp) {
+	dl_error_t e = dl_error_ok;
+	
+	e = ast_print_expression(*duckLisp, duckLisp->ast);
+	putchar('\n');
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	return e;
+}
+
+dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, dl_ptrdiff_t *handle, const char *source, const dl_size_t source_length) {
 	dl_error_t e = dl_error_ok;
 	// struct {
 	// 	dl_bool_t duckLispMemory;
@@ -1176,12 +1708,18 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *source, const d
 		goto l_cleanup;
 	}
 	
+	*handle = duckLisp->cst.compoundExpressions_length;
+	
 	e = cst_append(duckLisp, index, dl_true);
 	if (e) {
 		goto l_cleanup;
 	}
 	
 	l_cleanup:
+	
+	if (e) {
+		*handle = -1;
+	}
 	
 	return e;
 }

@@ -15,9 +15,10 @@ int main(int argc, char *argv[]) {
 	void *duckLispMemory = dl_null;
 	size_t tempMemory_size;
 	duckLisp_error_t error;
+	dl_ptrdiff_t scriptHandles[3];
 	const char source0[] = "((string s \"Hello, world!\") (print s))";
-	const char source1[] = "((int i 5) (print i))";
-	const char source2[] = "((float f 1.4e6546) (echo 'float) (print f))";
+	const char source1[] = "((int i -5) (bool b true) (bool b false) (print i))";
+	const char source2[] = "((float f 1.4e656) (float f0 -1.4e656) (float f1 .4e6) (float f2 1.4e-656) (float f3 -.4e6) (float f3 -10.e-2) (echo 'float) (print f))";
 	
 	tempMemory_size = 1024*1024;
 	duckLispMemory = malloc(tempMemory_size);
@@ -35,7 +36,7 @@ int main(int argc, char *argv[]) {
 	}
 	d.duckLisp_init = dl_true;
 	
-	e = duckLisp_loadString(&duckLisp, DL_STR(source0));
+	e = duckLisp_loadString(&duckLisp, &scriptHandles[0], DL_STR(source0));
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
 		
@@ -76,7 +77,13 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	
-	e = duckLisp_loadString(&duckLisp, DL_STR(source1));
+	e = duckLisp_ast_print(&duckLisp);
+	if (e) {
+		printf("Error printing DuckLisp AST. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
+	e = duckLisp_loadString(&duckLisp, &scriptHandles[1], DL_STR(source1));
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
 		
@@ -117,7 +124,13 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	
-	e = duckLisp_loadString(&duckLisp, DL_STR(source2));
+	e = duckLisp_ast_print(&duckLisp);
+	if (e) {
+		printf("Error printing DuckLisp AST. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
+	e = duckLisp_loadString(&duckLisp, &scriptHandles[2], DL_STR(source2));
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
 		
@@ -155,6 +168,12 @@ int main(int argc, char *argv[]) {
 	e = duckLisp_cst_print(&duckLisp);
 	if (e) {
 		printf("Error printing DuckLisp CST. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
+	e = duckLisp_ast_print(&duckLisp);
+	if (e) {
+		printf("Error printing DuckLisp AST. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;
 	}
 	
