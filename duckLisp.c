@@ -2290,7 +2290,7 @@ dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const 
 	dl_error_t e = dl_error_ok;
 	
 	// Push object on the stack.
-	e = dl_array_pushElement(&duckLisp->stack, (void *) generator);
+	e = dl_array_pushElement(&duckLisp->generators_stack, (void *) generator);
 	if (e) {
 		goto l_cleanup;
 	}
