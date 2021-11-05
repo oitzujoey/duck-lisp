@@ -232,7 +232,9 @@ int main(int argc, char *argv[]) {
 		puts("^");
 	}
 	
+	puts("Scope 0: variables");
 	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].variables_trie);
+	puts("Scope 0: generators");
 	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].generators_trie);
 	
 	// /**/ duckLisp_call(&duckLisp, "hello-world");
