@@ -1,5 +1,5 @@
 
-Goal: Small scripting language that can be embedded anywhere.
+Goal: Small scripting language that can be embedded anywhere, though not necessarily with the compiler attached.
 Features:
 	Lisp syntax
 	No dependency on any library.
@@ -29,7 +29,7 @@ Objects
 	function
 
 There will be a parent table called _. This table is the parent of all global variables.
-There is no type difference between a string and an identifier. A string constant can contain any character. An identifier must start with a letter or identifier_symbol and the rest of the characters must be letters identifier_symbols or numbers.
+There is no type difference between a string and an identifier. A string constant can contain any character. An identifier must start with a letter or identifier_symbol and the rest of the characters must be letters, identifier_symbols or numbers.
 If an identifier is passed to a expression or subexpression, the value will be used in the operation if possible. If the identifier cannot be found in the variable list, then the identifier will be converted into a string literal.
 Every expression is a table. When executing a table, the first value must be a function.
 ("a" "b" "c") is {"a", "b", "c"}.
@@ -53,3 +53,128 @@ This is the same call expressed in a different way: [f f.b:2 f.c:3 f.a:1], or [f
 evaluateSubexpression -> Returns a bool, an int, a float, a string, or an identifier.
 identifierToValue
 stringToIdentifier
+
+
+"ABI"
+	before
+		stack base
+		args length (always > 0) (DuckLisp SP points here)
+		function name (string)
+		arg1
+		arg2
+		arg3
+		arg4
+		...
+		loc0
+		loc1
+		loc2
+		loc3
+		...
+	after
+		stack base
+		args length (always > 0) (DuckLisp SP points here)
+		function name (string)
+		arg1
+		arg2
+		arg3
+		arg4
+		...
+		loc0
+		loc1
+		loc2
+		loc3
+		...
+		ret0
+		ret1
+		ret2
+		ret3
+		...
+		rets length
+
+Data tree
+	Access by name is fast.
+	Hashes of a given string must always return the same value no matter the scope.
+	An object's parent object is its namespace.
+	An object may have children.
+
+Can have two methods of execution
+	Tree walk
+	Virtual machine
+
+Function types
+	Bytecode generation
+		Appends or inserts bytecode into the block.
+	C callback
+		Inserts C function call into block in bytecode wrapper.
+		This class of functions is called by a bytecode generation function.
+	Heterogeneous
+		Calls bytecode and callback functions.
+
+
+nop
+add8
+add16
+add32
+add64
+sub8
+sub16
+sub32
+sub64
+push
+pop
+return
+
+
+
+#call bytecode
+#call *bytecode
+#call C
+#call *C
+#add *float *float
+#add *float float
+#add *int *int
+#add *int int
+#sub *float *float
+#sub *float float
+#sub *int *int
+#sub *int int
+
+
+
+
+
+It turns out that this was not a bug in the allocator. Hurrah!
+                (dl_memoryBlock_t) { /* 90 */
+                        .block = 4A690AF, /* offset = 111 */
+                        .block_size = 2,
+                        .allocated = true,
+                        .unlinked = false,
+                        .previousBlock = 44,
+                        .nextBlock = 94,
+                },
+
+                (dl_memoryBlock_t) { /* 44 */
+                        .block = 4A690AE, /* offset = 110 */
+                        .block_size = 1,
+                        .allocated = true,
+                        .unlinked = false,
+                        .previousBlock = 42,
+                        .nextBlock = 90,
+                },
+
+
+I'm going to split the compiler and VM to a certain extent. DuckLisp will always have the VM, but it won't always have the compiler. This will allow me to use as little memory as possible on small devices. For example, I doubt MicroComp will be able to compile DuckLisp for a while, even after a C compiler is ported to it.
+
+Constant propigation
+	All the function has to do is be marked as pure. If it is pure and all arguments are constants, then the function may be pre-calculated in that instance.
+Tail call
+	Is a recursive call the last function called? Replace the arguments and jump to the beginning.
+
+
+Bookmark:
+	Figure out how bytecode chunks are structured in relation to each other before they are merged.
+		Function definitions can all be placed at the end of the program.
+		Function calls will only be generated after the function has been defined.
+	Make `compile` generate function call bytecode and call generators.
+	I have encountered a need for temporary variables. The question is, how do I allocate and free them? Once I've solved that, is there an easy way to do it more efficiently?
+	The problem with recursion is lack of context. With a stack, I can just pop the last value to see the context. With a function call, I can't see anything above the current function.

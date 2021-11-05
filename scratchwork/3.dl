@@ -1,10 +1,14 @@
 
-(define-macro 'macro '(name args body)
-	'(define-macro 'name 'args 'body)
+(define-macro #macro #(name args body)
+	#(define-macro #name #args #body)
 )
 
 (macro function (name args body)
-	(define-function 'name 'args 'body)
+	(define-function #name #args #body)
+)
+
+(macro integer (name value)
+	(define-integer #name #value)
 )
 
 (function f (arg0 arg1) (
@@ -22,10 +26,10 @@
 // h == {0, 1, 2, 3, 4}
 
 (set h (5 6))
-// h == {5, 6}
+; h == {5, 6}
 
 (set h.5 10)
-// h == {5, 6, .5=10}
+; h == {5, 6, .5=10}
 /*
 h[0] == 5
 h[1] == 6
@@ -33,6 +37,32 @@ h[5] == 10
 */
 
 (set h.d 17)
-// h == {5, 6, .5=10, .d=17}
+; h == {5, 6, .5=10, .d=17}
 
 (set h.d a)
+
+; Scope: $
+(integer a 0)
+(function f () (
+	; Scope: $.f
+	(print a)   ; a: 0
+	(set a 3)
+	(integer b 1)
+	(if true (
+		; Scope: $.f.%3
+		(print b)       ; b: 1
+		(print this.b)  ; b: 1
+		(print this..b) ; b: 1
+		(set b 4)
+		(integer c 2)
+		(print c)       ; c 2
+		(print this.c)  ; c 2
+		(print this..c) ; Error.
+		(set c 5)
+	))
+	(print b)   ; b: 4
+	(print c)   ; Error.
+))
+(print a)   ; a: 3
+(print b)   ; Error.
+(print c)   ; Error.

@@ -16,6 +16,7 @@ add_library(
 	DuckLib/memory.c
 	DuckLib/string.c
 	DuckLib/array.c
+	DuckLib/trie.c
 )
 
 target_include_directories(

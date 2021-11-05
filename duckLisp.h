@@ -5,6 +5,7 @@
 #include "DuckLib/core.h"
 #include "DuckLib/memory.h"
 #include "DuckLib/array.h"
+#include "DuckLib/trie.h"
 
 /*
 node
@@ -185,6 +186,21 @@ typedef struct duckLisp_ast_compoundExpression_s {
 	duckLisp_ast_compoundExpression_type_t type;
 } duckLisp_ast_compoundExpression_t;
 
+/*
+=========
+Variables
+=========
+*/
+
+typedef enum {
+	duckLisp_object_type_none,
+	duckLisp_object_type_bool,
+	duckLisp_object_type_integer,
+	duckLisp_object_type_float,
+	duckLisp_object_type_string,
+	duckLisp_object_type_function
+} duckLisp_object_type_t;
+
 // typedef enum {
 // 	duckLisp_error_code_none = 0,
 // 	duckLisp_error_code_notAnExpression,
@@ -202,18 +218,73 @@ typedef struct {
 } duckLisp_error_t;
 
 typedef struct {
+	// All variable names in the current scope are stored here.
+	dl_trie_t variables_trie;   // Points to stack objects.
+	dl_size_t variables_length;
+	dl_trie_t generators_trie;  // Points to generator stack callbacks.
+	dl_size_t generators_length;
+} duckLisp_scope_t;
+
+typedef struct {
 	dl_memoryAllocation_t memoryAllocation;
-	array_t errors;
-	duckLisp_ast_expression_t ast;
-	duckLisp_cst_expression_t cst;
-	array_t source;
+	
+	dl_array_t errors;
+	
+	dl_array_t source; // dl_array_t:char
+	// This is where we keep all of our variables.
+	
+	dl_array_t stack;  // dl_array_t:duckLisp_object_t
+	// This is where we keep everything that needs to be scoped.
+	dl_array_t scope_stack;  // dl_array_t:duckLisp_scope_t:{dl_trie_t}
+	// Points to the start of the local variables on the stack for this scope.
+	dl_ptrdiff_t frame_pointer;
+	
+	dl_array_t bytecode;    // dl_array_t:uint8_t
+	dl_array_t generators_stack; // dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t)
 } duckLisp_t;
+
+typedef struct duckLisp_object_s {
+	union {
+		dl_bool_t boolean;
+		dl_ptrdiff_t integer;
+		double floatingPoint;
+		struct {
+			char *value;
+			dl_size_t value_length;
+		} string;
+		struct{
+			// duckLisp_ast_compoundExpression_t tree;
+			dl_ptrdiff_t bytecode_index;
+			dl_error_t (*callback)(duckLisp_t *);
+		} function;
+	} value;
+	duckLisp_object_type_t type;
+} duckLisp_object_t;
+
+// Max number of instructions must be 256.
+typedef enum {
+	duckLisp_instruction_nop = 0,
+	duckLisp_instruction_pushString
+} duckLisp_instruction_t;
 
 dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size);
 void duckLisp_quit(duckLisp_t *duckLisp);
 
-dl_error_t duckLisp_cst_print(duckLisp_t *duckLisp);
-dl_error_t duckLisp_ast_print(duckLisp_t *duckLisp);
-dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, dl_ptrdiff_t *handle, const char *source, const dl_size_t source_length);
+dl_error_t duckLisp_error_pushRuntime(duckLisp_t *duckLisp, const char *message, const dl_size_t message_length);
+dl_error_t duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp, duckLisp_ast_expression_t astExpression, const dl_size_t numArgs);
+
+dl_error_t duckLisp_cst_print(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t cst);
+dl_error_t duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t ast);
+
+dl_error_t duckLisp_generate_pushString(duckLisp_t *duckLisp, dl_array_t *bytecodeBuffer, dl_ptrdiff_t *stackIndex, char *string, dl_ptrdiff_t string_length);
+dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const char *source, const dl_size_t source_length);
+
+void duckLisp_getArgLength(duckLisp_t *duckLisp, dl_size_t *length);
+dl_error_t duckLisp_getArg(duckLisp_t *duckLisp, duckLisp_object_t *object, dl_ptrdiff_t index);
+dl_error_t duckLisp_pushReturn(duckLisp_t *duckLisp, duckLisp_object_t object);
+dl_error_t duckLisp_scope_addObjectName(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
+dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object);
+dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length,
+                                  const dl_error_t(*generator)(duckLisp_t*, const duckLisp_ast_expression_t));
 
 #endif // DUCKLISP_H
