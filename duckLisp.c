@@ -1260,8 +1260,8 @@ static dl_error_t cst_parse_string(duckLisp_t *duckLisp, duckLisp_cst_string_t *
 		goto l_cleanup;
 	}
 	
-	string->token_index = start_index;
-	string->token_length = length;
+	string->token_index = start_index + 1;
+	string->token_length = length - 2;
 	
 	l_cleanup:
 	
@@ -1274,9 +1274,11 @@ static void cst_print_string(duckLisp_t duckLisp, duckLisp_cst_string_t string) 
 		return;
 	}
 	
+	putchar('"');
 	for (dl_size_t i = string.token_index; i < string.token_index + string.token_length; i++) {
 		putchar(((char *) duckLisp.source.elements)[i]);
 	}
+	putchar('"');
 }
 
 static void ast_string_init(duckLisp_ast_string_t *string) {
@@ -2156,10 +2158,12 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 		goto l_cleanup;
 	}
 	
+	printf("CST: ");
 	e = cst_print_compoundExpression(*duckLisp, cst); putchar('\n');
 	if (e) {
 		goto l_cleanup;
 	}
+	printf("AST: ");
 	e = ast_print_compoundExpression(*duckLisp, ast); putchar('\n');
 	if (e) {
 		goto l_cleanup;
