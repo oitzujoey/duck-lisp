@@ -58,7 +58,7 @@ stringToIdentifier
 "ABI"
 	before
 		stack base
-		args length (always > 0) (DuckLisp SP points here)
+		args length (always > 0) (DuckLisp FP points here)
 		function name (string)
 		arg1
 		arg2
@@ -72,7 +72,7 @@ stringToIdentifier
 		...
 	after
 		stack base
-		args length (always > 0) (DuckLisp SP points here)
+		args length (always > 0) (DuckLisp FP points here)
 		function name (string)
 		arg1
 		arg2
@@ -178,3 +178,35 @@ Bookmark:
 	Make `compile` generate function call bytecode and call generators.
 	I have encountered a need for temporary variables. The question is, how do I allocate and free them? Once I've solved that, is there an easy way to do it more efficiently?
 	The problem with recursion is lack of context. With a stack, I can just pop the last value to see the context. With a function call, I can't see anything above the current function.
+
+--- Two months later ---
+
+^^^ Helpful, but I'm still confused.
+Stack is for placing objects on during program execution, right?
+Scope stack is for placing symbols on during program compilation.
+	These symbols are variables and generators.
+My code does not entirely reflect the above.
+
+I seem to have VM functions that manipulate the stack. If I am to completely seperate the VM from the compiler, then I need to move them to the VM module. C callbacks should not be passed to the compiler. The compiler should return a mapping of names to callback slots, and the callbacks should be placed in those slots during VM initalization. These slots will likely be stored on the stack.
+
+Generators will generate high-level bytecode. This bytecode is inserted into a linked list that doubles as an array. Branch targets will be stored as indexes to the array, which will allow instructions to be inserted between the branch and the target with no side effects.
+Functions are compiled to bytecode, and placed after the `defun` instruction. `defun` then pushes the address of the function on the stack. `call` will take the stack address and extract the address of the function. The function will then be called.
+C functions are not stored in bytecode. They are stored on a separate stack dedicated to C callbacks. The `ccall` instruction will take the callback stack address and then run the function in that position. Forward references to a label are dealt with by inserting a pseudo-instruction to act as the target. When the bytecode emitter comes across this pseudo-instruction, it immediately replaces it with the first of its own instructions.
+
+To ease the load on my brain, I think I will add an intermediate representation. This is solely for the purpose of dealing with branch targets.
+
+Compiler sees expression. Compiler looks up function name in the compiled function list. If it is there, a function call is generated. Compiler looks up function name in C function list. If it is there, a C function call is generated. Compiler looks up name in generator function list. If it is there, the compiler passes the expression to the generator. The generator emits bytecode. If a generator does not exist, a compile error is thrown.
+
+Recursive descent could work for optimization. A generator can not see anything above it, but it can see below it. The generator can traverse down the tree as far as far as it desires, and if it sees an optimization, it can rearrange the tree. The generator will then return and the compiler will traverse the tree by one node. It will then call the generator for that function. This will continue until the whole tree has been traversed.
+
+Each high-level bytecode instruction will contain an opcode class and arguments. An opcode is an enum. Arguments are unions that can have the types integer, float, string, or label. Labels are `ptrdiff_t`s that point to an element of the bytecode array.
+
+High-level bytecode is assembled into raw bytecode. The opcode is determined from the opcode class and argument sizes, and branch targets are calculated from the final instruction lengths.
+
+Perhaps I should create generators that emit a single instruction so that it is possible to write VM assembly directly in the program? I could also add an assembler that accepts text assembly files. I doubt they would be too hard to parse.
+
+If I go with all of the above, we will have these modules:
+	DuckLib.so
+	duckLisp.so
+	duckVM.so
+	duckAsm.so
