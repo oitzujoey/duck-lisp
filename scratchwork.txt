@@ -210,3 +210,9 @@ If I go with all of the above, we will have these modules:
 	duckLisp.so
 	duckVM.so
 	duckAsm.so
+
+We traverse the tree top-down because we want to allow the generators to optimize the the tree if they wish.
+
+There are three stacks. "The Stack" is the runtime VM stack. The generator stack contains generators. The function stack may contain C functions.
+
+All functions are anonymous in the VM.

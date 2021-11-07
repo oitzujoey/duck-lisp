@@ -46,7 +46,7 @@ dl_error_t duckLisp_generator_functionCall(duckLisp_t *duckLisp) {
 }
 */
 
-dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, const duckLisp_ast_expression_t expression) {
+dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -60,18 +60,18 @@ dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, const duckLi
 	
 	/* Check arguments for call and type errors. */
 	
-	e = duckLisp_checkArgsAndReportError(duckLisp, expression, 3);
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3);
 	if (e) {
 		goto l_cleanup;
 	}
 	
-	if (expression.compoundExpressions[1].type != ast_compoundExpression_type_identifier) {
+	if (expression->compoundExpressions[1].type != ast_compoundExpression_type_identifier) {
 		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
 		if (e) {
 			goto l_cleanup;
 		}
-		e = dl_array_pushElements(&eString, expression.compoundExpressions[0].value.identifier.value,
-		                          expression.compoundExpressions[0].value.identifier.value_length);
+		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
+		                          expression->compoundExpressions[0].value.identifier.value_length);
 		if (e) {
 			goto l_cleanup;
 		}
@@ -86,14 +86,14 @@ dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, const duckLi
 		goto l_cleanup;
 	}
 	
-	if ((expression.compoundExpressions[2].type != ast_compoundExpression_type_constant) &&
-	    (expression.compoundExpressions[2].value.constant.type != ast_constant_type_string)) {
+	if ((expression->compoundExpressions[2].type != ast_compoundExpression_type_constant) &&
+	    (expression->compoundExpressions[2].value.constant.type != ast_constant_type_string)) {
 		e = dl_array_pushElements(&eString, DL_STR("Argument 2 of function \""));
 		if (e) {
 			goto l_cleanup;
 		}
-		e = dl_array_pushElements(&eString, expression.compoundExpressions[0].value.identifier.value,
-		                          expression.compoundExpressions[0].value.identifier.value_length);
+		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
+		                          expression->compoundExpressions[0].value.identifier.value_length);
 		if (e) {
 			goto l_cleanup;
 		}
@@ -109,15 +109,15 @@ dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, const duckLi
 	}
 	
 	// Create the string variable.
-	e = duckLisp_generate_pushString(duckLisp, &bytecode, &identifier_index, expression.compoundExpressions[2].value.constant.value.string.value,
-	                                 expression.compoundExpressions[2].value.constant.value.string.value_length);
+	e = duckLisp_generate_pushString(duckLisp, &bytecode, &identifier_index, expression->compoundExpressions[2].value.constant.value.string.value,
+	                                 expression->compoundExpressions[2].value.constant.value.string.value_length);
 	if (e) {
 		goto l_cleanup;
 	}
 	
 	// Insert arg1 into this scope's name trie.
-	e = duckLisp_scope_addObjectName(duckLisp, expression.compoundExpressions[1].value.constant.value.string.value,
-	                           expression.compoundExpressions[1].value.constant.value.string.value_length);
+	e = duckLisp_scope_addObjectName(duckLisp, expression->compoundExpressions[1].value.constant.value.string.value,
+	                           expression->compoundExpressions[1].value.constant.value.string.value_length);
 	if (e) {
 		goto l_cleanup;
 	}
@@ -155,6 +155,7 @@ int main(int argc, char *argv[]) {
 	// const char source1[] = "((int i -5) (bool b true) (bool b false) (print i))";
 	// const char source2[] = "((float f 1.4e656) (float f0 -1.4e656) (float f1 .4e6) (float f2 1.4e-656) (float f3 -.4e6) (float f3 -10.e-2) (echo #float) (print f))";
 	duckLisp_object_t tempObject;
+	dl_ptrdiff_t printString_index = -1;
 	
 	/* Initialization. */
 	
@@ -176,16 +177,17 @@ int main(int argc, char *argv[]) {
 	
 	/* Create generators. */
 	
-	e = duckLisp_pushGenerator(&duckLisp, DL_STR("string"), duckLispDev_generator_createString);
+	// e = duckLisp_pushGenerator(&duckLisp, DL_STR("string"), duckLispDev_generator_createString);
+	e = duckLisp_addGenerator(&duckLisp, duckLispDev_generator_createString, DL_STR("string"));
 	if (e) {
-		printf("Could not create function. (%s)\n", dl_errorString[e]);
+		printf("Could not register generator. (%s)\n", dl_errorString[e]);
 	}
 	
-	/* Create functions. */
+	/* Add C functions. */
 	
-	tempObject.type = duckLisp_object_type_function;
-	tempObject.value.function.callback = duckLispDev_callback_printString;
-	e = duckLisp_pushObject(&duckLisp, DL_STR("print-string"), tempObject);
+	// tempObject.type = duckLisp_object_type_function;
+	// tempObject.value.function.callback = duckLispDev_callback_printString;
+	e = duckLisp_linkCFunction(&duckLisp, &printString_index, DL_STR("print-string"));
 	if (e) {
 		printf("Could not create function. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;
@@ -236,6 +238,9 @@ int main(int argc, char *argv[]) {
 	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].variables_trie);
 	puts("Scope 0: generators");
 	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].generators_trie);
+	puts("Scope 0: functions (1: callback  2: script  3: generator)");
+	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].functions_trie);
+	
 	
 	// /**/ duckLisp_call(&duckLisp, "hello-world");
 	

@@ -217,10 +217,19 @@ typedef struct {
 	// dl_size_t offset;
 } duckLisp_error_t;
 
+typedef enum {
+	duckLisp_functionType_none = 0,
+	duckLisp_functionType_c,
+	duckLisp_functionType_ducklisp,
+	duckLisp_functionType_generator,
+} duckLisp_functionType_t;
+
 typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t variables_trie;   // Points to stack objects.
 	dl_size_t variables_length;
+	dl_trie_t functions_trie;
+	dl_size_t functions_length;
 	dl_trie_t generators_trie;  // Points to generator stack callbacks.
 	dl_size_t generators_length;
 } duckLisp_scope_t;
@@ -231,8 +240,8 @@ typedef struct {
 	dl_array_t errors;
 	
 	dl_array_t source; // dl_array_t:char
-	// This is where we keep all of our variables.
 	
+	// This is where we keep all of our variables.
 	dl_array_t stack;  // dl_array_t:duckLisp_object_t
 	// This is where we keep everything that needs to be scoped.
 	dl_array_t scope_stack;  // dl_array_t:duckLisp_scope_t:{dl_trie_t}
@@ -264,8 +273,32 @@ typedef struct duckLisp_object_s {
 // Max number of instructions must be 256.
 typedef enum {
 	duckLisp_instruction_nop = 0,
-	duckLisp_instruction_pushString
+	duckLisp_instruction_pushString,
 } duckLisp_instruction_t;
+
+typedef enum {
+	duckLisp_instructionClass_nop = 0,
+	duckLisp_instructionClass_pushString,
+} duckLisp_instructionClass_t;
+
+typedef enum {
+	duckLisp_instructionArg_type_none,
+	duckLisp_instructionArg_type_bool,
+	duckLisp_instructionArg_type_integer,
+	duckLisp_instructionArg_type_float,
+	duckLisp_instructionArg_type_string,
+	duckLisp_instructionArg_type_function,
+	duckLisp_instructionArg_type_label,
+} duckLisp_instructionArg_type_t;
+
+typedef struct duckLisp_instructionArgs_s {
+	duckLisp_instructionArg_type_t type;
+} duckLisp_instructionArgs_t;
+
+typedef struct duckLisp_instructionObject_s {
+	duckLisp_instructionClass_t instructionClass;
+	duckLisp_instructionArgs_t *args;
+} duckLisp_instructionObject_t;
 
 dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size);
 void duckLisp_quit(duckLisp_t *duckLisp);
@@ -283,8 +316,11 @@ void duckLisp_getArgLength(duckLisp_t *duckLisp, dl_size_t *length);
 dl_error_t duckLisp_getArg(duckLisp_t *duckLisp, duckLisp_object_t *object, dl_ptrdiff_t index);
 dl_error_t duckLisp_pushReturn(duckLisp_t *duckLisp, duckLisp_object_t object);
 dl_error_t duckLisp_scope_addObjectName(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
-dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object);
-dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length,
-                                  const dl_error_t(*generator)(duckLisp_t*, const duckLisp_ast_expression_t));
+// dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object);
+dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp, dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_expression_t*),
+                                 const char *name, const dl_size_t name_length);
+dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
+// dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length,
+//                                   const dl_error_t(*generator)(duckLisp_t*, const duckLisp_ast_expression_t));
 
 #endif // DUCKLISP_H

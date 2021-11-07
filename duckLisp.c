@@ -1744,6 +1744,8 @@ static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	scope->variables_length = 0;
 	/**/ dl_trie_init(&scope->generators_trie, &duckLisp->memoryAllocation, -1);
 	scope->generators_length = 0;
+	/**/ dl_trie_init(&scope->functions_trie, &duckLisp->memoryAllocation, -1);
+	scope->functions_length = 0;
 }
 
 static dl_error_t scope_getTop(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
@@ -1795,33 +1797,67 @@ static dl_error_t scope_getObjectFromName(duckLisp_t *duckLisp, duckLisp_object_
 	return e;
 }
 
-static dl_error_t scope_getGeneratorFromName(duckLisp_t *duckLisp, dl_error_t(**generator)(duckLisp_t*, const duckLisp_ast_expression_t), const char *name,
-                                             const dl_size_t name_length) {
+static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp, duckLisp_functionType_t *functionType, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 	
 	duckLisp_scope_t scope;
-	dl_ptrdiff_t index = -1;
 	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
+	*index = -1;
+	*functionType = duckLisp_functionType_none;
 	
 	while (dl_true) {
 		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
 		if (e) {
 			if (e == dl_error_invalidValue) {
-				*generator = dl_null;
+				// We've gone though all the scopes.
 				e = dl_error_ok;
 			}
 			break;
 		}
 		
-		/**/ dl_trie_find(scope.generators_trie, &index, name, name_length);
-		if (index != -1) {
-			e = dl_array_get(&duckLisp->generators_stack, (void *) generator, index);
+		/**/ dl_trie_find(scope.functions_trie, (dl_ptrdiff_t *) functionType, name, name_length);
+		if (*functionType != duckLisp_functionType_generator) {
+			/**/ dl_trie_find(scope.variables_trie, index, name, name_length);
+		}
+		else {
+			/**/ dl_trie_find(scope.generators_trie, index, name, name_length);
+		}
+		// Return the function in the nearest scope.
+		if (*functionType != duckLisp_functionType_none) {
 			break;
 		}
 	}
 	
 	return e;
 }
+
+// static dl_error_t scope_getGeneratorFromName(duckLisp_t *duckLisp, dl_error_t(**generator)(duckLisp_t*, const duckLisp_ast_expression_t), const char *name,
+//                                              const dl_size_t name_length) {
+// 	dl_error_t e = dl_error_ok;
+	
+// 	duckLisp_scope_t scope;
+// 	dl_ptrdiff_t index = -1;
+// 	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
+	
+// 	while (dl_true) {
+// 		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
+// 		if (e) {
+// 			if (e == dl_error_invalidValue) {
+// 				*generator = dl_null;
+// 				e = dl_error_ok;
+// 			}
+// 			break;
+// 		}
+		
+// 		/**/ dl_trie_find(scope.generators_trie, &index, name, name_length);
+// 		if (index != -1) {
+// 			e = dl_array_get(&duckLisp->generators_stack, (void *) generator, index);
+// 			break;
+// 		}
+// 	}
+	
+// 	return e;
+// }
 
 /*
 =======
@@ -1970,7 +2006,7 @@ dl_error_t compileExpression(duckLisp_t *duckLisp, dl_ptrdiff_t *bytecode_index,
 			goto l_cleanup;
 		}
 		if (functionObject.type != duckLisp_object_type_function) {
-			e = scope_getGeneratorFromName(duckLisp, &functionGenerator, functionName, functionName_length);
+			// e = scope_getGeneratorFromName(duckLisp, &functionGenerator, functionName, functionName_length);
 			if (e) {
 				goto l_cleanup;
 			}
@@ -2010,15 +2046,29 @@ dl_error_t compileExpression(duckLisp_t *duckLisp, dl_ptrdiff_t *bytecode_index,
 	return e;
 }
 
-static dl_error_t compile(duckLisp_t *duckLisp, dl_ptrdiff_t *bytecode_handle, duckLisp_ast_compoundExpression_t astCompoundexpression) {
+static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t astCompoundexpression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), array_strategy_double);
 	
-	// dl_array_t 
-	duckLisp_ast_expression_t expression;
-	dl_ptrdiff_t bytecode_index;
+	duckLisp_ast_identifier_t functionName = {0};
+	duckLisp_functionType_t functionType;
+	dl_ptrdiff_t functionIndex = -1;
 	
-	if (astCompoundexpression.type != cst_compoundExpression_type_expression) {
+	// Create high-level bytecode list.
+	dl_array_t bytecodeList;
+	/**/ dl_array_init(&bytecodeList, &duckLisp->memoryAllocation, sizeof(duckLisp_instructionObject_t), array_strategy_double);
+	// expression stack for navigating the tree.
+	dl_array_t expressionStack;
+	/**/ dl_array_init(&expressionStack, &duckLisp->memoryAllocation, sizeof(duckLisp_ast_compoundExpression_t), array_strategy_double);
+	dl_ptrdiff_t expression_index = 0;
+	duckLisp_ast_compoundExpression_t currentExpression;
+	dl_error_t (*generatorCallback)(duckLisp_t*, duckLisp_ast_expression_t*);
+	
+	putchar('\n');
+	
+	if (astCompoundexpression.type != ast_compoundExpression_type_expression) {
 		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot compile non-expression types to bytecode."));
 		if (eError) {
 			e = eError;
@@ -2026,15 +2076,135 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_ptrdiff_t *bytecode_handle, d
 		goto l_cleanup;
 	}
 	
-	*bytecode_handle = duckLisp->bytecode.elements_length;
-	bytecode_index = duckLisp->bytecode.elements_length;
-	
-	e = compileExpression(duckLisp, &bytecode_index, astCompoundexpression.value.expression);
+	e = dl_array_pushElement(&expressionStack, &astCompoundexpression);
 	if (e) {
 		goto l_cleanup;
 	}
 	
+	while (expressionStack.elements_length > 0) {
+		
+		e = dl_array_popElement(&expressionStack, &currentExpression);
+		if (e) {
+			goto l_cleanup;
+		}
+		
+		e = ast_print_compoundExpression(*duckLisp, currentExpression);
+		if (e) {
+			goto l_cleanup;
+		}
+		putchar('\n');
+		
+		/* If it is an expression, call the generator for it to compile the expression. */
+		if (currentExpression.value.expression.compoundExpressions_length == 0) {
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Encountered empty expression."));
+			if (eError) {
+				e = eError;
+			}
+			goto l_cleanup;
+		}
+		
+		switch (currentExpression.value.expression.compoundExpressions[0].type) {
+		case ast_compoundExpression_type_constant:
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Constants as function names are not supported."));
+			if (eError) {
+				e = eError;
+			}
+			goto l_cleanup;
+		case ast_compoundExpression_type_identifier:
+			// Run function generator.
+			functionName = currentExpression.value.expression.compoundExpressions[0].value.identifier;
+			e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value, functionName.value_length);
+			if (e) {
+				goto l_cleanup;
+			}
+			if (functionType == duckLisp_functionType_none) {
+				eError = dl_array_pushElements(&eString, DL_STR("Symbol \""));
+				if (eError) {
+					e = eError;
+					goto l_cleanup;
+				}
+				eError = dl_array_pushElements(&eString, functionName.value, functionName.value_length);
+				if (eError) {
+					e = eError;
+					goto l_cleanup;
+				}
+				eError = dl_array_pushElements(&eString, DL_STR("\" is not a function, callback, or generator."));
+				if (eError) {
+					e = eError;
+					goto l_cleanup;
+				}
+				eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements), eString.elements_length);
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			switch (functionType) {
+			case duckLisp_functionType_ducklisp:
+				break;
+			case duckLisp_functionType_c:
+				break;
+			case duckLisp_functionType_generator:
+				// e = m_generatorAt(functionIndex)(duckLisp, &currentExpression)
+				e = dl_array_get(&duckLisp->generators_stack, &generatorCallback, functionIndex);
+				if (e) {
+					goto l_cleanup;
+				}
+				e = generatorCallback(duckLisp, &currentExpression.value.expression);
+				if (e) {
+					goto l_cleanup;
+				}
+				break;
+			default:
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid function type. Can't happen."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			break;
+		case ast_compoundExpression_type_expression:
+			// Run expression generator.
+			break;
+		default:
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid compound expression type. Can't happen."));
+			if (eError) {
+				e = eError;
+			}
+			goto l_cleanup;
+		}
+		/* Important note: The generator has the freedom to rearrange its portion of the AST. This allows generators
+		   much more freedom in optimizing code. */
+		
+		// Now that the subexpressions cannot change (generator has returned), push them onto the stack.
+		for (dl_ptrdiff_t j = currentExpression.value.expression.compoundExpressions_length - 1; j >= 0; --j) {
+			if (currentExpression.value.expression.compoundExpressions[j].type == ast_compoundExpression_type_expression) {
+				e = dl_array_pushElement(&expressionStack, &currentExpression.value.expression.compoundExpressions[j]);
+				if (e) {
+					goto l_cleanup;
+				}
+			}
+		}
+	}
+	
 	l_cleanup:
+	
+	putchar('\n');
+	
+	eError = dl_array_quit(&bytecodeList);
+	if (eError) {
+		e = eError;
+	}
+	
+	eError = dl_array_quit(&expressionStack);
+	if (eError) {
+		e = eError;
+	}
+	
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
 	
 	return e;
 }
@@ -2060,7 +2230,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	/* No error */ dl_array_init(&duckLisp->stack, &duckLisp->memoryAllocation, sizeof(duckLisp_object_t), array_strategy_double);
 	/* No error */ dl_array_init(&duckLisp->scope_stack, &duckLisp->memoryAllocation, sizeof(duckLisp_scope_t), array_strategy_double);
 	/* No error */ dl_array_init(&duckLisp->bytecode, &duckLisp->memoryAllocation, sizeof(dl_uint8_t), array_strategy_double);
-	/* No error */ dl_array_init(&duckLisp->generators_stack, &duckLisp->memoryAllocation,sizeof(dl_error_t (*)(duckLisp_t*, const duckLisp_ast_expression_t)),
+	/* No error */ dl_array_init(&duckLisp->generators_stack, &duckLisp->memoryAllocation,sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
 	                             array_strategy_double);
 	
 	duckLisp->frame_pointer = 0;
@@ -2158,28 +2328,28 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 		goto l_cleanup;
 	}
 	
-	printf("CST: ");
-	e = cst_print_compoundExpression(*duckLisp, cst); putchar('\n');
-	if (e) {
-		goto l_cleanup;
-	}
+	// printf("CST: ");
+	// e = cst_print_compoundExpression(*duckLisp, cst); putchar('\n');
+	// if (e) {
+	// 	goto l_cleanup;
+	// }
 	printf("AST: ");
 	e = ast_print_compoundExpression(*duckLisp, ast); putchar('\n');
 	if (e) {
 		goto l_cleanup;
 	}
 	
-	/* Compile. */
+	/* Compile AST to bytecode. */
 	
-	e = compile(duckLisp, &object.value.function.bytecode_index, ast);
+	e = compile(duckLisp, ast);
 	if (e) {
 		goto l_cleanup;
 	}
 	
 	/* Push on stack. */
 	
-	object.type = duckLisp_object_type_function;
-	e = duckLisp_pushObject(duckLisp, name, name_length, object);
+	// object.type = duckLisp_object_type_function;
+	// e = duckLisp_pushObject(duckLisp, name, name_length, object);
 	
 	l_cleanup:
 	
@@ -2236,7 +2406,8 @@ dl_error_t duckLisp_scope_addObjectName(duckLisp_t *duckLisp, const char *name, 
 	return e;
 }
 
-static dl_error_t duckLisp_scope_addGeneratorName(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length) {
+dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp, dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_expression_t*),
+                                 const char *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 	
 	duckLisp_scope_t scope;
@@ -2247,11 +2418,21 @@ static dl_error_t duckLisp_scope_addGeneratorName(duckLisp_t *duckLisp, const ch
 		goto l_cleanup;
 	}
 	
-	e = dl_trie_insert(&scope.generators_trie, name, name_length, scope.generators_length);
+	// Record function type in function trie.
+	e = dl_trie_insert(&scope.functions_trie, name, name_length, duckLisp_functionType_generator);
+	if (e) {
+		goto l_cleanup;
+	}
+	// Record the generator stack index.
+	e = dl_trie_insert(&scope.generators_trie, name, name_length, duckLisp->generators_stack.elements_length);
 	if (e) {
 		goto l_cleanup;
 	}
 	scope.generators_length++;
+	e = dl_array_pushElement(&duckLisp->generators_stack, &callback);
+	if (e) {
+		goto l_cleanup;
+	}
 	
 	e = scope_setTop(duckLisp, &scope);
 	if (e) {
@@ -2263,49 +2444,82 @@ static dl_error_t duckLisp_scope_addGeneratorName(duckLisp_t *duckLisp, const ch
 	return e;
 }
 
-/*
-Creates an object in the current scope.
-*/
-dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object) {
+dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
-	
-	// Push object on the stack.
-	e = dl_array_pushElement(&duckLisp->stack, (void *) &object);
-	if (e) {
-		goto l_cleanup;
-	}
+
+	duckLisp_scope_t scope;
 	
 	// Stick name and index in the current scope's trie.
-	e = duckLisp_scope_addObjectName(duckLisp, name, name_length);
+	e = scope_getTop(duckLisp, &scope);
 	if (e) {
 		goto l_cleanup;
 	}
-	
+
+	// Record function type in function trie.
+	e = dl_trie_insert(&scope.functions_trie, name, name_length, duckLisp_functionType_c);
+	if (e) {
+		goto l_cleanup;
+	}
+	// Record the VM stack index.
+	e = dl_trie_insert(&scope.variables_trie, name, name_length, scope.variables_length);
+	if (e) {
+		goto l_cleanup;
+	}
+	scope.variables_length++;
+
+	e = scope_setTop(duckLisp, &scope);
+	if (e) {
+		goto l_cleanup;
+	}
+
 	l_cleanup:
-	
+
 	return e;
 }
 
-/*
-Creates a generator in the current scope.
-*/
-dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length,
-                                  const dl_error_t(*generator)(duckLisp_t*, const duckLisp_ast_expression_t)) {
-	dl_error_t e = dl_error_ok;
+// /*
+// Creates an object in the current scope.
+// */
+// dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object) {
+// 	dl_error_t e = dl_error_ok;
 	
-	// Push object on the stack.
-	e = dl_array_pushElement(&duckLisp->generators_stack, (void *) generator);
-	if (e) {
-		goto l_cleanup;
-	}
+// 	// Push object on the stack.
+// 	e = dl_array_pushElement(&duckLisp->stack, (void *) &object);
+// 	if (e) {
+// 		goto l_cleanup;
+// 	}
 	
-	// Stick name and index in the current scope's generator trie.
-	e = duckLisp_scope_addGeneratorName(duckLisp, name, name_length);
-	if (e) {
-		goto l_cleanup;
-	}
+// 	// Stick name and index in the current scope's trie.
+// 	e = duckLisp_scope_addObjectName(duckLisp, name, name_length);
+// 	if (e) {
+// 		goto l_cleanup;
+// 	}
 	
-	l_cleanup:
+// 	l_cleanup:
 	
-	return e;
-}
+// 	return e;
+// }
+
+// /*
+// Creates a generator in the current scope.
+// */
+// dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length,
+//                                   const dl_error_t(*generator)(duckLisp_t*, const duckLisp_ast_expression_t)) {
+// 	dl_error_t e = dl_error_ok;
+	
+// 	// Push object on the stack.
+// 	e = dl_array_pushElement(&duckLisp->generators_stack, (void *) generator);
+// 	if (e) {
+// 		goto l_cleanup;
+// 	}
+	
+// 	// Stick name and index in the current scope's generator trie.
+// 	e = duckLisp_scope_addGeneratorName(duckLisp, name, name_length);
+// 	if (e) {
+// 		goto l_cleanup;
+// 	}
+	
+// 	l_cleanup:
+	
+// 	return e;
+// }
