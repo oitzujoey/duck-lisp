@@ -216,3 +216,41 @@ We traverse the tree top-down because we want to allow the generators to optimiz
 There are three stacks. "The Stack" is the runtime VM stack. The generator stack contains generators. The function stack may contain C functions.
 
 All functions are anonymous in the VM.
+
+Tree → list strategy:
+	Generator:
+		Check arguments.
+		Reorder arguments in tree.
+		Create list of instruction list fragments. These lists will be joined with the compiled arguments, which may themselves have similar trees of instruction list fragments. It looks sort of like this:
+			ast = [a, b, c]
+			generator:
+				instructionList = [i0, i1, i2]
+				order = [2, 1, 3]
+				reorder(ast, order)
+			for i in range(len(ast)):
+				newInstructionList.append(instructionList[i])
+				newInstructionList.append(ast[i])
+		Expand tree into instruction list. This is easy, since we just traverse the tree and append each leaf to the end of the list.
+
+bytecode file format:
+	((ascii8[2] DL) (uint16 <callbacks length>) (uint32 <bytecode length>) (uint8[<bytecode length>] <bytecode>))
+
+[[i0 i1 i2] [i3 i4 i5] [i6 i7 i8] [
+	[[i9 i10 i11] [i12 i13 i14] [i15 i16 i17] [
+		[[i18 i19 i20] [i21 i22 i23]]
+	]]
+	[[i24 i25 i26] [i27 i28]]
+]]
+
+node = [[instruction*]* [node*]]
+
+instructions = [instruction*]
+instructionsList = [instructions*]
+nodes = [node*]
+node = [instructionsList nodes]
+
+node = dl_array_t:dl_array_t
+nodes = dl_array_t:dl_array_t
+instructionsList = dl_array_t:dl_array_t
+instructions = dl_array_t:duckLisp_instructionObject_t
+instruction = duckLisp_instructionObject_t

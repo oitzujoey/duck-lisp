@@ -46,17 +46,15 @@ dl_error_t duckLisp_generator_functionCall(duckLisp_t *duckLisp) {
 }
 */
 
-dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, duckLisp_ast_expression_t *expression) {
+dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
-	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), array_strategy_double);
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 	
 	dl_ptrdiff_t identifier_index = -1;
 	dl_ptrdiff_t string_index = -1;
-	dl_array_t bytecode;
-	
-	/**/ dl_array_init(&bytecode, &duckLisp->memoryAllocation, sizeof(dl_uint8_t), array_strategy_double);
+	dl_array_t *assemblyFragment = dl_null;
 	
 	/* Check arguments for call and type errors. */
 	
@@ -109,15 +107,15 @@ dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, duckLisp_ast
 	}
 	
 	// Create the string variable.
-	e = duckLisp_generate_pushString(duckLisp, &bytecode, &identifier_index, expression->compoundExpressions[2].value.constant.value.string.value,
+	e = duckLisp_emit_pushString(duckLisp, assembly, &identifier_index, expression->compoundExpressions[2].value.constant.value.string.value,
 	                                 expression->compoundExpressions[2].value.constant.value.string.value_length);
 	if (e) {
 		goto l_cleanup;
 	}
 	
 	// Insert arg1 into this scope's name trie.
-	e = duckLisp_scope_addObjectName(duckLisp, expression->compoundExpressions[1].value.constant.value.string.value,
-	                           expression->compoundExpressions[1].value.constant.value.string.value_length);
+	e = duckLisp_scope_addObject(duckLisp, expression->compoundExpressions[1].value.constant.value.string.value,
+	                             expression->compoundExpressions[1].value.constant.value.string.value_length);
 	if (e) {
 		goto l_cleanup;
 	}
@@ -151,7 +149,8 @@ int main(int argc, char *argv[]) {
 	size_t scriptHandles_lengths[3] = {
 		11
 	};
-	const char source0[] = "((string s \"Hello, world!\") (print-string s))";
+	// const char source0[] = "((string s \"Hello, world!\") (print-string s))";
+	const char source0[] = "((print-string (string s \"Hello, world!\")))";
 	// const char source1[] = "((int i -5) (bool b true) (bool b false) (print i))";
 	// const char source2[] = "((float f 1.4e656) (float f0 -1.4e656) (float f1 .4e6) (float f2 1.4e-656) (float f3 -.4e6) (float f3 -10.e-2) (echo #float) (print f))";
 	duckLisp_object_t tempObject;
@@ -250,6 +249,10 @@ int main(int argc, char *argv[]) {
 	l_cleanup:
 	
 	if (d.duckLisp_init) {
+		puts("");
+		printf("Memory in use:   %llu\n", duckLisp.memoryAllocation.used);
+		printf("Max memory used: %llu\n", duckLisp.memoryAllocation.max_used);
+		// dl_memory_printMemoryAllocation(duckLisp.memoryAllocation);
 		duckLisp_quit(&duckLisp);
 	}
 	if (d.duckLispMemory) {

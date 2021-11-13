@@ -1,0 +1,193 @@
+Try #1:
+
+(if (< a 10) (print-string "True") (print-string "False"))
+
+(if #0 #1 #2)
+
+#0
+bnz $0
+#1
+jmp target
+#2
+target:
+
+0   bnz $0      #0
+1   jmp target  #1
+2   target:     #2
+3               #3
+
+57  bnz $0
+58  jmp target
+59  target:
+60  
+[57 58 59] (60 is implicit. Empty queue means append.)
+
+Try #2:
+
+(if (< a 10) (print-string "True") (print-string "False"))
+
+(
+	if
+	(
+		<
+		a
+		10
+	)
+	(
+		print-string
+		"True"
+	)
+	(
+		print-string
+		"False"
+	)
+)
+
+generator level 1: if
+
+<
+	{
+		(setq else (create-label))
+		(setq end (create-label))
+	}
+	(
+		push-zero
+	)
+	(
+		setq
+		$0
+		(
+			<
+			a
+			10
+		)
+	)
+	(
+		brz
+		$0
+		$else
+	)
+	(
+		print-string
+		"True"
+	)
+	(
+		goto
+		$end
+	)
+	(
+		label
+		$else
+	)
+	(
+		print-string
+		"False"
+	)
+	(
+		label
+		$end
+	)
+>
+<>
+
+generator level 2:
+<
+	<
+		push-zero
+	>
+	<
+		(
+			<
+			a
+			10
+		)
+	>
+	<
+		{
+			(push-label-reference else)
+		}
+		brz
+		$0
+		$else
+	>
+	<
+		print-string
+		"True"
+	>
+	<
+		{
+			(push-label-reference end)
+		}
+		goto
+		$end
+	>
+	<
+		{
+			(push-label-definition else)
+		}
+		label
+		$else
+	>
+	<
+		print-string
+		"False"
+	>
+	<
+		{
+			(push-label-definition end)
+		}
+		label
+		$end
+	>
+>
+<<push-zero><><brz $0 $else><print-string "True"><goto $end><><print-string "False"><>>
+
+generator level 3:
+<
+	<
+		push-zero
+	>
+	<
+		<
+			<
+			a
+			10
+		>
+	>
+	<
+		brz
+		$0
+		$else
+	>
+	<
+		print-string
+		"True"
+	>
+	<
+		goto
+		$end
+	>
+	<
+		label
+		$else
+	>
+	<
+		print-string
+		"False"
+	>
+	<
+		label
+		$end
+	>
+>
+<<push-zero><\< a 10><brz $0 $else><print-string "True"><goto $end><><print-string "False"><>>
+
+<<push-zero><\< a 10><brz $0 $else><print-string "True"><goto $end><print-string "False">>
+
+Summary:
+	`if` will generate no bytecode. It is just a macro that replaces itself with lower-level commands and reorders the arguments.
+	The commands will be recognized as expressions and traversed as normal leaves of the AST.
+	Each expression will be written to an instruction-fragment buffer. This buffer is placed into a list of fragment buffers.
+	The list will likely be reversed (due to the fact that the traverse is root to leaf (inorder?)) and the fragments will be joined into one instruction list.
+	The instruction list will be "assembled" to a more highly defined instruction list. This final list will be assembled directly to bytecode.
+	And finally... This retains the generator abstraction, though it seems to be best not to mix macro and emitter code in the same generator. `if` is a macro only; `<` is a generator only, though it may reorder its arguments.
