@@ -150,7 +150,9 @@ int main(int argc, char *argv[]) {
 		11
 	};
 	// const char source0[] = "((string s \"Hello, world!\") (print-string s))";
-	const char source0[] = "((print-string (string s \"Hello, world!\")))";
+	const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
+	// const char source0[] = "(print-string 7 (print-string 3 (print-string 1) (print-string 2)) (print-string 6 (print-string 4) (print-string 5)))";
+	// const char source0[] = "(print-string 7 (print-string 3 (print-string 1)) (print-string 6 (print-string 4) (print-string 5)))";
 	// const char source1[] = "((int i -5) (bool b true) (bool b false) (print i))";
 	// const char source2[] = "((float f 1.4e656) (float f0 -1.4e656) (float f1 .4e6) (float f2 1.4e-656) (float f3 -.4e6) (float f3 -10.e-2) (echo #float) (print f))";
 	duckLisp_object_t tempObject;
@@ -253,7 +255,9 @@ int main(int argc, char *argv[]) {
 		printf("Memory in use:   %llu\n", duckLisp.memoryAllocation.used);
 		printf("Max memory used: %llu\n", duckLisp.memoryAllocation.max_used);
 		// dl_memory_printMemoryAllocation(duckLisp.memoryAllocation);
-		duckLisp_quit(&duckLisp);
+		// Clear 1 MiB of memory. Is surprisingly fast. I'm mainly did this to see how simple it was.
+		/**/ dl_memclear(duckLisp.memoryAllocation.memory, duckLisp.memoryAllocation.size * sizeof(char));
+		/**/ duckLisp_quit(&duckLisp);
 	}
 	if (d.duckLispMemory) {
 		/**/ free(duckLispMemory); duckLispMemory = NULL;

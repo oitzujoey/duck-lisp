@@ -2235,6 +2235,13 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	dl_ptrdiff_t expression_index = 0;
 	duckLisp_ast_compoundExpression_t currentExpression;
 	dl_error_t (*generatorCallback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
+	// First element is always an instruction list. The remaining elements are branches.
+	dl_array_t assemblyTreeRoot;
+	dl_array_t *currentAssemblyTreeNode = dl_null;
+	dl_array_t assemblyStack;
+	dl_array_t tempArray;
+	dl_array_t *tempArrayPointer = dl_null;
+	/**/ dl_array_init(&assemblyStack, &duckLisp->memoryAllocation, sizeof(dl_array_t *), dl_array_strategy_double);
 	
 	putchar('\n');
 	
@@ -2248,12 +2255,47 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	
 	/* First stage: Create assembly tree from AST. */
 	
-	e = dl_array_pushElement(&expressionStack, &astCompoundexpression);
-	if (e) {
-		goto l_cleanup;
-	}
+	// Bootstrap.
+	currentExpression = astCompoundexpression;
+	currentAssemblyTreeNode = &assemblyTreeRoot;
+	/**/ dl_array_init(currentAssemblyTreeNode, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
+	// e = dl_array_pushElement(currentAssemblyTreeNode, dl_null);
+	// if (e) {
+	// 	goto l_cleanup;
+	// }
+	// assemblyTreeRoot = &currentAssemblyTreeNode;
 	
-	while (expressionStack.elements_length > 0) {
+	do {
+		// Now that the subexpressions cannot change (generator has returned), push them onto the stack.
+		for (dl_ptrdiff_t j = currentExpression.value.expression.compoundExpressions_length - 1; j >= 0; --j) {
+			if (currentExpression.value.expression.compoundExpressions[j].type == ast_compoundExpression_type_expression) {
+				
+				// Create child and push in tree.
+				/**/ dl_array_init(&tempArray, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
+				e = dl_array_pushElement(currentAssemblyTreeNode, &tempArray);
+				if (e) {
+					goto l_cleanup;
+				}
+				/* Push the address of the new node on the stack. We are now traversing the section of the tree we just
+				   created. */
+				tempArrayPointer = &DL_ARRAY_GETTOPADDRESS(*currentAssemblyTreeNode, dl_array_t);
+				e = dl_array_pushElement(&assemblyStack, &tempArrayPointer);
+				if (e) {
+					goto l_cleanup;
+				}
+				
+				// Push arguments.
+				e = dl_array_pushElement(&expressionStack, &currentExpression.value.expression.compoundExpressions[j]);
+				if (e) {
+					goto l_cleanup;
+				}
+			}
+		}
+		
+		e = dl_array_popElement(&assemblyStack, &currentAssemblyTreeNode);
+		if (e) {
+			goto l_cleanup;
+		}
 		
 		e = dl_array_popElement(&expressionStack, &currentExpression);
 		if (e) {
@@ -2277,6 +2319,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 		
 		/**/ dl_array_init(&assembly, &duckLisp->memoryAllocation, sizeof(duckLisp_instructionObject_t), dl_array_strategy_double);
 		
+		// Compile!
 		switch (currentExpression.value.expression.compoundExpressions[0].type) {
 		case ast_compoundExpression_type_constant:
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Constants as function names are not supported."));
@@ -2358,22 +2401,52 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 		/* Important note: The generator has the freedom to rearrange its portion of the AST. This allows generators
 		   much more freedom in optimizing code. */
 		
-		e = dl_array_pushElement(&instructionList, &assembly);
+		// e = dl_array_pushElement(&instructionList, &assembly);
+		// if (e) {
+		// 	goto l_cleanup;
+		// }
+		e = dl_array_pushElement(currentAssemblyTreeNode, &assembly);
+		if (e) {
+			goto l_cleanup;
+		}
+	} while (expressionStack.elements_length > 0);
+	
+	// Expand tree.
+	e = dl_array_clear(&assemblyStack);
+	if (e) {
+		goto l_cleanup;
+	}
+	currentAssemblyTreeNode = &assemblyTreeRoot;
+	do {
+		e = dl_array_pushElements(&instructionList,
+		                          ((duckLisp_instructionObject_t *) ((dl_array_t *) currentAssemblyTreeNode->elements)[0].elements),
+		                          ((dl_array_t *) currentAssemblyTreeNode->elements)[0].elements_length);
 		if (e) {
 			goto l_cleanup;
 		}
 		
-		// Now that the subexpressions cannot change (generator has returned), push them onto the stack.
-		for (dl_ptrdiff_t j = currentExpression.value.expression.compoundExpressions_length - 1; j >= 0; --j) {
-			if (currentExpression.value.expression.compoundExpressions[j].type == ast_compoundExpression_type_expression) {
-				e = dl_array_pushElement(&expressionStack, &currentExpression.value.expression.compoundExpressions[j]);
-				if (e) {
-					goto l_cleanup;
-				}
+		// Push nodes.
+		for (dl_ptrdiff_t j = 1; j < currentAssemblyTreeNode->elements_length; j++) {
+			tempArrayPointer = &DL_ARRAY_GETTOPADDRESS(*currentAssemblyTreeNode, dl_array_t);
+			e = dl_array_pushElement(&assemblyStack, &tempArrayPointer);
+			if (e) {
+				goto l_cleanup;
 			}
 		}
-	}
+		// Free Parent.
+		e = dl_array_quit(currentAssemblyTreeNode);
+		if (e) {
+			goto l_cleanup;
+		}
+		// Next node.
+		e = dl_array_popElement(&assemblyStack, &currentAssemblyTreeNode);
+		if (e) {
+			goto l_cleanup;
+		}
+	} while (assemblyStack.elements_length > 0);
+	// There may be one array that wasn't freed here.
 	
+	// Print list.
 	printf("\n");
 	for (dl_ptrdiff_t i = 0; i < instructionList.elements_length; i++) {
 		assembly = ((dl_array_t *) instructionList.elements)[i];
@@ -2402,7 +2475,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 						"index",
 						"string",
 					}[ia.type]);
-				printf("            Value: ");
+				printf("                Value: ");
 				switch (ia.type) {
 				case duckLisp_instructionArg_type_none:
 					printf("None\n");
@@ -2434,6 +2507,11 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	l_cleanup:
 	
 	putchar('\n');
+	
+	eError = dl_array_quit(&assemblyStack);
+	if (eError) {
+		e = eError;
+	}
 	
 	eError = dl_array_quit(&assembly);
 	if (eError) {

@@ -254,3 +254,137 @@ nodes = dl_array_t:dl_array_t
 instructionsList = dl_array_t:dl_array_t
 instructions = dl_array_t:duckLisp_instructionObject_t
 instruction = duckLisp_instructionObject_t
+
+Almost done with compilation. I have decided on the strategy of giving each generator its own piece of the instruction list. The problem is that arguments must be evaluated left-to-right to allow the program to execute top-down.
+
+(7 (3 (1) (2)) (6 (4) (5)))
+
+(
+  (defun copy-function ((f pointer:function) (size size_t))
+    (var g pointer:function)
+    (setq g (malloc size))
+    (copy-bytes (cast g pointer:byte) (cast f pointer:byte) (* size size-of(byte)))
+    (return g))
+
+  (defun f () 0)
+  (var p-g pointer:function)
+  (copy-function p-g (addr-of f))
+  (defmacro g ()
+    #(call p-g))
+  (g))
+
+(
+  (defun # #
+    (var # #)
+    (setq g (malloc size))
+    (copy-bytes (cast g #) (cast f #) (* size (size-of byte)))
+    (return g))
+
+  (defun f # #)
+  (var # #)
+  (copy-function p-g (addr-of f))
+  (defmacro # #
+    '(call p-g))
+  (g))
+
+(
+  (defun
+    (var)
+    (setq g (malloc size))
+    (copy-bytes (cast g) (cast f) (* size (size-of byte)))
+    (return g))
+
+  (defun f)
+  (var)
+  (copy-function p-g (addr-of f))
+  (defmacro
+    '(call p-g))
+  (g))
+
+(
+  (defun
+    (var)
+    (setq g (malloc size))
+    (copy-bytes (cast g) (cast f) (* size (size-of byte)))
+    (return g))
+
+  (defun f)
+  (var)
+  (copy-function p-g (addr-of f))
+  (defmacro
+    '(call p-g))
+  (g))
+
+(() ()):    Left-right - 
+(f () ()):  Undefined  - Whatever
+(f (g ())): Outside-in - Tree, top-down, right-left
+
+Outer expressions compile before inner.
+Inner expressions' assembly come before outer's.
+Left expressions' assembly come before right's.
+
+Outer expressions compile before inner.
+Inner expressions' assembly comes after outer's.
+Left expressions' assembly comes before right's.
+
+(7 (3 (1) (2)) (6 (4) (5)))
+(1 (5 (7) (6)) (2 (4) (3)))
+
+(1 (2 (3) (4)) (5 (6) (7)))
+(1 (5 (6) (7)) (2 (3) (4)))
+(1 (5 (7) (6)) (2 (4) (3)))
+
+(5(2 (*1) (*1)) (4 (*3) (*3)))
+
+(7 (3 (1) (2)) (6 (4) (5)))
+(7 (3 (1) (2)) (6 (4) (5)))
+
+
+(7 (3 (1) (2)) (6 (4) (5)))
+
+7 +
+ 3 +
+  1 +
+  2 -
+ 6 -
+  4 +
+  5 -
+
+Required objects:
+	Return stack
+	Index? May be built into the array.
+	Current node
+
++ Create array. Push array in current node. Push array on stack. Set array as current node. Push instruction list in current node.
+0 Push instruction list in current node.
+- Push instruction list in current node. Pop array from stack. Set current node to popped array?
+
++ Create array. Push array in current node. Push array on stack. Set array as current node. Push instruction list in current node.
+0 Push instruction list in current node.
+- Push instruction list in current node. Pop array from stack. Set current node to popped array?
+
+I will need a local struct for this.
+
+struct node_s {
+	union {
+		dl_array_t *node;
+		dl_array_t *instructions;
+	}
+	dl_bool_t isNode;
+} node_t;
+
+
+rrealloc: Instead of adding memory to the end of the block, it adds it to the beginning.
+
+
+Move pusher to top of loop. Done.
+Generate tree in pusher.
+
+node
+  instructions
+  node
+  node
+  node
+
+First element in node is always an instruction array.
+Store node addresses on stack, not nodes.
