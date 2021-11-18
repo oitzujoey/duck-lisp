@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 3.10)
 
 project(ducklisp-dev VERSION 1.0)
@@ -11,7 +10,7 @@ add_executable(duckLisp-dev duckLisp-dev.c)
 add_executable(trie-dev trie-dev.c)
 
 target_link_libraries(memory-dev PUBLIC DuckLib)
-target_link_libraries(duckLisp-dev PUBLIC DuckLisp DuckLib)
+target_link_libraries(duckLisp-dev PUBLIC DuckLisp PUBLIC DuckLib)
 target_link_libraries(trie-dev PUBLIC DuckLib)
 
 # target_include_directories(memory-dev PUBLIC

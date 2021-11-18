@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.10)
 
-add_library(DuckLisp SHARED duckLisp.c)
+add_library(DuckLisp duckLisp.c)
 
 target_include_directories(
 	DuckLisp
@@ -9,21 +9,9 @@ target_include_directories(
 
 # target_compile_definitions(DuckLisp PRIVATE "USE_DUCKLISP")
 
-add_library(
-	DuckLib
-	SHARED
-	DuckLib/core.c
-	DuckLib/memory.c
-	DuckLib/string.c
-	DuckLib/array.c
-	DuckLib/trie.c
-)
+add_subdirectory(DuckLib)
 
-target_include_directories(
-	DuckLib
-	PRIVATE
-	${CMAKE_CURRENT_BINARY_DIR}
-)
+target_link_libraries(DuckLisp PUBLIC DuckLib)
 
 # set_target_properties(DuckLib PROPERTIES
 # 	POSITION_INDEPENDENT_CODE ON
