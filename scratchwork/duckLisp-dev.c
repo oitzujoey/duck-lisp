@@ -149,9 +149,9 @@ int main(int argc, char *argv[]) {
 	size_t scriptHandles_lengths[3] = {
 		11
 	};
-	const char source0[] = "((string s \"Hello, world!\") (print-string s))";
+	// const char source0[] = "((string s \"Hello, world!\") (print-string s))";
 	// const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
-	// const char source0[] = "(print-string 7 (print-string 3 (print-string 1) (print-string 2)) (print-string 6 (print-string 4) (print-string 5)))";
+	const char source0[] = "((string s7 \"7\") (print-string s7) ((string s3 \"3\") (print-string s3) ((string s1 \"1\") (print-string s1)) ((string s2 \"2\") (print-string s2))) ((string s6 \"6\") (print-string s6) ((string s4 \"4\") (print-string s4)) ((string s5 \"5\") (print-string s5))))";
 	// const char source0[] = "(print-string 7 (print-string 3 (print-string 1)) (print-string 6 (print-string 4) (print-string 5)))";
 	// const char source1[] = "((int i -5) (bool b true) (bool b false) (print i))";
 	// const char source2[] = "((float f 1.4e656) (float f0 -1.4e656) (float f1 .4e6) (float f2 1.4e-656) (float f3 -.4e6) (float f3 -10.e-2) (echo #float) (print f))";

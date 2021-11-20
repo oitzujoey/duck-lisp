@@ -1260,6 +1260,7 @@ static dl_error_t cst_parse_string(duckLisp_t *duckLisp, duckLisp_cst_string_t *
 		goto l_cleanup;
 	}
 	
+	// @TODO: Allow stringified strings instead of just quoted strings.
 	string->token_index = start_index + 1;
 	string->token_length = length - 2;
 	
@@ -2229,8 +2230,8 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	// Initialize to zero.
 	/**/ dl_array_init(&assembly, dl_null, 0, dl_array_strategy_fit);
 	// Create high-level bytecode list.
-	dl_array_t instructionList; // duckLisp_instructionObject_t
-	/**/ dl_array_init(&instructionList, &duckLisp->memoryAllocation, sizeof(duckLisp_instructionObject_t), dl_array_strategy_double);
+	dl_array_t instructionList; // dl_array_t
+	/**/ dl_array_init(&instructionList, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
 	// expression stack for navigating the tree.
 	dl_array_t expressionStack;
 	/**/ dl_array_init(&expressionStack, &duckLisp->memoryAllocation, sizeof(duckLisp_ast_compoundExpression_t), dl_array_strategy_double);
@@ -2239,8 +2240,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	dl_error_t (*generatorCallback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
 	
 	typedef struct node_s {
-		duckLisp_instructionObject_t *instructionObjects;
-		dl_size_t instructionObjects_length;
+		dl_array_t instructionObjects;
 		dl_ptrdiff_t *nodes;
 		dl_size_t nodes_length;
 	} node_t;
@@ -2271,8 +2271,9 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	currentExpression.value.expression.compoundExpressions_length = 1;
 	
 	assemblyTreeRoot = currentNode = nodeArray.elements_length; // 0
-	tempNode.instructionObjects = dl_null;
-	tempNode.instructionObjects_length = 0;
+	
+	// Initialize to zero.
+	/**/ dl_array_init(&tempNode.instructionObjects, dl_null, 0, dl_array_strategy_fit);
 	tempNode.nodes = dl_null;
 	tempNode.nodes_length = 0;
 	e = dl_array_pushElement(&nodeArray, &tempNode);
@@ -2286,8 +2287,8 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 			if (currentExpression.value.expression.compoundExpressions[j].type == ast_compoundExpression_type_expression) {
 				
 				// Create child and push into the node array.
-				tempNode.instructionObjects = dl_null;
-				tempNode.instructionObjects_length = 0;
+				// Initialize to zero.
+				/**/ dl_array_init(&tempNode.instructionObjects, dl_null, 0, dl_array_strategy_fit);
 				tempNode.nodes_length = 0;
 				tempNode.nodes = dl_null;
 				e = dl_array_pushElement(&nodeArray, &tempNode);
@@ -2439,28 +2440,26 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 		/* Important note: The generator has the freedom to rearrange its portion of the AST. This allows generators
 		   much more freedom in optimizing code. */
 
-		CURRENTNODE.instructionObjects = assembly.elements;
-		CURRENTNODE.instructionObjects_length = assembly.elements_length;
+		CURRENTNODE.instructionObjects = assembly;
 	}
 	
-	// Expand tree.
+	// Flatten tree.
 	e = dl_array_clear(&nodeStack);
 	if (e) {
 		goto l_cleanup;
 	}
-	// currentAssemblyTreeNode = &assemblyTreeRoot;
 	currentNode = assemblyTreeRoot;
+	
 	while (dl_true) {
 		// Append instructions to instruction list.
-		e = dl_array_pushElements(&instructionList, CURRENTNODE.instructionObjects,
-		                          CURRENTNODE.instructionObjects_length);
+		e = dl_array_pushElement(&instructionList, &CURRENTNODE.instructionObjects);
 		if (e) {
 			goto l_cleanup;
 		}
 		
 		// Push nodes.
-		for (dl_ptrdiff_t j = 0; j < CURRENTNODE.nodes_length; j++) {
-			// tempArrayPointer = &DL_ARRAY_GETADDRESS(*currentAssemblyTreeNode, dl_array_t, j);
+		for (dl_ptrdiff_t j = CURRENTNODE.nodes_length - 1; j >= 0; --j) {
+		// for (dl_ptrdiff_t j = 0; j < CURRENTNODE.nodes_length; j++) {
 			e = dl_array_pushElement(&nodeStack, &CURRENTNODE.nodes[j]);
 			if (e) {
 				goto l_cleanup;
@@ -2481,54 +2480,61 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	// Print list.
 	printf("\n");
 	
+	
+	dl_array_t ia;
 	duckLisp_instructionObject_t io;
-	for (dl_ptrdiff_t j = 0; j < instructionList.elements_length; j++) {
-		io = ((duckLisp_instructionObject_t *) instructionList.elements)[j];
+	for (dl_ptrdiff_t i = 0; i < instructionList.elements_length; i++) {
+		ia = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i);
 		printf("{\n");
-		printf("    Instruction class: %s\n",
-			(char *[5]){
-				"nop",
-				"pushString",
-				"pushInteger",
-				"pushIndex",
-				"ccall",
-			}[io.instructionClass]);
-		printf("    [\n");
-		duckLisp_instructionArg_t ia;
-		for (dl_ptrdiff_t k = 0; k < io.args.elements_length; k++) {
-			ia = ((duckLisp_instructionArg_t *) io.args.elements)[k];
-			printf("        {\n");
-			printf("            Type: %s\n",
-				(char *[4]){
-					"none",
-					"integer",
-					"index",
-					"string",
-				}[ia.type]);
-			printf("            Value: ");
-			switch (ia.type) {
-			case duckLisp_instructionArg_type_none:
-				printf("None\n");
-				break;
-			case duckLisp_instructionArg_type_integer:
-				printf("%i\n", ia.value.integer);
-				break;
-			case duckLisp_instructionArg_type_index:
-				printf("%llu\n", ia.value.index);
-				break;
-			case duckLisp_instructionArg_type_string:
-				printf("\"");
-				for (dl_ptrdiff_t m = 0; m < ia.value.string.value_length; m++) {
-					putchar(ia.value.string.value[m]);
+		for (dl_ptrdiff_t j = 0; j < ia.elements_length; j++) {
+			io = DL_ARRAY_GETADDRESS(ia, duckLisp_instructionObject_t, j);
+			printf("    {\n");
+			printf("        Instruction class: %s\n",
+				(char *[5]){
+					"nop",
+					"pushString",
+					"pushInteger",
+					"pushIndex",
+					"ccall",
+				}[io.instructionClass]);
+			printf("        [\n");
+			duckLisp_instructionArg_t ia;
+			for (dl_ptrdiff_t k = 0; k < io.args.elements_length; k++) {
+				ia = ((duckLisp_instructionArg_t *) io.args.elements)[k];
+				printf("            {\n");
+				printf("                Type: %s\n",
+					(char *[4]){
+						"none",
+						"integer",
+						"index",
+						"string",
+					}[ia.type]);
+				printf("                Value: ");
+				switch (ia.type) {
+				case duckLisp_instructionArg_type_none:
+					printf("None\n");
+					break;
+				case duckLisp_instructionArg_type_integer:
+					printf("%i\n", ia.value.integer);
+					break;
+				case duckLisp_instructionArg_type_index:
+					printf("%llu\n", ia.value.index);
+					break;
+				case duckLisp_instructionArg_type_string:
+					printf("\"");
+					for (dl_ptrdiff_t m = 0; m < ia.value.string.value_length; m++) {
+						putchar(ia.value.string.value[m]);
+					}
+					printf("\"\n");
+					break;
+				default:
+					printf("                Undefined type.\n");
 				}
-				printf("\"\n");
-				break;
-			default:
-				printf("            Undefined type.\n");
+				printf("            }\n");
 			}
-			printf("        }\n");
+			printf("        ]\n");
+			printf("    }\n");
 		}
-		printf("    ]\n");
 		printf("}\n");
 	}
 	
