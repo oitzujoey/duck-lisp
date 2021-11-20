@@ -149,8 +149,8 @@ int main(int argc, char *argv[]) {
 	size_t scriptHandles_lengths[3] = {
 		11
 	};
-	// const char source0[] = "((string s \"Hello, world!\") (print-string s))";
-	const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
+	const char source0[] = "((string s \"Hello, world!\") (print-string s))";
+	// const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
 	// const char source0[] = "(print-string 7 (print-string 3 (print-string 1) (print-string 2)) (print-string 6 (print-string 4) (print-string 5)))";
 	// const char source0[] = "(print-string 7 (print-string 3 (print-string 1)) (print-string 6 (print-string 4) (print-string 5)))";
 	// const char source1[] = "((int i -5) (bool b true) (bool b false) (print i))";

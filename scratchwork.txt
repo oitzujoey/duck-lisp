@@ -388,3 +388,13 @@ node
 
 First element in node is always an instruction array.
 Store node addresses on stack, not nodes.
+
+We have a dedicated node struct now.
+All nodes will be kept in a dl_array.
+Nodes will keep an array of nodes by storing the index in the master array.
+Indices will be pushed on the stack.
+
+Needed universal identifier for each node → index to a single array.
+Needed each nodes to contain a list of nodes → indeces to a subset of the array elements.
+Desired a way to keep track of all nodes in use → single array containing nodes.
+Desired a way to use dl_array instead of raw memory allocation.

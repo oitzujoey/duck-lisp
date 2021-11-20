@@ -2225,23 +2225,33 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	duckLisp_functionType_t functionType;
 	dl_ptrdiff_t functionIndex = -1;
 	// Not initialized until later. This is reused for multiple arrays.
-	dl_array_t assembly;
+	dl_array_t assembly; // duckLisp_instructionObject_t
+	// Initialize to zero.
+	/**/ dl_array_init(&assembly, dl_null, 0, dl_array_strategy_fit);
 	// Create high-level bytecode list.
-	dl_array_t instructionList;
-	/**/ dl_array_init(&instructionList, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
+	dl_array_t instructionList; // duckLisp_instructionObject_t
+	/**/ dl_array_init(&instructionList, &duckLisp->memoryAllocation, sizeof(duckLisp_instructionObject_t), dl_array_strategy_double);
 	// expression stack for navigating the tree.
 	dl_array_t expressionStack;
 	/**/ dl_array_init(&expressionStack, &duckLisp->memoryAllocation, sizeof(duckLisp_ast_compoundExpression_t), dl_array_strategy_double);
 	dl_ptrdiff_t expression_index = 0;
 	duckLisp_ast_compoundExpression_t currentExpression;
 	dl_error_t (*generatorCallback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
-	// First element is always an instruction list. The remaining elements are branches.
-	dl_array_t assemblyTreeRoot;
-	dl_array_t *currentAssemblyTreeNode = dl_null;
-	dl_array_t assemblyStack;
-	dl_array_t tempArray;
-	dl_array_t *tempArrayPointer = dl_null;
-	/**/ dl_array_init(&assemblyStack, &duckLisp->memoryAllocation, sizeof(dl_array_t *), dl_array_strategy_double);
+	
+	typedef struct node_s {
+		duckLisp_instructionObject_t *instructionObjects;
+		dl_size_t instructionObjects_length;
+		dl_ptrdiff_t *nodes;
+		dl_size_t nodes_length;
+	} node_t;
+	
+	dl_array_t nodeArray; // node_t
+	/**/ dl_array_init(&nodeArray, &duckLisp->memoryAllocation, sizeof(node_t), dl_array_strategy_double);
+	node_t tempNode;
+	dl_ptrdiff_t assemblyTreeRoot = -1;
+	dl_array_t nodeStack; // dl_ptrdiff_t
+	/**/ dl_array_init(&nodeStack, &duckLisp->memoryAllocation, sizeof(dl_ptrdiff_t), dl_array_strategy_double);
+	dl_ptrdiff_t currentNode = -1;
 	
 	putchar('\n');
 	
@@ -2256,34 +2266,57 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	/* First stage: Create assembly tree from AST. */
 	
 	// Bootstrap.
-	currentExpression = astCompoundexpression;
-	currentAssemblyTreeNode = &assemblyTreeRoot;
-	/**/ dl_array_init(currentAssemblyTreeNode, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
-	// e = dl_array_pushElement(currentAssemblyTreeNode, dl_null);
-	// if (e) {
-	// 	goto l_cleanup;
-	// }
-	// assemblyTreeRoot = &currentAssemblyTreeNode;
+	currentExpression.type = ast_compoundExpression_type_expression;
+	currentExpression.value.expression.compoundExpressions = &astCompoundexpression;
+	currentExpression.value.expression.compoundExpressions_length = 1;
 	
-	do {
+	assemblyTreeRoot = currentNode = nodeArray.elements_length; // 0
+	tempNode.instructionObjects = dl_null;
+	tempNode.instructionObjects_length = 0;
+	tempNode.nodes = dl_null;
+	tempNode.nodes_length = 0;
+	e = dl_array_pushElement(&nodeArray, &tempNode);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	while (dl_true) {
 		// Now that the subexpressions cannot change (generator has returned), push them onto the stack.
 		for (dl_ptrdiff_t j = currentExpression.value.expression.compoundExpressions_length - 1; j >= 0; --j) {
 			if (currentExpression.value.expression.compoundExpressions[j].type == ast_compoundExpression_type_expression) {
 				
-				// Create child and push in tree.
-				/**/ dl_array_init(&tempArray, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
-				e = dl_array_pushElement(currentAssemblyTreeNode, &tempArray);
-				if (e) {
-					goto l_cleanup;
-				}
-				/* Push the address of the new node on the stack. We are now traversing the section of the tree we just
-				   created. */
-				tempArrayPointer = &DL_ARRAY_GETTOPADDRESS(*currentAssemblyTreeNode, dl_array_t);
-				e = dl_array_pushElement(&assemblyStack, &tempArrayPointer);
+				// Create child and push into the node array.
+				tempNode.instructionObjects = dl_null;
+				tempNode.instructionObjects_length = 0;
+				tempNode.nodes_length = 0;
+				tempNode.nodes = dl_null;
+				e = dl_array_pushElement(&nodeArray, &tempNode);
 				if (e) {
 					goto l_cleanup;
 				}
 				
+				// Push the node into the tree.
+				// Notice how `#define`s are unscoped. This could be nice in Hanabi. I could also create a `let-m` instead.
+#ifdef CURRENTNODE
+#error CURRENTNODE should not have been defined.
+#endif
+#define CURRENTNODE DL_ARRAY_GETADDRESS(nodeArray, node_t, currentNode)
+
+				e = dl_realloc(&duckLisp->memoryAllocation, (void **) &CURRENTNODE.nodes,
+				               (CURRENTNODE.nodes_length + 1) * sizeof(node_t));
+				if (e) {
+					goto l_cleanup;
+				}
+				CURRENTNODE.nodes[CURRENTNODE.nodes_length] = nodeArray.elements_length - 1;
+				CURRENTNODE.nodes_length++;
+				
+				/* Push the address of the new node on the stack. We are now traversing the section of the tree we just
+				   created. */
+				e = dl_array_pushElement(&nodeStack, &nodeArray.elements_length); // Need to `--` later.
+				if (e) {
+					goto l_cleanup;
+				}
+
 				// Push arguments.
 				e = dl_array_pushElement(&expressionStack, &currentExpression.value.expression.compoundExpressions[j]);
 				if (e) {
@@ -2292,10 +2325,15 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 			}
 		}
 		
-		e = dl_array_popElement(&assemblyStack, &currentAssemblyTreeNode);
+		if (expressionStack.elements_length <= 0) {
+			break;
+		}
+		
+		e = dl_array_popElement(&nodeStack, &currentNode);
 		if (e) {
 			goto l_cleanup;
 		}
+		--currentNode;
 		
 		e = dl_array_popElement(&expressionStack, &currentExpression);
 		if (e) {
@@ -2400,115 +2438,117 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 		}
 		/* Important note: The generator has the freedom to rearrange its portion of the AST. This allows generators
 		   much more freedom in optimizing code. */
-		
-		// e = dl_array_pushElement(&instructionList, &assembly);
-		// if (e) {
-		// 	goto l_cleanup;
-		// }
-		e = dl_array_pushElement(currentAssemblyTreeNode, &assembly);
-		if (e) {
-			goto l_cleanup;
-		}
-	} while (expressionStack.elements_length > 0);
+
+		CURRENTNODE.instructionObjects = assembly.elements;
+		CURRENTNODE.instructionObjects_length = assembly.elements_length;
+	}
 	
 	// Expand tree.
-	e = dl_array_clear(&assemblyStack);
+	e = dl_array_clear(&nodeStack);
 	if (e) {
 		goto l_cleanup;
 	}
-	currentAssemblyTreeNode = &assemblyTreeRoot;
-	do {
-		e = dl_array_pushElements(&instructionList,
-		                          ((duckLisp_instructionObject_t *) ((dl_array_t *) currentAssemblyTreeNode->elements)[0].elements),
-		                          ((dl_array_t *) currentAssemblyTreeNode->elements)[0].elements_length);
+	// currentAssemblyTreeNode = &assemblyTreeRoot;
+	currentNode = assemblyTreeRoot;
+	while (dl_true) {
+		// Append instructions to instruction list.
+		e = dl_array_pushElements(&instructionList, CURRENTNODE.instructionObjects,
+		                          CURRENTNODE.instructionObjects_length);
 		if (e) {
 			goto l_cleanup;
 		}
 		
 		// Push nodes.
-		for (dl_ptrdiff_t j = 1; j < currentAssemblyTreeNode->elements_length; j++) {
-			tempArrayPointer = &DL_ARRAY_GETTOPADDRESS(*currentAssemblyTreeNode, dl_array_t);
-			e = dl_array_pushElement(&assemblyStack, &tempArrayPointer);
+		for (dl_ptrdiff_t j = 0; j < CURRENTNODE.nodes_length; j++) {
+			// tempArrayPointer = &DL_ARRAY_GETADDRESS(*currentAssemblyTreeNode, dl_array_t, j);
+			e = dl_array_pushElement(&nodeStack, &CURRENTNODE.nodes[j]);
 			if (e) {
 				goto l_cleanup;
 			}
 		}
-		// Free Parent.
-		e = dl_array_quit(currentAssemblyTreeNode);
-		if (e) {
-			goto l_cleanup;
+		// Done?
+		if (nodeStack.elements_length <= 0) {
+			break;
 		}
 		// Next node.
-		e = dl_array_popElement(&assemblyStack, &currentAssemblyTreeNode);
+		e = dl_array_popElement(&nodeStack, &currentNode);
 		if (e) {
 			goto l_cleanup;
 		}
-	} while (assemblyStack.elements_length > 0);
-	// There may be one array that wasn't freed here.
+	}
+#undef CURRENTNODE
 	
 	// Print list.
 	printf("\n");
-	for (dl_ptrdiff_t i = 0; i < instructionList.elements_length; i++) {
-		assembly = ((dl_array_t *) instructionList.elements)[i];
-		printf("[\n");
-		duckLisp_instructionObject_t io;
-		for (dl_ptrdiff_t j = 0; j < assembly.elements_length; j++) {
-			io = ((duckLisp_instructionObject_t *) assembly.elements)[j];
-			printf("    {\n");
-			printf("        Instruction class: %s\n",
-				(char *[5]){
-					"nop",
-					"pushString",
-					"pushInteger",
-					"pushIndex",
-					"ccall",
-				}[io.instructionClass]);
-			printf("        [\n");
-			duckLisp_instructionArg_t ia;
-			for (dl_ptrdiff_t k = 0; k < io.args.elements_length; k++) {
-				ia = ((duckLisp_instructionArg_t *) io.args.elements)[k];
-				printf("            {\n");
-				printf("                Type: %s\n",
-					(char *[4]){
-						"none",
-						"integer",
-						"index",
-						"string",
-					}[ia.type]);
-				printf("                Value: ");
-				switch (ia.type) {
-				case duckLisp_instructionArg_type_none:
-					printf("None\n");
-					break;
-				case duckLisp_instructionArg_type_integer:
-					printf("%i\n", ia.value.integer);
-					break;
-				case duckLisp_instructionArg_type_index:
-					printf("%llu\n", ia.value.index);
-					break;
-				case duckLisp_instructionArg_type_string:
-					printf("\"");
-					for (dl_ptrdiff_t m = 0; m < ia.value.string.value_length; m++) {
-						putchar(ia.value.string.value[m]);
-					}
-					printf("\"\n");
-					break;
-				default:
-					printf("                Undefined type.\n");
+	
+	duckLisp_instructionObject_t io;
+	for (dl_ptrdiff_t j = 0; j < instructionList.elements_length; j++) {
+		io = ((duckLisp_instructionObject_t *) instructionList.elements)[j];
+		printf("{\n");
+		printf("    Instruction class: %s\n",
+			(char *[5]){
+				"nop",
+				"pushString",
+				"pushInteger",
+				"pushIndex",
+				"ccall",
+			}[io.instructionClass]);
+		printf("    [\n");
+		duckLisp_instructionArg_t ia;
+		for (dl_ptrdiff_t k = 0; k < io.args.elements_length; k++) {
+			ia = ((duckLisp_instructionArg_t *) io.args.elements)[k];
+			printf("        {\n");
+			printf("            Type: %s\n",
+				(char *[4]){
+					"none",
+					"integer",
+					"index",
+					"string",
+				}[ia.type]);
+			printf("            Value: ");
+			switch (ia.type) {
+			case duckLisp_instructionArg_type_none:
+				printf("None\n");
+				break;
+			case duckLisp_instructionArg_type_integer:
+				printf("%i\n", ia.value.integer);
+				break;
+			case duckLisp_instructionArg_type_index:
+				printf("%llu\n", ia.value.index);
+				break;
+			case duckLisp_instructionArg_type_string:
+				printf("\"");
+				for (dl_ptrdiff_t m = 0; m < ia.value.string.value_length; m++) {
+					putchar(ia.value.string.value[m]);
 				}
-				printf("            }\n");
+				printf("\"\n");
+				break;
+			default:
+				printf("            Undefined type.\n");
 			}
-			printf("        ]\n");
-			printf("    }\n");
+			printf("        }\n");
 		}
-		printf("]\n");
+		printf("    ]\n");
+		printf("}\n");
 	}
 	
 	l_cleanup:
 	
 	putchar('\n');
 	
-	eError = dl_array_quit(&assemblyStack);
+	DL_ARRAY_FOREACH(tempNode, nodeArray, {
+		break;
+	}, {
+		if (tempNode.nodes != dl_null) {
+			eError = dl_free(&duckLisp->memoryAllocation, (void **) &tempNode.nodes);
+			if (eError) {
+				e = eError;
+				break;
+			}
+		}
+	})
+	
+	eError = dl_array_quit(&nodeStack);
 	if (eError) {
 		e = eError;
 	}
