@@ -1644,7 +1644,15 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp, duckLisp
 		e = ast_generate_identifier(duckLisp, &compoundExpression->value.identifier, compoundExpressionCST.value.identifier, throwErrors);
 		break;
 	case ast_compoundExpression_type_expression:
-		e = ast_generate_expression(duckLisp, &compoundExpression->value.expression, compoundExpressionCST.value.expression, throwErrors);
+		if (compoundExpressionCST.value.expression.compoundExpressions_length == 0) {
+			compoundExpression->type = ast_compoundExpression_type_constant;
+			compoundExpression->value.constant.type = ast_constant_type_number;
+			compoundExpression->value.constant.value.number.type = ast_number_type_int;
+			compoundExpression->value.constant.value.number.value.integer.value = 0;
+		}
+		else e = ast_generate_expression(duckLisp, &compoundExpression->value.expression,
+		                                 compoundExpressionCST.value.expression, throwErrors);
+		
 		break;
 	default:
 		e = dl_error_shouldntHappen;
@@ -2210,6 +2218,16 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 	return e;
 }
 
+dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	
+	// Insert code here.
+	
+	// l_cleanup:
+	
+	return e;
+}
+
 /*
 =======
 Compile
@@ -2252,6 +2270,12 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	dl_array_t nodeStack; // dl_ptrdiff_t
 	/**/ dl_array_init(&nodeStack, &duckLisp->memoryAllocation, sizeof(dl_ptrdiff_t), dl_array_strategy_double);
 	dl_ptrdiff_t currentNode = -1;
+	
+	
+	/* * * * * *
+	 * Compile *
+	 * * * * * */
+	
 	
 	putchar('\n');
 	
@@ -2429,6 +2453,10 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 			break;
 		case ast_compoundExpression_type_expression:
 			// Run expression generator.
+			e = duckLisp_generator_expression(duckLisp, &assembly, &currentExpression.value.expression);
+			if (e) {
+				goto l_cleanup;
+			}
 			break;
 		default:
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid compound expression type. Can't happen."));
@@ -2538,6 +2566,43 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 		printf("}\n");
 	}
 	
+	
+	/** * * * * *
+	 * Assemble *
+	 * * * * * **/
+	
+	
+	for (dl_ptrdiff_t i = 0; i < instructionList.elements_length; i++) {
+		dl_array_t instructions = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i);
+		for (dl_ptrdiff_t j = 0; j < instructions.elements_length; j++) {
+			duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(instructionList, duckLisp_instructionObject_t, j);
+			switch (instruction.instructionClass) {
+			case duckLisp_instructionClass_nop:
+				// Finish later. We probably don't need it.
+				break;
+			case duckLisp_instructionClass_pushIndex:
+				break;
+			case duckLisp_instructionClass_pushInteger:
+				break;
+			case duckLisp_instructionClass_pushString:
+				break;
+			case duckLisp_instructionClass_ccall:
+				break;
+			default:
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid instruction class. Aborting."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+		}
+	}
+	
+	
+	/* * * * * *
+	 * Cleanup *
+	 * * * * * */
+	
 	l_cleanup:
 	
 	putchar('\n');
@@ -2559,10 +2624,11 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 		e = eError;
 	}
 	
-	eError = dl_array_quit(&assembly);
-	if (eError) {
-		e = eError;
-	}
+	// I don't think this should ever be freed here.
+	// eError = dl_array_quit(&assembly);
+	// if (eError) {
+	// 	e = eError;
+	// }
 	
 	eError = dl_array_quit(&expressionStack);
 	if (eError) {
