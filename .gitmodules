@@ -1,0 +1,3 @@
+[submodule "DuckLib"]
+	path = DuckLib
+	url = https://github.com/oituzjoey/DuckLib

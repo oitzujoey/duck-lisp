@@ -1,5 +1,4 @@
 .vscode
-DuckLib
 vgcore.*
 build
 memory-dev-fuzz
