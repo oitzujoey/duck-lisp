@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	
-	srand(time(NULL));
+	srand((unsigned int) time(NULL));
 	
 	for (unsigned long long k = 0; k < iterations; k++) {
 	
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 					// Check for equality.
 					for (size_t j = 0; j < memories_lengths[randomNumbers[1]]; j++) {
 						if ( malloc_memories[randomNumbers[1]][j] != memories[randomNumbers[1]][j]) {
-							printf("0x%X\n", memoryAllocation.memory);
+							printf("0x%llX\n", (long long) memoryAllocation.memory);
 							printf("%llu %u %u %u\n", i, randomNumbers[0], randomNumbers[1], randomNumbers[2]);
 							printf("Failed: Malloc byte %zu:%zu/%zu = %u while dl_malloc byte %zu:%zu/%zu = %u\n",
 								randomNumbers[1], j, memories_lengths[randomNumbers[1]], malloc_memories[randomNumbers[1]][j],
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
 				
 				error = dl_realloc(&memoryAllocation, &((void **) memories)[randomNumbers[1]], randomNumbers[2]);
 				if (error) {
-					printf("0x%X\n", memoryAllocation.memory);
+					printf("0x%llX\n", (long long) memoryAllocation.memory);
 					printf("%llu %u %u %u\n", i, randomNumbers[0], randomNumbers[1], randomNumbers[2]);
 					printf("dl_realloc: Out of memory. (%s)\n", dl_errorString[error]);
 					dl_memory_printMemoryAllocation(memoryAllocation);
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 				}
 				malloc_memories[randomNumbers[1]] = realloc(malloc_memories[randomNumbers[1]], randomNumbers[2]);
 				if (malloc_memories[randomNumbers[1]] == NULL) {
-					printf("0x%X\n", memoryAllocation.memory);
+					printf("0x%llX\n", (long long) memoryAllocation.memory);
 					printf("%llu %u %u %u\n", i, randomNumbers[0], randomNumbers[1], randomNumbers[2]);
 					printf("remalloc: Out of memory. (%s)\n", dl_errorString[error]);
 					error = dl_error_outOfMemory;

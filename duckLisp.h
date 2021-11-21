@@ -7,16 +7,6 @@
 #include "DuckLib/array.h"
 #include "DuckLib/trie.h"
 
-#if defined(_WIN32)
-#  if defined(EXPORTING_DUCKLISP)
-#    define DECLSPEC __declspec(dllexport)
-#  else
-#    define DECLSPEC __declspec(dllimport)
-#  endif
-#else // non windows
-#  define DECLSPEC
-#endif
-
 /*
 node
 	nodes_indices
