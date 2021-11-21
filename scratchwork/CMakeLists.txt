@@ -10,13 +10,8 @@ add_executable(duckLisp-dev duckLisp-dev.c)
 add_executable(trie-dev trie-dev.c)
 
 target_link_libraries(memory-dev PUBLIC DuckLib)
-target_link_libraries(duckLisp-dev PUBLIC DuckLisp PUBLIC DuckLib)
+target_link_libraries(duckLisp-dev PUBLIC DuckLisp DuckLib)
 target_link_libraries(trie-dev PUBLIC DuckLib)
-
-# target_include_directories(memory-dev PUBLIC
-# 	"${PROJECT_BINARY_DIR}"
-# 	"${PROJECT_BINARY_DIR}/../DuckLib"
-# )
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
