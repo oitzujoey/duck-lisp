@@ -270,12 +270,6 @@ typedef struct duckLisp_object_s {
 	duckLisp_object_type_t type;
 } duckLisp_object_t;
 
-// Max number of instructions must be 256.
-typedef enum {
-	duckLisp_instruction_nop = 0,
-	duckLisp_instruction_pushString,
-} duckLisp_instruction_t;
-
 typedef enum {
 	duckLisp_instructionClass_nop = 0,
 	duckLisp_instructionClass_pushString,
@@ -284,10 +278,35 @@ typedef enum {
 	duckLisp_instructionClass_ccall,
 } duckLisp_instructionClass_t;
 
+// Max number of instructions must be 256.
+typedef enum {
+	duckLisp_instruction_nop = 0,
+	duckLisp_instruction_pushString8,
+	duckLisp_instruction_pushString16,
+	duckLisp_instruction_pushInteger8,
+	duckLisp_instruction_pushInteger16,
+	duckLisp_instruction_pushInteger32,
+	duckLisp_instruction_pushIndex8,
+	duckLisp_instruction_pushIndex16,
+	duckLisp_instruction_pushIndex32,
+	duckLisp_instruction_ccall8,
+	duckLisp_instruction_ccall16,
+	duckLisp_instruction_ccall32,
+} duckLisp_instruction_t;
+
+typedef enum {
+	duckLisp_instructionArgClass_type_none,
+	duckLisp_instructionArgClass_type_integer,
+	duckLisp_instructionArgClass_type_index,
+	duckLisp_instructionArgClass_type_string,
+} duckLisp_instructionArgClass_type_t;
+
 typedef enum {
 	duckLisp_instructionArg_type_none,
-	duckLisp_instructionArg_type_integer,
-	duckLisp_instructionArg_type_index,
+	duckLisp_instructionArg_type_integer8,
+	duckLisp_instructionArg_type_integer16,
+	duckLisp_instructionArg_type_index8,
+	duckLisp_instructionArg_type_index16,
 	duckLisp_instructionArg_type_string,
 } duckLisp_instructionArg_type_t;
 
@@ -300,8 +319,8 @@ typedef struct duckLisp_instructionArgs_s {
 			dl_size_t value_length;
 		} string;
 	} value;
-	duckLisp_instructionArg_type_t type;
-} duckLisp_instructionArg_t;
+	duckLisp_instructionArgClass_type_t type;
+} duckLisp_instructionArgClass_t;
 
 typedef struct duckLisp_instructionObject_s {
 	duckLisp_instructionClass_t instructionClass;
