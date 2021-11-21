@@ -2616,7 +2616,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.index >> 8*n) && 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.index >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
@@ -2647,7 +2647,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) && 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
@@ -2678,7 +2678,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) && 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
@@ -2723,7 +2723,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) && 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
