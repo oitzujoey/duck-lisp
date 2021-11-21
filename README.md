@@ -14,3 +14,5 @@ mkdir build && cd build
 cmake ..
 cmake --build .
 ```
+
+To build with shared libraries, configure the project with `cmake .. -DBUILD_SHARED_LIBS=ON` instead of `cmake ..`.
