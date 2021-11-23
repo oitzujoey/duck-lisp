@@ -236,6 +236,17 @@ int main(int argc, char *argv[]) {
 		}
 		puts("^");
 	}
+
+
+	// Print bytecode in hex.
+	for (dl_ptrdiff_t i = 0; i < duckLisp.bytecode.elements_length; i++) {
+		unsigned char byte = DL_ARRAY_GETADDRESS(duckLisp.bytecode, unsigned char, i);
+		putchar(dl_nybbleToHexChar(byte));
+		putchar(dl_nybbleToHexChar(byte >> 4));
+	}
+	putchar('\n');
+	putchar('\n');
+	
 	
 	puts("Scope 0: variables");
 	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].variables_trie);

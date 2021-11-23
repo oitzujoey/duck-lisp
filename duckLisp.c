@@ -2234,7 +2234,7 @@ Compile
 =======
 */
 
-static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t astCompoundexpression) {
+static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_ast_compoundExpression_t astCompoundexpression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -2271,8 +2271,8 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 	/**/ dl_array_init(&nodeStack, &duckLisp->memoryAllocation, sizeof(dl_ptrdiff_t), dl_array_strategy_double);
 	dl_ptrdiff_t currentNode = -1;
 	
-	dl_array_t bytecode; // unsigned char
-	/**/ dl_array_init(&bytecode, &duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
+	// dl_array_t bytecode; // unsigned char
+	/**/ dl_array_init(bytecode, &duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
 	
 	
 	/* * * * * *
@@ -2743,25 +2743,17 @@ static dl_error_t compile(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_
 			}
 			
 			// Write instruction.
-			e = dl_array_pushElement(&bytecode, dl_null);
+			e = dl_array_pushElement(bytecode, dl_null);
 			if (e) {
 				goto l_cleanup;
 			}
-			DL_ARRAY_GETTOPADDRESS(bytecode, unsigned char) = currentInstruction & 0xFFU;
-			e = dl_array_pushElements(&bytecode, currentArgs.elements, currentArgs.elements_length);
+			DL_ARRAY_GETTOPADDRESS(*bytecode, unsigned char) = currentInstruction & 0xFFU;
+			e = dl_array_pushElements(bytecode, currentArgs.elements, currentArgs.elements_length);
 			if (e) {
 				goto l_cleanup;
 			}
 		}
 	}
-	
-	putchar('\n');
-	for (dl_ptrdiff_t i = 0; i < bytecode.elements_length; i++) {
-		unsigned char byte = DL_ARRAY_GETADDRESS(bytecode, unsigned char, i);
-		putchar(dl_nybbleToHexChar(byte));
-		putchar(dl_nybbleToHexChar(byte >> 4));
-	}
-	putchar('\n');
 	
 	
 	/* * * * * *
@@ -2891,6 +2883,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 	duckLisp_scope_t scope;
 	duckLisp_ast_compoundExpression_t ast;
 	duckLisp_cst_compoundExpression_t cst;
+	dl_array_t bytecode;
 	
 	/**/ cst_compoundExpression_init(&cst);
 	/**/ ast_compoundExpression_init(&ast);
@@ -2940,7 +2933,13 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 	
 	/* Compile AST to bytecode. */
 	
-	e = compile(duckLisp, ast);
+	e = compile(duckLisp, &bytecode, ast);
+	if (e) {
+		goto l_cleanup;
+	}
+
+	/* Push fresh bytecode onto the end of the current bytecode. */
+	e = dl_array_pushElements(&duckLisp->bytecode, bytecode.elements, bytecode.elements_length);
 	if (e) {
 		goto l_cleanup;
 	}
