@@ -23,7 +23,9 @@ target_include_directories(DuckLib PUBLIC
 set_target_properties(DuckLib PROPERTIES
                       POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}
                       )
+                      
+target_compile_definitions(DuckLib PUBLIC "EXPORTING_DUCKLIB")
 
 target_link_libraries(DuckLisp PUBLIC DuckLib)
 
-target_compile_definitions(DuckLisp PRIVATE "EXPORTING_DUCKLISP")
+target_compile_definitions(DuckLisp PUBLIC "EXPORTING_DUCKLISP")

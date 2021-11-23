@@ -1097,11 +1097,11 @@ static dl_error_t cst_print_number(duckLisp_t duckLisp, duckLisp_cst_number_t nu
 		/**/ cst_print_float(duckLisp, number.value.floatingPoint);
 		break;
 	default:
-		printf("Number: Type %llu\n", number.type);
+		printf("Number: Type %u\n", number.type);
 		e = dl_error_shouldntHappen;
 	}
 	
-	l_cleanup:
+//	l_cleanup:
 	
 	return e;
 }
@@ -1157,7 +1157,7 @@ static dl_error_t ast_generate_number(duckLisp_t *duckLisp, duckLisp_ast_number_
 		e = dl_error_shouldntHappen;
 	}
 	
-	l_cleanup:
+//	l_cleanup:
 	
 	return e;
 }
@@ -1176,11 +1176,11 @@ static dl_error_t ast_print_number(duckLisp_t duckLisp, duckLisp_ast_number_t nu
 		/**/ ast_print_float(duckLisp, number.value.floatingPoint);
 		break;
 	default:
-		printf("Number: Type %llu\n", number.type);
+		printf("Number: Type %u\n", number.type);
 		e = dl_error_shouldntHappen;
 	}
 	
-	l_cleanup:
+//	l_cleanup:
 	
 	return e;
 }
@@ -1203,7 +1203,7 @@ static dl_error_t cst_parse_string(duckLisp_t *duckLisp, duckLisp_cst_string_t *
 	
 	dl_ptrdiff_t index = start_index;
 	dl_ptrdiff_t stop_index = start_index + length;
-	dl_bool_t tempBool;
+//	dl_bool_t tempBool;
 	
 	if (index >= stop_index) {
 		eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Zero length fragment."), index, throwErrors);
@@ -1471,7 +1471,7 @@ static dl_error_t ast_generate_constant(duckLisp_t *duckLisp, duckLisp_ast_const
 		e = dl_error_shouldntHappen;
 	}
 	
-	l_cleanup:
+//	l_cleanup:
 	
 	return e;
 }
@@ -1592,7 +1592,7 @@ static dl_error_t cst_print_compoundExpression(duckLisp_t duckLisp, duckLisp_cst
 		e = cst_print_expression(duckLisp, compoundExpression.value.expression);
 		break;
 	default:
-		printf("Compound expression: Type %llu\n", compoundExpression.type);
+		printf("Compound expression: Type %u\n", compoundExpression.type);
 		e = dl_error_shouldntHappen;
 	}
 	
@@ -1658,7 +1658,7 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp, duckLisp
 		e = dl_error_shouldntHappen;
 	}
 	
-	l_cleanup:
+//	l_cleanup:
 	
 	return e;
 }
@@ -1677,7 +1677,7 @@ static dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast
 		e = ast_print_expression(duckLisp, compoundExpression.value.expression);
 		break;
 	default:
-		printf("Compound expression: Type %llu\n", compoundExpression.type);
+		printf("Compound expression: Type %u\n", compoundExpression.type);
 		e = dl_error_shouldntHappen;
 	}
 	
@@ -1685,7 +1685,7 @@ static dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast
 }
 
 
-static dl_error_t cst_append(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *cst, const int index, dl_bool_t throwErrors) {
+static dl_error_t cst_append(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *cst, const dl_ptrdiff_t index, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	
@@ -1713,7 +1713,7 @@ static dl_error_t cst_append(duckLisp_t *duckLisp, duckLisp_cst_compoundExpressi
 	return e;
 }
 
-static dl_error_t ast_append(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *ast, duckLisp_cst_compoundExpression_t *cst, const int index,
+static dl_error_t ast_append(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *ast, duckLisp_cst_compoundExpression_t *cst, const dl_ptrdiff_t index,
                              dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1837,6 +1837,7 @@ static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp, duckLisp_funct
 	
 	duckLisp_scope_t scope;
 	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
+	dl_ptrdiff_t tempPtrdiff = -1;
 	*index = -1;
 	*functionType = duckLisp_functionType_none;
 	
@@ -1850,7 +1851,8 @@ static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp, duckLisp_funct
 			break;
 		}
 		
-		/**/ dl_trie_find(scope.functions_trie, (dl_ptrdiff_t *) functionType, name, name_length);
+		/**/ dl_trie_find(scope.functions_trie, &tempPtrdiff, name, name_length);
+		*functionType = tempPtrdiff;
 		if (*functionType != duckLisp_functionType_generator) {
 			/**/ dl_trie_find(scope.variables_trie, index, name, name_length);
 		}
@@ -2091,7 +2093,7 @@ dl_error_t duckLisp_generator_subroutine(duckLisp_t *duckLisp, dl_array_t *assem
 	// 	goto l_cleanup;
 	// }
 	
-	l_cleanup:
+//	l_cleanup:
 	
 	eError = dl_array_quit(&eString);
 	if (eError) {
@@ -2514,10 +2516,10 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	
 	dl_array_t ia;
 	duckLisp_instructionObject_t io;
-	for (dl_ptrdiff_t i = 0; i < instructionList.elements_length; i++) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < instructionList.elements_length; i++) {
 		ia = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i);
 		printf("{\n");
-		for (dl_ptrdiff_t j = 0; j < ia.elements_length; j++) {
+		for (dl_ptrdiff_t j = 0; (dl_size_t) j < ia.elements_length; j++) {
 			io = DL_ARRAY_GETADDRESS(ia, duckLisp_instructionObject_t, j);
 			printf("    {\n");
 			printf("        Instruction class: %s\n",
@@ -2530,7 +2532,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				}[io.instructionClass]);
 			printf("        [\n");
 			duckLisp_instructionArgClass_t ia;
-			for (dl_ptrdiff_t k = 0; k < io.args.elements_length; k++) {
+			for (dl_ptrdiff_t k = 0; (dl_size_t) k < io.args.elements_length; k++) {
 				ia = ((duckLisp_instructionArgClass_t *) io.args.elements)[k];
 				printf("            {\n");
 				printf("                Type: %s\n",
@@ -2553,7 +2555,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 					break;
 				case duckLisp_instructionArgClass_type_string:
 					printf("\"");
-					for (dl_ptrdiff_t m = 0; m < ia.value.string.value_length; m++) {
+					for (dl_ptrdiff_t m = 0; (dl_size_t) m < ia.value.string.value_length; m++) {
 						putchar(ia.value.string.value[m]);
 					}
 					printf("\"\n");
@@ -2580,7 +2582,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	/**/ dl_array_init(&currentArgs, &duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
 	for (dl_ptrdiff_t i = instructionList.elements_length - 1; i >= 0; --i) {
 		dl_array_t instructions = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i);
-		for (dl_ptrdiff_t j = 0; j < instructions.elements_length; j++) {
+		for (dl_ptrdiff_t j = 0; (dl_size_t) j < instructions.elements_length; j++) {
 			duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(instructions, duckLisp_instructionObject_t, j);
 			// This is OK because there is no chance of reallocating the args array.
 			duckLisp_instructionArgClass_t *args = &DL_ARRAY_GETADDRESS(instruction.args, duckLisp_instructionArgClass_t, 0);
@@ -2615,7 +2617,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 					if (e) {
 						goto l_cleanup;
 					}
-					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
+					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.index >> 8*n) & 0xFFU;
 					}
 					break;
@@ -2646,7 +2648,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 					if (e) {
 						goto l_cleanup;
 					}
-					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
+					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
@@ -2677,7 +2679,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 					if (e) {
 						goto l_cleanup;
 					}
-					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
+					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
@@ -2722,7 +2724,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 					if (e) {
 						goto l_cleanup;
 					}
-					for (dl_ptrdiff_t n = 0; n < byte_length; n++) {
+					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
@@ -2878,9 +2880,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 	// } d = {0};
 	
 	dl_ptrdiff_t index = -1;
-	char tempChar;
 	duckLisp_object_t object = {0};
-	duckLisp_scope_t scope;
 	duckLisp_ast_compoundExpression_t ast;
 	duckLisp_cst_compoundExpression_t cst;
 	dl_array_t bytecode;
