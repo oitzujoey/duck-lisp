@@ -2,3 +2,4 @@
 vgcore.*
 build
 memory-dev-fuzz
+*~
