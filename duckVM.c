@@ -1,5 +1,6 @@
 
 #include "duckVM.h"
+#include <stdio.h>
 
 dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size) {
 	dl_error_t e = dl_error_ok;
@@ -74,7 +75,11 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		case duckLisp_instruction_pushIndex8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);// + duckVM->frame_pointer;
-			e = dl_array_pushElement(&duckVM->stack, &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, ptrdiff1));
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) {
+				break;
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object1);
 			break;
 
 		case duckLisp_instruction_call32:

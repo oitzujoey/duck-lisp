@@ -217,8 +217,10 @@ typedef enum {
 
 typedef struct {
 	// All variable names in the current scope are stored here.
-	dl_trie_t variables_trie;   // Points to stack objects.
-	dl_size_t variables_length;
+	dl_trie_t locals_trie;   // Points to stack objects.
+	dl_size_t locals_length;
+	dl_trie_t statics_trie;   // Points to static objects.
+	dl_size_t statics_length;
 	dl_trie_t functions_trie;
 	dl_size_t functions_length;
 	dl_trie_t generators_trie;  // Points to generator stack callbacks.

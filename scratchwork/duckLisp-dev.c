@@ -33,6 +33,59 @@ dl_error_t duckLispDev_callback_printString(duckVM_t *duckVM) {
 	return e;
 }
 
+dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	
+	duckLisp_object_t tempObject;
+	
+	DL_ARRAY_FOREACH(tempObject, duckVM->stack, {
+		goto l_cleanup;
+	}, {
+		printf("%lli: ", dl_array_i);
+		switch (tempObject.type) {
+		case duckLisp_object_type_bool:
+			puts(tempObject.value.boolean ? "true" : "false");
+			break;
+		case duckLisp_object_type_integer:
+			printf("%llu\n", tempObject.value.integer);
+			break;
+		case duckLisp_object_type_float:
+			printf("%f\n", tempObject.value.floatingPoint);
+			break;
+		case duckLisp_object_type_function:
+			if (tempObject.value.function.bytecode != dl_null) {
+				printf("bytecode<%llu>\n", (unsigned long long) tempObject.value.function.bytecode);
+			}
+			else {
+			printf("callback<%llu>\n", (unsigned long long) tempObject.value.function.callback);
+			}
+			break;
+		case duckLisp_object_type_string:
+			putchar('"');
+			for (dl_ptrdiff_t k = 0; k < tempObject.value.string.value_length; k++) {
+				switch (tempObject.value.string.value[k]) {
+				case '\n':
+					putchar('\\');
+					putchar('n');
+					break;
+				default:
+					putchar(tempObject.value.string.value[k]);
+				}
+			}
+			putchar('"');
+			putchar('\n');
+			break;
+		default:
+			printf("Bad object type %u.\n", tempObject.type);
+		}
+	})
+	putchar('\n');
+	
+	l_cleanup:
+	
+	return e;
+}
+
 /*
 dl_error_t duckLisp_generator_functionCall(duckLisp_t *duckLisp) {
 	dl_error_t e = dl_error_ok;
@@ -154,7 +207,7 @@ int main(int argc, char *argv[]) {
 	size_t scriptHandles_lengths[3] = {
 		11
 	};
-	const char source0[] = "((string s \"Hello, world!\") (print-string s))";
+	const char source0[] = "((string s \"Hello, world!\n\") (print-string s) (print-stack))";
 	// const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
 	// const char source0[] = "((string s7 \"7\") (print-string s7) ((string s3 \"3\") (print-string s3) ((string s1 \"1\") (print-string s1)) ((string s2 \"2\") (print-string s2))) ((string s6 \"6\") (print-string s6) ((string s4 \"4\") (print-string s4)) ((string s5 \"5\") (print-string s5))))";
 	// const char source0[] = "((string s7 \"7\") (print-string s7) ((string s3 \"3\") (print-string s3) ((string s1 \"1\") (print-string s1)) ((string s2 \"2\") (print-string s2))) ((string s6 \"6\") (print-string s6) ((string s4 \"4\") (print-string s4)) ((string s5 \"5\") (print-string s5))))";
@@ -167,6 +220,7 @@ int main(int argc, char *argv[]) {
 	duckVM_t duckVM;
 	unsigned char *bytecode = dl_null;
 	dl_size_t bytecode_length = 0;
+	duckLisp_object_t tempObject;
 	
 	/* Initialization. */
 	
@@ -203,6 +257,13 @@ int main(int argc, char *argv[]) {
 		printf("Could not create function. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;
 	}
+	
+	e = duckLisp_linkCFunction(&duckLisp, &printString_index, DL_STR("print-stack"));
+	if (e) {
+		printf("Could not create function. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
 	
 	/* Compile functions. */
 	
@@ -256,8 +317,10 @@ int main(int argc, char *argv[]) {
 	putchar('\n');
 	
 	
-	puts("Scope 0: variables");
-	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].variables_trie);
+	puts("Scope 0: locals");
+	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].locals_trie);
+	puts("Scope 0: statics");
+	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].statics_trie);
 	puts("Scope 0: generators");
 	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].generators_trie);
 	puts("Scope 0: functions (1: callback  2: script  3: generator)");
@@ -295,10 +358,19 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	
+	e = duckVM_linkCFunction(&duckVM, 1, duckLispDev_callback_printStack);
+	if (e) {
+		printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
+	putchar('\n');
+	
 	e = duckVM_execute(&duckVM, &DL_ARRAY_GETADDRESS(duckLisp.bytecode, unsigned char, 0));
 	if (e) {
 		goto l_cleanup;
 	}
+	putchar('\n');
 
 	// e = duckVM_call(&duckVM, helloWorld_index);
 	// if (e) {

@@ -1331,12 +1331,18 @@ static void ast_print_string(duckLisp_t duckLisp, duckLisp_ast_string_t string) 
 	
 	putchar('"');
 	for (dl_size_t i = 0; i < string.value_length; i++) {
-		switch (string.value[i]) {
-		case '"':
-		case '\\':
-			putchar('\\');
+		if (string.value[i] == '\n') {
+			putchar ('\\');
+			putchar ('n');
 		}
-		putchar(string.value[i]);
+		else {
+			switch (string.value[i]) {
+			case '"':
+			case '\\':
+				putchar('\\');
+			}
+			putchar(string.value[i]);
+		}
 	}
 	putchar('"');
 }
@@ -1749,8 +1755,10 @@ Scope
 */
 
 static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
-	/**/ dl_trie_init(&scope->variables_trie, &duckLisp->memoryAllocation, -1);
-	scope->variables_length = 0;
+	/**/ dl_trie_init(&scope->locals_trie, &duckLisp->memoryAllocation, -1);
+	scope->locals_length = 0;
+	/**/ dl_trie_init(&scope->statics_trie, &duckLisp->memoryAllocation, -1);
+	scope->statics_length = 0;
 	/**/ dl_trie_init(&scope->generators_trie, &duckLisp->memoryAllocation, -1);
 	scope->generators_length = 0;
 	/**/ dl_trie_init(&scope->functions_trie, &duckLisp->memoryAllocation, -1);
@@ -1779,34 +1787,7 @@ static dl_error_t scope_setTop(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	return dl_array_set(&duckLisp->scope_stack, scope, duckLisp->scope_stack.elements_length - 1);
 }
 
-// static dl_error_t scope_getObjectFromName(duckLisp_t *duckLisp, duckLisp_object_t *object, const char *name, const dl_size_t name_length) {
-// 	dl_error_t e = dl_error_ok;
-	
-// 	duckLisp_scope_t scope;
-// 	dl_ptrdiff_t index = -1;
-// 	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
-	
-// 	while (dl_true) {
-// 		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
-// 		if (e) {
-// 			if (e == dl_error_invalidValue) {
-// 				object->type = duckLisp_object_type_none;
-// 				e = dl_error_ok;
-// 			}
-// 			break;
-// 		}
-		
-// 		/**/ dl_trie_find(scope.variables_trie, &index, name, name_length);
-// 		if (index != -1) {
-// 			e = dl_array_get(&duckLisp->stack, (void *) object, index);
-// 			break;
-// 		}
-// 	}
-	
-// 	return e;
-// }
-
-static dl_error_t scope_getObjectIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length) {
+static dl_error_t scope_getLocalIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 	
 	duckLisp_scope_t scope;
@@ -1823,7 +1804,33 @@ static dl_error_t scope_getObjectIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_
 			break;
 		}
 		
-		/**/ dl_trie_find(scope.variables_trie, index, name, name_length);
+		/**/ dl_trie_find(scope.locals_trie, index, name, name_length);
+		if (*index != -1) {
+			break;
+		}
+	}
+	
+	return e;
+}
+
+static dl_error_t scope_getStaticIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length) {
+	dl_error_t e = dl_error_ok;
+	
+	duckLisp_scope_t scope;
+	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
+	
+	*index = -1;
+	
+	while (dl_true) {
+		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
+		if (e) {
+			if (e == dl_error_invalidValue) {
+				e = dl_error_ok;
+			}
+			break;
+		}
+		
+		/**/ dl_trie_find(scope.statics_trie, index, name, name_length);
 		if (*index != -1) {
 			break;
 		}
@@ -1852,9 +1859,13 @@ static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp, duckLisp_funct
 		}
 		
 		/**/ dl_trie_find(scope.functions_trie, &tempPtrdiff, name, name_length);
+		if (tempPtrdiff == -1) {
+			// Failure.
+			break;
+		}
 		*functionType = tempPtrdiff;
 		if (*functionType != duckLisp_functionType_generator) {
-			/**/ dl_trie_find(scope.variables_trie, index, name, name_length);
+			/**/ dl_trie_find(scope.statics_trie, index, name, name_length);
 		}
 		else {
 			/**/ dl_trie_find(scope.generators_trie, index, name, name_length);
@@ -2164,7 +2175,7 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 	// 	goto l_cleanup;
 	// }
 	
-	e = scope_getObjectIndexFromName(duckLisp, &callback_index,
+	e = scope_getStaticIndexFromName(duckLisp, &callback_index,
 	                                 expression->compoundExpressions[0].value.constant.value.string.value,
 	                                 expression->compoundExpressions[0].value.constant.value.string.value_length);
 	if (e || callback_index == -1) {
@@ -2179,7 +2190,7 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 	for (int i = 1; i < expression->compoundExpressions_length; i++) {
 		switch (expression->compoundExpressions[i].type) {
 		case ast_compoundExpression_type_identifier:
-			e = scope_getObjectIndexFromName(duckLisp, &argument_index,
+			e = scope_getLocalIndexFromName(duckLisp, &argument_index,
 			                                 expression->compoundExpressions[i].value.constant.value.string.value,
 			                                 expression->compoundExpressions[i].value.constant.value.string.value_length);
 			if (e || argument_index == -1) {
@@ -2556,7 +2567,14 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				case duckLisp_instructionArgClass_type_string:
 					printf("\"");
 					for (dl_ptrdiff_t m = 0; (dl_size_t) m < ia.value.string.value_length; m++) {
-						putchar(ia.value.string.value[m]);
+						switch (ia.value.string.value[m]) {
+						case '\n':
+							putchar('\\');
+							putchar('n');
+							break;
+						default:
+							putchar(ia.value.string.value[m]);
+						}
 					}
 					printf("\"\n");
 					break;
@@ -2971,11 +2989,11 @@ dl_error_t duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *name, cons
 		goto l_cleanup;
 	}
 	
-	e = dl_trie_insert(&scope.variables_trie, name, name_length, scope.variables_length);
+	e = dl_trie_insert(&scope.locals_trie, name, name_length, scope.locals_length);
 	if (e) {
 		goto l_cleanup;
 	}
-	scope.variables_length++;
+	scope.locals_length++;
 	
 	e = scope_setTop(duckLisp, &scope);
 	if (e) {
@@ -3036,18 +3054,18 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, con
 	if (e) {
 		goto l_cleanup;
 	}
-
+	
 	// Record function type in function trie.
 	e = dl_trie_insert(&scope.functions_trie, name, name_length, duckLisp_functionType_c);
 	if (e) {
 		goto l_cleanup;
 	}
 	// Record the VM stack index.
-	e = dl_trie_insert(&scope.variables_trie, name, name_length, scope.variables_length);
+	e = dl_trie_insert(&scope.statics_trie, name, name_length, scope.statics_length);
 	if (e) {
 		goto l_cleanup;
 	}
-	scope.variables_length++;
+	scope.statics_length++;
 
 	e = scope_setTop(duckLisp, &scope);
 	if (e) {
@@ -3058,50 +3076,3 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, con
 
 	return e;
 }
-
-// /*
-// Creates an object in the current scope.
-// */
-// dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object) {
-// 	dl_error_t e = dl_error_ok;
-	
-// 	// Push object on the stack.
-// 	e = dl_array_pushElement(&duckLisp->stack, (void *) &object);
-// 	if (e) {
-// 		goto l_cleanup;
-// 	}
-	
-// 	// Stick name and index in the current scope's trie.
-// 	e = duckLisp_scope_addObjectName(duckLisp, name, name_length);
-// 	if (e) {
-// 		goto l_cleanup;
-// 	}
-	
-// 	l_cleanup:
-	
-// 	return e;
-// }
-
-// /*
-// Creates a generator in the current scope.
-// */
-// dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length,
-//                                   const dl_error_t(*generator)(duckLisp_t*, const duckLisp_ast_expression_t)) {
-// 	dl_error_t e = dl_error_ok;
-	
-// 	// Push object on the stack.
-// 	e = dl_array_pushElement(&duckLisp->generators_stack, (void *) generator);
-// 	if (e) {
-// 		goto l_cleanup;
-// 	}
-	
-// 	// Stick name and index in the current scope's generator trie.
-// 	e = duckLisp_scope_addGeneratorName(duckLisp, name, name_length);
-// 	if (e) {
-// 		goto l_cleanup;
-// 	}
-	
-// 	l_cleanup:
-	
-// 	return e;
-// }
