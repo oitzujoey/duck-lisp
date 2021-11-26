@@ -3,28 +3,30 @@
 #include <stdio.h>
 #include "../DuckLib/core.h"
 #include "../duckLisp.h"
+#include "../duckVM.h"
 
-dl_error_t duckLispDev_callback_printString(duckLisp_t *duckLisp) {
+dl_error_t duckLispDev_callback_printString(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 	
 	duckLisp_object_t string;
 	
-	e = duckLisp_getArg(duckLisp, &string, 1);
+	e = duckVM_getArg(duckVM, &string, 0);
 	if (e) {
 		goto l_cleanup;
 	}
 	
 	if (string.type != duckLisp_object_type_string) {
-		e = duckLisp_error_pushRuntime(duckLisp, DL_STR("Argument should be a string."));
+		// e = duckLisp_error_pushRuntime(duckVM, DL_STR("Argument should be a string."));
 		e = e ? e : dl_error_invalidValue;
 		goto l_cleanup;
 	}
 	
+	printf("VM: ");
 	for (dl_size_t i = 0; i < string.value.string.value_length; i++) {
 		putchar(string.value.string.value[i]);
 	}
 	
-	e = duckLisp_pushReturn(duckLisp, string);
+	e = duckVM_pushReturn(duckVM, string);
 	
 	l_cleanup:
 	
@@ -137,10 +139,13 @@ int main(int argc, char *argv[]) {
 	struct {
 		dl_bool_t duckLispMemory;
 		dl_bool_t duckLisp_init;
+		dl_bool_t duckVMMemory;
+		dl_bool_t duckVM_init;
 	} d = {0};
 	
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
+	void *duckVMMemory = dl_null;
 	size_t tempMemory_size;
 	duckLisp_error_t error;
 	char *scriptHandles[3] = {
@@ -159,6 +164,9 @@ int main(int argc, char *argv[]) {
 	// const char source2[] = "((float f 1.4e656) (float f0 -1.4e656) (float f1 .4e6) (float f2 1.4e-656) (float f3 -.4e6) (float f3 -10.e-2) (echo #float) (print f))";
 //	duckLisp_object_t tempObject;
 	dl_ptrdiff_t printString_index = -1;
+	duckVM_t duckVM;
+	unsigned char *bytecode = dl_null;
+	dl_size_t bytecode_length = 0;
 	
 	/* Initialization. */
 	
@@ -241,8 +249,8 @@ int main(int argc, char *argv[]) {
 	// Print bytecode in hex.
 	for (dl_ptrdiff_t i = 0; i < duckLisp.bytecode.elements_length; i++) {
 		unsigned char byte = DL_ARRAY_GETADDRESS(duckLisp.bytecode, unsigned char, i);
-		putchar(dl_nybbleToHexChar(byte));
 		putchar(dl_nybbleToHexChar(byte >> 4));
+		putchar(dl_nybbleToHexChar(byte));
 	}
 	putchar('\n');
 	putchar('\n');
@@ -258,8 +266,45 @@ int main(int argc, char *argv[]) {
 	
 	// /**/ duckLisp_call(&duckLisp, "hello-world");
 	
-	/* Execute. */
+	tempMemory_size = 1024*1024;
+	duckVMMemory = malloc(tempMemory_size);
+	if (duckVMMemory == NULL) {
+		e = dl_error_outOfMemory;
+		printf("Out of memory.\n");
+		goto l_cleanup;
+	}
+	d.duckLispMemory = dl_true;
 	
+	/* Execute. */
+	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size);
+	if (e) {
+		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	d.duckVM_init = dl_true;
+
+	// /**/ duckVM_loadBytecode(&duckVM, (unsigned char *) duckLisp.bytecode.elements, duckLisp.bytecode.elements_length);
+//	if (e) {
+//		printf("Could not load bytecode into VM. (%s)\n", dl_errorString[e]);
+//		goto l_cleanup;
+//	}
+
+	e = duckVM_linkCFunction(&duckVM, 0, duckLispDev_callback_printString);
+	if (e) {
+		printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);
+		goto l_cleanup;
+	}
+	
+	e = duckVM_execute(&duckVM, &DL_ARRAY_GETADDRESS(duckLisp.bytecode, unsigned char, 0));
+	if (e) {
+		goto l_cleanup;
+	}
+
+	// e = duckVM_call(&duckVM, helloWorld_index);
+	// if (e) {
+	// 	printf("Function call failed. (%s)\n", dl_errorString[e]);
+	// 	goto l_cleanup;
+	// }
 	
 	l_cleanup:
 	

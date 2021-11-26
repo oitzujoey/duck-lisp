@@ -1779,32 +1779,32 @@ static dl_error_t scope_setTop(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	return dl_array_set(&duckLisp->scope_stack, scope, duckLisp->scope_stack.elements_length - 1);
 }
 
-static dl_error_t scope_getObjectFromName(duckLisp_t *duckLisp, duckLisp_object_t *object, const char *name, const dl_size_t name_length) {
-	dl_error_t e = dl_error_ok;
+// static dl_error_t scope_getObjectFromName(duckLisp_t *duckLisp, duckLisp_object_t *object, const char *name, const dl_size_t name_length) {
+// 	dl_error_t e = dl_error_ok;
 	
-	duckLisp_scope_t scope;
-	dl_ptrdiff_t index = -1;
-	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
+// 	duckLisp_scope_t scope;
+// 	dl_ptrdiff_t index = -1;
+// 	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
 	
-	while (dl_true) {
-		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
-		if (e) {
-			if (e == dl_error_invalidValue) {
-				object->type = duckLisp_object_type_none;
-				e = dl_error_ok;
-			}
-			break;
-		}
+// 	while (dl_true) {
+// 		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
+// 		if (e) {
+// 			if (e == dl_error_invalidValue) {
+// 				object->type = duckLisp_object_type_none;
+// 				e = dl_error_ok;
+// 			}
+// 			break;
+// 		}
 		
-		/**/ dl_trie_find(scope.variables_trie, &index, name, name_length);
-		if (index != -1) {
-			e = dl_array_get(&duckLisp->stack, (void *) object, index);
-			break;
-		}
-	}
+// 		/**/ dl_trie_find(scope.variables_trie, &index, name, name_length);
+// 		if (index != -1) {
+// 			e = dl_array_get(&duckLisp->stack, (void *) object, index);
+// 			break;
+// 		}
+// 	}
 	
-	return e;
-}
+// 	return e;
+// }
 
 static dl_error_t scope_getObjectIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
@@ -2664,15 +2664,15 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				switch (args[0].type) {
 				case duckLisp_instructionArgClass_type_integer:
 					if ((unsigned long) args[0].value.integer < 0x100UL) {
-						currentInstruction = duckLisp_instruction_pushInteger8;
+						currentInstruction = duckLisp_instruction_pushString8;
 						byte_length = 1;
 					}
 					else if ((unsigned int) args[0].value.integer < 0x10000UL) {
-						currentInstruction = duckLisp_instruction_pushInteger16;
+						currentInstruction = duckLisp_instruction_pushString16;
 						byte_length = 2;
 					}
 					else {
-						currentInstruction = duckLisp_instruction_pushInteger32;
+						currentInstruction = duckLisp_instruction_pushString32;
 						byte_length = 4;
 					}
 					e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
@@ -2757,6 +2757,12 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 		}
 	}
 	
+	// Push a return instruction.
+	unsigned char tempChar = duckLisp_instruction_return;
+	e = dl_array_pushElement(bytecode, &tempChar);
+	if (e) {
+		goto l_cleanup;
+	}
 	
 	/* * * * * *
 	 * Cleanup *
@@ -2820,13 +2826,13 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	// /* No error */ cst_expression_init(&duckLisp->cst);
 	// /* No error */ ast_expression_init(&duckLisp->ast);
 	/* No error */ dl_array_init(&duckLisp->errors, &duckLisp->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
-	/* No error */ dl_array_init(&duckLisp->stack, &duckLisp->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_double);
+	// /* No error */ dl_array_init(&duckLisp->stack, &duckLisp->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_double);
 	/* No error */ dl_array_init(&duckLisp->scope_stack, &duckLisp->memoryAllocation, sizeof(duckLisp_scope_t), dl_array_strategy_double);
 	/* No error */ dl_array_init(&duckLisp->bytecode, &duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
 	/* No error */ dl_array_init(&duckLisp->generators_stack, &duckLisp->memoryAllocation,sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
 	                             dl_array_strategy_double);
 	
-	duckLisp->frame_pointer = 0;
+	// duckLisp->frame_pointer = 0;
 	
 	error = dl_error_ok;
 	l_cleanup:
@@ -2880,7 +2886,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 	// } d = {0};
 	
 	dl_ptrdiff_t index = -1;
-	duckLisp_object_t object = {0};
+	// duckLisp_object_t object = {0};
 	duckLisp_ast_compoundExpression_t ast;
 	duckLisp_cst_compoundExpression_t cst;
 	dl_array_t bytecode;
@@ -2950,29 +2956,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 	// e = duckLisp_pushObject(duckLisp, name, name_length, object);
 	
 	l_cleanup:
-	
-	return e;
-}
-
-void duckLisp_getArgLength(duckLisp_t *duckLisp, dl_size_t *length) {
-	*length = ((duckLisp_object_t *) duckLisp->stack.elements)[duckLisp->frame_pointer].value.integer;
-}
-
-dl_error_t duckLisp_getArg(duckLisp_t *duckLisp, duckLisp_object_t *object, dl_ptrdiff_t index) {
-	if (index < ((duckLisp_object_t *) duckLisp->stack.elements)[duckLisp->frame_pointer].value.integer) {
-		*object = ((duckLisp_object_t *) duckLisp->stack.elements)[duckLisp->frame_pointer + index];
-		return dl_error_ok;
-	}
-	else {
-		return dl_error_bufferOverflow;
-	}
-}
-
-dl_error_t duckLisp_pushReturn(duckLisp_t *duckLisp, duckLisp_object_t object) {
-	dl_error_t e = dl_error_ok;
-	
-	e = dl_array_pushElement(&duckLisp->stack, (void *) &object);
-	duckLisp->frame_pointer++;
 	
 	return e;
 }

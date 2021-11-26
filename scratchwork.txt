@@ -398,3 +398,89 @@ Needed universal identifier for each node → index to a single array.
 Needed each nodes to contain a list of nodes → indeces to a subset of the array elements.
 Desired a way to keep track of all nodes in use → single array containing nodes.
 Desired a way to use dl_array instead of raw memory allocation.
+
+
+Whew! That's done.
+
+
+The VM is a modified stack machine. It might be more helpful to think of it as a Harvard architecture machine with a data memory that can grow infinitely.
+Each function call creates its own environment. This is mainly a feature of the compiler. When a function is called, local variables are pushed onto the stack. At the end of the function they are popped. DL functions are stored in program memory. Functions are DL objects that contain either a pointer to a DL function or a pointer to a C callback. Since all objects are stored on the stack, all functions are local variables that can be pushed and popped. Variables are referenced by index relative to the current frame pointer. The reason for this is that the stack pointer changes too often to easily keep track of indexes using it, and absolute addressing takes up a lot of space. In most cases, the frame pointer will remain constant for the entire duration of a function. If another function is called, the callee will need to use an offset relative to the frame pointer of the scope that contains the function.
+
+stack — variables
+variable — generic data
+
+"ABI"
+	before — Push, call, push
+		stack base
+		args length (always > 0) (DuckLisp FP points here)
+		function name (string)
+		arg1
+		arg2
+		arg3
+		arg4
+		...
+		loc0
+		loc1
+		loc2
+		loc3
+		...
+	after — Push
+		stack base
+		args length (always > 0) (DuckLisp FP points here)
+		function name (string)
+		arg1
+		arg2
+		arg3
+		arg4
+		...
+		loc0
+		loc1
+		loc2
+		loc3
+		...
+		ret0
+		ret1
+		ret2
+		ret3
+		...
+		rets length
+	cleanup — Return, copy
+		ret0 ← Rets are now locs owned by the caller
+		ret1 ← Rets are now locs owned by the caller
+		ret2 ← Rets are now locs owned by the caller
+		ret3 ← Rets are now locs owned by the caller
+		arg3 ← Stack top
+		arg4
+		...
+		loc0
+		loc1
+		loc2
+		loc3
+		...
+		ret0
+		ret1
+		ret2
+		ret3
+		...
+		rets length
+
+Calls to DL from C are done by pushing objects on the stack and then calling the function. Return values are placed on the top of the stack for C to pop.
+The stack is persistent between calls.
+Bytecode is not persistent between calls. Bytecode can be run straight by the VM, or a function that is currently on the stack can be called. A bytecode function pointed to by the stack will point to a random block of memory. C will be given no indication of when it is freed.
+
+This is a one-shot run of some bytecode. This may define functions that can be used by other chunks of bytecode. Dangling pointers may result if `bytecode` is freed.
+e = duckVM_execute(&duckVM, bytecode, bytecode_length);
+
+This is a function call. DVM knows nothing about function names, so an index must be given instead.
+e = duckVM_pushObject(&duckVM, duckLispObject);
+e = duckVM_call(&duckVM, function_index); // Index is an absolute address on the stack.
+e = duckVM_popObject(&duckVM, &duckLispObject);
+
+Solved:
+	C → DL calling conventions.
+	DL → C/DL calling conventions?
+	Local variables.
+Unsolved:
+	Non-local scope addressing. Real CPUs deal with this by storing functions in memory, not on the stack.
+
+
