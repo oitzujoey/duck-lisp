@@ -50,6 +50,7 @@ dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, d
 /* Functions for C callbacks */
 void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length);
 dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff_t index);
+dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object);
 dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object);
 
 #endif /* DUCKVM_H */

@@ -1756,13 +1756,26 @@ Scope
 
 static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	/**/ dl_trie_init(&scope->locals_trie, &duckLisp->memoryAllocation, -1);
-	scope->locals_length = 0;
 	/**/ dl_trie_init(&scope->statics_trie, &duckLisp->memoryAllocation, -1);
-	scope->statics_length = 0;
 	/**/ dl_trie_init(&scope->generators_trie, &duckLisp->memoryAllocation, -1);
 	scope->generators_length = 0;
 	/**/ dl_trie_init(&scope->functions_trie, &duckLisp->memoryAllocation, -1);
 	scope->functions_length = 0;
+}
+
+dl_error_t duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
+	if (scope == dl_null) {
+		duckLisp_scope_t localScope;
+		/**/ scope_init(duckLisp, &localScope);
+		return dl_array_pushElement(&duckLisp->scope_stack, &localScope);
+	}
+	else {
+		return dl_array_pushElement(&duckLisp->scope_stack, scope);
+	}
+}
+
+dl_error_t duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
+	return dl_array_popElement(&duckLisp->scope_stack, scope);
 }
 
 static dl_error_t scope_getTop(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
@@ -1859,21 +1872,24 @@ static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp, duckLisp_funct
 		}
 		
 		/**/ dl_trie_find(scope.functions_trie, &tempPtrdiff, name, name_length);
-		if (tempPtrdiff == -1) {
-			// Failure.
-			break;
-		}
-		*functionType = tempPtrdiff;
-		if (*functionType != duckLisp_functionType_generator) {
+		tempPtrdiff = tempPtrdiff;
+		if (tempPtrdiff != duckLisp_functionType_generator) {
 			/**/ dl_trie_find(scope.statics_trie, index, name, name_length);
 		}
 		else {
 			/**/ dl_trie_find(scope.generators_trie, index, name, name_length);
 		}
 		// Return the function in the nearest scope.
-		if (*functionType != duckLisp_functionType_none) {
+		if (tempPtrdiff != -1) {
 			break;
 		}
+	}
+	
+	if (tempPtrdiff == -1) {
+		*functionType = duckLisp_functionType_none;
+	}
+	else {
+		*functionType = tempPtrdiff;
 	}
 	
 	return e;
@@ -2122,58 +2138,6 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 	
 	dl_ptrdiff_t callback_index = -1;
 	dl_ptrdiff_t argument_index = -1;
-	// dl_ptrdiff_t string_index = -1;
-	// dl_array_t *assemblyFragment = dl_null;
-	
-	// /* Check arguments for call and type errors. */
-	
-	// e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3);
-	// if (e) {
-	// 	goto l_cleanup;
-	// }
-	
-	// if (expression->compoundExpressions[1].type != ast_compoundExpression_type_identifier) {
-	// 	e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
-	// 	if (e) {
-	// 		goto l_cleanup;
-	// 	}
-	// 	e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
-	// 	                          expression->compoundExpressions[0].value.identifier.value_length);
-	// 	if (e) {
-	// 		goto l_cleanup;
-	// 	}
-	// 	e = dl_array_pushElements(&eString, DL_STR("\" should be an identifier."));
-	// 	if (e) {
-	// 		goto l_cleanup;
-	// 	}
-	// 	eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-	// 	if (eError) {
-	// 		e = eError;
-	// 	}
-	// 	goto l_cleanup;
-	// }
-	
-	// if ((expression->compoundExpressions[2].type != ast_compoundExpression_type_constant) &&
-	//     (expression->compoundExpressions[2].value.constant.type != ast_constant_type_string)) {
-	// 	e = dl_array_pushElements(&eString, DL_STR("Argument 2 of function \""));
-	// 	if (e) {
-	// 		goto l_cleanup;
-	// 	}
-	// 	e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
-	// 	                          expression->compoundExpressions[0].value.identifier.value_length);
-	// 	if (e) {
-	// 		goto l_cleanup;
-	// 	}
-	// 	e = dl_array_pushElements(&eString, DL_STR("\" should be a string."));
-	// 	if (e) {
-	// 		goto l_cleanup;
-	// 	}
-	// 	eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-	// 	if (eError) {
-	// 		e = eError;
-	// 	}
-	// 	goto l_cleanup;
-	// }
 	
 	e = scope_getStaticIndexFromName(duckLisp, &callback_index,
 	                                 expression->compoundExpressions[0].value.constant.value.string.value,
@@ -2850,7 +2814,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	/* No error */ dl_array_init(&duckLisp->generators_stack, &duckLisp->memoryAllocation,sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
 	                             dl_array_strategy_double);
 	
-	// duckLisp->frame_pointer = 0;
+	duckLisp->locals_length = 0;
+	duckLisp->statics_length = 0;
 	
 	error = dl_error_ok;
 	l_cleanup:
@@ -2897,31 +2862,20 @@ dl_error_t duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpress
 /*
 Creates a function from a string in the current scope.
 */
-dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const char *source, const dl_size_t source_length) {
+dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
+                               const char *source, const dl_size_t source_length) {
 	dl_error_t e = dl_error_ok;
 	// struct {
 	// 	dl_bool_t duckLispMemory;
 	// } d = {0};
 	
 	dl_ptrdiff_t index = -1;
-	// duckLisp_object_t object = {0};
 	duckLisp_ast_compoundExpression_t ast;
 	duckLisp_cst_compoundExpression_t cst;
-	dl_array_t bytecode;
+	dl_array_t bytecodeArray;
 	
 	/**/ cst_compoundExpression_init(&cst);
 	/**/ ast_compoundExpression_init(&ast);
-	
-	/* Save copy of source. */
-	
-	// if (duckLisp->cst.compoundExpressions_length != 0) {
-	// 	// Add space between two segments of code.
-	// 	tempChar = ' ';
-	// 	e = dl_array_pushElement(&duckLisp->source, (char *) &tempChar);
-	// 	if (e) {
-	// 		goto l_cleanup;
-	// 	}
-	// }
 	
 	index = duckLisp->source.elements_length;
 	
@@ -2931,8 +2885,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 	}
 	
 	/* Parse. */
-	
-	// *name = duckLisp->cst.compoundExpressions_length;
 	
 	e = cst_append(duckLisp, &cst, index, dl_true);
 	if (e) {
@@ -2957,22 +2909,14 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_
 	
 	/* Compile AST to bytecode. */
 	
-	e = compile(duckLisp, &bytecode, ast);
+	e = compile(duckLisp, &bytecodeArray, ast);
 	if (e) {
 		goto l_cleanup;
 	}
+	
+	*bytecode = ((unsigned char*) (bytecodeArray).elements);
+	*bytecode_length = bytecodeArray.elements_length;
 
-	/* Push fresh bytecode onto the end of the current bytecode. */
-	e = dl_array_pushElements(&duckLisp->bytecode, bytecode.elements, bytecode.elements_length);
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	/* Push on stack. */
-	
-	// object.type = duckLisp_object_type_function;
-	// e = duckLisp_pushObject(duckLisp, name, name_length, object);
-	
 	l_cleanup:
 	
 	return e;
@@ -2989,11 +2933,11 @@ dl_error_t duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *name, cons
 		goto l_cleanup;
 	}
 	
-	e = dl_trie_insert(&scope.locals_trie, name, name_length, scope.locals_length);
+	e = dl_trie_insert(&scope.locals_trie, name, name_length, duckLisp->locals_length);
 	if (e) {
 		goto l_cleanup;
 	}
-	scope.locals_length++;
+	duckLisp->locals_length++;
 	
 	e = scope_setTop(duckLisp, &scope);
 	if (e) {
@@ -3061,11 +3005,12 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, con
 		goto l_cleanup;
 	}
 	// Record the VM stack index.
-	e = dl_trie_insert(&scope.statics_trie, name, name_length, scope.statics_length);
+	e = dl_trie_insert(&scope.statics_trie, name, name_length, duckLisp->statics_length);
 	if (e) {
 		goto l_cleanup;
 	}
-	scope.statics_length++;
+	*index = duckLisp->statics_length;
+	duckLisp->statics_length++;
 
 	e = scope_setTop(duckLisp, &scope);
 	if (e) {

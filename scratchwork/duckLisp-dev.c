@@ -10,7 +10,8 @@ dl_error_t duckLispDev_callback_printString(duckVM_t *duckVM) {
 	
 	duckLisp_object_t string;
 	
-	e = duckVM_getArg(duckVM, &string, 0);
+	// e = duckVM_getArg(duckVM, &string, 0);
+	e = duckVM_pop(duckVM, &string);
 	if (e) {
 		goto l_cleanup;
 	}
@@ -26,7 +27,7 @@ dl_error_t duckLispDev_callback_printString(duckVM_t *duckVM) {
 		putchar(string.value.string.value[i]);
 	}
 	
-	e = duckVM_pushReturn(duckVM, string);
+	// e = duckVM_pushReturn(duckVM, string);
 	
 	l_cleanup:
 	
@@ -185,6 +186,66 @@ dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, dl_array_t *
 	return e;
 }
 
+dl_error_t duckLispDev_generator_pushScope(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	dl_ptrdiff_t identifier_index = -1;
+	dl_ptrdiff_t string_index = -1;
+	dl_array_t *assemblyFragment = dl_null;
+	
+	/* Check arguments for call and type errors. */
+	
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	// Push a new scope.
+	e = duckLisp_pushScope(duckLisp, dl_null);
+	
+	l_cleanup:
+	
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+	
+	return e;
+}
+
+dl_error_t duckLispDev_generator_popScope(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	dl_ptrdiff_t identifier_index = -1;
+	dl_ptrdiff_t string_index = -1;
+	dl_array_t *assemblyFragment = dl_null;
+	
+	/* Check arguments for call and type errors. */
+	
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	// Push a new scope.
+	e = duckLisp_popScope(duckLisp, dl_null);
+	
+	l_cleanup:
+	
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+	
+	return e;
+}
+
 
 
 int main(int argc, char *argv[]) {
@@ -201,26 +262,38 @@ int main(int argc, char *argv[]) {
 	void *duckVMMemory = dl_null;
 	size_t tempMemory_size;
 	duckLisp_error_t error;
-	char *scriptHandles[3] = {
-		"hello-world"
-	};
-	size_t scriptHandles_lengths[3] = {
-		11
-	};
-	const char source0[] = "((string s \"Hello, world!\n\") (print-string s) (print-stack))";
+	const char source0[] = "((string t \"Hello, world!\n\") (push-scope) (string s \"in-scope\n\") (print-string s) (print-string t) (pop-scope) (print-stack))";
 	// const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
 	// const char source0[] = "((string s7 \"7\") (print-string s7) ((string s3 \"3\") (print-string s3) ((string s1 \"1\") (print-string s1)) ((string s2 \"2\") (print-string s2))) ((string s6 \"6\") (print-string s6) ((string s4 \"4\") (print-string s4)) ((string s5 \"5\") (print-string s5))))";
-	// const char source0[] = "((string s7 \"7\") (print-string s7) ((string s3 \"3\") (print-string s3) ((string s1 \"1\") (print-string s1)) ((string s2 \"2\") (print-string s2))) ((string s6 \"6\") (print-string s6) ((string s4 \"4\") (print-string s4)) ((string s5 \"5\") (print-string s5))))";
-	// const char source0[] = "(((string s1 \"1\") (string s2 \"2\")) ((string s3 \"3\") (string s4 \"4\")))";
-	// const char source0[] = "(print-string 7 (print-string 3 (print-string 1)) (print-string 6 (print-string 4) (print-string 5)))";
-	// const char source1[] = "((int i -5) (bool b true) (bool b false) (print i))";
-	// const char source2[] = "((float f 1.4e656) (float f0 -1.4e656) (float f1 .4e6) (float f2 1.4e-656) (float f3 -.4e6) (float f3 -10.e-2) (echo #float) (print f))";
-//	duckLisp_object_t tempObject;
 	dl_ptrdiff_t printString_index = -1;
 	duckVM_t duckVM;
 	unsigned char *bytecode = dl_null;
 	dl_size_t bytecode_length = 0;
 	duckLisp_object_t tempObject;
+	
+	// All user-defined generators go here.
+	struct {
+		const char *name;
+		const dl_size_t name_length;
+		const dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
+	} generators[] = {
+		{DL_STR("string"),      duckLispDev_generator_createString},
+		{DL_STR("push-scope"),  duckLispDev_generator_pushScope},
+		{DL_STR("pop-scope"),   duckLispDev_generator_popScope},
+		{dl_null, 0,            dl_null}
+	};
+	
+	// All user-defined callbacks go here.
+	struct {
+		dl_ptrdiff_t index;
+		const char *name;
+		const dl_size_t name_length;
+		const dl_error_t (*callback)(duckVM_t *);
+	} callbacks[] = {
+		{0, DL_STR("print-string"), duckLispDev_callback_printString},
+		{0, DL_STR("print-stack"),  duckLispDev_callback_printStack},
+		{0, dl_null, 0,             dl_null}
+	};
 	
 	/* Initialization. */
 	
@@ -243,31 +316,26 @@ int main(int argc, char *argv[]) {
 	/* Create generators. */
 	
 	// e = duckLisp_pushGenerator(&duckLisp, DL_STR("string"), duckLispDev_generator_createString);
-	e = duckLisp_addGenerator(&duckLisp, duckLispDev_generator_createString, DL_STR("string"));
-	if (e) {
-		printf("Could not register generator. (%s)\n", dl_errorString[e]);
+	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
+		e = duckLisp_addGenerator(&duckLisp, generators[i].callback, generators[i].name, generators[i].name_length);
+		if (e) {
+			printf("Could not register generator. (%s)\n", dl_errorString[e]);
+		}
 	}
 	
 	/* Add C functions. */
 	
-	// tempObject.type = duckLisp_object_type_function;
-	// tempObject.value.function.callback = duckLispDev_callback_printString;
-	e = duckLisp_linkCFunction(&duckLisp, &printString_index, DL_STR("print-string"));
-	if (e) {
-		printf("Could not create function. (%s)\n", dl_errorString[e]);
-		goto l_cleanup;
+	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
+		e = duckLisp_linkCFunction(&duckLisp, &callbacks[i].index, callbacks[i].name, callbacks[i].name_length);
+		if (e) {
+			printf("Could not create function. (%s)\n", dl_errorString[e]);
+			goto l_cleanup;
+		}
 	}
-	
-	e = duckLisp_linkCFunction(&duckLisp, &printString_index, DL_STR("print-stack"));
-	if (e) {
-		printf("Could not create function. (%s)\n", dl_errorString[e]);
-		goto l_cleanup;
-	}
-	
 	
 	/* Compile functions. */
 	
-	e = duckLisp_loadString(&duckLisp, scriptHandles[0], scriptHandles_lengths[0], DL_STR(source0));
+	e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, DL_STR(source0));
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
 		
@@ -308,8 +376,8 @@ int main(int argc, char *argv[]) {
 
 
 	// Print bytecode in hex.
-	for (dl_ptrdiff_t i = 0; i < duckLisp.bytecode.elements_length; i++) {
-		unsigned char byte = DL_ARRAY_GETADDRESS(duckLisp.bytecode, unsigned char, i);
+	for (dl_ptrdiff_t i = 0; i < bytecode_length; i++) {
+		unsigned char byte = bytecode[i];
 		putchar(dl_nybbleToHexChar(byte >> 4));
 		putchar(dl_nybbleToHexChar(byte));
 	}
@@ -317,10 +385,14 @@ int main(int argc, char *argv[]) {
 	putchar('\n');
 	
 	
-	puts("Scope 0: locals");
-	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].locals_trie);
-	puts("Scope 0: statics");
-	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].statics_trie);
+	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+		printf("Scope %lli: locals\n", i);
+		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].locals_trie);
+	}
+	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+		puts("Scope 0: statics");
+		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].statics_trie);
+	}
 	puts("Scope 0: generators");
 	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].generators_trie);
 	puts("Scope 0: functions (1: callback  2: script  3: generator)");
@@ -336,7 +408,7 @@ int main(int argc, char *argv[]) {
 		printf("Out of memory.\n");
 		goto l_cleanup;
 	}
-	d.duckLispMemory = dl_true;
+	d.duckVMMemory = dl_true;
 	
 	/* Execute. */
 	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size);
@@ -346,27 +418,17 @@ int main(int argc, char *argv[]) {
 	}
 	d.duckVM_init = dl_true;
 
-	// /**/ duckVM_loadBytecode(&duckVM, (unsigned char *) duckLisp.bytecode.elements, duckLisp.bytecode.elements_length);
-//	if (e) {
-//		printf("Could not load bytecode into VM. (%s)\n", dl_errorString[e]);
-//		goto l_cleanup;
-//	}
-
-	e = duckVM_linkCFunction(&duckVM, 0, duckLispDev_callback_printString);
-	if (e) {
-		printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);
-		goto l_cleanup;
-	}
-	
-	e = duckVM_linkCFunction(&duckVM, 1, duckLispDev_callback_printStack);
-	if (e) {
-		printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);
-		goto l_cleanup;
+	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
+		e = duckVM_linkCFunction(&duckVM, callbacks[i].index, callbacks[i].callback);
+		if (e) {
+			printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);
+			goto l_cleanup;
+		}
 	}
 	
 	putchar('\n');
 	
-	e = duckVM_execute(&duckVM, &DL_ARRAY_GETADDRESS(duckLisp.bytecode, unsigned char, 0));
+	e = duckVM_execute(&duckVM, bytecode);
 	if (e) {
 		goto l_cleanup;
 	}
@@ -380,16 +442,31 @@ int main(int argc, char *argv[]) {
 	
 	l_cleanup:
 	
+	if (d.duckVM_init) {
+		puts("");
+		printf("(duckVM) Memory in use:   %llu\n", duckVM.memoryAllocation.used);
+		printf("(duckVM) Max memory used: %llu\n", duckVM.memoryAllocation.max_used);
+		// dl_memory_printMemoryAllocation(duckLisp.memoryAllocation);
+		// Clear 1 MiB of memory. Is surprisingly fast. I'm mainly did this to see how simple it was.
+		/**/ dl_memclear(duckVM.memoryAllocation.memory, duckVM.memoryAllocation.size * sizeof(char));
+		/**/ duckVM_quit(&duckVM);
+	}
+	if (d.duckVMMemory) {
+		puts("Freeing VM memory.");
+		/**/ free(duckVMMemory); duckVMMemory = NULL;
+	}
+	
 	if (d.duckLisp_init) {
 		puts("");
-		printf("Memory in use:   %llu\n", duckLisp.memoryAllocation.used);
-		printf("Max memory used: %llu\n", duckLisp.memoryAllocation.max_used);
+		printf("(duckLisp) Memory in use:   %llu\n", duckLisp.memoryAllocation.used);
+		printf("(duckLisp) Max memory used: %llu\n", duckLisp.memoryAllocation.max_used);
 		// dl_memory_printMemoryAllocation(duckLisp.memoryAllocation);
 		// Clear 1 MiB of memory. Is surprisingly fast. I'm mainly did this to see how simple it was.
 		/**/ dl_memclear(duckLisp.memoryAllocation.memory, duckLisp.memoryAllocation.size * sizeof(char));
 		/**/ duckLisp_quit(&duckLisp);
 	}
 	if (d.duckLispMemory) {
+		puts("Freeing compiler memory.");
 		/**/ free(duckLispMemory); duckLispMemory = NULL;
 	}
 	

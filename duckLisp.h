@@ -218,9 +218,7 @@ typedef enum {
 typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   // Points to stack objects.
-	dl_size_t locals_length;
 	dl_trie_t statics_trie;   // Points to static objects.
-	dl_size_t statics_length;
 	dl_trie_t functions_trie;
 	dl_size_t functions_length;
 	dl_trie_t generators_trie;  // Points to generator stack callbacks.
@@ -240,6 +238,8 @@ typedef struct {
 	dl_array_t scope_stack;  // dl_array_t:duckLisp_scope_t:{dl_trie_t}
 	// Points to the start of the local variables on the stack for this scope.
 	// dl_ptrdiff_t frame_pointer;
+	dl_size_t locals_length;
+	dl_size_t statics_length;
 	
 	dl_array_t bytecode;    // dl_array_t:uint8_t
 	dl_array_t generators_stack; // dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t)
@@ -319,11 +319,11 @@ dl_error_t DECLSPEC duckLisp_cst_print(duckLisp_t *duckLisp, duckLisp_cst_compou
 dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t ast);
 
 dl_error_t DECLSPEC duckLisp_emit_pushString(duckLisp_t *duckLisp, dl_array_t *bytecodeBuffer, dl_ptrdiff_t *stackIndex, char *string, dl_size_t string_length);
-dl_error_t DECLSPEC duckLisp_loadString(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const char *source, const dl_size_t source_length);
+dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
+                               const char *source, const dl_size_t source_length);
 
-// void DECLSPEC duckLisp_getArgLength(duckLisp_t *duckLisp, dl_size_t *length);
-// dl_error_t DECLSPEC duckLisp_getArg(duckLisp_t *duckLisp, duckLisp_object_t *object, dl_ptrdiff_t index);
-// dl_error_t DECLSPEC duckLisp_pushReturn(duckLisp_t *duckLisp, duckLisp_object_t object);
+dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
+dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
 dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 // dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object);
 dl_error_t DECLSPEC duckLisp_addGenerator(duckLisp_t *duckLisp, dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*),
