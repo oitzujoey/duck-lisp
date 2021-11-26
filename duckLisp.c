@@ -2262,12 +2262,6 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 	}
 	*expression = newExpression;
 	
-	e = ast_print_expression(*duckLisp, *expression);
-	if (e) {
-		goto l_cleanup;
-	}
-	putchar('\n');
-	
 	l_cleanup:
 	
 	return e;
