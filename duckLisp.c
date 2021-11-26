@@ -2212,9 +2212,63 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	
-	// Insert code here.
+	duckLisp_ast_expression_t newExpression;
+	dl_ptrdiff_t l;
 	
-	// l_cleanup:
+	newExpression.compoundExpressions_length = expression->compoundExpressions_length + 2;
+	
+	e = dl_malloc(&duckLisp->memoryAllocation, (void **) &newExpression.compoundExpressions,
+	              newExpression.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	// (push-scope)
+	newExpression.compoundExpressions[0].type = ast_compoundExpression_type_expression;
+	newExpression.compoundExpressions[0].value.expression.compoundExpressions_length = 1;
+	e = dl_malloc(&duckLisp->memoryAllocation,
+	              (void **) &newExpression.compoundExpressions[0].value.expression.compoundExpressions,
+	              newExpression.compoundExpressions[0].value.expression.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
+	if (e) {
+		goto l_cleanup;
+	}
+	newExpression.compoundExpressions[0].value.expression.compoundExpressions[0].type = ast_compoundExpression_type_identifier;
+	newExpression.compoundExpressions[0].value.expression.compoundExpressions[0].value.identifier.value = "push-scope";
+	newExpression.compoundExpressions[0].value.expression.compoundExpressions[0].value.identifier.value_length = 10;
+	
+	// Append original array of expressions.
+	for (dl_ptrdiff_t i = 0; i < expression->compoundExpressions_length; i++) {
+		newExpression.compoundExpressions[i + 1] = expression->compoundExpressions[i];
+	}
+	
+	// (pop-scope)
+	l = 1 + expression->compoundExpressions_length;
+	newExpression.compoundExpressions[l].type = ast_compoundExpression_type_expression;
+	newExpression.compoundExpressions[l].value.expression.compoundExpressions_length = 1;
+	e = dl_malloc(&duckLisp->memoryAllocation,
+	              (void **) &newExpression.compoundExpressions[l].value.expression.compoundExpressions,
+	              newExpression.compoundExpressions[l].value.expression.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
+	if (e) {
+		goto l_cleanup;
+	}
+	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].type = ast_compoundExpression_type_identifier;
+	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].value.identifier.value = "pop-scope";
+	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].value.identifier.value_length = 9;
+	
+	// Set newExpression as the current expression.
+	e = dl_free(&duckLisp->memoryAllocation, (void **) &expression->compoundExpressions);
+	if (e) {
+		goto l_cleanup;
+	}
+	*expression = newExpression;
+	
+	e = ast_print_expression(*duckLisp, *expression);
+	if (e) {
+		goto l_cleanup;
+	}
+	putchar('\n');
+	
+	l_cleanup:
 	
 	return e;
 }
@@ -2823,7 +2877,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	// /* No error */ ast_expression_init(&duckLisp->ast);
 	/* No error */ dl_array_init(&duckLisp->errors, &duckLisp->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
 	// /* No error */ dl_array_init(&duckLisp->stack, &duckLisp->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_double);
-	/* No error */ dl_array_init(&duckLisp->scope_stack, &duckLisp->memoryAllocation, sizeof(duckLisp_scope_t), dl_array_strategy_double);
+	/* No error */ dl_array_init(&duckLisp->scope_stack, &duckLisp->memoryAllocation, sizeof(duckLisp_scope_t), dl_array_strategy_fit);
 	/* No error */ dl_array_init(&duckLisp->bytecode, &duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
 	/* No error */ dl_array_init(&duckLisp->generators_stack, &duckLisp->memoryAllocation,sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
 	                             dl_array_strategy_double);

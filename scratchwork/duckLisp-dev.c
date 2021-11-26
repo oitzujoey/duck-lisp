@@ -265,11 +265,10 @@ int main(int argc, char *argv[]) {
 	const char source0[] =
 	"(\n"
 	"  (string t \"Hello, world!\n\n\")\n"
-	"  (push-scope)\n"
-	"  (string s \"in-scope\n\")\n"
-	"  (print-string s)\n"
-	"  (print-string t)\n"
-	"  (pop-scope)\n"
+	"  (\n"
+	"    (string s \"in-scope\n\")\n"
+	"    (print-string s)\n"
+	"    (print-string t))\n"
 	"  (print-stack)\n)\n";
 	// const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
 	// const char source0[] = "((string s7 \"7\") (print-string s7) ((string s3 \"3\") (print-string s3) ((string s1 \"1\") (print-string s1)) ((string s2 \"2\") (print-string s2))) ((string s6 \"6\") (print-string s6) ((string s4 \"4\") (print-string s4)) ((string s5 \"5\") (print-string s5))))";
@@ -392,20 +391,27 @@ int main(int argc, char *argv[]) {
 	putchar('\n');
 	putchar('\n');
 	
-	
+	// Note: The memSize/eleSize trick only works with the "fit" strategy.
 	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
 		printf("Scope %lli: locals\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].locals_trie);
 	}
+	putchar('\n');
 	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
-		puts("Scope 0: statics");
-		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].statics_trie);
+		printf("Scope %lli: statics\n", i);
+		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].statics_trie);
 	}
-	puts("Scope 0: generators");
-	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].generators_trie);
-	puts("Scope 0: functions (1: callback  2: script  3: generator)");
-	/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[0].functions_trie);
-	
+	putchar('\n');
+	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+		printf("Scope %lli: generators\n", i);
+		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].generators_trie);
+	}
+	putchar('\n');
+	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+		printf("Scope %lli: functions (1: callback  2: script  3: generator)\n", i);
+		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].functions_trie);
+	}
+	putchar('\n');
 	
 	// /**/ duckLisp_call(&duckLisp, "hello-world");
 	
