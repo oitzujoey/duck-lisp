@@ -186,67 +186,6 @@ dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, dl_array_t *
 	return e;
 }
 
-dl_error_t duckLispDev_generator_pushScope(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
-	dl_array_t eString;
-	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
-	
-	dl_ptrdiff_t identifier_index = -1;
-	dl_ptrdiff_t string_index = -1;
-	dl_array_t *assemblyFragment = dl_null;
-	
-	/* Check arguments for call and type errors. */
-	
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1);
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	// Push a new scope.
-	e = duckLisp_pushScope(duckLisp, dl_null);
-	
-	l_cleanup:
-	
-	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
-	
-	return e;
-}
-
-dl_error_t duckLispDev_generator_popScope(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
-	dl_array_t eString;
-	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
-	
-	dl_ptrdiff_t identifier_index = -1;
-	dl_ptrdiff_t string_index = -1;
-	dl_array_t *assemblyFragment = dl_null;
-	
-	/* Check arguments for call and type errors. */
-	
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1);
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	// Push a new scope.
-	e = duckLisp_popScope(duckLisp, dl_null);
-	
-	l_cleanup:
-	
-	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
-	
-	return e;
-}
-
-
 
 int main(int argc, char *argv[]) {
 	dl_error_t e = dl_error_ok;
@@ -285,8 +224,6 @@ int main(int argc, char *argv[]) {
 		const dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
 	} generators[] = {
 		{DL_STR("string"),      duckLispDev_generator_createString},
-		{DL_STR("push-scope"),  duckLispDev_generator_pushScope},
-		{DL_STR("pop-scope"),   duckLispDev_generator_popScope},
 		{dl_null, 0,            dl_null}
 	};
 	

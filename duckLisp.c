@@ -2060,6 +2060,66 @@ Generators
 ==========
 */
 
+dl_error_t duckLisp_generator_pushScope(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	dl_ptrdiff_t identifier_index = -1;
+	dl_ptrdiff_t string_index = -1;
+	dl_array_t *assemblyFragment = dl_null;
+	
+	/* Check arguments for call and type errors. */
+	
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	// Push a new scope.
+	e = duckLisp_pushScope(duckLisp, dl_null);
+	
+	l_cleanup:
+	
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+	
+	return e;
+}
+
+dl_error_t duckLisp_generator_popScope(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	dl_ptrdiff_t identifier_index = -1;
+	dl_ptrdiff_t string_index = -1;
+	dl_array_t *assemblyFragment = dl_null;
+	
+	/* Check arguments for call and type errors. */
+	
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	// Push a new scope.
+	e = duckLisp_popScope(duckLisp, dl_null);
+	
+	l_cleanup:
+	
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+	
+	return e;
+}
+
 dl_error_t duckLisp_generator_subroutine(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -2878,6 +2938,16 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	
 	duckLisp->locals_length = 0;
 	duckLisp->statics_length = 0;
+	
+	error = duckLisp_addGenerator(duckLisp, duckLisp_generator_pushScope, DL_STR("push-scope"));
+	if (error) {
+		printf("Could not register generator. (%s)\n", dl_errorString[error]);
+	}
+	
+	error = duckLisp_addGenerator(duckLisp, duckLisp_generator_popScope, DL_STR("pop-scope"));
+	if (error) {
+		printf("Could not register generator. (%s)\n", dl_errorString[error]);
+	}
 	
 	error = dl_error_ok;
 	l_cleanup:
