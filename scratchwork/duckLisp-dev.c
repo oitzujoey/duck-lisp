@@ -262,7 +262,15 @@ int main(int argc, char *argv[]) {
 	void *duckVMMemory = dl_null;
 	size_t tempMemory_size;
 	duckLisp_error_t error;
-	const char source0[] = "((string t \"Hello, world!\n\") (push-scope) (string s \"in-scope\n\") (print-string s) (print-string t) (pop-scope) (print-stack))";
+	const char source0[] =
+	"(\n"
+	"  (string t \"Hello, world!\n\n\")\n"
+	"  (push-scope)\n"
+	"  (string s \"in-scope\n\")\n"
+	"  (print-string s)\n"
+	"  (print-string t)\n"
+	"  (pop-scope)\n"
+	"  (print-stack)\n)\n";
 	// const char source0[] = "(print-string (print-string (string s \"Hello, world!\")))";
 	// const char source0[] = "((string s7 \"7\") (print-string s7) ((string s3 \"3\") (print-string s3) ((string s1 \"1\") (print-string s1)) ((string s2 \"2\") (print-string s2))) ((string s6 \"6\") (print-string s6) ((string s4 \"4\") (print-string s4)) ((string s5 \"5\") (print-string s5))))";
 	dl_ptrdiff_t printString_index = -1;

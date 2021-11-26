@@ -272,6 +272,8 @@ static dl_error_t cst_parse_expression(duckLisp_t *duckLisp, duckLisp_cst_expres
 		}
 		wasWhitespace = tempBool;
 		
+		justPopped = dl_false;
+		
 		// Manage brackets.
 		if (source[index] == '(') {
 			e = dl_array_pushElement(&bracketStack, (void *) &source[index]);
@@ -331,8 +333,10 @@ static dl_error_t cst_parse_expression(duckLisp_t *duckLisp, duckLisp_cst_expres
 		
 		index++;
 		
-		/**/ dl_string_isSpace(&tempBool, source[index]);
-		if ((bracketStack.elements_length == 0) && ((tempBool && !wasWhitespace) || justPopped || (index >= stop_index))) {	
+		if (index < stop_index) /**/ dl_string_isSpace(&tempBool, source[index]);
+		
+		if ((bracketStack.elements_length == 0) &&
+		    ((index >= stop_index) || (tempBool && !wasWhitespace) || justPopped)) {
 			// if (index >= stop_index) {
 			// 	eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("File ended in expression or string brackets."), index);
 			// 	e = eError ? eError : dl_error_invalidValue;
@@ -340,7 +344,9 @@ static dl_error_t cst_parse_expression(duckLisp_t *duckLisp, duckLisp_cst_expres
 			// }
 			
 			if (index >= stop_index) {
-				tempBool = dl_true;
+				/**/ dl_string_isSpace(&tempBool, source[index - 1]);
+				// tempBool = dl_true;
+				tempBool = !tempBool;
 			}
 			else {
 				/**/ dl_string_isSpace(&tempBool, source[index]);
@@ -1696,7 +1702,8 @@ static dl_error_t cst_append(duckLisp_t *duckLisp, duckLisp_cst_compoundExpressi
 	dl_error_t eError = dl_error_ok;
 	
 	char *source = duckLisp->source.elements;
-	const dl_size_t source_length = duckLisp->source.elements_length;
+	dl_size_t source_length = duckLisp->source.elements_length;
+	dl_bool_t isSpace;
 	
 	// e = dl_realloc(&duckLisp->memoryAllocation, (void **) &duckLisp->cst.compoundExpressions,
 	//                (duckLisp->cst.compoundExpressions_length + 1) * sizeof(duckLisp_cst_compoundExpression_t));
@@ -1707,6 +1714,13 @@ static dl_error_t cst_append(duckLisp_t *duckLisp, duckLisp_cst_compoundExpressi
 	
 	// e = cst_parse_compoundExpression(duckLisp, &duckLisp->cst.compoundExpressions[duckLisp->cst.compoundExpressions_length - 1], source, index,
 	//                                  source_length - index, throwErrors);
+	
+	// Trim whitespace off the end.
+	while (source_length > 0) {
+		/**/ dl_string_isSpace(&isSpace, source[source_length - 1]);
+		if (isSpace) --source_length; else break;
+	}
+	
 	e = cst_parse_compoundExpression(duckLisp, cst, source, index, source_length - index, throwErrors);
 	if (e) {
 		eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Error parsing expression."), 0, throwErrors);
