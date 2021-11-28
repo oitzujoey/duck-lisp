@@ -103,6 +103,39 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = DL_ARRAY_GETADDRESS(duckVM->statics, duckLisp_object_t, ptrdiff1).value.function.callback(duckVM);
 			break;
 		
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_jump32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			if (ptrdiff1 & 0x80000000ULL) {
+				ip -= ptrdiff1 & ~0x80000000ULL;
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			break;
+		case duckLisp_instruction_jump16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			if (ptrdiff1 & 0x8000ULL) {
+				ip -= ptrdiff1 & ~0x8000ULL;
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			break;
+		case duckLisp_instruction_jump8:
+			ptrdiff1 = *(ip++);
+			if (ptrdiff1 & 0x80ULL) {
+				ip -= ptrdiff1 & ~0x80ULL;
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			break;
+		
 		case duckLisp_instruction_return:
 			goto l_cleanup;
 

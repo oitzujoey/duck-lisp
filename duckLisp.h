@@ -219,10 +219,14 @@ typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   // Points to stack objects.
 	dl_trie_t statics_trie;   // Points to static objects.
+	
 	dl_trie_t functions_trie;
 	dl_size_t functions_length;
 	dl_trie_t generators_trie;  // Points to generator stack callbacks.
 	dl_size_t generators_length;
+	
+	dl_trie_t labels_trie;
+	dl_trie_t gotos_trie;
 } duckLisp_scope_t;
 
 typedef struct {
@@ -251,6 +255,7 @@ typedef enum {
 	duckLisp_instructionClass_pushInteger,
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_ccall,
+	duckLisp_instructionClass_jump,
 } duckLisp_instructionClass_t;
 
 // Max number of instructions must be 256.
@@ -271,6 +276,9 @@ typedef enum {
 	duckLisp_instruction_ccall8,
 	duckLisp_instruction_ccall16,
 	duckLisp_instruction_ccall32,
+	duckLisp_instruction_jump8,
+	duckLisp_instruction_jump16,
+	duckLisp_instruction_jump32,
 	duckLisp_instruction_return,
 } duckLisp_instruction_t;
 
@@ -305,8 +313,8 @@ typedef struct duckLisp_instructionArgs_s {
 typedef struct duckLisp_instructionObject_s {
 	duckLisp_instructionClass_t instructionClass;
 	dl_array_t args;
-	struct duckLisp_instructionObject_s *next;
-	struct duckLisp_instructionObject_s *previous;
+	// struct duckLisp_instructionObject_s *next;
+	// struct duckLisp_instructionObject_s *previous;
 } duckLisp_instructionObject_t;
 
 dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size);

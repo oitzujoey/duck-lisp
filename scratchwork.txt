@@ -484,3 +484,9 @@ Unsolved:
 	Non-local scope addressing. Real CPUs deal with this by storing functions in memory, not on the stack.
 
 
+A label may only have one destination address.
+A label may have many source addresses.
+
+A label will have its index placed in a trie right after it is assembled to bytecode.
+A backward goto will calculate its jump distance when it is converted to bytecode.
+A forward goto will use 32 bits and enter its address into a trie (with label as key) that points to an array with pointers to all the gotos to that label.

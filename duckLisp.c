@@ -1775,6 +1775,8 @@ static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	scope->generators_length = 0;
 	/**/ dl_trie_init(&scope->functions_trie, &duckLisp->memoryAllocation, -1);
 	scope->functions_length = 0;
+	/**/ dl_trie_init(&scope->labels_trie, &duckLisp->memoryAllocation, -1);
+	/**/ dl_trie_init(&scope->gotos_trie, &duckLisp->memoryAllocation, -1);
 }
 
 dl_error_t duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
@@ -2059,6 +2061,136 @@ dl_error_t duckLisp_emit_pushIndex(duckLisp_t *duckLisp, dl_array_t *assembly, d
 Generators
 ==========
 */
+
+dl_error_t duckLisp_generator_label(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	dl_ptrdiff_t identifier_index = -1;
+	dl_ptrdiff_t string_index = -1;
+	dl_array_t *assemblyFragment = dl_null;
+	duckLisp_scope_t scope;
+	
+	/* Check arguments for call and type errors. */
+	
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	if (expression->compoundExpressions[1].type != ast_compoundExpression_type_identifier) {
+		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
+		if (e) {
+			goto l_cleanup;
+		}
+		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
+		                          expression->compoundExpressions[0].value.identifier.value_length);
+		if (e) {
+			goto l_cleanup;
+		}
+		e = dl_array_pushElements(&eString, DL_STR("\" should be an identifier."));
+		if (e) {
+			goto l_cleanup;
+		}
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
+		if (eError) {
+			e = eError;
+		}
+		goto l_cleanup;
+	}
+	
+	e = scope_getTop(duckLisp, &scope);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	e = dl_trie_insert(&scope.labels_trie, expression->compoundExpressions[1].value.identifier.value,
+	                   expression->compoundExpressions[1].value.identifier.value_length, 0);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	e = scope_setTop(duckLisp, &scope);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+	
+	return e;
+}
+
+dl_error_t duckLisp_generator_goto(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	dl_ptrdiff_t identifier_index = -1;
+	dl_ptrdiff_t string_index = -1;
+	dl_array_t *assemblyFragment = dl_null;
+	duckLisp_scope_t scope;
+	
+	/* Check arguments for call and type errors. */
+	
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	if (expression->compoundExpressions[1].type != ast_compoundExpression_type_identifier) {
+		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
+		if (e) {
+			goto l_cleanup;
+		}
+		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
+		                          expression->compoundExpressions[0].value.identifier.value_length);
+		if (e) {
+			goto l_cleanup;
+		}
+		e = dl_array_pushElements(&eString, DL_STR("\" should be an identifier."));
+		if (e) {
+			goto l_cleanup;
+		}
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
+		if (eError) {
+			e = eError;
+		}
+		goto l_cleanup;
+	}
+	
+	e = scope_getTop(duckLisp, &scope);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	e = dl_trie_insert(&scope.gotos_trie, expression->compoundExpressions[1].value.identifier.value,
+	                   expression->compoundExpressions[1].value.identifier.value_length, 0);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	e = scope_setTop(duckLisp, &scope);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	l_cleanup:
+	
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+	
+	return e;
+}
 
 dl_error_t duckLisp_generator_pushScope(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
@@ -2370,8 +2502,33 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	/**/ dl_array_init(&nodeStack, &duckLisp->memoryAllocation, sizeof(dl_ptrdiff_t), dl_array_strategy_double);
 	dl_ptrdiff_t currentNode = -1;
 	
+	typedef struct {
+		dl_uint8_t byte;
+		dl_ptrdiff_t next;
+		dl_ptrdiff_t prev;
+	} byteLink_t;
+	
+	dl_array_t bytecodeList; // byteLink_t
+	/**/ dl_array_init(&bytecodeList, &duckLisp->memoryAllocation, sizeof(byteLink_t), dl_array_strategy_double);
+	
+	byteLink_t tempByteLink;
+	
+	// This is only to be used after the bytecode has been fully assembled.
+	typedef struct {
+		// If this is an array index to a linked list element, incrementing the link address will not necessarily increment
+		// this variable.
+		dl_ptrdiff_t source;
+		dl_ptrdiff_t target;
+		dl_uint8_t size; // Can hold values 1-4.
+	} jumpLink_t;
+	
+	typedef struct {
+		jumpLink_t *links;
+		dl_size_t links_length;
+	} linkArray_t;
+	
 	// dl_array_t bytecode; // unsigned char
-	/**/ dl_array_init(bytecode, &duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
+	/**/ dl_array_init(bytecode, &duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
 	
 	
 	/* * * * * *
@@ -2589,7 +2746,6 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 		
 		// Push nodes.
 		for (dl_ptrdiff_t j = CURRENTNODE.nodes_length - 1; j >= 0; --j) {
-		// for (dl_ptrdiff_t j = 0; j < CURRENTNODE.nodes_length; j++) {
 			e = dl_array_pushElement(&nodeStack, &CURRENTNODE.nodes[j]);
 			if (e) {
 				goto l_cleanup;
@@ -2681,8 +2837,9 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	 * * * * * **/
 	
 	
-	duckLisp_instruction_t currentInstruction;
+	byteLink_t currentInstruction;
 	dl_array_t currentArgs; // unsigned char
+	currentInstruction.prev = -1;
 	/**/ dl_array_init(&currentArgs, &duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
 	for (dl_ptrdiff_t i = instructionList.elements_length - 1; i >= 0; --i) {
 		dl_array_t instructions = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i);
@@ -2706,15 +2863,15 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				switch (args[0].type) {
 				case duckLisp_instructionArgClass_type_index:
 					if ((unsigned long) args[0].value.index < 0x100UL) {
-						currentInstruction = duckLisp_instruction_pushIndex8;
+						currentInstruction.byte = duckLisp_instruction_pushIndex8;
 						byte_length = 1;
 					}
 					else if ((unsigned int) args[0].value.index < 0x10000UL) {
-						currentInstruction = duckLisp_instruction_pushIndex16;
+						currentInstruction.byte = duckLisp_instruction_pushIndex16;
 						byte_length = 2;
 					}
 					else {
-						currentInstruction = duckLisp_instruction_pushIndex32;
+						currentInstruction.byte = duckLisp_instruction_pushIndex32;
 						byte_length = 4;
 					}
 					e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
@@ -2722,7 +2879,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.index >> 8*n) & 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = (args[0].value.index >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
@@ -2737,15 +2894,15 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				switch (args[0].type) {
 				case duckLisp_instructionArgClass_type_integer:
 					if ((unsigned long) args[0].value.integer < 0x100UL) {
-						currentInstruction = duckLisp_instruction_pushInteger8;
+						currentInstruction.byte = duckLisp_instruction_pushInteger8;
 						byte_length = 1;
 					}
 					else if ((unsigned int) args[0].value.integer < 0x10000UL) {
-						currentInstruction = duckLisp_instruction_pushInteger16;
+						currentInstruction.byte = duckLisp_instruction_pushInteger16;
 						byte_length = 2;
 					}
 					else {
-						currentInstruction = duckLisp_instruction_pushInteger32;
+						currentInstruction.byte = duckLisp_instruction_pushInteger32;
 						byte_length = 4;
 					}
 					e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
@@ -2753,7 +2910,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
@@ -2768,15 +2925,15 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				switch (args[0].type) {
 				case duckLisp_instructionArgClass_type_integer:
 					if ((unsigned long) args[0].value.integer < 0x100UL) {
-						currentInstruction = duckLisp_instruction_pushString8;
+						currentInstruction.byte = duckLisp_instruction_pushString8;
 						byte_length = 1;
 					}
 					else if ((unsigned int) args[0].value.integer < 0x10000UL) {
-						currentInstruction = duckLisp_instruction_pushString16;
+						currentInstruction.byte = duckLisp_instruction_pushString16;
 						byte_length = 2;
 					}
 					else {
-						currentInstruction = duckLisp_instruction_pushString32;
+						currentInstruction.byte = duckLisp_instruction_pushString32;
 						byte_length = 4;
 					}
 					e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
@@ -2784,7 +2941,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
@@ -2813,15 +2970,15 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				switch (args[0].type) {
 				case duckLisp_instructionArgClass_type_integer:
 					if ((unsigned long) args[0].value.integer < 0x100UL) {
-						currentInstruction = duckLisp_instruction_ccall8;
+						currentInstruction.byte = duckLisp_instruction_ccall8;
 						byte_length = 1;
 					}
 					else if ((unsigned int) args[0].value.integer < 0x10000UL) {
-						currentInstruction = duckLisp_instruction_ccall16;
+						currentInstruction.byte = duckLisp_instruction_ccall16;
 						byte_length = 2;
 					}
 					else {
-						currentInstruction = duckLisp_instruction_ccall32;
+						currentInstruction.byte = duckLisp_instruction_ccall32;
 						byte_length = 4;
 					}
 					e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
@@ -2829,7 +2986,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, unsigned char, n) = (args[0].value.integer >> 8*n) & 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = (args[0].value.integer >> 8*n) & 0xFFU;
 					}
 					break;
 				default:
@@ -2849,12 +3006,45 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 			}
 			
 			// Write instruction.
-			e = dl_array_pushElement(bytecode, dl_null);
+			if (bytecodeList.elements_length > 0) {
+				DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = bytecodeList.elements_length;
+			}
+			currentInstruction.prev = bytecodeList.elements_length - 1;
+			e = dl_array_pushElement(&bytecodeList, &currentInstruction);
+			// e = dl_array_pushElement(bytecode, dl_null);
 			if (e) {
+				if (bytecodeList.elements_length > 0) DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = -1;
 				goto l_cleanup;
 			}
-			DL_ARRAY_GETTOPADDRESS(*bytecode, unsigned char) = currentInstruction & 0xFFU;
-			e = dl_array_pushElements(bytecode, currentArgs.elements, currentArgs.elements_length);
+			// DL_ARRAY_GETTOPADDRESS(*bytecode, dl_uint8_t) = currentInstruction.byte & 0xFFU;
+			for (dl_ptrdiff_t k = 0; k < currentArgs.elements_length; k++) {
+				tempByteLink.byte = DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, k);
+				DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = bytecodeList.elements_length;
+				tempByteLink.prev = bytecodeList.elements_length - 1;
+				e = dl_array_pushElement(&bytecodeList, &tempByteLink);
+				if (e) {
+					if (bytecodeList.elements_length > 0) DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = -1;
+					goto l_cleanup;
+				}
+			}
+			// e = dl_array_pushElements(bytecode, currentArgs.elements, currentArgs.elements_length);
+			// if (e) {
+			// 	goto l_cleanup;
+			// }
+		}
+	}
+	if (bytecodeList.elements_length > 0) {
+		DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = -1;
+	}
+	
+	// Resolve jumps here.
+	
+	// Convert bytecodeList to array.
+	if (bytecodeList.elements_length > 0) {
+		tempByteLink.next = 0;
+		while (tempByteLink.next != -1) {
+			tempByteLink = DL_ARRAY_GETADDRESS(bytecodeList, byteLink_t, tempByteLink.next);
+			e = dl_array_pushElement(bytecode, &tempByteLink.byte);
 			if (e) {
 				goto l_cleanup;
 			}
@@ -2862,7 +3052,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	}
 	
 	// Push a return instruction.
-	unsigned char tempChar = duckLisp_instruction_return;
+	dl_uint8_t tempChar = duckLisp_instruction_return;
 	e = dl_array_pushElement(bytecode, &tempChar);
 	if (e) {
 		goto l_cleanup;
@@ -2875,6 +3065,11 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	l_cleanup:
 	
 	putchar('\n');
+	
+	eError = dl_array_quit(&bytecodeList);
+	if (eError) {
+		e = eError;
+	}
 	
 	DL_ARRAY_FOREACH(tempNode, nodeArray, {
 		break;
@@ -2921,6 +3116,19 @@ Public functions
 dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	dl_error_t error = dl_error_ok;
 	
+	// All language-defined generators go here.
+	struct {
+		const char *name;
+		const dl_size_t name_length;
+		const dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
+	} generators[] = {
+		{DL_STR("push-scope"),  duckLisp_generator_pushScope},
+		{DL_STR("pop-scope"),   duckLisp_generator_popScope},
+		{DL_STR("goto"),        duckLisp_generator_goto},
+		{DL_STR("label"),       duckLisp_generator_label},
+		{dl_null, 0,            dl_null}
+	};
+	
 	error = dl_memory_init(&duckLisp->memoryAllocation, memory, size, dl_memoryFit_best);
 	if (error) {
 		goto l_cleanup;
@@ -2939,14 +3147,11 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size) {
 	duckLisp->locals_length = 0;
 	duckLisp->statics_length = 0;
 	
-	error = duckLisp_addGenerator(duckLisp, duckLisp_generator_pushScope, DL_STR("push-scope"));
-	if (error) {
-		printf("Could not register generator. (%s)\n", dl_errorString[error]);
-	}
-	
-	error = duckLisp_addGenerator(duckLisp, duckLisp_generator_popScope, DL_STR("pop-scope"));
-	if (error) {
-		printf("Could not register generator. (%s)\n", dl_errorString[error]);
+	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
+		error = duckLisp_addGenerator(duckLisp, generators[i].callback, generators[i].name, generators[i].name_length);
+		if (error) {
+			printf("Could not register generator. (%s)\n", dl_errorString[error]);
+		}
 	}
 	
 	error = dl_error_ok;
