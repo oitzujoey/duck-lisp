@@ -490,3 +490,13 @@ A label may have many source addresses.
 A label will have its index placed in a trie right after it is assembled to bytecode.
 A backward goto will calculate its jump distance when it is converted to bytecode.
 A forward goto will use 32 bits and enter its address into a trie (with label as key) that points to an array with pointers to all the gotos to that label.
+
+(goto <label>) — Create label and goto array if not already created. Emit high-level jump instruction.
+(label <label>) — Create label if not already created. Emit label pseudo instruction.
+label trie points to an array of links?
+Jump — Insert current address in car of link array.
+Label — Insert current address in cdr of link array.
+
+Goto trie will contain pointers to arrays of source addresses.
+Label trie will contain destination addresses.
+After bytecode list is generated and goto and label tries are populated, create jump link array.

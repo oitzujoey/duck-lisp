@@ -226,7 +226,6 @@ typedef struct {
 	dl_size_t generators_length;
 	
 	dl_trie_t labels_trie;
-	dl_trie_t gotos_trie;
 } duckLisp_scope_t;
 
 typedef struct {
@@ -256,29 +255,37 @@ typedef enum {
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_ccall,
 	duckLisp_instructionClass_jump,
+	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
 
 // Max number of instructions must be 256.
 typedef enum {
 	duckLisp_instruction_nop = 0,
+	
 	duckLisp_instruction_pushString8,
 	duckLisp_instruction_pushString16,
 	duckLisp_instruction_pushString32,
+	
 	duckLisp_instruction_pushInteger8,
 	duckLisp_instruction_pushInteger16,
 	duckLisp_instruction_pushInteger32,
+	
 	duckLisp_instruction_pushIndex8,
 	duckLisp_instruction_pushIndex16,
 	duckLisp_instruction_pushIndex32,
+	
 	duckLisp_instruction_call8,
 	duckLisp_instruction_call16,
 	duckLisp_instruction_call32,
+	
 	duckLisp_instruction_ccall8,
 	duckLisp_instruction_ccall16,
 	duckLisp_instruction_ccall32,
+	
 	duckLisp_instruction_jump8,
 	duckLisp_instruction_jump16,
 	duckLisp_instruction_jump32,
+	
 	duckLisp_instruction_return,
 } duckLisp_instruction_t;
 

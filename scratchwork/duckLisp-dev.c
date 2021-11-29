@@ -208,6 +208,7 @@ int main(int argc, char *argv[]) {
 	"  (\n"
 	"    (string s \"in-scope\n\")\n"
 	"    (print-string s)\n"
+	"    (goto skip)\n"
 	"    (print-string t))\n"
 	"  (goto skip)\n"
 	"  (print-stack)\n"
@@ -347,11 +348,6 @@ int main(int argc, char *argv[]) {
 	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
 		printf("Scope %lli: functions (1: callback  2: script  3: generator)\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].functions_trie);
-	}
-	putchar('\n');
-	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
-		printf("Scope %lli: gotos\n", i);
-		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].gotos_trie);
 	}
 	putchar('\n');
 	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {

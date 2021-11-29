@@ -1,0 +1,13 @@
+SC  = Source Code
+CST = Concrete Syntax Tree
+AST = Abstract Syntax Tree
+HLA = High-Level Assembly
+BCL = ByteCode List
+BC  = ByteCode
+
+1.  SC  →   CST
+2.  CST →   AST
+3.  AST →   HLA
+4.  HLA →   BCL
+5.  Resolve branches. May require several passes.
+6.  BCL →   BC
