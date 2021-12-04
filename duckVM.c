@@ -42,6 +42,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		ptrdiff1 = 0;
 		/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
 		switch (*(ip++)) {
+		case duckLisp_instruction_nop:
+			break;
 		case duckLisp_instruction_pushString32:
 			object1.value.string.value_length = *(ip)++;
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);

@@ -500,3 +500,18 @@ Label — Insert current address in cdr of link array.
 Goto trie will contain pointers to arrays of source addresses.
 Label trie will contain destination addresses.
 After bytecode list is generated and goto and label tries are populated, create jump link array.
+
+I did the label scoping wrong. Scoping should always be done in the generators, but I did it in bytecode generation. What I am currently doing is giving the label name (a string) as the instruction argument. What I should be doing is looking up the label index in the label trie (which may have been constructed in the same generator). The index, not the name, should be passed as the instruction argument. During code generation, the index is used to populate the element of the label array that contains the jump structure.
+
+I dealt with the label scoping problem. It works better. The problem I'm having now is again forward references. Apparently forward references are a problem for scoping in addition to bytecode generation. If a goto or label (they are the essentially the same) is placed inside a scope and another goto or label has been placed after the scope, two labels will be created, one inside and one outside. If a goto or label preceeds the scope, only one label is created.
+
+Rules:
+	A label returns no value. It is a pseudo-instruction.
+	A label may only appear in the top-level array of a closed scope expression.
+		Allowed:
+			(
+			  (label "cleanup"))
+		Disallowed:
+			(+ a b (label "cleanup"))
+			(push-scope (label "cleanup"))
+		This rule is partially an extension of the first rule. This allows the () expression to create the label before its children search for it.

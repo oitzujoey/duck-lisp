@@ -216,6 +216,13 @@ typedef enum {
 } duckLisp_functionType_t;
 
 typedef struct {
+	char *name;
+	dl_size_t name_length;
+	dl_ptrdiff_t target;
+	dl_array_t sources; // dl_ptrdiff_t
+} duckLisp_label_t;
+
+typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   // Points to stack objects.
 	dl_trie_t statics_trie;   // Points to static objects.
@@ -246,6 +253,7 @@ typedef struct {
 	
 	dl_array_t bytecode;    // dl_array_t:uint8_t
 	dl_array_t generators_stack; // dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t)
+	dl_array_t labels;  // duckLisp_label_t
 } duckLisp_t;
 
 typedef enum {
@@ -335,7 +343,7 @@ dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compou
 
 dl_error_t DECLSPEC duckLisp_emit_pushString(duckLisp_t *duckLisp, dl_array_t *bytecodeBuffer, dl_ptrdiff_t *stackIndex, char *string, dl_size_t string_length);
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
-                               const char *source, const dl_size_t source_length);
+                               char *source, const dl_size_t source_length);
 
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);

@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 #include "../DuckLib/core.h"
 #include "../duckLisp.h"
 #include "../duckVM.h"
@@ -86,21 +87,6 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 	
 	return e;
 }
-
-/*
-dl_error_t duckLisp_generator_functionCall(duckLisp_t *duckLisp) {
-	dl_error_t e = dl_error_ok;
-	
-	// 
-	// Insert arg1 into this scope's name trie.
-	// Set object to type string.
-	// Set object to value of arg2.
-	
-	l_cleanup:
-	
-	return e;
-}
-*/
 
 dl_error_t duckLispDev_generator_createString(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
@@ -200,19 +186,26 @@ int main(int argc, char *argv[]) {
 	void *duckLispMemory = dl_null;
 	void *duckVMMemory = dl_null;
 	size_t tempMemory_size;
-	duckLisp_error_t error;
-	const char source0[] =
-	"(\n"
-	"  (string t \"Hello, world!\n\n\")\n"
-	"  (string s \"out-of-scope\n\")\n"
-	"  (\n"
-	"    (string s \"in-scope\n\")\n"
-	"    (print-string s)\n"
-	"    (goto skip)\n"
-	"    (print-string t))\n"
-	"  (goto skip)\n"
-	"  (print-stack)\n"
-	"  (label skip))\n";
+	duckLisp_error_t error; // Compile errors.
+	
+	FILE *sourceFile = dl_null;
+	dl_array_t sourceCode;
+	int tempInt;
+	char tempChar;
+	// const char source0[] =
+	// "(\n"
+	// "  (string t \"Hello, world!\n\n\")\n"
+	// "  (string s \"out-of-scope\n\")\n"
+	// "  (goto skip)\n"
+	// "  (\n"
+	// "    (string s \"in-scope\n\")\n"
+	// "    (print-string s)\n"
+	// "    (goto skip)\n"
+	// "    (print-string t))\n"
+	// "  (goto skip)\n"
+	// "  (print-stack)\n"
+	// "  (label skip)\n"
+	// "  (nop))\n";
 	dl_ptrdiff_t printString_index = -1;
 	duckVM_t duckVM;
 	unsigned char *bytecode = dl_null;
@@ -243,6 +236,11 @@ int main(int argc, char *argv[]) {
 	
 	/* Initialization. */
 	
+	if (argc != 2) {
+		printf("Requires a filename as an argument.\n");
+		goto l_cleanup;
+	}
+	
 	tempMemory_size = 1024*1024;
 	duckLispMemory = malloc(tempMemory_size);
 	if (duckLispMemory == NULL) {
@@ -258,6 +256,8 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	d.duckLisp_init = dl_true;
+	
+	/**/ dl_array_init(&sourceCode, &duckLisp.memoryAllocation, sizeof(char), dl_array_strategy_double);
 	
 	/* Create generators. */
 	
@@ -278,12 +278,66 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	
+	/* Fetch script. */
+	
+	sourceFile = fopen(argv[1], "r");
+	if (sourceFile == NULL) {
+		printf("Could not open file \"%s\".\n", argv[1]);
+		e = dl_error_nullPointer;
+		goto l_cleanup;
+	}
+	while ((tempChar = (char) fgetc(sourceFile)) != EOF) {
+		// tempChar = tempInt & 0xFF;
+		e = dl_array_pushElement(&sourceCode, &tempChar);
+		if (e) {
+			fclose(sourceFile);
+			goto l_cleanup;
+		}
+	}
+	fclose(sourceFile);
+	
 	/* Compile functions. */
 	
-	e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, DL_STR(source0));
+	// e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, DL_STR(source0));
+	e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
+	                        sourceCode.elements_length);
 	if (e) {
 		printf("Error loading string. (%s)\n", dl_errorString[e]);
 		
+		while (dl_true) {
+			e = dl_array_popElement(&duckLisp.errors, (void *) &error);
+			if (e) {
+				break;
+			}
+			
+			// for (dl_ptrdiff_t i = 0; i < duckLisp.source.elements_length; i++) {
+			// 	putchar(((char *) duckLisp.source.elements)[i]);
+			// }
+			// putchar('\n');
+			
+			for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
+				putchar(error.message[i]);
+			}
+			putchar('\n');
+			
+			if (error.index == -1) {
+				continue;
+			}
+			
+			// printf("%s\n", source0);
+			for (dl_ptrdiff_t i = 0; i < sourceCode.elements_length; i++) {
+				if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
+					putchar(' ');
+				else
+					putchar(DL_ARRAY_GETADDRESS(sourceCode, char, i));
+			}
+			putchar('\n');
+			for (dl_ptrdiff_t i = duckLisp.source.elements_length - sourceCode.elements_length; i < error.index; i++) {
+				putchar(' ');
+			}
+			puts("^");
+		}
+
 		goto l_cleanup;
 	}
 	
@@ -292,33 +346,6 @@ int main(int argc, char *argv[]) {
 		printf("Memory health check failed. (%s)\n", dl_errorString[e]);
 	}
 	
-	while (dl_true) {
-		e = dl_array_popElement(&duckLisp.errors, (void *) &error);
-		if (e) {
-			break;
-		}
-		
-		// for (dl_ptrdiff_t i = 0; i < duckLisp.source.elements_length; i++) {
-		// 	putchar(((char *) duckLisp.source.elements)[i]);
-		// }
-		// putchar('\n');
-		
-		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
-			putchar(error.message[i]);
-		}
-		putchar('\n');
-		
-		if (error.index == -1) {
-			continue;
-		}
-		
-		printf("%s\n", source0);
-		for (dl_ptrdiff_t i = duckLisp.source.elements_length - sizeof(source0); i < error.index; i++) {
-			putchar(' ');
-		}
-		puts("^");
-	}
-
 
 	// Print bytecode in hex.
 	for (dl_ptrdiff_t i = 0; i < bytecode_length; i++) {
