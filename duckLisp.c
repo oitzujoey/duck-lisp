@@ -2624,6 +2624,35 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 				goto l_cleanup;
 			}
 			break;
+		case ast_compoundExpression_type_constant:
+			switch (expression->compoundExpressions[i].value.constant.type) {
+			case ast_constant_type_number:
+				switch (expression->compoundExpressions[i].value.constant.value.number.type) {
+				case ast_number_type_int:
+					e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[i].value.constant.value.number.value.integer.value);
+					if (e) goto l_cleanup;
+					break;
+				default:
+					eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Unsupported expression type."));
+					if (eError) {
+						e = eError;
+					}
+					goto l_cleanup;
+				}
+				break;
+			case ast_constant_type_string:
+				e = duckLisp_emit_pushString(duckLisp, assembly, dl_null, expression->compoundExpressions[i].value.constant.value.string.value,
+											 expression->compoundExpressions[i].value.constant.value.string.value_length);
+				if (e) goto l_cleanup;
+				break;
+			default:
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Unsupported expression type."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			break;
 		default:
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Unsupported expression type."));
 			if (eError) {
