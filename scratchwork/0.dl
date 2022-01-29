@@ -2,13 +2,14 @@
 (
   (string t "Hello, world!\n\n")
   (string s "out-of-scope\n")
-  (goto skip)
+  
+  (comment "Push a new scope.")
   (
+    (comment "This string overrides `s` defined in the outer scope.")
     (string s "in-scope\n")
     (print-string s)
-    (goto skip)
+
+	(comment "Print `t` from the outer scope.")
     (print-string t))
-  (goto skip)
-  (print-stack)
-  (label skip)
-  (nop))
+  
+  (print-stack))

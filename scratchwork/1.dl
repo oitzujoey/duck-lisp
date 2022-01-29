@@ -1,11 +1,9 @@
-
-// Define a function.
-(function f [arg0 arg1]
-	(return (* arg0 arg1))
-)
-// Define a function that calls its first argument as a function and passes the rest as arguments.
-(function g [arg0 arg1 arg2]
-	(return (arg0 arg1 arg2))
-)
-// Call the function.
-(g f 4 5)
+(
+ (string first-letter "T")
+ (string rest "his is the song that never ends.\nYes, it goes on and on, my friends.\nSome people started singing it not knowing what it was,\nand they'll continue singing it forever just because\nt")
+ (print-string first-letter)
+ (label loop)
+ (
+  (comment "Might as well push a scope here for indentation.")
+  (print-string rest)
+  (goto loop)))

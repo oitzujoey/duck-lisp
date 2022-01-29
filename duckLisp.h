@@ -267,6 +267,7 @@ typedef enum {
 } duckLisp_instructionClass_t;
 
 // Max number of instructions must be 256.
+// Order must be 8→16→32 otherwise there will be optimization problems.
 typedef enum {
 	duckLisp_instruction_nop = 0,
 	
@@ -352,7 +353,11 @@ dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *n
 dl_error_t DECLSPEC duckLisp_addGenerator(duckLisp_t *duckLisp, dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*),
                                  const char *name, const dl_size_t name_length);
 dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
-// dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length,
-//                                   const dl_error_t(*generator)(duckLisp_t*, const duckLisp_ast_expression_t));
+// dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name,
+// const dl_size_t name_length,
+//                                   const dl_error_t(*generator)(duckLisp_t*,
+//                                   const duckLisp_ast_expression_t));
+
+char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uint8_t *bytecode, const dl_size_t length);
 
 #endif // DUCKLISP_H

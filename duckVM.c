@@ -51,7 +51,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
 		case duckLisp_instruction_pushString8:
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
-			object1.value.string.value = ip;
+			object1.value.string.value = (char *) ip;
 			ip += object1.value.string.value_length;
 			object1.type = duckLisp_object_type_string;
 			e = dl_array_pushElement(&duckVM->stack, &object1);
@@ -131,7 +131,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_jump8:
 			ptrdiff1 = *(ip++);
 			if (ptrdiff1 & 0x80ULL) {
-				ip -= ptrdiff1 & ~0x80ULL;
+				ip -= (~ptrdiff1 + 1) & 0xFF;
 			}
 			else {
 				ip += ptrdiff1;

@@ -515,3 +515,208 @@ Rules:
 			(+ a b (label "cleanup"))
 			(push-scope (label "cleanup"))
 		This rule is partially an extension of the first rule. This allows the () expression to create the label before its children search for it.
+
+Escape sequences are now expanded in CST → AST.
+
+
+Discord Hanabi chat:
+<discord user=an_origamian>
+I've been working on branching.
+Scoping for it is done and wasn't too hard, though the current implementation only allows labels in the top level of an expression with an expression as its function part.
+```lisp
+;; Labels allowed here.
+(
+  (label l)
+  (nop)
+  (goto l))
+
+;; Labels disallowed here.
+(+ (label l) 5 (goto l))
+
+;; Labels disallowed here.
+(+ (push-scope)
+   (label l)
+   (nop)
+   (goto l)
+   (pop-scope))
+
+;; Labels allowed here.
+(+ (
+     (label l)
+     (nop)
+     (goto l))
+   5
+   6)
+```
+.
+Labels are pseudo-instructions that have no bytecode representation.
+Gotos are jump instructions.
+At the moment, labels and gotos return no value.
+```lisp
+;; Jump8 uses a one-byte relative address.
+(jump8 offset) ; Two bytes long.
+;; Jump16 uses a two-byte relative address.
+(jump16 offset-LSB offset-MSB) ; Three bytes long.
+;; Jump32 uses a four-byte relative address.
+(jump32 offset-LSB offset-ML offset-MH offset-MSB) ; Five bytes long.
+```
+When a jump instruction executes, the instruction pointer (IP) points first to the opcode and then to each of the bytes in the operand. After the relative address has been extracted from the instruction, the IP points to the instruction after the jump. The relative address is then added to this value of the IP, and the VM continues executing code from the new address.
+.
+The compiler portion of the `compile` function generates high-level assembly. Instead of emitting a jump8 instruction, it would simply emit the jump high-level instruction. This then gets converted to one of the above three variants of jump by the assembler portion of `compile`. The question is, how does the assembler choose which instruction to emit? It seems simple at first. Just subtract the source of the jump from the target label. If all jump instructions are the five-byte form, this works just fine, but if the jump instructions vary in length, then it becomes more difficult to calculate the real target address. Take this for example:
+```lisp
+(
+  (label l)
+  <130 nops>
+  (goto l))
+```
+This is compiled to (using a representation of the internal high-level assembly)
+```lisp
+(
+  (label 0)
+  <130 nops>
+  (jump 0))
+```
+`0` is the index of the label in the label array. It does not correspond to the actual address in any way.
+And now down to bytecode:
+```lisp
+0   <130 nops>
+130 <jump8, 16, or 32?>
+```
+To determine the size of the instruction, we need to know the jump distance. This is easy. Distance ≈ 0 - 130 = -130. |-130| > 127, so we need to use the 16-bit version. The distance is measured from the last byte of the jump instruction, so we also have to add that to the naive total. -130 - 3 = -133.
+```lisp
+0   <130 nops>
+130 jump16 16'd-133
+```
+`16'd<number>` is Verilog's notation for 16-bit decimal numbers. It's quite convenient for this sort of thing.
+Easy! It's just a bit of arithmetic.
+Here's where it gets complicated.
+```lisp
+(
+  (label l)
+  (label m)
+  <124 nops>
+  (goto l)
+  (goto m))
+```
+↓
+```lisp
+(
+  (label 0)
+  (label 1)
+  <124 nops>
+  jump 0
+  jump 1)
+```
+↓
+```lisp
+0     <124 nops>
+124   jump?? ??
+124+? jump?? ??
+```
+Now how do we calculate this? It's not that much more difficult to figure out, but if we focus on the second jump it illustrates the point. If we assume the first jump is jump8, then the whole instruction will be two bytes long. If we assume the second jump is jump8, it will also be two bytes. Label `m` will be 0-(124+2+2) = -128 bytes forward. Since the size of the address fits in eight bits using two's compliment negative numbers, jump8 is sufficient to reach the target.
+```lisp
+0   <124 nops>
+124 jump8 8'd-126
+126 jump8 8'd-128
+```
+And it works out! This only happened because of the assumption that each offset fit in a single byte. If we use jump16, it no longer fits.
+```lisp
+0   <124 nops>
+124 jump16 16'd-127
+127 jump16 16'd-130
+```
+It would be possible for the assembler to optimize this to use jump8s, but assuming the smallest size instruction and working up to largest is much easier to program.
+.
+Needless to say, most programs are going to have a ton of branches, and determining the size will not necessarily be easy.
+One approach is to iterate over all the branches in the bytecode and gradually expand each one until the offsets of each one fit into the instruction. This requires that extra bytes are inserted into the middle of the bytecode. To do this with an array, the bytecode memory block would have to be reallocated and then a portion of the bytecode would have to be copied to make room for the inserted instruction. This is inefficient. Another approach is to make the bytecode an array containing links in a list. This has the advantage that links can be inserted into the middle of the list and each link can still be accessed by its index in the array. New list links are pushed onto the end of the array. The problem is that since incrementing the array index does not necessarily mean incrementing the list index, distance can no longer be determined by subtracting the source index from the target index. A third approach is to create a system of equations describing the relationships between each branch. Once the equation is solved and addresses are mathematically calculated, distance is no longer required, so all that needs to be done is rewrite the jump opcodes and insert links after them with the correct address. I don't think creating the equation will be hard, but solving it will be another matter since it will either have if statements or logs.
+I've read that optimizing the code size of addressing is not something that programmers worried about even in the 70s, but I still think it would be nice to have.
+.
+`asize(a)` = `ceiling(log128(a)) + 1`
+```c
+asize(0) = 0
+asize(1) = 1
+asize(-1) = 1
+asize(127) = 1
+asize(128) = 2
+asize(-128) = 1
+asize(-129) = 2
+```
+`index` = Index of byte in bytecode array before addresses are inserted.
+
+Source:
+```lisp
+(
+  (label l)
+  (label m)
+  <124 nops>
+  (goto l)
+  (goto m))
+```
+Assembled bytecode:
+```txt
+<124 nop opcodes>
+; No operand yet. Just opcode.
+jump8
+jump8
+```
+Annotations:
+```txt
+l0
+l1
+    <124 nops>
+b0  jump l0 a0
+b1  jump l1 a1
+```
+Left field is an address.
+Middle field is an opcode.
+Middle-left field is a label so you know where it goes.
+Right field is an address associated with the opcode. It is not actually in the bytecode array.
+This is the system of equations that result.
+```c
+l0 = index
+l1 = index
+b0 = index
+a0 = l0 - (b0 + asize(a0))
+b1 = b0 + 1 + asize(a0)
+a1 = l1 - (b1 + asize(a1))
+```
+This expands to
+```c
+l0 = 0
+l1 = 0
+b0 = 124
+a0 = l0 - (b0 + asize(a0))
+b1 = b0 + 1 + asize(a0)
+a1 = l1 - (b1 + asize(a1))
+```
+```c
+a0 = 0 - (124 + asize(a0))
+b1 = b0 + 1 + asize(a0)
+a1 = 0 - (b1 + asize(a1))
+```
+```c
+a0 = -ceiling(log128(a0))      - 125
+b1 =  ceiling(log128(a0))      +   2
+a1 = -ceiling(log128(a1)) - b1 -   1
+```
+Wheeeee!!!! Logs and ceilings, and maybe even if statements! I have no idea how to solve this without a trial and error approach. Trial and error may be an acceptable solution.
+</discord>
+
+1. Start with best estimate using 2-byte jump instructions.
+2. Clear the "not done" flag. Set the cumulative offset to zero. For each link… (in order)
+  a. Add cumulative offset.
+  b. Calculate required instruction size.
+  c. Set "not done" flag if current instruction size is too small.
+  d. Increase instruction size to required instruction size if necessary.
+3. If "not done" flag is set, goto 2. Else, goto 4.
+4. Reallocate the bytecode to account for the new size of the branches.
+5. Write the branch instructions and relocate the incumbent bytecode.
+
+Sort:
+	One array is sorted.
+	One array is unsorted.
+	The destination array is double the size of the other two.
+
+Array is filled and sorted.
+
+

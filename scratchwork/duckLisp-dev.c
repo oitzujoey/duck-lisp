@@ -5,6 +5,7 @@
 #include "../DuckLib/core.h"
 #include "../duckLisp.h"
 #include "../duckVM.h"
+#include "DuckLib/memory.h"
 
 dl_error_t duckLispDev_callback_printString(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
@@ -23,7 +24,7 @@ dl_error_t duckLispDev_callback_printString(duckVM_t *duckVM) {
 		goto l_cleanup;
 	}
 	
-	printf("VM: ");
+	/* printf("VM: "); */
 	for (dl_size_t i = 0; i < string.value.string.value_length; i++) {
 		putchar(string.value.string.value[i]);
 	}
@@ -216,7 +217,7 @@ int main(int argc, char *argv[]) {
 	struct {
 		const char *name;
 		const dl_size_t name_length;
-		const dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
+		dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
 	} generators[] = {
 		{DL_STR("string"),      duckLispDev_generator_createString},
 		{dl_null, 0,            dl_null}
@@ -227,7 +228,7 @@ int main(int argc, char *argv[]) {
 		dl_ptrdiff_t index;
 		const char *name;
 		const dl_size_t name_length;
-		const dl_error_t (*callback)(duckVM_t *);
+		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
 		{0, DL_STR("print-string"), duckLispDev_callback_printString},
 		{0, DL_STR("print-stack"),  duckLispDev_callback_printStack},
@@ -384,6 +385,13 @@ int main(int argc, char *argv[]) {
 	putchar('\n');
 	
 	// /**/ duckLisp_call(&duckLisp, "hello-world");
+
+	{
+		char *disassembly = duckLisp_disassemble(&duckLisp.memoryAllocation, bytecode, bytecode_length);
+		printf("%s", disassembly);
+		e = dl_free(&duckLisp.memoryAllocation, (void **) &disassembly);
+	}
+	/* return 0; */
 	
 	tempMemory_size = 1024*1024;
 	duckVMMemory = malloc(tempMemory_size);
@@ -411,11 +419,14 @@ int main(int argc, char *argv[]) {
 	}
 	
 	putchar('\n');
+	puts("VM: {");
 	
 	e = duckVM_execute(&duckVM, bytecode);
 	if (e) {
 		goto l_cleanup;
 	}
+	
+	puts("}");
 	putchar('\n');
 
 	// e = duckVM_call(&duckVM, helloWorld_index);
