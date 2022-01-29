@@ -1,0 +1,44 @@
+
+Raw:
+    One realloc per instruction per cycle — Inefficient.
+
+Equation + Quicksort:
+    Two allocs
+    Wasteful copying before actual sort.
+
+Equation + hash + Mergesort:
+    Two allocs
+	May not improve sorting speed.
+
+
+Find max. Assume min is 0.
+:n
+
+Multiply max by destination array length and divide by max.
+
+(defun random-list (size range)
+  ""
+  (mapcar (lambda (element) (random range)) (make-list size nil)))
+
+(let* ((size 100)
+	   (range (expt 2 32))
+	   (a (sort (random-list size range) #'<))
+	   (b (random-list size range))
+	   (c (make-list (* 2 size) nil))
+	   (indices (mapcar (lambda (element) (/ (* 2 size element) range)) b)))
+
+  (dotimes (i (length b))
+	(let ((j (nth i indices))
+		  temp0
+		  (temp1 (nth i b)))
+	  (while (not (null (nth j c)))
+		(setq temp0 (nth j c))
+		(setf (nth j c) temp1)
+		(setq temp1 temp0)
+		(setq j (1+ j)))
+	  (setf (nth j c) temp1)))
+;;	(setf (nth (nth i indices) c) (nth i b)))
+  
+  c)
+
+
