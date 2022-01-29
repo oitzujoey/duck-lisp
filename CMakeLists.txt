@@ -12,6 +12,7 @@ add_library(DuckLib STATIC
             DuckLib/array.c
             DuckLib/string.c
             DuckLib/trie.c
+            DuckLib/sort.c
             )
 
 target_include_directories(DuckLib PUBLIC
