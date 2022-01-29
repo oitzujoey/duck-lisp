@@ -1,30 +1,9 @@
-
-(function f "arg0 arg1" (
-	(return (* arg0 arg1))
-))
-
-(set g (lambda "arg0 arg1 arg2" (
-	return (arg0 arg1 arg2)
-)))
-
-(g f 4 5)
-
-// Create a structure.
-(set h {0 1 2 3 4})
-// h == {0, 1, 2, 3, 4}
-
-(set h {5 6})
-// h == {5, 6}
-
-(set h:5 10)
-// h == {5, 6, .5=10}
-/*
-h[0] == 5
-h[1] == 6
-h[5] == 10
-*/
-
-(set h:d 17)
-// h == {5, 6, .5=10, .d=17}
-
-(set h:d {a})
+(
+ (var s0 "duck-lisp supports ")
+ (var s1 " types now!\n")
+ (var i 2)
+ (var j "three or four")
+ (print s0)
+ (setq i j)
+ (print i)
+ (print s1))

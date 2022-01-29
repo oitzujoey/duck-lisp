@@ -1,5 +1,6 @@
 
 #include "duckVM.h"
+#include "DuckLib/array.h"
 #include <stdio.h>
 
 dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size) {
@@ -33,6 +34,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	
 	unsigned char *ip = bytecode;
 	dl_ptrdiff_t ptrdiff1;
+	dl_ptrdiff_t ptrdiff2;
 	// dl_size_t length1;
 	duckLisp_object_t object1;
 	unsigned char *pointer1;
@@ -136,6 +138,40 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			else {
 				ip += ptrdiff1;
 			}
+			break;
+		
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_move32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			e = dl_array_set(&duckVM->stack, &object1, ptrdiff2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_move16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			e = dl_array_set(&duckVM->stack, &object1, ptrdiff2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_move8:
+			ptrdiff1 = *(ip++);
+			ptrdiff2 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			e = dl_array_set(&duckVM->stack, &object1, ptrdiff2);
+			if (e) break;
 			break;
 		
 		case duckLisp_instruction_return:

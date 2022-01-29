@@ -263,6 +263,7 @@ typedef enum {
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_ccall,
 	duckLisp_instructionClass_jump,
+	duckLisp_instructionClass_move,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
 
@@ -294,6 +295,10 @@ typedef enum {
 	duckLisp_instruction_jump8,
 	duckLisp_instruction_jump16,
 	duckLisp_instruction_jump32,
+	
+	duckLisp_instruction_move8,
+	duckLisp_instruction_move16,
+	duckLisp_instruction_move32,
 	
 	duckLisp_instruction_return,
 } duckLisp_instruction_t;
@@ -342,7 +347,21 @@ dl_error_t DECLSPEC duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp, duckL
 dl_error_t DECLSPEC duckLisp_cst_print(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t cst);
 dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t ast);
 
-dl_error_t DECLSPEC duckLisp_emit_pushString(duckLisp_t *duckLisp, dl_array_t *bytecodeBuffer, dl_ptrdiff_t *stackIndex, char *string, dl_size_t string_length);
+dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
+
+dl_error_t duckLisp_emit_move(duckLisp_t *duckLisp, dl_array_t *assembly,
+                              const dl_ptrdiff_t destination_index,
+                              const dl_ptrdiff_t source_index);
+dl_error_t duckLisp_emit_pushInteger(duckLisp_t *duckLisp, dl_array_t *assembly,
+                                     dl_ptrdiff_t *stackIndex,
+                                     const dl_ptrdiff_t integer);
+dl_error_t duckLisp_emit_pushIndex(duckLisp_t *duckLisp, dl_array_t *assembly, dl_ptrdiff_t index);
+dl_error_t DECLSPEC duckLisp_emit_pushString(duckLisp_t *duckLisp,
+                                             dl_array_t *bytecodeBuffer,
+                                             dl_ptrdiff_t *stackIndex,
+                                             char *string,
+                                             dl_size_t string_length);
+
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
                                char *source, const dl_size_t source_length);
 
