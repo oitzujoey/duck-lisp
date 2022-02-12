@@ -213,7 +213,7 @@ static dl_error_t cst_expression_quit(duckLisp_t *duckLisp, duckLisp_cst_express
 	return e;
 }
 
-static dl_error_t cst_parse_expression(duckLisp_t *duckLisp, duckLisp_cst_expression_t *expression, char *source, const dl_ptrdiff_t start_index,
+static dl_error_t cst_parse_expression(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression, char *source, const dl_ptrdiff_t start_index,
                                        const dl_size_t length, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eCleanup = dl_error_ok;
@@ -235,6 +235,8 @@ static dl_error_t cst_parse_expression(duckLisp_t *duckLisp, duckLisp_cst_expres
 	dl_bool_t justPopped = dl_false;
 	dl_bool_t justPushed = dl_false;
 	dl_bool_t wasWhitespace = dl_false;
+
+	duckLisp_cst_expression_t *expression = &compoundExpression->value.expression;
 	
 	/**/ cst_expression_init(expression);
 	
@@ -513,7 +515,7 @@ static void cst_identifier_quit(duckLisp_t *duckLisp, duckLisp_cst_identifier_t 
 	identifier->token_length = 0;
 }
 
-static dl_error_t cst_parse_identifier(duckLisp_t *duckLisp, duckLisp_cst_identifier_t *identifier, char *source,
+static dl_error_t cst_parse_identifier(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression, char *source,
                                                const dl_ptrdiff_t start_index, const dl_size_t length, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -556,8 +558,8 @@ static dl_error_t cst_parse_identifier(duckLisp_t *duckLisp, duckLisp_cst_identi
 		index++;
 	}
 	
-	identifier->token_index = start_index;
-	identifier->token_length = length;
+	compoundExpression->value.identifier.token_index = start_index;
+	compoundExpression->value.identifier.token_length = length;
 	
 	l_cleanup:
 	
@@ -638,7 +640,7 @@ static void cst_bool_quit(duckLisp_t *duckLisp, duckLisp_cst_bool_t *boolean) {
 	boolean->token_length = 0;
 }
 
-static dl_error_t cst_parse_bool(duckLisp_t *duckLisp, duckLisp_cst_bool_t *boolean, char *source,
+static dl_error_t cst_parse_bool(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression, char *source,
                                                const dl_ptrdiff_t start_index, const dl_size_t length, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -657,8 +659,8 @@ static dl_error_t cst_parse_bool(duckLisp_t *duckLisp, duckLisp_cst_bool_t *bool
 		}
 	}
 	
-	boolean->token_index = start_index;
-	boolean->token_length = length;
+	compoundExpression->value.boolean.token_index = start_index;
+	compoundExpression->value.boolean.token_length = length;
 	
 	l_cleanup:
 	
@@ -716,7 +718,7 @@ static void cst_int_quit(duckLisp_t *duckLisp, duckLisp_cst_integer_t *integer) 
 	integer->token_length = 0;
 }
 
-static dl_error_t cst_parse_int(duckLisp_t *duckLisp, duckLisp_cst_integer_t *integer, char *source,
+static dl_error_t cst_parse_int(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression, char *source,
                                                const dl_ptrdiff_t start_index, const dl_size_t length, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -758,8 +760,8 @@ static dl_error_t cst_parse_int(duckLisp_t *duckLisp, duckLisp_cst_integer_t *in
 		index++;
 	}
 	
-	integer->token_index = start_index;
-	integer->token_length = length;
+	compoundExpression->value.integer.token_index = start_index;
+	compoundExpression->value.integer.token_length = length;
 	
 	l_cleanup:
 	
@@ -817,7 +819,7 @@ static void cst_float_quit(duckLisp_t *duckLisp, duckLisp_cst_float_t *floatingP
 	floatingPoint->token_length = 0;
 }
 
-static dl_error_t cst_parse_float(duckLisp_t *duckLisp, duckLisp_cst_float_t *floatingPoint, char *source,
+static dl_error_t cst_parse_float(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression, char *source,
                                                const dl_ptrdiff_t start_index, const dl_size_t length, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -965,8 +967,8 @@ static dl_error_t cst_parse_float(duckLisp_t *duckLisp, duckLisp_cst_float_t *fl
 		goto l_cleanup;
 	}
 	
-	floatingPoint->token_index = start_index;
-	floatingPoint->token_length = length;
+	compoundExpression->value.floatingPoint.token_index = start_index;
+	compoundExpression->value.floatingPoint.token_length = length;
 	
 	l_cleanup:
 	
@@ -1024,7 +1026,7 @@ static void cst_string_quit(duckLisp_t *duckLisp, duckLisp_cst_string_t *string)
 	string->token_length = 0;
 }
 
-static dl_error_t cst_parse_string(duckLisp_t *duckLisp, duckLisp_cst_string_t *string, char *source,
+static dl_error_t cst_parse_string(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression, char *source,
                                    const dl_ptrdiff_t start_index, const dl_size_t length, dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1088,8 +1090,8 @@ static dl_error_t cst_parse_string(duckLisp_t *duckLisp, duckLisp_cst_string_t *
 	}
 	
 	// @TODO: Allow stringified strings instead of just quoted strings.
-	string->token_index = start_index + 1;
-	string->token_length = length - 2;
+	compoundExpression->value.string.token_index = start_index + 1;
+	compoundExpression->value.string.token_length = length - 2;
 	
 	l_cleanup:
 	
@@ -1249,75 +1251,34 @@ static dl_error_t cst_parse_compoundExpression(duckLisp_t *duckLisp, duckLisp_cs
 	dl_ptrdiff_t stop_index = start_index + length;
 	
 	cst_compoundExpression_init(compoundExpression);
-	
-	// Try parsing as a bool.
-	e = cst_parse_bool(duckLisp, &compoundExpression->value.boolean, source, start_index, length, dl_false);
-	if (e) {
+
+	typedef struct {
+		dl_error_t (*reader) (duckLisp_t *, duckLisp_cst_compoundExpression_t *, char *, const dl_ptrdiff_t start_index, const dl_size_t, dl_bool_t);
+		duckLisp_cst_type_t type;
+	} readerStruct_t;
+
+	readerStruct_t readerStruct[] = {
+		{.reader = cst_parse_bool,       .type = cst_type_bool},
+		{.reader = cst_parse_int,        .type = cst_type_int},
+		{.reader = cst_parse_float,      .type = cst_type_float},
+		{.reader = cst_parse_string,     .type = cst_type_string},
+		{.reader = cst_parse_identifier, .type = cst_type_identifier},
+		{.reader = cst_parse_expression, .type = cst_type_expression},
+	};
+
+	// We have a reader! I'll need to make it generate AST though.
+	for (dl_ptrdiff_t i = 0; i < sizeof(readerStruct)/sizeof(readerStruct_t); i++) {
+		e = readerStruct[i].reader(duckLisp, compoundExpression, source, start_index, length, dl_false);
+		if (!e) {
+			compoundExpression->type = readerStruct[i].type;
+			goto l_cleanup;
+		}
 		if (e != dl_error_invalidValue) {
 			goto l_cleanup;
 		}
-		
-		// Try parsing as an int.
-		e = cst_parse_int(duckLisp, &compoundExpression->value.integer, source, start_index, length, dl_false);
-		if (e) {
-			if (e != dl_error_invalidValue) {
-				goto l_cleanup;
-			}
-			
-			// Try parsing as a float.
-			e = cst_parse_float(duckLisp, &compoundExpression->value.floatingPoint, source, start_index, length, dl_false);
-			if (e) {
-				if (e != dl_error_invalidValue) {
-					goto l_cleanup;
-				}
-				
-				// Try parsing as a string.
-				e = cst_parse_string(duckLisp, &compoundExpression->value.string, source, start_index, length, dl_false);
-				if (e) {
-					if (e != dl_error_invalidValue) {
-						goto l_cleanup;
-					}
-					
-					// Try parsing as an identifier.
-					e = cst_parse_identifier(duckLisp, &compoundExpression->value.identifier, source, start_index, length, dl_false);
-					if (e) {
-						if (e != dl_error_invalidValue) {
-							goto l_cleanup;
-						}
-						
-						// Try parsing as an expression.
-						e = cst_parse_expression(duckLisp, &compoundExpression->value.expression, source, start_index, length, dl_false);
-						if (e) {
-							if (e != dl_error_invalidValue) {
-								goto l_cleanup;
-							}
-							eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Unrecognized form."), index, throwErrors);
-							e = eError ? eError : dl_error_invalidValue;
-							goto l_cleanup;
-						}
-						else {
-							compoundExpression->type = cst_type_expression;
-						}
-					}
-					else {
-						compoundExpression->type = cst_type_identifier;
-					}
-				}
-				else {
-					compoundExpression->type = cst_type_string;
-				}
-			}
-			else {
-				compoundExpression->type = cst_type_float;
-			}
-		}
-		else {
-			compoundExpression->type = cst_type_int;
-		}
 	}
-	else {
-		compoundExpression->type = cst_type_bool;
-	}
+	eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Unrecognized form."), index, throwErrors);
+	e = eError ? eError : dl_error_invalidValue;
 	
 	l_cleanup:
 	
