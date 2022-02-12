@@ -18,13 +18,17 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		goto l_cleanup;
 	}
 	
-	if (object.type == duckLisp_object_type_string) {
+	switch (object.type) {
+	case duckLisp_object_type_string:
 		for (dl_size_t i = 0; i < object.value.string.value_length; i++) {
 			putchar(object.value.string.value[i]);
 		}
-	}
-	else if (object.type == duckLisp_object_type_integer) {
+		break;
+	case duckLisp_object_type_integer:
 		printf("%lli", object.value.integer);
+		break;
+	default:
+		printf("print: Unsupported type.\n");
 	}
 	
 	l_cleanup:
@@ -123,22 +127,23 @@ dl_error_t duckLispDev_generator_createVar(duckLisp_t *duckLisp, dl_array_t *ass
 		goto l_cleanup;
 	}
 	
-	if (expression->compoundExpressions[2].type == duckLisp_ast_type_string) {	
+	switch (expression->compoundExpressions[2].type) {
+	case duckLisp_ast_type_string:
 		// Create the string variable.
 		e = duckLisp_emit_pushString(duckLisp, assembly, &identifier_index, expression->compoundExpressions[2].value.string.value,
 									 expression->compoundExpressions[2].value.string.value_length);
 		if (e) {
 			goto l_cleanup;
 		}
-	}
-	else if (expression->compoundExpressions[2].type == duckLisp_ast_type_int) {
+		break;
+	case duckLisp_ast_type_int:
 		// Create the integer variable.
 		e = duckLisp_emit_pushInteger(duckLisp, assembly, &identifier_index, expression->compoundExpressions[2].value.integer.value);
 		if (e) {
 			goto l_cleanup;
 		}
-	}
-	else {
+		break;
+	default:
 		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type for second argument."));
 		if (e) {
 			goto l_cleanup;
@@ -205,19 +210,20 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 		goto l_cleanup;
 	}
 	
-	if (expression->compoundExpressions[2].type == duckLisp_ast_type_string) {
+	switch (expression->compoundExpressions[2].type) {
+	case duckLisp_ast_type_string:
 		e = duckLisp_emit_pushString(duckLisp, assembly, dl_null, expression->compoundExpressions[2].value.string.value,
 									 expression->compoundExpressions[2].value.string.value_length);
 		if (e) goto l_cleanup;
-	}
-	else if (expression->compoundExpressions[2].type == duckLisp_ast_type_int) {
+		break;
+	case duckLisp_ast_type_int:
 		e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[2].value.integer.value);
 		if (e) goto l_cleanup;
-	}
-	else if (expression->compoundExpressions[2].type == duckLisp_ast_type_expression) {
+		break;
+	case duckLisp_ast_type_expression:
 		/* Assume that the expression pushes an object. It *should*. */
-	}
-	else if (expression->compoundExpressions[2].type == duckLisp_ast_type_identifier) {
+		break;
+	case duckLisp_ast_type_identifier:
 		e = duckLisp_scope_getLocalIndexFromName(duckLisp, &index, expression->compoundExpressions[2].value.identifier.value,
 												 expression->compoundExpressions[2].value.identifier.value_length);
 		if (e) goto l_cleanup;
@@ -287,8 +293,8 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 		e = duckLisp_emit_move(duckLisp, assembly, identifier_index, index);
 		if (e) goto l_cleanup;
 		goto l_cleanup;
-	}
-	else {
+		break;
+	default:
 		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type for second argument."));
 		if (e) {
 			goto l_cleanup;
@@ -363,18 +369,19 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 		goto l_cleanup;
 	}
 
-	if (expression->compoundExpressions[1].type == duckLisp_ast_type_int) {
+	switch (expression->compoundExpressions[1].type) {
+	case duckLisp_ast_type_int:
 		e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[1].value.integer.value);
 		if (e) goto l_cleanup;
-	}
-	else if (expression->compoundExpressions[1].type == duckLisp_ast_type_identifier) {
+		break;
+	case duckLisp_ast_type_identifier:
 		e = duckLisp_scope_getLocalIndexFromName(duckLisp, &identifier_index, expression->compoundExpressions[1].value.identifier.value,
 												 expression->compoundExpressions[1].value.identifier.value_length);
 		if (e) goto l_cleanup;
 		e = duckLisp_emit_pushIndex(duckLisp, assembly, identifier_index);
 		if (e) goto l_cleanup;
-	}
-	else {
+		break;
+	default:
 		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type."));
 		if (e) {
 			goto l_cleanup;
@@ -387,14 +394,15 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 	}
 	
 	if (expression->compoundExpressions[1].type == expression->compoundExpressions[2].type) {
-		if (expression->compoundExpressions[1].type == duckLisp_ast_type_expression) {
+		switch (expression->compoundExpressions[1].type) {
+		case duckLisp_ast_type_expression:
 			/* Assume that the expression pushes an object. It *should*. */
-		}
-		else if (expression->compoundExpressions[1].type == duckLisp_ast_type_int) {
+			break;
+		case duckLisp_ast_type_int:
 			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[1].value.integer.value);
 			if (e) goto l_cleanup;
-		}
-		else {
+			break;
+		default:
 			e = dl_array_pushElements(&eString, DL_STR("Unsupported data type."));
 			if (e) {
 				goto l_cleanup;
@@ -418,19 +426,20 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 		goto l_cleanup;
 	}
 	
-	if (expression->compoundExpressions[2].type == duckLisp_ast_type_string) {
+	switch (expression->compoundExpressions[2].type) {
+	case duckLisp_ast_type_string:
 		e = duckLisp_emit_pushString(duckLisp, assembly, dl_null, expression->compoundExpressions[2].value.string.value,
 									 expression->compoundExpressions[2].value.string.value_length);
 		if (e) goto l_cleanup;
-	}
-	else if (expression->compoundExpressions[2].type == duckLisp_ast_type_int) {
+		break;
+	case duckLisp_ast_type_int:
 			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[2].value.integer.value);
 			if (e) goto l_cleanup;
-	}
-	else if (expression->compoundExpressions[2].type == duckLisp_ast_type_expression) {
+			break;
+	case duckLisp_ast_type_expression:
 		/* Assume that the expression pushes an object. It *should*. */
-	}
-	else if (expression->compoundExpressions[2].type == duckLisp_ast_type_identifier) {
+		break;
+	case duckLisp_ast_type_identifier:
 		e = duckLisp_scope_getLocalIndexFromName(duckLisp, &index, expression->compoundExpressions[2].value.identifier.value,
 												 expression->compoundExpressions[2].value.identifier.value_length);
 		if (e) goto l_cleanup;
@@ -500,8 +509,8 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 		e = duckLisp_emit_move(duckLisp, assembly, identifier_index, index);
 		if (e) goto l_cleanup;
 		goto l_cleanup;
-	}
-	else {
+		break;
+	default:
 		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type for second argument."));
 		if (e) {
 			goto l_cleanup;
