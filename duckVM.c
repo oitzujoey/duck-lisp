@@ -179,6 +179,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 
 		default:
 			e = dl_error_invalidValue;
+			goto l_cleanup;
 		}
 	} while (!e);
 	

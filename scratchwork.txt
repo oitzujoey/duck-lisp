@@ -720,3 +720,7 @@ Sort:
 Array is filled and sorted.
 
 
+I'm writing generators now. They are a pain, simply because dynamic typing requires detecting many types.
+Solutions:
+1. Replace the type tree with a single type struct. Will require lots of work, but will reduce the code complexity throughout duck-lisp.
+2. Make a list of DL API functions. Refer the chart when writing generators.
