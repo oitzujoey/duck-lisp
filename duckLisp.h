@@ -55,14 +55,14 @@ typedef struct {
 
 
 typedef enum {
-	cst_type_none = 0,
-	cst_type_expression,
-	cst_type_identifier,
-	cst_type_string,
-	cst_type_float,
-	cst_type_int,
-	cst_type_bool,
-} duckLisp_cst_type_t;
+	duckLisp_ast_type_none = 0,
+	duckLisp_ast_type_expression,
+	duckLisp_ast_type_identifier,
+	duckLisp_ast_type_string,
+	duckLisp_ast_type_float,
+	duckLisp_ast_type_int,
+	duckLisp_ast_type_bool,
+} duckLisp_ast_type_t;
 
 typedef struct duckLisp_cst_compoundExpression_s {
 	union {
@@ -73,7 +73,7 @@ typedef struct duckLisp_cst_compoundExpression_s {
 		duckLisp_cst_integer_t integer;
 		duckLisp_cst_bool_t boolean;
 	} value;
-	duckLisp_cst_type_t type;
+	duckLisp_ast_type_t type;
 } duckLisp_cst_compoundExpression_t;
 
 /*
@@ -109,16 +109,6 @@ typedef struct {
 	dl_size_t compoundExpressions_length;
 } duckLisp_ast_expression_t;
 
-
-typedef enum {
-	ast_type_none = 0,
-	ast_type_expression,
-	ast_type_identifier,
-	ast_type_string,
-	ast_type_float,
-	ast_type_int,
-	ast_type_bool,
-} duckLisp_ast_type_t;
 
 typedef struct duckLisp_ast_compoundExpression_s {
 	union {

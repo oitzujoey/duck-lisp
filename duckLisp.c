@@ -88,7 +88,7 @@ dl_error_t duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp, duckLisp_ast_e
 		goto l_cleanup;
 	}
 	
-	if (astExpression.compoundExpressions[0].type != ast_type_identifier) {
+	if (astExpression.compoundExpressions[0].type != duckLisp_ast_type_identifier) {
 		e = dl_error_invalidValue;
 		goto l_cleanup;
 	}
@@ -1200,32 +1200,32 @@ static void ast_print_string(duckLisp_t duckLisp, duckLisp_ast_string_t string) 
 
 
 static void cst_compoundExpression_init(duckLisp_cst_compoundExpression_t *compoundExpression) {
-	compoundExpression->type = cst_type_none;
+	compoundExpression->type = duckLisp_ast_type_none;
 }
 
 static dl_error_t cst_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression) {
 	dl_error_t e = dl_error_ok;
 	
 	switch (compoundExpression->type) {
-	case cst_type_float:
+	case duckLisp_ast_type_float:
 		compoundExpression->value.floatingPoint.token_index = -1;
 		compoundExpression->value.floatingPoint.token_length = 0;
 		break;
-	case cst_type_int:
+	case duckLisp_ast_type_int:
 		compoundExpression->value.integer.token_index = -1;
 		compoundExpression->value.integer.token_length = 0;
 		break;
-	case cst_type_bool:
+	case duckLisp_ast_type_bool:
 		compoundExpression->value.boolean.token_index = -1;
 		compoundExpression->value.boolean.token_length = 0;
 		break;
-	case cst_type_string:
+	case duckLisp_ast_type_string:
 		/**/ cst_string_quit(duckLisp, &compoundExpression->value.string);
 		break;
-	case cst_type_identifier:
+	case duckLisp_ast_type_identifier:
 		/**/ cst_identifier_quit(duckLisp, &compoundExpression->value.identifier);
 		break;
-	case cst_type_expression:
+	case duckLisp_ast_type_expression:
 		e = cst_expression_quit(duckLisp, &compoundExpression->value.expression);
 		break;
 	default:
@@ -1237,7 +1237,7 @@ static dl_error_t cst_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_cst
 	
 	l_cleanup:
 	
-	compoundExpression->type = cst_type_none;
+	compoundExpression->type = duckLisp_ast_type_none;
 	
 	return e;
 }
@@ -1254,16 +1254,16 @@ static dl_error_t cst_parse_compoundExpression(duckLisp_t *duckLisp, duckLisp_cs
 
 	typedef struct {
 		dl_error_t (*reader) (duckLisp_t *, duckLisp_cst_compoundExpression_t *, char *, const dl_ptrdiff_t start_index, const dl_size_t, dl_bool_t);
-		duckLisp_cst_type_t type;
+		duckLisp_ast_type_t type;
 	} readerStruct_t;
 
 	readerStruct_t readerStruct[] = {
-		{.reader = cst_parse_bool,       .type = cst_type_bool},
-		{.reader = cst_parse_int,        .type = cst_type_int},
-		{.reader = cst_parse_float,      .type = cst_type_float},
-		{.reader = cst_parse_string,     .type = cst_type_string},
-		{.reader = cst_parse_identifier, .type = cst_type_identifier},
-		{.reader = cst_parse_expression, .type = cst_type_expression},
+		{.reader = cst_parse_bool,       .type = duckLisp_ast_type_bool},
+		{.reader = cst_parse_int,        .type = duckLisp_ast_type_int},
+		{.reader = cst_parse_float,      .type = duckLisp_ast_type_float},
+		{.reader = cst_parse_string,     .type = duckLisp_ast_type_string},
+		{.reader = cst_parse_identifier, .type = duckLisp_ast_type_identifier},
+		{.reader = cst_parse_expression, .type = duckLisp_ast_type_expression},
 	};
 
 	// We have a reader! I'll need to make it generate AST though.
@@ -1289,22 +1289,22 @@ static dl_error_t cst_print_compoundExpression(duckLisp_t duckLisp, duckLisp_cst
 	dl_error_t e = dl_error_ok;
 	
 	switch (compoundExpression.type) {
-	case cst_type_bool:
+	case duckLisp_ast_type_bool:
 		/**/ cst_print_bool(duckLisp, compoundExpression.value.boolean);
 		break;
-	case cst_type_int:
+	case duckLisp_ast_type_int:
 		/**/ cst_print_int(duckLisp, compoundExpression.value.integer);
 		break;
-	case cst_type_float:
+	case duckLisp_ast_type_float:
 		/**/ cst_print_float(duckLisp, compoundExpression.value.floatingPoint);
 		break;
-	case cst_type_string:
+	case duckLisp_ast_type_string:
 		/**/ cst_print_string(duckLisp, compoundExpression.value.string);
 		break;
-	case cst_type_identifier:
+	case duckLisp_ast_type_identifier:
 		/**/ cst_print_identifier(duckLisp, compoundExpression.value.identifier);
 		break;
-	case cst_type_expression:
+	case duckLisp_ast_type_expression:
 		e = cst_print_expression(duckLisp, compoundExpression.value.expression);
 		break;
 	default:
@@ -1316,29 +1316,29 @@ static dl_error_t cst_print_compoundExpression(duckLisp_t duckLisp, duckLisp_cst
 }
 
 static void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression) {
-	compoundExpression->type = ast_type_none;
+	compoundExpression->type = duckLisp_ast_type_none;
 }
 
 static dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression) {
 	dl_error_t e = dl_error_ok;
 	
 	switch (compoundExpression->type) {
-	case ast_type_string:
+	case duckLisp_ast_type_string:
 		/**/ ast_string_quit(duckLisp, &compoundExpression->value.string);
 		break;
-	case ast_type_bool:
+	case duckLisp_ast_type_bool:
 		/**/ ast_bool_quit(duckLisp, &compoundExpression->value.boolean);
 		break;
-	case ast_type_int:
+	case duckLisp_ast_type_int:
 		/**/ ast_int_quit(duckLisp, &compoundExpression->value.integer);
 		break;
-	case ast_type_float:
+	case duckLisp_ast_type_float:
 		/**/ ast_float_quit(duckLisp, &compoundExpression->value.floatingPoint);
 		break;
-	case ast_type_identifier:
+	case duckLisp_ast_type_identifier:
 		e = ast_identifier_quit(duckLisp, &compoundExpression->value.identifier);
 		break;
-	case ast_type_expression:
+	case duckLisp_ast_type_expression:
 		e = ast_expression_quit(duckLisp, &compoundExpression->value.expression);
 		break;
 	default:
@@ -1350,7 +1350,7 @@ static dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast
 	
 	l_cleanup:
 	
-	compoundExpression->type = ast_type_none;
+	compoundExpression->type = duckLisp_ast_type_none;
 	
 	return e;
 }
@@ -1362,38 +1362,38 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp, duckLisp
 	
 	
 	switch (compoundExpressionCST.type) {
-	case cst_type_bool:
-		compoundExpression->type = ast_type_bool;
+	case duckLisp_ast_type_bool:
+		compoundExpression->type = duckLisp_ast_type_bool;
 		e = ast_generate_bool(duckLisp, &compoundExpression->value.boolean, compoundExpressionCST.value.boolean, throwErrors);
 		break;
-	case cst_type_int:
-		compoundExpression->type = ast_type_int;
+	case duckLisp_ast_type_int:
+		compoundExpression->type = duckLisp_ast_type_int;
 		e = ast_generate_int(duckLisp, &compoundExpression->value.integer, compoundExpressionCST.value.integer, throwErrors);
 		break;
-	case cst_type_float:
-		compoundExpression->type = ast_type_float;
+	case duckLisp_ast_type_float:
+		compoundExpression->type = duckLisp_ast_type_float;
 		e = ast_generate_float(duckLisp, &compoundExpression->value.floatingPoint, compoundExpressionCST.value.floatingPoint, throwErrors);
 		break;
-	case cst_type_string:
-		compoundExpression->type = ast_type_string;
+	case duckLisp_ast_type_string:
+		compoundExpression->type = duckLisp_ast_type_string;
 		e = ast_generate_string(duckLisp, &compoundExpression->value.string, compoundExpressionCST.value.string, throwErrors);
 		break;
-	case cst_type_identifier:
-		compoundExpression->type = ast_type_identifier;
+	case duckLisp_ast_type_identifier:
+		compoundExpression->type = duckLisp_ast_type_identifier;
 		e = ast_generate_identifier(duckLisp, &compoundExpression->value.identifier, compoundExpressionCST.value.identifier, throwErrors);
 		break;
-	case cst_type_expression:
-		compoundExpression->type = ast_type_expression;
+	case duckLisp_ast_type_expression:
+		compoundExpression->type = duckLisp_ast_type_expression;
 		// This declares `()` == `0`
 		if (compoundExpressionCST.value.expression.compoundExpressions_length == 0) {
-			compoundExpression->type = ast_type_int;
+			compoundExpression->type = duckLisp_ast_type_int;
 			compoundExpression->value.integer.value = 0;
 		}
 		else e = ast_generate_expression(duckLisp, &compoundExpression->value.expression,
 		                                 compoundExpressionCST.value.expression, throwErrors);
 		break;
 	default:
-		compoundExpression->type = ast_type_none;
+		compoundExpression->type = duckLisp_ast_type_none;
 		e = dl_error_shouldntHappen;
 	}
 	
@@ -1406,22 +1406,22 @@ static dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast
 	dl_error_t e = dl_error_ok;
 	
 	switch (compoundExpression.type) {
-	case ast_type_bool:
+	case duckLisp_ast_type_bool:
 		/**/ ast_print_bool(duckLisp, compoundExpression.value.boolean);
 		break;
-	case ast_type_int:
+	case duckLisp_ast_type_int:
 		/**/ ast_print_int(duckLisp, compoundExpression.value.integer);
 		break;
-	case ast_type_float:
+	case duckLisp_ast_type_float:
 		/**/ ast_print_float(duckLisp, compoundExpression.value.floatingPoint);
 		break;
-	case ast_type_string:
+	case duckLisp_ast_type_string:
 		/**/ ast_print_string(duckLisp, compoundExpression.value.string);
 		break;
-	case ast_type_identifier:
+	case duckLisp_ast_type_identifier:
 		/**/ ast_print_identifier(duckLisp, compoundExpression.value.identifier);
 		break;
-	case ast_type_expression:
+	case duckLisp_ast_type_expression:
 		e = ast_print_expression(duckLisp, compoundExpression.value.expression);
 		break;
 	default:
@@ -2058,7 +2058,7 @@ dl_error_t duckLisp_generator_label(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		goto l_cleanup;
 	}
 	
-	if (expression->compoundExpressions[1].type != ast_type_identifier) {
+	if (expression->compoundExpressions[1].type != duckLisp_ast_type_identifier) {
 		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
 		if (e) {
 			goto l_cleanup;
@@ -2115,7 +2115,7 @@ dl_error_t duckLisp_generator_goto(duckLisp_t *duckLisp, dl_array_t *assembly, d
 		goto l_cleanup;
 	}
 	
-	if (expression->compoundExpressions[1].type != ast_type_identifier) {
+	if (expression->compoundExpressions[1].type != duckLisp_ast_type_identifier) {
 		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
 		if (e) {
 			goto l_cleanup;
@@ -2309,7 +2309,7 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 	// Push all arguments onto the stack.
 	for (int i = 1; i < expression->compoundExpressions_length; i++) {
 		switch (expression->compoundExpressions[i].type) {
-		case ast_type_identifier:
+		case duckLisp_ast_type_identifier:
 			e = duckLisp_scope_getLocalIndexFromName(duckLisp, &argument_index,
 			                                 expression->compoundExpressions[i].value.string.value,
 			                                 expression->compoundExpressions[i].value.string.value_length);
@@ -2326,11 +2326,11 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 				goto l_cleanup;
 			}
 			break;
-		case ast_type_int:
+		case duckLisp_ast_type_int:
 			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[i].value.integer.value);
 			if (e) goto l_cleanup;
 			break;
-		case ast_type_string:
+		case duckLisp_ast_type_string:
 			e = duckLisp_emit_pushString(duckLisp, assembly, dl_null, expression->compoundExpressions[i].value.string.value,
 										 expression->compoundExpressions[i].value.string.value_length);
 			if (e) goto l_cleanup;
@@ -2383,11 +2383,11 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 	
 	for (dl_ptrdiff_t i = 0; i < expression->compoundExpressions_length; i++) {
 		duckLisp_ast_compoundExpression_t currentCE = expression->compoundExpressions[i];
-		if (currentCE.type == ast_type_expression) {
+		if (currentCE.type == duckLisp_ast_type_expression) {
 			duckLisp_ast_expression_t currentE = currentCE.value.expression;
 			if (currentE.compoundExpressions_length == 2 &&
-			    currentE.compoundExpressions[0].type == ast_type_identifier &&
-			    currentE.compoundExpressions[1].type == ast_type_identifier) {
+			    currentE.compoundExpressions[0].type == duckLisp_ast_type_identifier &&
+			    currentE.compoundExpressions[1].type == duckLisp_ast_type_identifier) {
 
 				duckLisp_ast_identifier_t function = currentE.compoundExpressions[0].value.identifier;
 				/**/ dl_string_compare(&result, function.value, function.value_length, DL_STR("label"));
@@ -2485,7 +2485,7 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 	
 	// (pop-scope)
 	l = expression->compoundExpressions_length;
-	newExpression.compoundExpressions[l].type = ast_type_expression;
+	newExpression.compoundExpressions[l].type = duckLisp_ast_type_expression;
 	newExpression.compoundExpressions[l].value.expression.compoundExpressions_length = 1;
 	e = dl_malloc(&duckLisp->memoryAllocation,
 	              (void **) &newExpression.compoundExpressions[l].value.expression.compoundExpressions,
@@ -2493,7 +2493,7 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 	if (e) {
 		goto l_cleanup;
 	}
-	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].type = ast_type_identifier;
+	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
 	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].value.identifier.value = "pop-scope";
 	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].value.identifier.value_length = 9;
 	
@@ -2618,7 +2618,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	
 	putchar('\n');
 	
-	if (astCompoundexpression.type != ast_type_expression) {
+	if (astCompoundexpression.type != duckLisp_ast_type_expression) {
 		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot compile non-expression types to bytecode."));
 		if (eError) {
 			e = eError;
@@ -2629,7 +2629,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	/* First stage: Create assembly tree from AST. */
 	
 	// Bootstrap.
-	currentExpression.type = ast_type_expression;
+	currentExpression.type = duckLisp_ast_type_expression;
 	currentExpression.value.expression.compoundExpressions = &astCompoundexpression;
 	currentExpression.value.expression.compoundExpressions_length = 1;
 	
@@ -2647,7 +2647,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	while (dl_true) {
 		// Now that the subexpressions cannot change (generator has returned), push them onto the stack.
 		for (dl_ptrdiff_t j = currentExpression.value.expression.compoundExpressions_length - 1; j >= 0; --j) {
-			if (currentExpression.value.expression.compoundExpressions[j].type == ast_type_expression) {
+			if (currentExpression.value.expression.compoundExpressions[j].type == duckLisp_ast_type_expression) {
 				
 				// Create child and push into the node array.
 				// Initialize to zero.
@@ -2723,17 +2723,17 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 		
 		// Compile!
 		switch (currentExpression.value.expression.compoundExpressions[0].type) {
-		case ast_type_bool:
-		case ast_type_int:
-		case ast_type_float:
-		case ast_type_string:
+		case duckLisp_ast_type_bool:
+		case duckLisp_ast_type_int:
+		case duckLisp_ast_type_float:
+		case duckLisp_ast_type_string:
 			e = dl_error_invalidValue;
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Constants as function names are not supported."));
 			if (eError) {
 				e = eError;
 			}
 			goto l_cleanup;
-		case ast_type_identifier:
+		case duckLisp_ast_type_identifier:
 			// Run function generator.
 			functionName = currentExpression.value.expression.compoundExpressions[0].value.identifier;
 			e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value, functionName.value_length);
@@ -2795,7 +2795,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				goto l_cleanup;
 			}
 			break;
-		case ast_type_expression:
+		case duckLisp_ast_type_expression:
 			// Run expression generator.
 			e = duckLisp_generator_expression(duckLisp, &assembly, &currentExpression.value.expression);
 			if (e) {
