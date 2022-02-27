@@ -726,3 +726,4 @@ Solutions:
 2. Make a list of DL API functions. Refer the chart when writing generators.
 
 Did #1.
+Writing generators should be a bit easier now.

@@ -144,7 +144,7 @@ dl_error_t duckLispDev_generator_createVar(duckLisp_t *duckLisp, dl_array_t *ass
 		}
 		break;
 	default:
-		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type for second argument."));
+		e = dl_array_pushElements(&eString, DL_STR("var: Unsupported data type for second argument."));
 		if (e) {
 			goto l_cleanup;
 		}
@@ -190,7 +190,7 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 	}
 	
 	if (expression->compoundExpressions[1].type != duckLisp_ast_type_identifier) {
-		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
+		e = dl_array_pushElements(&eString, DL_STR("setq: Argument 1 of function \""));
 		if (e) {
 			goto l_cleanup;
 		}
@@ -228,7 +228,7 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 												 expression->compoundExpressions[2].value.identifier.value_length);
 		if (e) goto l_cleanup;
 		if (index == -1) {
-			e = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
+			e = dl_array_pushElements(&eString, DL_STR("setq: Could not find local \""));
 			if (e) {
 				goto l_cleanup;
 			}
@@ -261,7 +261,7 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 												 expression->compoundExpressions[1].value.identifier.value_length);
 		if (e) goto l_cleanup;
 		if (identifier_index == -1) {
-			e = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
+			e = dl_array_pushElements(&eString, DL_STR("setq: Could not find local \""));
 			if (e) {
 				goto l_cleanup;
 			}
@@ -295,7 +295,7 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 		goto l_cleanup;
 		break;
 	default:
-		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type for second argument."));
+		e = dl_array_pushElements(&eString, DL_STR("setq: Unsupported data type for second argument."));
 		if (e) {
 			goto l_cleanup;
 		}
@@ -310,7 +310,7 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 											 expression->compoundExpressions[1].value.identifier.value_length);
 	if (e) goto l_cleanup;
 	if (identifier_index == -1) {
-		e = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
+		e = dl_array_pushElements(&eString, DL_STR("setq: Could not find local \""));
 		if (e) {
 			goto l_cleanup;
 		}
@@ -359,8 +359,11 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 	
 	dl_ptrdiff_t identifier_index = -1;
-	dl_ptrdiff_t index = -1;
 	dl_array_t *assemblyFragment = dl_null;
+	
+	dl_ptrdiff_t args_index[2] = {-1, -1};
+	duckLisp_ast_type_t args_type[2] = {duckLisp_ast_type_none, duckLisp_ast_type_none};
+	dl_uint8_t exprs;
 	
 	/* Check arguments for call and type errors. */
 	
@@ -369,41 +372,62 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 		goto l_cleanup;
 	}
 
-	switch (expression->compoundExpressions[1].type) {
-	case duckLisp_ast_type_int:
-		e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[1].value.integer.value);
-		if (e) goto l_cleanup;
-		break;
-	case duckLisp_ast_type_identifier:
-		e = duckLisp_scope_getLocalIndexFromName(duckLisp, &identifier_index, expression->compoundExpressions[1].value.identifier.value,
-												 expression->compoundExpressions[1].value.identifier.value_length);
-		if (e) goto l_cleanup;
-		e = duckLisp_emit_pushIndex(duckLisp, assembly, identifier_index);
-		if (e) goto l_cleanup;
-		break;
-	default:
-		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type."));
-		if (e) {
-			goto l_cleanup;
-		}
-		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-		if (eError) {
-			e = eError;
-		}
-		goto l_cleanup;
-	}
+	exprs = (dl_uint8_t) (expression->compoundExpressions[1].type == duckLisp_ast_type_expression) + (dl_uint8_t) (expression->compoundExpressions[2].type == duckLisp_ast_type_expression);
 	
-	if (expression->compoundExpressions[1].type == expression->compoundExpressions[2].type) {
-		switch (expression->compoundExpressions[1].type) {
+	for (dl_ptrdiff_t i = 0; i < 2; i++) {
+		switch (expression->compoundExpressions[i + 1].type) {
+		case duckLisp_ast_type_int:
+			e = duckLisp_emit_pushInteger(duckLisp, assembly, &args_index[i], expression->compoundExpressions[i + 1].value.integer.value);
+			if (e) goto l_cleanup;
+			args_type[i] = duckLisp_ast_type_int;
+			break;
+		case duckLisp_ast_type_identifier:
+			e = duckLisp_scope_getLocalIndexFromName(duckLisp, &args_index[i], expression->compoundExpressions[i + 1].value.identifier.value,
+													 expression->compoundExpressions[i + 1].value.identifier.value_length);
+			if (e) goto l_cleanup;
+			if (args_index[i] == -1) {
+				e = dl_array_pushElements(&eString, DL_STR("add: Could not find local \""));
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString, expression->compoundExpressions[i + 1].value.identifier.value,
+										  expression->compoundExpressions[i + 1].value.identifier.value_length);
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString, DL_STR("\" in generator \""));
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
+										  expression->compoundExpressions[0].value.identifier.value_length);
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString, DL_STR("\"."));
+				if (e) {
+					goto l_cleanup;
+				}
+				eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			
+			// We are NOT pushing an index since the index is part of the instruction.
+			/* e = duckLisp_emit_pushIndex(duckLisp, assembly, dl_null, identifier_index); */
+			/* if (e) goto l_cleanup; */
+			
+			args_type[i] = duckLisp_ast_type_none;  // Let's use `none` as a wildcard. Variables do not have a set type.
+			break;
 		case duckLisp_ast_type_expression:
 			/* Assume that the expression pushes an object. It *should*. */
-			break;
-		case duckLisp_ast_type_int:
-			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[1].value.integer.value);
-			if (e) goto l_cleanup;
+			args_index[i] = duckLisp->locals_length - --exprs - 1;
+			args_type[i] = duckLisp_ast_type_none;
 			break;
 		default:
-			e = dl_array_pushElements(&eString, DL_STR("Unsupported data type."));
+			e = dl_array_pushElements(&eString, DL_STR("add: Unsupported data type."));
 			if (e) {
 				goto l_cleanup;
 			}
@@ -413,149 +437,12 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 			}
 			goto l_cleanup;
 		}
-	}
-	else {
-		e = dl_array_pushElements(&eString, DL_STR("All arguments must have equal types."));
-		if (e) {
-			goto l_cleanup;
-		}
-		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-		if (eError) {
-			e = eError;
-		}
-		goto l_cleanup;
-	}
-	
-	switch (expression->compoundExpressions[2].type) {
-	case duckLisp_ast_type_string:
-		e = duckLisp_emit_pushString(duckLisp, assembly, dl_null, expression->compoundExpressions[2].value.string.value,
-									 expression->compoundExpressions[2].value.string.value_length);
-		if (e) goto l_cleanup;
-		break;
-	case duckLisp_ast_type_int:
-			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, expression->compoundExpressions[2].value.integer.value);
-			if (e) goto l_cleanup;
-			break;
-	case duckLisp_ast_type_expression:
-		/* Assume that the expression pushes an object. It *should*. */
-		break;
-	case duckLisp_ast_type_identifier:
-		e = duckLisp_scope_getLocalIndexFromName(duckLisp, &index, expression->compoundExpressions[2].value.identifier.value,
-												 expression->compoundExpressions[2].value.identifier.value_length);
-		if (e) goto l_cleanup;
-		if (index == -1) {
-			e = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, expression->compoundExpressions[2].value.identifier.value,
-									  expression->compoundExpressions[2].value.identifier.value_length);
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, DL_STR("\" in generator \""));
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
-									  expression->compoundExpressions[0].value.identifier.value_length);
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, DL_STR("\"."));
-			if (e) {
-				goto l_cleanup;
-			}
-			eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
-		}
-		
-		e = duckLisp_scope_getLocalIndexFromName(duckLisp, &identifier_index, expression->compoundExpressions[1].value.identifier.value,
-												 expression->compoundExpressions[1].value.identifier.value_length);
-		if (e) goto l_cleanup;
-		if (identifier_index == -1) {
-			e = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, expression->compoundExpressions[1].value.identifier.value,
-									  expression->compoundExpressions[1].value.identifier.value_length);
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, DL_STR("\" in generator \""));
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
-									  expression->compoundExpressions[0].value.identifier.value_length);
-			if (e) {
-				goto l_cleanup;
-			}
-			e = dl_array_pushElements(&eString, DL_STR("\"."));
-			if (e) {
-				goto l_cleanup;
-			}
-			eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
-		}
-	
-		e = duckLisp_emit_move(duckLisp, assembly, identifier_index, index);
-		if (e) goto l_cleanup;
-		goto l_cleanup;
-		break;
-	default:
-		e = dl_array_pushElements(&eString, DL_STR("Unsupported data type for second argument."));
-		if (e) {
-			goto l_cleanup;
-		}
-		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-		if (eError) {
-			e = eError;
-		}
-		goto l_cleanup;
 	}
 
-	e = duckLisp_scope_getLocalIndexFromName(duckLisp, &identifier_index, expression->compoundExpressions[1].value.identifier.value,
-											 expression->compoundExpressions[1].value.identifier.value_length);
-	if (e) goto l_cleanup;
-	if (identifier_index == -1) {
-		e = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
-		if (e) {
-			goto l_cleanup;
-		}
-		e = dl_array_pushElements(&eString, expression->compoundExpressions[1].value.identifier.value,
-		                          expression->compoundExpressions[1].value.identifier.value_length);
-		if (e) {
-			goto l_cleanup;
-		}
-		e = dl_array_pushElements(&eString, DL_STR("\" in generator \""));
-		if (e) {
-			goto l_cleanup;
-		}
-		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
-		                          expression->compoundExpressions[0].value.identifier.value_length);
-		if (e) {
-			goto l_cleanup;
-		}
-		e = dl_array_pushElements(&eString, DL_STR("\"."));
-		if (e) {
-			goto l_cleanup;
-		}
-		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-		if (eError) {
-			e = eError;
-		}
-		goto l_cleanup;
-	}
-	
-	e = duckLisp_emit_move(duckLisp, assembly, identifier_index, duckLisp->locals_length - 1);
+        /*
+`add` accepts pointer arguments. It returns a value on the stack.
+		 */
+	e = duckLisp_emit_add(duckLisp, assembly, args_index[0], args_index[1]);
 	if (e) goto l_cleanup;
 	
 	l_cleanup:

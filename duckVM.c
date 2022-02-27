@@ -1,6 +1,7 @@
 
 #include "duckVM.h"
 #include "DuckLib/array.h"
+#include "DuckLib/core.h"
 #include <stdio.h>
 
 dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size) {
@@ -37,6 +38,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	dl_ptrdiff_t ptrdiff2;
 	// dl_size_t length1;
 	duckLisp_object_t object1;
+	duckLisp_object_t object2;
 	unsigned char *pointer1;
 	/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
 	
@@ -172,6 +174,224 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			e = dl_array_set(&duckVM->stack, &object1, ptrdiff2);
 			if (e) break;
+			break;
+
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_add32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			if (e) break;
+			switch (object1.type) {
+			case duckLisp_object_type_float:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint += object2.value.floatingPoint;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.floatingPoint += object2.value.integer;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.floatingPoint += object2.value.boolean;
+					object1.type = duckLisp_object_type_float;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_integer:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.integer + object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					/* Type already set. */
+					object1.value.integer += object2.value.integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.integer += object2.value.boolean;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_bool:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.boolean + object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.integer = object1.value.boolean + object2.value.integer;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.boolean += object2.value.boolean;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			if (e) break;
+			break;
+		case duckLisp_instruction_add16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			if (e) break;
+			switch (object1.type) {
+			case duckLisp_object_type_float:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint += object2.value.floatingPoint;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.floatingPoint += object2.value.integer;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.floatingPoint += object2.value.boolean;
+					object1.type = duckLisp_object_type_float;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_integer:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.integer + object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					/* Type already set. */
+					object1.value.integer += object2.value.integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.integer += object2.value.boolean;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_bool:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.boolean + object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.integer = object1.value.boolean + object2.value.integer;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.boolean += object2.value.boolean;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+		case duckLisp_instruction_add8:
+			ptrdiff1 = *(ip++);
+			ptrdiff2 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			if (e) break;
+			switch (object1.type) {
+			case duckLisp_object_type_float:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint += object2.value.floatingPoint;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.floatingPoint += object2.value.integer;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.floatingPoint += object2.value.boolean;
+					object1.type = duckLisp_object_type_float;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_integer:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.integer + object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					/* Type already set. */
+					object1.value.integer += object2.value.integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.integer += object2.value.boolean;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_bool:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.boolean + object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.integer = object1.value.boolean + object2.value.integer;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.boolean += object2.value.boolean;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object1);
 			break;
 		
 		case duckLisp_instruction_return:
