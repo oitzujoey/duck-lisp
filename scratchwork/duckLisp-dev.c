@@ -363,7 +363,6 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 	
 	dl_ptrdiff_t args_index[2] = {-1, -1};
 	duckLisp_ast_type_t args_type[2] = {duckLisp_ast_type_none, duckLisp_ast_type_none};
-	dl_uint8_t exprs;
 	
 	/* Check arguments for call and type errors. */
 	
@@ -372,13 +371,12 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 		goto l_cleanup;
 	}
 
-	exprs = (dl_uint8_t) (expression->compoundExpressions[1].type == duckLisp_ast_type_expression) + (dl_uint8_t) (expression->compoundExpressions[2].type == duckLisp_ast_type_expression);
-	
 	for (dl_ptrdiff_t i = 0; i < 2; i++) {
 		switch (expression->compoundExpressions[i + 1].type) {
 		case duckLisp_ast_type_int:
 			e = duckLisp_emit_pushInteger(duckLisp, assembly, &args_index[i], expression->compoundExpressions[i + 1].value.integer.value);
 			if (e) goto l_cleanup;
+			duckLisp->locals_length++;
 			args_type[i] = duckLisp_ast_type_int;
 			break;
 		case duckLisp_ast_type_identifier:
@@ -422,8 +420,10 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 			args_type[i] = duckLisp_ast_type_none;  // Let's use `none` as a wildcard. Variables do not have a set type.
 			break;
 		case duckLisp_ast_type_expression:
-			/* Assume that the expression pushes an object. It *should*. */
-			args_index[i] = duckLisp->locals_length - --exprs - 1;
+			e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[i + 1].value.expression);
+			if (e) goto l_cleanup;
+			duckLisp->locals_length++;
+			args_index[i] = duckLisp->locals_length - 1;
 			args_type[i] = duckLisp_ast_type_none;
 			break;
 		default:

@@ -308,6 +308,8 @@ dl_error_t DECLSPEC duckLisp_emit_pushString(duckLisp_t *duckLisp,
                                              char *string,
                                              dl_size_t string_length);
 
+dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression);
+
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
                                char *source, const dl_size_t source_length);
 

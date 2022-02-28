@@ -1791,7 +1791,7 @@ dl_error_t duckLisp_emit_pushInteger(duckLisp_t *duckLisp, dl_array_t *assembly,
 	if (e) {
 		goto l_cleanup;
 	}
-	
+
 	// Push instruction into list.
 	e = dl_array_pushElement(assembly, &instruction);
 	if (e) {
@@ -2232,7 +2232,7 @@ dl_error_t duckLisp_generator_popScope(duckLisp_t *duckLisp, dl_array_t *assembl
 		goto l_cleanup;
 	}
 	
-	// Push a new scope.
+	// Pop a new scope.
 	e = duckLisp_popScope(duckLisp, dl_null);
 	
 	l_cleanup:
@@ -2379,7 +2379,9 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp, dl_array_t *assembl
 			if (e) goto l_cleanup;
 			break;
 		case duckLisp_ast_type_expression:
-			/* Do nothing? */
+			/* Evaluate. */
+			e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[i].value.expression);
+			if (e) goto l_cleanup;
 			break;
 		default:
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("callback: Unsupported expression type."));
@@ -2418,6 +2420,8 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 	
 	duckLisp_ast_expression_t newExpression;
 	dl_ptrdiff_t l;
+
+	dl_ptrdiff_t identifier_index = -1;
 	
 	// Push a new scope.
 	e = duckLisp_pushScope(duckLisp, dl_null);
@@ -2426,6 +2430,8 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 	}
 	
 	/* Labels */
+
+	// I believe this should come before any compilation.
 	
 	for (dl_ptrdiff_t i = 0; i < expression->compoundExpressions_length; i++) {
 		duckLisp_ast_compoundExpression_t currentCE = expression->compoundExpressions[i];
@@ -2499,56 +2505,70 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 			}
 		}
 	}
-	
-	/* Queue a `pop-scope`. */
-	
-	newExpression.compoundExpressions_length = expression->compoundExpressions_length + 1;
-	
-	e = dl_malloc(&duckLisp->memoryAllocation, (void **) &newExpression.compoundExpressions,
-	              newExpression.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	// // (push-scope)
-	// newExpression.compoundExpressions[0].type = ast_compoundExpression_type_expression;
-	// newExpression.compoundExpressions[0].value.expression.compoundExpressions_length = 1;
-	// e = dl_malloc(&duckLisp->memoryAllocation,
-	//               (void **) &newExpression.compoundExpressions[0].value.expression.compoundExpressions,
-	//               newExpression.compoundExpressions[0].value.expression.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
-	// if (e) {
-	// 	goto l_cleanup;
-	// }
-	// newExpression.compoundExpressions[0].value.expression.compoundExpressions[0].type = ast_compoundExpression_type_identifier;
-	// newExpression.compoundExpressions[0].value.expression.compoundExpressions[0].value.identifier.value = "push-scope";
-	// newExpression.compoundExpressions[0].value.expression.compoundExpressions[0].value.identifier.value_length = 10;
-	
-	// // Append original array of expressions.
-	// Copy original arguments into the new array.
+
+	/* Compile */
+
 	for (dl_ptrdiff_t i = 0; i < expression->compoundExpressions_length; i++) {
-		newExpression.compoundExpressions[i] = expression->compoundExpressions[i];
+		duckLisp_ast_compoundExpression_t currentExpression = expression->compoundExpressions[i];
+		switch (currentExpression.type) {
+		case duckLisp_ast_type_none:
+			break;
+		case duckLisp_ast_type_expression:
+			e = duckLisp_compile_expression(duckLisp, assembly, &currentExpression.value.expression);
+			if (e) goto l_cleanup;
+			break;
+		case duckLisp_ast_type_identifier:
+			e = duckLisp_scope_getLocalIndexFromName(duckLisp, &identifier_index, expression->compoundExpressions[i + 1].value.identifier.value,
+													 expression->compoundExpressions[i + 1].value.identifier.value_length);
+			if (e) goto l_cleanup;
+			if (identifier_index == -1) {
+				e = dl_array_pushElements(&eString, DL_STR("add: Could not find local \""));
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString, currentExpression.value.identifier.value,
+										  currentExpression.value.identifier.value_length);
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString, DL_STR("\"."));
+				if (e) {
+					goto l_cleanup;
+				}
+				eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			break;
+		case duckLisp_ast_type_string:
+			e = duckLisp_emit_pushString(duckLisp, assembly, dl_null, currentExpression.value.string.value, currentExpression.value.string.value_length);
+			if (e) goto l_cleanup;
+			break;
+		case duckLisp_ast_type_float:
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Float constants are not yet supported."));
+			if (eError) {
+				e = eError;
+			}
+			goto l_cleanup;
+			break;
+		case duckLisp_ast_type_int:
+			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, currentExpression.value.integer.value);
+			if (e) goto l_cleanup;
+			break;
+		case duckLisp_ast_type_bool:
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Boolean constants are not yet supported."));
+			if (eError) {
+				e = eError;
+			}
+			goto l_cleanup;
+			break;
+		}
 	}
-	
-	// (pop-scope)
-	l = expression->compoundExpressions_length;
-	newExpression.compoundExpressions[l].type = duckLisp_ast_type_expression;
-	newExpression.compoundExpressions[l].value.expression.compoundExpressions_length = 1;
-	e = dl_malloc(&duckLisp->memoryAllocation,
-	              (void **) &newExpression.compoundExpressions[l].value.expression.compoundExpressions,
-	              newExpression.compoundExpressions[l].value.expression.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
-	if (e) {
-		goto l_cleanup;
-	}
-	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
-	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].value.identifier.value = "pop-scope";
-	newExpression.compoundExpressions[l].value.expression.compoundExpressions[0].value.identifier.value_length = 9;
-	
-	// Set newExpression as the current expression.
-	e = dl_free(&duckLisp->memoryAllocation, (void **) &expression->compoundExpressions);
-	if (e) {
-		goto l_cleanup;
-	}
-	*expression = newExpression;
+
+	// And pop it... This is so much easier than it used to be. No more queuing `pop-scope`s.
+	e = duckLisp_popScope(duckLisp, dl_null);
 	
 	l_cleanup:
 	
@@ -2603,6 +2623,111 @@ int jumpLink_less(const void *l, const void *r, const void *context) {
 	return left - right;
 }
 
+dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, &duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	duckLisp_ast_identifier_t functionName = {0};
+	duckLisp_functionType_t functionType;
+	dl_ptrdiff_t functionIndex = -1;
+	
+	dl_error_t (*generatorCallback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
+	
+	// Compile!
+	switch (expression->compoundExpressions[0].type) {
+	case duckLisp_ast_type_bool:
+	case duckLisp_ast_type_int:
+	case duckLisp_ast_type_float:
+	case duckLisp_ast_type_string:
+		e = dl_error_invalidValue;
+		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Constants as function names are not supported."));
+		if (eError) {
+			e = eError;
+		}
+		goto l_cleanup;
+	case duckLisp_ast_type_identifier:
+		// Run function generator.
+		functionName = expression->compoundExpressions[0].value.identifier;
+		e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value, functionName.value_length);
+		if (e) {
+			goto l_cleanup;
+		}
+		if (functionType == duckLisp_functionType_none) {
+			e = dl_error_invalidValue;
+			eError = dl_array_pushElements(&eString, DL_STR("Symbol \""));
+			if (eError) {
+				e = eError;
+				goto l_cleanup;
+			}
+			eError = dl_array_pushElements(&eString, functionName.value, functionName.value_length);
+			if (eError) {
+				e = eError;
+				goto l_cleanup;
+			}
+			eError = dl_array_pushElements(&eString, DL_STR("\" is not a function, callback, or generator."));
+			if (eError) {
+				e = eError;
+				goto l_cleanup;
+			}
+			eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements), eString.elements_length);
+			if (eError) {
+				e = eError;
+			}
+			goto l_cleanup;
+		}
+		switch (functionType) {
+		case duckLisp_functionType_ducklisp:
+			e = duckLisp_generator_subroutine(duckLisp, assembly, expression);
+			if (e) {
+				goto l_cleanup;
+			}
+			break;
+		case duckLisp_functionType_c:
+			e = duckLisp_generator_callback(duckLisp, assembly, expression);
+			if (e) {
+				goto l_cleanup;
+			}
+			break;
+		case duckLisp_functionType_generator:
+			// e = m_generatorAt(functionIndex)(duckLisp, &currentExpression)
+			e = dl_array_get(&duckLisp->generators_stack, &generatorCallback, functionIndex);
+			if (e) {
+				goto l_cleanup;
+			}
+			e = generatorCallback(duckLisp, assembly, expression);
+			if (e) {
+				goto l_cleanup;
+			}
+			break;
+		default:
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid function type. Can't happen."));
+			if (eError) {
+				e = eError;
+			}
+			goto l_cleanup;
+		}
+		break;
+	case duckLisp_ast_type_expression:
+		// Run expression generator.
+		e = duckLisp_generator_expression(duckLisp, assembly, expression);
+		if (e) {
+			goto l_cleanup;
+		}
+		break;
+	default:
+		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid compound expression type. Can't happen."));
+		if (eError) {
+			e = eError;
+		}
+		goto l_cleanup;
+	}
+
+ l_cleanup:
+	return e;
+}
+
 static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_ast_compoundExpression_t astCompoundexpression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -2615,10 +2740,10 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	// Not initialized until later. This is reused for multiple arrays.
 	dl_array_t assembly; // duckLisp_instructionObject_t
 	// Initialize to zero.
-	/**/ dl_array_init(&assembly, dl_null, 0, dl_array_strategy_fit);
+	/**/ dl_array_init(&assembly, &duckLisp->memoryAllocation, sizeof(duckLisp_instructionObject_t), dl_array_strategy_fit);
 	// Create high-level bytecode list.
-	dl_array_t instructionList; // dl_array_t
-	/**/ dl_array_init(&instructionList, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
+	/* dl_array_t instructionList; // dl_array_t */
+	/* /\**\/ dl_array_init(&instructionList, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double); */
 	// expression stack for navigating the tree.
 	dl_array_t expressionStack;
 	/**/ dl_array_init(&expressionStack, &duckLisp->memoryAllocation, sizeof(duckLisp_ast_compoundExpression_t), dl_array_strategy_double);
@@ -2663,7 +2788,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	
 	
 	putchar('\n');
-	
+
 	if (astCompoundexpression.type != duckLisp_ast_type_expression) {
 		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot compile non-expression types to bytecode."));
 		if (eError) {
@@ -2673,240 +2798,23 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	}
 	
 	/* First stage: Create assembly tree from AST. */
-	
-	// Bootstrap.
-	currentExpression.type = duckLisp_ast_type_expression;
-	currentExpression.value.expression.compoundExpressions = &astCompoundexpression;
-	currentExpression.value.expression.compoundExpressions_length = 1;
-	
-	assemblyTreeRoot = currentNode = nodeArray.elements_length; // 0
-	
-	// Initialize to zero.
-	/**/ dl_array_init(&tempNode.instructionObjects, dl_null, 0, dl_array_strategy_fit);
-	tempNode.nodes = dl_null;
-	tempNode.nodes_length = 0;
-	e = dl_array_pushElement(&nodeArray, &tempNode);
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	while (dl_true) {
-		// Now that the subexpressions cannot change (generator has returned), push them onto the stack.
-		for (dl_ptrdiff_t j = currentExpression.value.expression.compoundExpressions_length - 1; j >= 0; --j) {
-			if (currentExpression.value.expression.compoundExpressions[j].type == duckLisp_ast_type_expression) {
-				
-				// Create child and push into the node array.
-				// Initialize to zero.
-				/**/ dl_array_init(&tempNode.instructionObjects, dl_null, 0, dl_array_strategy_fit);
-				tempNode.nodes_length = 0;
-				tempNode.nodes = dl_null;
-				e = dl_array_pushElement(&nodeArray, &tempNode);
-				if (e) {
-					goto l_cleanup;
-				}
-				
-				// Push the node into the tree.
-				// Notice how `#define`s are unscoped. This could be nice in Hanabi. I could also create a `let-m` instead.
-#ifdef CURRENTNODE
-#error CURRENTNODE should not have been defined.
-#endif
-#define CURRENTNODE DL_ARRAY_GETADDRESS(nodeArray, node_t, currentNode)
 
-				e = dl_realloc(&duckLisp->memoryAllocation, (void **) &CURRENTNODE.nodes,
-				               (CURRENTNODE.nodes_length + 1) * sizeof(node_t));
-				if (e) {
-					goto l_cleanup;
-				}
-				CURRENTNODE.nodes[CURRENTNODE.nodes_length] = nodeArray.elements_length - 1;
-				CURRENTNODE.nodes_length++;
-				
-				/* Push the address of the new node on the stack. We are now traversing the section of the tree we just
-				   created. */
-				e = dl_array_pushElement(&nodeStack, &nodeArray.elements_length); // Need to `--` later.
-				if (e) {
-					goto l_cleanup;
-				}
+	e = duckLisp_compile_expression(duckLisp, &assembly, &astCompoundexpression.value.expression);
+	if (e) goto l_cleanup;
 
-				// Push arguments.
-				e = dl_array_pushElement(&expressionStack, &currentExpression.value.expression.compoundExpressions[j]);
-				if (e) {
-					goto l_cleanup;
-				}
-			}
-		}
-		
-		if (expressionStack.elements_length <= 0) {
-			break;
-		}
-		
-		e = dl_array_popElement(&nodeStack, &currentNode);
-		if (e) {
-			goto l_cleanup;
-		}
-		--currentNode;
-		
-		e = dl_array_popElement(&expressionStack, &currentExpression);
-		if (e) {
-			goto l_cleanup;
-		}
-		
-		e = ast_print_compoundExpression(*duckLisp, currentExpression);
-		if (e) {
-			goto l_cleanup;
-		}
-		putchar('\n');
-		
-		/* If it is an expression, call the generator for it to compile the expression. */
-		if (currentExpression.value.expression.compoundExpressions_length == 0) {
-			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Encountered empty expression."));
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
-		}
-		
-		/**/ dl_array_init(&assembly, &duckLisp->memoryAllocation, sizeof(duckLisp_instructionObject_t), dl_array_strategy_double);
-		
-		// Compile!
-		switch (currentExpression.value.expression.compoundExpressions[0].type) {
-		case duckLisp_ast_type_bool:
-		case duckLisp_ast_type_int:
-		case duckLisp_ast_type_float:
-		case duckLisp_ast_type_string:
-			e = dl_error_invalidValue;
-			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Constants as function names are not supported."));
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
-		case duckLisp_ast_type_identifier:
-			// Run function generator.
-			functionName = currentExpression.value.expression.compoundExpressions[0].value.identifier;
-			e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value, functionName.value_length);
-			if (e) {
-				goto l_cleanup;
-			}
-			if (functionType == duckLisp_functionType_none) {
-				e = dl_error_invalidValue;
-				eError = dl_array_pushElements(&eString, DL_STR("Symbol \""));
-				if (eError) {
-					e = eError;
-					goto l_cleanup;
-				}
-				eError = dl_array_pushElements(&eString, functionName.value, functionName.value_length);
-				if (eError) {
-					e = eError;
-					goto l_cleanup;
-				}
-				eError = dl_array_pushElements(&eString, DL_STR("\" is not a function, callback, or generator."));
-				if (eError) {
-					e = eError;
-					goto l_cleanup;
-				}
-				eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements), eString.elements_length);
-				if (eError) {
-					e = eError;
-				}
-				goto l_cleanup;
-			}
-			switch (functionType) {
-			case duckLisp_functionType_ducklisp:
-				e = duckLisp_generator_subroutine(duckLisp, &assembly, &currentExpression.value.expression);
-				if (e) {
-					goto l_cleanup;
-				}
-				break;
-			case duckLisp_functionType_c:
-				e = duckLisp_generator_callback(duckLisp, &assembly, &currentExpression.value.expression);
-				if (e) {
-					goto l_cleanup;
-				}
-				break;
-			case duckLisp_functionType_generator:
-				// e = m_generatorAt(functionIndex)(duckLisp, &currentExpression)
-				e = dl_array_get(&duckLisp->generators_stack, &generatorCallback, functionIndex);
-				if (e) {
-					goto l_cleanup;
-				}
-				e = generatorCallback(duckLisp, &assembly, &currentExpression.value.expression);
-				if (e) {
-					goto l_cleanup;
-				}
-				break;
-			default:
-				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid function type. Can't happen."));
-				if (eError) {
-					e = eError;
-				}
-				goto l_cleanup;
-			}
-			break;
-		case duckLisp_ast_type_expression:
-			// Run expression generator.
-			e = duckLisp_generator_expression(duckLisp, &assembly, &currentExpression.value.expression);
-			if (e) {
-				goto l_cleanup;
-			}
-			break;
-		default:
-			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid compound expression type. Can't happen."));
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
-		}
-		/* Important note: The generator has the freedom to rearrange its portion of the AST. This allows generators
-		   much more freedom in optimizing code. */
-
-		CURRENTNODE.instructionObjects = assembly;
-	}
-	
-	// Flatten tree.
-	e = dl_array_clear(&nodeStack);
-	if (e) {
-		goto l_cleanup;
-	}
-	currentNode = assemblyTreeRoot;
-	
-	while (dl_true) {
-		// Append instructions to instruction list.
-		e = dl_array_pushElement(&instructionList, &CURRENTNODE.instructionObjects);
-		if (e) {
-			goto l_cleanup;
-		}
-		
-		// Push nodes.
-		for (dl_ptrdiff_t j = CURRENTNODE.nodes_length - 1; j >= 0; --j) {
-			e = dl_array_pushElement(&nodeStack, &CURRENTNODE.nodes[j]);
-			if (e) {
-				goto l_cleanup;
-			}
-		}
-		// Done?
-		if (nodeStack.elements_length <= 0) {
-			break;
-		}
-		// Next node.
-		e = dl_array_popElement(&nodeStack, &currentNode);
-		if (e) {
-			goto l_cleanup;
-		}
-	}
-#undef CURRENTNODE
-	
 	// Print list.
 	printf("\n");
 	
 	
-	dl_array_t ia;
+	/* dl_array_t ia; */
 	duckLisp_instructionObject_t io;
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < instructionList.elements_length; i++) {
-		ia = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i);
-		printf("{\n");
-		for (dl_ptrdiff_t j = 0; (dl_size_t) j < ia.elements_length; j++) {
-			io = DL_ARRAY_GETADDRESS(ia, duckLisp_instructionObject_t, j);
-			printf("    {\n");
-			printf("        Instruction class: %s\n",
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < instructionList.elements_length; i++) { */
+	/* 	ia = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i); */
+		/* printf("{\n"); */
+		for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly.elements_length; j++) {
+			io = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j);
+			/* printf("{\n"); */
+			printf("Instruction class: %s [",
 				(char *[9]){
 					"nop",
 					"pushString",
@@ -2918,28 +2826,30 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 					"add",
 					"label",
 				}[io.instructionClass]);
-			printf("        [\n");
+			/* printf("[\n"); */
 			duckLisp_instructionArgClass_t ia;
 			for (dl_ptrdiff_t k = 0; (dl_size_t) k < io.args.elements_length; k++) {
+				putchar('\n');
 				ia = ((duckLisp_instructionArgClass_t *) io.args.elements)[k];
-				printf("            {\n");
-				printf("                Type: %s\n",
+				/* printf("    {\n"); */
+				printf("        Type: %s",
 					(char *[4]){
 						"none",
 						"integer",
 						"index",
 						"string",
 					}[ia.type]);
-				printf("                Value: ");
+				putchar('\n');
+				printf("        Value: ");
 				switch (ia.type) {
 				case duckLisp_instructionArgClass_type_none:
-					printf("None\n");
+					printf("None");
 					break;
 				case duckLisp_instructionArgClass_type_integer:
-					printf("%i\n", ia.value.integer);
+					printf("%i", ia.value.integer);
 					break;
 				case duckLisp_instructionArgClass_type_index:
-					printf("%llu\n", ia.value.index);
+					printf("%llu", ia.value.index);
 					break;
 				case duckLisp_instructionArgClass_type_string:
 					printf("\"");
@@ -2953,18 +2863,18 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 							putchar(ia.value.string.value[m]);
 						}
 					}
-					printf("\"\n");
+					printf("\"");
 					break;
 				default:
-					printf("                Undefined type.\n");
+					printf("        Undefined type.\n");
 				}
-				printf("            }\n");
+				putchar('\n');
 			}
-			printf("        ]\n");
-			printf("    }\n");
+			printf("]\n\n");
+			/* printf("}\n"); */
 		}
-		printf("}\n");
-	}
+		/* printf("}\n"); */
+	/* } */
 	
 	
 	/** * * * * *
@@ -2981,10 +2891,12 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 	linkArray_t linkArray = {0};
 	currentInstruction.prev = -1;
 	/**/ dl_array_init(&currentArgs, &duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
-	for (dl_ptrdiff_t i = instructionList.elements_length - 1; i >= 0; --i) {
-		dl_array_t instructions = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i);
-		for (dl_ptrdiff_t j = 0; (dl_size_t) j < instructions.elements_length; j++) {
-			duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(instructions, duckLisp_instructionObject_t, j);
+	/* for (dl_ptrdiff_t i = instructionList.elements_length - 1; i >= 0; --i) { */
+	/* 	dl_array_t instructions = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i); */
+		/* for (dl_ptrdiff_t j = 0; (dl_size_t) j < instructions.elements_length; j++) { */
+		/* 	duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(instructions, duckLisp_instructionObject_t, j); */
+		for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly.elements_length; j++) {
+			duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j);
 			// This is OK because there is no chance of reallocating the args array.
 			duckLisp_instructionArgClass_t *args = &DL_ARRAY_GETADDRESS(instruction.args, duckLisp_instructionArgClass_t, 0);
 			dl_size_t args_length = instruction.args.elements_length;
@@ -3295,7 +3207,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				}
 			}
 		}
-	}
+	/* } */
 	if (bytecodeList.elements_length > 0) {
 		DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = -1;
 	}

@@ -727,3 +727,29 @@ Solutions:
 
 Did #1.
 Writing generators should be a bit easier now.
+
+The iterative tree traversal is a pain. Let's try making it recursive.
+
+The compiler will change.
+The assembler may change.
+The generators will change.
+The parser will not change.
+The disassembler will not change.
+The emitters should not change.
+
+Steps:
+source → reader ⇒ AST
+(AST → generator ⇒ AST) & (AST → emitter ⇒ assembly)
+assembly → assembler ⇒ bytecode
+bytecode → disassembler ⇒ disassembly
+
+Code structure:
+loader
+    reader
+	compiler
+	    generator
+		    generator
+			emitter
+	assembler
+	optimizer
+disassembler
