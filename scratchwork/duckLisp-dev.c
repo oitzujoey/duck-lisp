@@ -31,6 +31,11 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		printf("print: Unsupported type.\n");
 	}
 	
+	e = duckVM_push(duckVM, &object);
+	if (e) {
+		goto l_cleanup;
+	}
+	
 	l_cleanup:
 	
 	return e;
@@ -156,11 +161,13 @@ dl_error_t duckLispDev_generator_createVar(duckLisp_t *duckLisp, dl_array_t *ass
 	}
 	
 	// Insert arg1 into this scope's name trie.
+	--duckLisp->locals_length;
 	e = duckLisp_scope_addObject(duckLisp, expression->compoundExpressions[1].value.identifier.value,
 	                             expression->compoundExpressions[1].value.identifier.value_length);
 	if (e) {
 		goto l_cleanup;
 	}
+	duckLisp->locals_length++;
 	
 	l_cleanup:
 	
@@ -221,7 +228,8 @@ dl_error_t duckLispDev_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly
 		if (e) goto l_cleanup;
 		break;
 	case duckLisp_ast_type_expression:
-		/* Assume that the expression pushes an object. It *should*. */
+			e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[2].value.expression);
+			if (e) goto l_cleanup;
 		break;
 	case duckLisp_ast_type_identifier:
 		e = duckLisp_scope_getLocalIndexFromName(duckLisp, &index, expression->compoundExpressions[2].value.identifier.value,
@@ -376,7 +384,6 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 		case duckLisp_ast_type_int:
 			e = duckLisp_emit_pushInteger(duckLisp, assembly, &args_index[i], expression->compoundExpressions[i + 1].value.integer.value);
 			if (e) goto l_cleanup;
-			duckLisp->locals_length++;
 			args_type[i] = duckLisp_ast_type_int;
 			break;
 		case duckLisp_ast_type_identifier:
@@ -422,7 +429,6 @@ dl_error_t duckLispDev_generator_add(duckLisp_t *duckLisp, dl_array_t *assembly,
 		case duckLisp_ast_type_expression:
 			e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[i + 1].value.expression);
 			if (e) goto l_cleanup;
-			duckLisp->locals_length++;
 			args_index[i] = duckLisp->locals_length - 1;
 			args_type[i] = duckLisp_ast_type_none;
 			break;

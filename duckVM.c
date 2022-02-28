@@ -2,6 +2,7 @@
 #include "duckVM.h"
 #include "DuckLib/array.h"
 #include "DuckLib/core.h"
+#include "duckLisp.h"
 #include <stdio.h>
 
 dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size) {
@@ -140,6 +141,27 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			else {
 				ip += ptrdiff1;
 			}
+			break;
+		
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_pop32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			if (e) break;
+			break;
+		case duckLisp_instruction_pop16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			if (e) break;
+			break;
+		case duckLisp_instruction_pop8:
+			ptrdiff1 = *(ip++);
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			if (e) break;
 			break;
 		
 		// I probably don't need an `if` if I research the standard a bit.
@@ -488,6 +510,10 @@ dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff
 
 dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object) {
 	return dl_array_popElement(&duckVM->stack, object);
+}
+
+dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object) {
+	return dl_array_pushElement(&duckVM->stack, object);
 }
 
 dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object) {

@@ -201,6 +201,7 @@ typedef enum {
 	duckLisp_instructionClass_jump,
 	duckLisp_instructionClass_move,
 	duckLisp_instructionClass_add,
+	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
 
@@ -240,6 +241,10 @@ typedef enum {
 	duckLisp_instruction_add8,
 	duckLisp_instruction_add16,
 	duckLisp_instruction_add32,
+	
+	duckLisp_instruction_pop8,
+	duckLisp_instruction_pop16,
+	duckLisp_instruction_pop32,
 	
 	duckLisp_instruction_return,
 } duckLisp_instruction_t;
@@ -290,6 +295,8 @@ dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compou
 
 dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
 
+dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp, dl_array_t *assembly,
+                             const dl_size_t count);
 dl_error_t duckLisp_emit_add(duckLisp_t *duckLisp, dl_array_t *assembly,
                              const dl_ptrdiff_t destination_index,
                              const dl_ptrdiff_t source_index);
