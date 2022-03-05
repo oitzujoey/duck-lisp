@@ -816,3 +816,5 @@ c-call.8        00        ; (print %)
 -jump.8          BB        ; (goto loop)
 
 The top scope seems to always be unused. This should not be deleted without investigation because it may be possible for the top-level expression to declare a local.
+
+Woohoo! Branching works!

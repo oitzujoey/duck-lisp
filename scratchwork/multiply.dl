@@ -1,0 +1,11 @@
+(var a 47)
+(var b 43)
+
+(var acc 0)
+(var i 0)
+((label loop)
+ (setq acc (+ acc a))
+ (setq i (+ i 1))
+ (brnz (< i b) loop))
+
+(print acc)
