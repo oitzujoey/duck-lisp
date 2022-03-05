@@ -56,7 +56,7 @@ Examples can be found in the scratchwork directory.
 
 ```bash
 # Run the duck-lisp program "0.dl".
-./duckLisp-dev ../0.dl
+./duckLisp-dev ../fibonacci.dl
 ```
 
 ## Usage
