@@ -753,3 +753,66 @@ loader
 	assembler
 	optimizer
 disassembler
+
+Fibonacci: {
+
+push-integer.8  00        ; (var a 0)
+push-integer.8  01        ; (var b 1)
+push-integer.8  00        ; (var c 0)
+                          ; (label loop)
+push-index.8    00        ; (print a)
+c-call.8        00
+pop.8           01
+push-string.8   01 "\n"   ; (print "\n")
+c-call.8        00
+pop.8           01
+
+add.8           00 01     ; (+ a b)
+move.8          03 02     ; (setq c %)
+pop.8           01
+move.8          00 01     ; (setq b a)
+move.8          02 00     ; (setq a c)
+
+push-index.8    00        ; (print a)
+c-call.8        00
+pop.8           01
+push-string.8   01 "\n"   ; (print "\n")
+c-call.8        00
+pop.8           01
+push-integer.16 E803      ; (print 1000)
+c-call.8        00
+pop.8           01
+push-string.8   01 "\n"   ; (print "\n")
+c-call.8        00
+pop.8           01
+
+push-integer.16 E803      ; (< 1000 a)
+less.8          03 00
+c-call.8        00        ; (print %)
+brnz.8          C0        ; (brnz % loop)
+pop.8           02
+
+nop                       ; (nop)
+
+jump.8          BB        ; (goto loop)
+
+return
+}
+
+I ran into a problem I didn't expect. In order to calculate the condition for a branch, I need to push objects on the stack. In order to keep the stack balanced, I need to pop those items off the stack. So I guess I will do something similar to what I did to `progn` and pop all arguments required in the calculation before the branch. The number of arguments to pop will be given to `br??` as an additional integer argument. This argument will probably have to come after the jump offset in order to remain compatible with the current jump size optimization.
+
+What the final version will look like:
+
+
+push-integer.16 E803      ; (< 1000 a)
+less.8          03 00
+c-call.8        00        ; (print %)
++brnz.8          C0 02     ; (brnz % loop)
+-brnz.8          C0        ; (brnz % loop)
+-pop.8           02
+-
+-nop                       ; (nop)
+-
+-jump.8          BB        ; (goto loop)
+
+The top scope seems to always be unused. This should not be deleted without investigation because it may be possible for the top-level expression to declare a local.

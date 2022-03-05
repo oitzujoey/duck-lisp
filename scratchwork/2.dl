@@ -1,9 +1,11 @@
-(
- (var s0 "duck-lisp supports ")
- (var s1 " types now!\n")
- (var i 2)
- (var j "three or four")
- (print s0)
- (setq i j)
- (print i)
- (print s1))
+(var s0 "duck-lisp supports ")
+(var s1 " types now!\n")
+(var i 2)
+(var j "three or four")
+
+(print s0)
+
+(setq i j)
+
+(print i)
+(print s1)

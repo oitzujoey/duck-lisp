@@ -199,8 +199,10 @@ typedef enum {
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_ccall,
 	duckLisp_instructionClass_jump,
+	duckLisp_instructionClass_brnz,
 	duckLisp_instructionClass_move,
 	duckLisp_instructionClass_add,
+	duckLisp_instructionClass_less,
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
@@ -234,6 +236,10 @@ typedef enum {
 	duckLisp_instruction_jump16,
 	duckLisp_instruction_jump32,
 	
+	duckLisp_instruction_brnz8,
+	duckLisp_instruction_brnz16,
+	duckLisp_instruction_brnz32,
+	
 	duckLisp_instruction_move8,
 	duckLisp_instruction_move16,
 	duckLisp_instruction_move32,
@@ -241,6 +247,10 @@ typedef enum {
 	duckLisp_instruction_add8,
 	duckLisp_instruction_add16,
 	duckLisp_instruction_add32,
+	
+	duckLisp_instruction_less8,
+	duckLisp_instruction_less16,
+	duckLisp_instruction_less32,
 	
 	duckLisp_instruction_pop8,
 	duckLisp_instruction_pop16,
@@ -300,6 +310,9 @@ dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp, dl_array_t *assembly,
 dl_error_t duckLisp_emit_add(duckLisp_t *duckLisp, dl_array_t *assembly,
                              const dl_ptrdiff_t destination_index,
                              const dl_ptrdiff_t source_index);
+dl_error_t duckLisp_emit_less(duckLisp_t *duckLisp, dl_array_t *assembly,
+                              const dl_ptrdiff_t source_index1,
+                              const dl_ptrdiff_t source_index2);
 dl_error_t duckLisp_emit_move(duckLisp_t *duckLisp, dl_array_t *assembly,
                               const dl_ptrdiff_t destination_index,
                               const dl_ptrdiff_t source_index);
@@ -314,6 +327,10 @@ dl_error_t DECLSPEC duckLisp_emit_pushString(duckLisp_t *duckLisp,
                                              dl_ptrdiff_t *stackIndex,
                                              char *string,
                                              dl_size_t string_length);
+dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp, dl_array_t *assembly,
+                              char *label, dl_size_t label_length, int pops);
+dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp, dl_array_t *assembly,
+                              char *label, dl_size_t label_length);
 
 dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression);
 

@@ -1,15 +1,14 @@
 
+(var t "Hello, world!\n\n")
+(var s "out-of-scope\n")
+
+(comment "Push a new scope.")
 (
-  (var t "Hello, world!\n\n")
-  (var s "out-of-scope\n")
-  
-  (comment "Push a new scope.")
-  (
-    (comment "This string overrides `s` defined in the outer scope.")
-    (var s "in-scope\n")
-    (print s)
+  (comment "This string overrides `s` defined in the outer scope.")
+  (var s "in-scope\n")
+  (print s)
 
 	(comment "Print `t` from the outer scope.")
-    (print t))
-  
-  (print-stack))
+  (print t))
+
+(print-stack)
