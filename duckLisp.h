@@ -201,8 +201,11 @@ typedef enum {
 	duckLisp_instructionClass_jump,
 	duckLisp_instructionClass_brnz,
 	duckLisp_instructionClass_move,
+	duckLisp_instructionClass_not,
 	duckLisp_instructionClass_add,
+	duckLisp_instructionClass_equal,
 	duckLisp_instructionClass_less,
+	duckLisp_instructionClass_greater,
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
@@ -244,9 +247,21 @@ typedef enum {
 	duckLisp_instruction_move16,
 	duckLisp_instruction_move32,
 	
+	duckLisp_instruction_not8,
+	duckLisp_instruction_not16,
+	duckLisp_instruction_not32,
+	
 	duckLisp_instruction_add8,
 	duckLisp_instruction_add16,
 	duckLisp_instruction_add32,
+	
+	duckLisp_instruction_equal8,
+	duckLisp_instruction_equal16,
+	duckLisp_instruction_equal32,
+	
+	duckLisp_instruction_greater8,
+	duckLisp_instruction_greater16,
+	duckLisp_instruction_greater32,
 	
 	duckLisp_instruction_less8,
 	duckLisp_instruction_less16,
@@ -307,9 +322,14 @@ dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff
 
 dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp, dl_array_t *assembly,
                              const dl_size_t count);
+dl_error_t duckLisp_emit_not(duckLisp_t *duckLisp, dl_array_t *assembly,
+                             const dl_ptrdiff_t index);
 dl_error_t duckLisp_emit_add(duckLisp_t *duckLisp, dl_array_t *assembly,
                              const dl_ptrdiff_t destination_index,
                              const dl_ptrdiff_t source_index);
+dl_error_t duckLisp_emit_greater(duckLisp_t *duckLisp, dl_array_t *assembly,
+                              const dl_ptrdiff_t source_index1,
+                              const dl_ptrdiff_t source_index2);
 dl_error_t duckLisp_emit_less(duckLisp_t *duckLisp, dl_array_t *assembly,
                               const dl_ptrdiff_t source_index1,
                               const dl_ptrdiff_t source_index2);

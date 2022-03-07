@@ -1,0 +1,82 @@
+
+(; "Calculate `base' to the power of `exponent'.")
+
+(; "Input")
+(var base 2)
+(var exponent 10)
+
+(; "Calculate")
+
+(var acc 0)
+(var increment 1)
+
+(var j 0)
+
+(brnz (= exponent 0) multiply-end)
+(brnz (< exponent 0) bad)
+(brnz (< base 0) bad)
+
+(label multiply-loop)
+
+(brnz (not (< j exponent)) multiply-end)
+(
+ (← acc 0)
+ 
+ (var i 0)
+ (label add-loop)
+
+ (brnz (not (< i base)) add-end)
+ (
+  (← acc (+ acc increment))
+  
+  (← i (+ i 1)))
+ (goto add-loop)
+ (label add-end)
+
+ 
+ (← increment acc)
+ 
+ (← j (+ j 1)))
+(goto multiply-loop)
+(label multiply-end)
+
+
+(; "Output")
+
+(print base)
+(print "↑")
+(print exponent)
+(print " = ")
+
+(brnz (= exponent 0) zeroed-exponent)
+
+(print acc)
+(print "\n")
+(goto end)
+
+(label zeroed-exponent)
+
+(brnz (= base 0) zero-zero)
+(print 1)
+(print "\n")
+(goto end)
+
+(label zero-zero)
+(print "undefined\n")
+(goto end)
+
+(label bad)
+(brnz (< base 0) negative-base)
+
+(label bad-base-return)
+(brnz (< exponent 0) negative-exponent)
+(goto end)
+
+(label negative-base)
+(print "Var `base' must be positive.\n")
+(goto bad-base-return)
+
+(label negative-exponent)
+(print "Var `exponent' must be positive.\n")
+
+(label end)

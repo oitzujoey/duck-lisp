@@ -818,3 +818,23 @@ c-call.8        00        ; (print %)
 The top scope seems to always be unused. This should not be deleted without investigation because it may be possible for the top-level expression to declare a local.
 
 Woohoo! Branching works!
+
+label 0 multiply-loop
+goto  1 multiply-end
+label 2 add-loop
+goto  3 add-end
+label 3 add-end
+goto  2 add-loop
+goto  0 multiply-loop
+label 1 multiply-end
+
+label multiply-loop
+goto  multiply-end
+label add-loop
+goto  add-end
+goto  add-loop
+label add-end
+goto  multiply-loop
+label multiply-end
+
+Problem fixed by making labels greater than gotos when a tie occurs when sorting.

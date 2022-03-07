@@ -7,6 +7,27 @@
 #include "../duckVM.h"
 #include "DuckLib/memory.h"
 
+
+#define COLOR_NORMAL    "\x1B[0m"
+#define COLOR_BLACK     "\x1B[30m"
+#define COLOR_RED       "\x1B[31m"
+#define COLOR_GREEN     "\x1B[32m"
+#define COLOR_YELLOW    "\x1B[33m"
+#define COLOR_BLUE      "\x1B[34m"
+#define COLOR_MAGENTA   "\x1B[35m"
+#define COLOR_CYAN      "\x1B[36m"
+#define COLOR_WHITE     "\x1B[37m"
+
+#define B_COLOR_BLACK     "\x1B[40m"
+#define B_COLOR_RED       "\x1B[41m"
+#define B_COLOR_GREEN     "\x1B[42m"
+#define B_COLOR_YELLOW    "\x1B[43m"
+#define B_COLOR_BLUE      "\x1B[44m"
+#define B_COLOR_MAGENTA   "\x1B[45m"
+#define B_COLOR_CYAN      "\x1B[46m"
+#define B_COLOR_WHITE     "\x1B[47m"
+
+
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 	
@@ -26,6 +47,9 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		break;
 	case duckLisp_object_type_integer:
 		printf("%lli", object.value.integer);
+		break;
+	case duckLisp_object_type_bool:
+		printf("%s", object.value.boolean ? "true" : "false");
 		break;
 	default:
 		printf("print: Unsupported type.\n");
@@ -108,25 +132,12 @@ int main(int argc, char *argv[]) {
 	void *duckVMMemory = dl_null;
 	size_t tempMemory_size;
 	duckLisp_error_t error; // Compile errors.
+	dl_error_t loadError;
 	
 	FILE *sourceFile = dl_null;
 	dl_array_t sourceCode;
 	int tempInt;
 	char tempChar;
-	// const char source0[] =
-	// "(\n"
-	// "  (string t \"Hello, world!\n\n\")\n"
-	// "  (string s \"out-of-scope\n\")\n"
-	// "  (goto skip)\n"
-	// "  (\n"
-	// "    (string s \"in-scope\n\")\n"
-	// "    (print-string s)\n"
-	// "    (goto skip)\n"
-	// "    (print-string t))\n"
-	// "  (goto skip)\n"
-	// "  (print-stack)\n"
-	// "  (label skip)\n"
-	// "  (nop))\n";
 	dl_ptrdiff_t printString_index = -1;
 	duckVM_t duckVM;
 	unsigned char *bytecode = dl_null;
@@ -157,7 +168,7 @@ int main(int argc, char *argv[]) {
 	/* Initialization. */
 	
 	if (argc != 2) {
-		printf("Requires a filename as an argument.\n");
+		printf(COLOR_YELLOW "Requires a filename as an argument.\n" COLOR_NORMAL);
 		goto l_cleanup;
 	}
 	
@@ -165,14 +176,14 @@ int main(int argc, char *argv[]) {
 	duckLispMemory = malloc(tempMemory_size);
 	if (duckLispMemory == NULL) {
 		e = dl_error_outOfMemory;
-		printf("Out of memory.\n");
+		printf(COLOR_RED "Out of memory.\n" COLOR_NORMAL);
 		goto l_cleanup;
 	}
 	d.duckLispMemory = dl_true;
 	
 	e = duckLisp_init(&duckLisp, duckLispMemory, tempMemory_size);
 	if (e) {
-		printf("Could not initialize DuckLisp. (%s)\n", dl_errorString[e]);
+		printf(COLOR_RED "Could not initialize DuckLisp. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		goto l_cleanup;
 	}
 	d.duckLisp_init = dl_true;
@@ -184,7 +195,7 @@ int main(int argc, char *argv[]) {
 	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
 		e = duckLisp_addGenerator(&duckLisp, generators[i].callback, generators[i].name, generators[i].name_length);
 		if (e) {
-			printf("Could not register generator. (%s)\n", dl_errorString[e]);
+			printf(COLOR_RED "Could not register generator. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		}
 	}
 	
@@ -193,7 +204,7 @@ int main(int argc, char *argv[]) {
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
 		e = duckLisp_linkCFunction(&duckLisp, &callbacks[i].index, callbacks[i].name, callbacks[i].name_length);
 		if (e) {
-			printf("Could not create function. (%s)\n", dl_errorString[e]);
+			printf(COLOR_RED "Could not create function. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 			goto l_cleanup;
 		}
 	}
@@ -209,7 +220,7 @@ int main(int argc, char *argv[]) {
 	
 	sourceFile = fopen(argv[1], "r");
 	if (sourceFile == NULL) {
-		printf("Could not open file \"%s\".\n", argv[1]);
+		printf(COLOR_RED "Could not open file \"%s\".\n" COLOR_NORMAL, argv[1]);
 		e = dl_error_nullPointer;
 		goto l_cleanup;
 	}
@@ -233,61 +244,15 @@ int main(int argc, char *argv[]) {
 	/* Compile functions. */
 	
 	// e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, DL_STR(source0));
-	e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
+	loadError = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
 	                        sourceCode.elements_length);
-	if (e) {
-		printf("Error loading string. (%s)\n", dl_errorString[e]);
-	}
-		
-	while (dl_true) {
-		e = dl_array_popElement(&duckLisp.errors, (void *) &error);
-		if (e) {
-			break;
-		}
-		
-		// for (dl_ptrdiff_t i = 0; i < duckLisp.source.elements_length; i++) {
-		// 	putchar(((char *) duckLisp.source.elements)[i]);
-		// }
-		// putchar('\n');
-		
-		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
-			putchar(error.message[i]);
-		}
-		putchar('\n');
-		
-		if (error.index == -1) {
-			continue;
-		}
-		
-		// printf("%s\n", source0);
-		for (dl_ptrdiff_t i = 0; i < sourceCode.elements_length; i++) {
-			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
-				putchar(' ');
-			else
-				putchar(DL_ARRAY_GETADDRESS(sourceCode, char, i));
-		}
-		putchar('\n');
-		for (dl_ptrdiff_t i = duckLisp.source.elements_length - sourceCode.elements_length; i < error.index; i++) {
-			putchar(' ');
-		}
-		puts("^");
-	}
-	putchar('\n');
 	
 	e = dl_memory_checkHealth(duckLisp.memoryAllocation);
 	if (e) {
-		printf("Memory health check failed. (%s)\n", dl_errorString[e]);
+		printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 	}
-	
 
-	// Print bytecode in hex.
-	for (dl_ptrdiff_t i = 0; i < bytecode_length; i++) {
-		unsigned char byte = bytecode[i];
-		putchar(dl_nybbleToHexChar(byte >> 4));
-		putchar(dl_nybbleToHexChar(byte));
-	}
-	putchar('\n');
-	putchar('\n');
+	printf(COLOR_CYAN);
 	
 	// Note: The memSize/eleSize trick only works with the "fit" strategy.
 	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
@@ -314,16 +279,69 @@ int main(int argc, char *argv[]) {
 		printf("Scope %lli: labels\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].labels_trie);
 	}
-	putchar('\n');
+
+	printf(COLOR_NORMAL);
 	
-	// /**/ duckLisp_call(&duckLisp, "hello-world");
+	if (loadError) {
+		printf(COLOR_RED "\nError loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
+	}
+
+	while (dl_true) {
+		putchar('\n');
+		
+		e = dl_array_popElement(&duckLisp.errors, (void *) &error);
+		if (e) {
+			break;
+		}
+
+		printf(COLOR_RED);
+		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
+			putchar(error.message[i]);
+		}
+		printf(COLOR_NORMAL);
+		putchar('\n');
+		
+		if (error.index == -1) {
+			continue;
+		}
+		
+		printf(COLOR_CYAN);
+		for (dl_ptrdiff_t i = 0; i < sourceCode.elements_length; i++) {
+			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
+				putchar(' ');
+			else
+				putchar(DL_ARRAY_GETADDRESS(sourceCode, char, i));
+		}
+		
+		puts(COLOR_RED);
+		for (dl_ptrdiff_t i = duckLisp.source.elements_length - sourceCode.elements_length; i < error.index; i++) {
+			putchar(' ');
+		}
+		puts("^");
+		puts(COLOR_NORMAL);
+	}
+
+	if (loadError) {
+		putchar('\n');
+		printf(COLOR_RED "Failed to compile source.\n" COLOR_NORMAL);
+		e = loadError;
+		goto l_cleanup;
+	}
 
 	{
 		char *disassembly = duckLisp_disassemble(&duckLisp.memoryAllocation, bytecode, bytecode_length);
 		printf("%s", disassembly);
 		e = dl_free(&duckLisp.memoryAllocation, (void **) &disassembly);
 	}
-	/* return 0; */
+	putchar('\n');
+	
+	// Print bytecode in hex.
+	for (dl_ptrdiff_t i = 0; i < bytecode_length; i++) {
+		unsigned char byte = bytecode[i];
+		putchar(dl_nybbleToHexChar(byte >> 4));
+		putchar(dl_nybbleToHexChar(byte));
+	}
+	putchar('\n');
 	
 	tempMemory_size = 1024*1024;
 	duckVMMemory = malloc(tempMemory_size);
@@ -351,15 +369,14 @@ int main(int argc, char *argv[]) {
 	}
 	
 	putchar('\n');
-	puts("VM: {");
+	puts(COLOR_CYAN "VM: {" COLOR_NORMAL);
 	
 	e = duckVM_execute(&duckVM, bytecode);
 	if (e) {
 		goto l_cleanup;
 	}
 	
-	puts("}");
-	putchar('\n');
+	puts(COLOR_CYAN "}" COLOR_NORMAL);
 
 	// e = duckVM_call(&duckVM, helloWorld_index);
 	// if (e) {
@@ -369,8 +386,8 @@ int main(int argc, char *argv[]) {
 	
 	l_cleanup:
 	
+	puts(COLOR_CYAN);
 	if (d.duckVM_init) {
-		puts("");
 		printf("(duckVM) Memory in use:   %llu\n", duckVM.memoryAllocation.used);
 		printf("(duckVM) Max memory used: %llu\n", duckVM.memoryAllocation.max_used);
 		// dl_memory_printMemoryAllocation(duckLisp.memoryAllocation);
@@ -396,6 +413,7 @@ int main(int argc, char *argv[]) {
 		puts("Freeing compiler memory.");
 		/**/ free(duckLispMemory); duckLispMemory = NULL;
 	}
+	printf(COLOR_NORMAL);
 	
 	return e;
 }
