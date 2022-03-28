@@ -187,9 +187,11 @@ typedef struct {
 	dl_size_t locals_length;
 	dl_size_t statics_length;
 	
-	dl_array_t bytecode;    // dl_array_t:uint8_t
+	/* dl_array_t bytecode;    // dl_array_t:uint8_t */
 	dl_array_t generators_stack; // dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t)
 	dl_array_t labels;  // duckLisp_label_t
+
+	dl_size_t gensym_number;
 } duckLisp_t;
 
 typedef enum {
@@ -197,16 +199,19 @@ typedef enum {
 	duckLisp_instructionClass_pushString,
 	duckLisp_instructionClass_pushInteger,
 	duckLisp_instructionClass_pushIndex,
+	duckLisp_instructionClass_call,
 	duckLisp_instructionClass_ccall,
 	duckLisp_instructionClass_jump,
 	duckLisp_instructionClass_brnz,
 	duckLisp_instructionClass_move,
 	duckLisp_instructionClass_not,
 	duckLisp_instructionClass_add,
+	duckLisp_instructionClass_sub,
 	duckLisp_instructionClass_equal,
 	duckLisp_instructionClass_less,
 	duckLisp_instructionClass_greater,
 	duckLisp_instructionClass_pop,
+	duckLisp_instructionClass_return,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
 
@@ -255,6 +260,10 @@ typedef enum {
 	duckLisp_instruction_add16,
 	duckLisp_instruction_add32,
 	
+	duckLisp_instruction_sub8,
+	duckLisp_instruction_sub16,
+	duckLisp_instruction_sub32,
+	
 	duckLisp_instruction_equal8,
 	duckLisp_instruction_equal16,
 	duckLisp_instruction_equal32,
@@ -271,7 +280,10 @@ typedef enum {
 	duckLisp_instruction_pop16,
 	duckLisp_instruction_pop32,
 	
-	duckLisp_instruction_return,
+	duckLisp_instruction_return0,
+	duckLisp_instruction_return8,
+	duckLisp_instruction_return16,
+	duckLisp_instruction_return32,
 } duckLisp_instruction_t;
 
 typedef enum {
@@ -352,6 +364,10 @@ dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp, dl_array_t *assembly,
 dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp, dl_array_t *assembly,
                               char *label, dl_size_t label_length);
 
+dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp, dl_array_t *assembly, char *functionName,
+											   const dl_size_t functionName_length,
+											   duckLisp_ast_compoundExpression_t *compoundExpression,
+											   dl_ptrdiff_t *index, duckLisp_ast_type_t *type);
 dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
@@ -360,9 +376,16 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, d
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
 dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
-// dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length, const duckLisp_object_t object);
-dl_error_t DECLSPEC duckLisp_addGenerator(duckLisp_t *duckLisp, dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*),
-                                 const char *name, const dl_size_t name_length);
+// dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const
+// dl_size_t name_length, const duckLisp_object_t object);
+dl_error_t
+duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
+                                const duckLisp_ast_identifier_t name);
+dl_error_t DECLSPEC
+duckLisp_addGenerator(duckLisp_t *duckLisp,
+                      dl_error_t (*callback)(duckLisp_t *, dl_array_t *,
+                                             duckLisp_ast_expression_t *),
+                      const char *name, const dl_size_t name_length);
 dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
 // dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name,
 // const dl_size_t name_length,

@@ -838,3 +838,59 @@ goto  multiply-loop
 label multiply-end
 
 Problem fixed by making labels greater than gotos when a tie occurs when sorting.
+
+Macros:
+	Create VM.
+	Push arguments as locals.
+	Run macro.
+	Retrieve and paste result.
+	Destroy VM.
+
+Functions:
+	Save PC on call stack.
+	Push arguments as locals.
+	Jump to function.
+	Run function.
+	Set PC to top of call stack, pop all function arguments and locals, and push the result.
+
+Functions will be placed in the bytecode in relation to where they were defined in the source. The first instruction of a function will be a jump to the end of the function. This is so that program flow can pass through a function without running it. It *is* a hack, but right now I'm probably too lazy to do anything more complicated like relocating the function body.
+
+(defun 1+ (a)
+  (print a)
+  (print (+ a 1)))
+(print (1+ 5))
+
+(goto --g###1)
+  label 1+
+  push-integer 1
+
+  (print -1)
+
+  add -2 -1
+  
+  (print -1)
+  
+  return 2
+(label --g###1)
+push-integer 5
+call 1+
+ccall print
+
+
+All stack addressing is relative to the frame pointer.
+
+Bookmark:
+    Add implicit progn to function body.
+    Return instruction
+	    pop
+		reset frame pointer
+		return
+	call instruction
+	    save frame pointer
+		jump
+
+Bookmark:
+	Use frame pointer.
+	Find error messages that don't actually throw an error and force them to.
+
+FUNCTIONS WORK!!!

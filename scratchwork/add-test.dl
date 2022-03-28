@@ -1,0 +1,13 @@
+
+(var a (+ 2 3))
+(print (= a 5))
+(print "\n")
+
+(print (= 3 (+ 1 2)))
+(print "\n")
+(print (= 1 (+ false true)))
+(print "\n")
+(print (= 7 (+ a 2)))
+(print "\n")
+(print "And now we crash…\n")
+(print (+ "1" 2))

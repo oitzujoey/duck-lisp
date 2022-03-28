@@ -1,0 +1,3 @@
+(print ((var x 0)
+		(setq x (+ x 4))
+		x))

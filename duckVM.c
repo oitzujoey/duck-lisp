@@ -15,8 +15,8 @@ dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size) {
 
 	/**/ dl_array_init(&duckVM->errors, &duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->stack, &duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->call_stack, &duckVM->memoryAllocation, sizeof(unsigned char *), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->statics, &duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
-	duckVM->frame_pointer = 0;
 
 	l_cleanup:
 
@@ -28,7 +28,7 @@ void duckVM_quit(duckVM_t *duckVM) {
 	/**/ dl_memclear(&duckVM->errors, sizeof(dl_array_t));
 	/**/ dl_memclear(&duckVM->statics, sizeof(dl_array_t));
 	/**/ dl_memclear(&duckVM->stack, sizeof(dl_array_t));
-	duckVM->frame_pointer = -1;
+	/**/ dl_memclear(&duckVM->call_stack, sizeof(dl_array_t));
 }
 
 dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
@@ -49,6 +49,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		switch (*(ip++)) {
 		case duckLisp_instruction_nop:
 			break;
+			
 		case duckLisp_instruction_pushString32:
 			object1.value.string.value_length = *(ip)++;
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
@@ -91,22 +92,57 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_pushIndex16:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		case duckLisp_instruction_pushIndex8:
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);// + duckVM->frame_pointer;
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) {
 				break;
 			}
 			e = dl_array_pushElement(&duckVM->stack, &object1);
 			break;
 
+		// I probably don't need an `if` if I research the standard a bit.
 		case duckLisp_instruction_call32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			e = dl_array_pushElement(&duckVM->call_stack, &ip);
+			if (e) break;
+			if (ptrdiff1 & 0x80000000ULL) {
+				ip -= (~ptrdiff1 + 1 & 0xFFFFFFFFULL);
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			--ip;
+			break;
 		case duckLisp_instruction_call16:
+			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			e = dl_array_pushElement(&duckVM->call_stack, &ip);
+			if (e) break;
+			if (ptrdiff1 & 0x8000ULL) {
+				ip -= (~ptrdiff1 + 1 & 0xFFFFULL);
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			--ip;
+			break;
 		case duckLisp_instruction_call8:
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = duckVM_execute(duckVM, DL_ARRAY_GETADDRESS(duckVM->statics, duckLisp_object_t, ptrdiff1).value.function.bytecode);
+			ptrdiff1 = *(ip++);
+			ptrdiff2 = *(ip++);
+			e = dl_array_pushElement(&duckVM->call_stack, &ip);
+			if (e) break;
+			if (ptrdiff1 & 0x80ULL) {
+				ip -= (~ptrdiff1 + 1 & 0xFFULL);
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			--ip;
 			break;
 
 		case duckLisp_instruction_ccall32:
@@ -126,7 +162,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			if (ptrdiff1 & 0x80000000ULL) {
-				ip -= ptrdiff1 & ~0x80000000ULL;
+				ip -= (~ptrdiff1 + 1 & 0xFFFFFFFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -136,7 +172,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			if (ptrdiff1 & 0x8000ULL) {
-				ip -= ptrdiff1 & ~0x8000ULL;
+				ip -= (~ptrdiff1 + 1 & 0xFFFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -145,7 +181,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_jump8:
 			ptrdiff1 = *(ip++);
 			if (ptrdiff1 & 0x80ULL) {
-				ip -= (~ptrdiff1 + 1) & 0xFF;
+				ip -= (~ptrdiff1 + 1 & 0xFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -165,7 +201,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x80000000ULL) {
-					ip -= ptrdiff1 & ~0x80000000ULL;
+				ip -= (~ptrdiff1 + 1 & 0xFFFFFFFFULL);
 				}
 				else {
 					ip += ptrdiff1;
@@ -183,7 +219,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x8000ULL) {
-					ip -= ptrdiff1 & ~0x8000ULL;
+				ip -= (~ptrdiff1 + 1 & 0xFFFFULL);
 				}
 				else {
 					ip += ptrdiff1;
@@ -200,7 +236,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x80ULL) {
-					ip -= (~ptrdiff1 + 1) & 0xFF;
+				ip -= (~ptrdiff1 + 1 & 0xFFULL);
 				}
 				else {
 					ip += ptrdiff1;
@@ -240,9 +276,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_set(&duckVM->stack, &object1, ptrdiff2);
+			e = dl_array_set(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			break;
 		case duckLisp_instruction_move16:
@@ -250,17 +286,17 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_set(&duckVM->stack, &object1, ptrdiff2);
+			e = dl_array_set(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			break;
 		case duckLisp_instruction_move8:
 			ptrdiff1 = *(ip++);
 			ptrdiff2 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_set(&duckVM->stack, &object1, ptrdiff2);
+			e = dl_array_set(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			break;
 
@@ -270,7 +306,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_integer:
@@ -289,7 +325,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_not16:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_integer:
@@ -306,7 +342,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			break;
 		case duckLisp_instruction_not8:
 			ptrdiff1 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_integer:
@@ -332,9 +368,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -404,9 +440,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -473,9 +509,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_add8:
 			ptrdiff1 = *(ip++);
 			ptrdiff2 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -541,6 +577,224 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			break;
 
 		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_sub32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
+			if (e) break;
+			switch (object1.type) {
+			case duckLisp_object_type_float:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint -= object2.value.floatingPoint;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.floatingPoint -= object2.value.integer;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.floatingPoint -= object2.value.boolean;
+					object1.type = duckLisp_object_type_float;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_integer:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.integer - object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					/* Type already set. */
+					object1.value.integer -= object2.value.integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.integer -= object2.value.boolean;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_bool:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.boolean - object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.integer = object1.value.boolean - object2.value.integer;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.boolean -= object2.value.boolean;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			if (e) break;
+			break;
+		case duckLisp_instruction_sub16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
+			if (e) break;
+			switch (object1.type) {
+			case duckLisp_object_type_float:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint -= object2.value.floatingPoint;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.floatingPoint -= object2.value.integer;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.floatingPoint -= object2.value.boolean;
+					object1.type = duckLisp_object_type_float;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_integer:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.integer - object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					/* Type already set. */
+					object1.value.integer -= object2.value.integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.integer -= object2.value.boolean;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_bool:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.boolean - object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.integer = object1.value.boolean - object2.value.integer;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.boolean -= object2.value.boolean;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+		case duckLisp_instruction_sub8:
+			ptrdiff1 = *(ip++);
+			ptrdiff2 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
+			if (e) break;
+			switch (object1.type) {
+			case duckLisp_object_type_float:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint -= object2.value.floatingPoint;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.floatingPoint -= object2.value.integer;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.floatingPoint -= object2.value.boolean;
+					object1.type = duckLisp_object_type_float;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_integer:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.integer - object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					/* Type already set. */
+					object1.value.integer -= object2.value.integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.integer -= object2.value.boolean;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			case duckLisp_object_type_bool:
+				switch (object2.type) {
+				case duckLisp_object_type_float:
+					object1.value.floatingPoint = object1.value.boolean - object2.value.floatingPoint;
+					object1.type = duckLisp_object_type_float;
+					break;
+				case duckLisp_object_type_integer:
+					object1.value.integer = object1.value.boolean - object2.value.integer;
+					object1.type = duckLisp_object_type_integer;
+					break;
+				case duckLisp_object_type_bool:
+					object1.value.boolean -= object2.value.boolean;
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+
+		// I probably don't need an `if` if I research the standard a bit.
 		case duckLisp_instruction_greater32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -550,9 +804,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -616,9 +870,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -679,9 +933,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_greater8:
 			ptrdiff1 = *(ip++);
 			ptrdiff2 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -750,9 +1004,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -798,9 +1052,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -843,9 +1097,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_equal8:
 			ptrdiff1 = *(ip++);
 			ptrdiff2 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -896,9 +1150,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -962,9 +1216,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -1025,9 +1279,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_less8:
 			ptrdiff1 = *(ip++);
 			ptrdiff2 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_float:
@@ -1086,8 +1340,71 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->stack, &object1);
 			break;
 		
-		case duckLisp_instruction_return:
-			goto l_cleanup;
+		case duckLisp_instruction_return32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			if (duckVM->stack.elements_length > 0) {
+				e = dl_array_getTop(&duckVM->stack, &object1);
+				if (e) break;
+			}
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			if (e) break;
+			if (duckVM->stack.elements_length > 0) {
+				e = dl_array_set(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
+				if (e) break;
+			}
+			e = dl_array_popElement(&duckVM->call_stack, &ip);
+			if (e == dl_error_bufferUnderflow) {
+				e = dl_error_ok;
+				goto l_cleanup;
+			}
+			break;
+		case duckLisp_instruction_return16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			if (duckVM->stack.elements_length > 0) {
+				e = dl_array_getTop(&duckVM->stack, &object1);
+				if (e) break;
+			}
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			if (e) break;
+			if (duckVM->stack.elements_length > 0) {
+				e = dl_array_set(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
+				if (e) break;
+			}
+			e = dl_array_popElement(&duckVM->call_stack, &ip);
+			if (e == dl_error_bufferUnderflow) {
+				e = dl_error_ok;
+				goto l_cleanup;
+			}
+			break;
+		case duckLisp_instruction_return8:
+			ptrdiff1 = *(ip++);
+			if (duckVM->stack.elements_length > 0) {
+				e = dl_array_getTop(&duckVM->stack, &object1);
+				if (e) break;
+			}
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			if (e) break;
+			if (duckVM->stack.elements_length > 0) {
+				e = dl_array_set(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
+				if (e) break;
+			}
+			e = dl_array_popElement(&duckVM->call_stack, &ip);
+			if (e == dl_error_bufferUnderflow) {
+				e = dl_error_ok;
+				goto l_cleanup;
+			}
+			break;
+		case duckLisp_instruction_return0:
+			e = dl_array_popElement(&duckVM->call_stack, &ip);
+			if (e == dl_error_bufferUnderflow) {
+				e = dl_error_ok;
+				goto l_cleanup;
+			}
+			break;
 
 		default:
 			e = dl_error_invalidValue;
@@ -1164,19 +1481,19 @@ dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, d
 // Functions for C callbacks to use. //
 ///////////////////////////////////////
 
-void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length) {
-	*length = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->frame_pointer).value.integer;
-}
+/* void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length) { */
+/* 	*length = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->frame_pointer).value.integer; */
+/* } */
 
-dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff_t index) {
-	if (index < DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->frame_pointer).value.integer) {
-		*object = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->frame_pointer + index);
-		return dl_error_ok;
-	}
-	else {
-		return dl_error_bufferOverflow;
-	}
-}
+/* dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff_t index) { */
+/* 	if (index < DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->frame_pointer).value.integer) { */
+/* 		*object = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->frame_pointer + index); */
+/* 		return dl_error_ok; */
+/* 	} */
+/* 	else { */
+/* 		return dl_error_bufferOverflow; */
+/* 	} */
+/* } */
 
 dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object) {
 	return dl_array_popElement(&duckVM->stack, object);
@@ -1186,12 +1503,12 @@ dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object) {
 	return dl_array_pushElement(&duckVM->stack, object);
 }
 
-dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object) {
-	dl_error_t e = dl_error_ok;
+/* dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object) { */
+/* 	dl_error_t e = dl_error_ok; */
 	
-	e = dl_array_pushElement(&duckVM->stack, (void *) &object);
-	duckVM->frame_pointer++;
+/* 	e = dl_array_pushElement(&duckVM->stack, (void *) &object); */
+/* 	duckVM->frame_pointer++; */
 	
-	return e;
-}
+/* 	return e; */
+/* } */
 

@@ -79,7 +79,7 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			puts(tempObject.value.boolean ? "true" : "false");
 			break;
 		case duckLisp_object_type_integer:
-			printf("%llu\n", tempObject.value.integer);
+			printf("%lli\n", tempObject.value.integer);
 			break;
 		case duckLisp_object_type_float:
 			printf("%f\n", tempObject.value.floatingPoint);
@@ -212,8 +212,7 @@ int main(int argc, char *argv[]) {
 	/* Fetch script. */
 
 	// Create implicit progn.
-	tempChar = '(';
-	e = dl_array_pushElement(&sourceCode, &tempChar);
+	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
 	if (e) {
 		goto l_cleanup;
 	}
@@ -373,6 +372,7 @@ int main(int argc, char *argv[]) {
 	
 	e = duckVM_execute(&duckVM, bytecode);
 	if (e) {
+		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		goto l_cleanup;
 	}
 	

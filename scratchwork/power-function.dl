@@ -1,0 +1,50 @@
+
+(var x 0)
+
+(defun * (a b)
+  (var acc 0)
+
+  (print "\nmult\na ")
+  (print a)
+  (print "\nb ")
+  (print b)
+  
+  (var i 0)
+  (label multiply-loop)
+
+  (brnz (not (< i b)) multiply-end)
+  (
+   (← acc (+ acc a))
+   
+   (← i (+ i 1)))
+  (goto multiply-loop)
+  (label multiply-end)
+  (print "\nacc ")
+  (print acc))
+
+(defun ^ (a b)
+  (var acc 1)
+
+  (print "\nexp\na ")
+  (print a)
+  (print "\nb ")
+  (print b)
+  
+  (var i 0)
+  (label power-loop)
+
+  (brnz (not (< i b)) power-end)
+  (
+   (← acc (* acc a))
+   
+   (← i (+ i 1)))
+  (goto power-loop)
+  (label power-end)
+  (print "\nacc ")
+  (print acc))
+
+(setq x (^ 5 5))
+
+(print "\n")
+(print-stack)
+(print x)
