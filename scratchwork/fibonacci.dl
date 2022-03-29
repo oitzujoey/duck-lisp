@@ -11,6 +11,9 @@
 (setq b a)
 (setq a c)
 
-(brnz (< a 1000) loop)
+(if (< a 1000)
+	(goto loop)
+	(goto done))
+(label done)
 
 (print "Done\n")

@@ -367,7 +367,8 @@ dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp, dl_array_t *assembly,
 dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp, dl_array_t *assembly, char *functionName,
 											   const dl_size_t functionName_length,
 											   duckLisp_ast_compoundExpression_t *compoundExpression,
-											   dl_ptrdiff_t *index, duckLisp_ast_type_t *type);
+											   dl_ptrdiff_t *index, duckLisp_ast_type_t *type,
+											   dl_bool_t pushReference);
 dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,

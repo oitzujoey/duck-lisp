@@ -310,7 +310,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_integer:
-				object1.value.integer = ~object1.value.integer;
+				object1.value.integer = !object1.value.integer;
 				break;
 			case duckLisp_object_type_bool:
 				object1.value.boolean = !object1.value.boolean;
@@ -329,7 +329,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_integer:
-				object1.value.integer = ~object1.value.integer;
+				object1.value.integer = !object1.value.integer;
 				break;
 			case duckLisp_object_type_bool:
 				object1.value.boolean = !object1.value.boolean;
@@ -346,7 +346,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			switch (object1.type) {
 			case duckLisp_object_type_integer:
-				object1.value.integer = ~object1.value.integer;
+				object1.value.integer = !object1.value.integer;
 				break;
 			case duckLisp_object_type_bool:
 				object1.value.boolean = !object1.value.boolean;
