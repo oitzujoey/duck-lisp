@@ -3,9 +3,8 @@
 
 (var acc 0)
 (var i 0)
-((label loop)
+(while (< i b)
  (setq acc (+ acc a))
- (setq i (+ i 1))
- (brnz (< i b) loop))
+ (setq i (+ i 1)))
 
 (print acc)

@@ -1,8 +1,6 @@
 (var first-letter "T")
 (var rest "his is the song that never ends.\nYes, it goes on and on, my friends.\nSome people started singing it not knowing what it was,\nand they'll continue singing it forever just because\nt")
 (print first-letter)
-(label loop)
-(
+(while true
  (comment "Might as well push a scope here for indentation.")
- (print rest)
- (goto loop))
+ (print rest))
