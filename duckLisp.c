@@ -1648,7 +1648,6 @@ static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp, duckLisp_funct
 		}
 		
 		/**/ dl_trie_find(scope.functions_trie, &tempPtrdiff, name, name_length);
-		tempPtrdiff = tempPtrdiff;
 		if (tempPtrdiff != duckLisp_functionType_generator) {
 			/**/ dl_trie_find(scope.statics_trie, index, name, name_length);
 		}
@@ -5519,7 +5518,7 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 						goto l_cleanup;
 					}
 					for (dl_ptrdiff_t n = 0; (dl_size_t) n < 1; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = (args[1].value.integer >> 8*(byte_length - n - 1)) & 0xFFU;
+						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = args[1].value.integer & 0xFFU;
 					}
 				}
 				else {
