@@ -6,6 +6,10 @@ target_include_directories(DuckLisp
 	INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 	)
 
+if(MEMCHECK)
+  add_definitions(-DMEMCHECK)
+endif()
+
 add_library(DuckLib STATIC
             DuckLib/core.c
             DuckLib/memory.c
