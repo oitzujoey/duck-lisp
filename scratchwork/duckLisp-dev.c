@@ -223,8 +223,8 @@ int main(int argc, char *argv[]) {
 		e = dl_error_nullPointer;
 		goto l_cleanup;
 	}
-	while ((tempChar = (char) fgetc(sourceFile)) != EOF) {
-		// tempChar = tempInt & 0xFF;
+	while ((tempInt = fgetc(sourceFile)) != EOF) {
+		tempChar = tempInt & 0xFF;
 		e = dl_array_pushElement(&sourceCode, &tempChar);
 		if (e) {
 			fclose(sourceFile);
