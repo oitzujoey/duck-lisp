@@ -19,6 +19,14 @@ add_library(DuckLib STATIC
             DuckLib/sort.c
             )
 
+if(MSVC)
+  target_compile_options(DuckLisp PUBLIC /W4 /WX)
+  target_compile_options(DuckLib PUBLIC /W4 /WX)
+else()
+  target_compile_options(DuckLisp PUBLIC -Wall -Wextra -Wpedantic -Werror)
+  target_compile_options(DuckLib PUBLIC -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 target_include_directories(DuckLib PUBLIC
                            ${CMAKE_CURRENT_BINARY_DIR}
                            )

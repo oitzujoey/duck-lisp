@@ -8,7 +8,7 @@
 #include "../DuckLib/trie.h"
 #include "../DuckLib/string.h"
 
-int main(int argc, char *argv[]) {
+int main() {
 	dl_error_t e = dl_error_ok;
 	struct {
 		dl_bool_t malloc;

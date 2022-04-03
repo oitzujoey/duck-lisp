@@ -21,6 +21,7 @@ int qsort_less(const void *l, const void *r) {
 
 // Helper function for custom sorts.
 int less(const void *l, const void *r, const void *context) {
+	(void) context;
 	return *(int *) l - *(int *) r;
 }
 
@@ -46,10 +47,10 @@ void max_heapify(void *array, const size_t length, size_t size, const dl_ptrdiff
 	dl_ptrdiff_t right = left + 1;
 	dl_ptrdiff_t largest = i;
 
-	if ((left  < length) && comparison((char *) array + left  * size, (char *) array + largest * size, context) > 0)
+	if (((size_t) left  < length) && comparison((char *) array + left  * size, (char *) array + largest * size, context) > 0)
 		largest = left;
 
-	if ((right < length) && comparison((char *) array + right * size, (char *) array + largest * size, context) > 0)
+	if (((size_t) right < length) && comparison((char *) array + right * size, (char *) array + largest * size, context) > 0)
 		largest = right;
 
 	if (largest != i) {
@@ -65,8 +66,7 @@ void heapify(void *array, size_t length, size_t size, int (*comparison)(const vo
 }
 
 void heapsort(void *array, size_t length, size_t size, int (*comparison)(const void *l, const void *r, const void *context), const void *context) {
-	unsigned char buf[size];
-	
+
 	/**/ heapify(array, length, size, comparison, context);
 
 	for (dl_ptrdiff_t end = length - 1; end > 0; --end) {
@@ -85,10 +85,10 @@ void void_max_heapify(void *array, const size_t length, size_t size, const dl_pt
 	dl_ptrdiff_t right = left + 1;
 	dl_ptrdiff_t largest = i;
 
-	if ((left  < length) && comparison((char *) array + left  * size, (char *) array + largest * size, context) > 0)
+	if (((size_t) left  < length) && comparison((char *) array + left  * size, (char *) array + largest * size, context) > 0)
 		largest = left;
 
-	if ((right < length) && comparison((char *) array + right * size, (char *) array + largest * size, context) > 0)
+	if (((size_t) right < length) && comparison((char *) array + right * size, (char *) array + largest * size, context) > 0)
 		largest = right;
 
 	if (largest != i) {
@@ -105,7 +105,7 @@ void void_heapify(void *array, size_t length, size_t size, int (*comparison)(con
 
 
 // quicksortlomuto
-dl_ptrdiff_t partition_lomuto(void *array, const dl_size_t length, const dl_size_t size, const dl_ptrdiff_t low, const dl_ptrdiff_t high, int (*comparison)(const void *l, const void *r, const void *context), const void *context) {
+dl_ptrdiff_t partition_lomuto(void *array, const dl_size_t size, const dl_ptrdiff_t low, const dl_ptrdiff_t high, int (*comparison)(const void *l, const void *r, const void *context), const void *context) {
 	char pivot[size];
 	dl_ptrdiff_t index;
 
@@ -129,7 +129,7 @@ void quicksort_lomuto(void *array, const dl_size_t length, const dl_size_t size,
 	
 	if ((low >= high) || (low < 0)) return;
 
-	pivot = partition_lomuto(array, length, size, low, high, comparison, context);
+	pivot = partition_lomuto(array, size, low, high, comparison, context);
 
 	quicksort_lomuto(array, length, size, low, pivot - 1, comparison, context);
 	quicksort_lomuto(array, length, size, pivot + 1, high, comparison, context);
@@ -137,7 +137,7 @@ void quicksort_lomuto(void *array, const dl_size_t length, const dl_size_t size,
 
 
 // quicksorthoare
-dl_ptrdiff_t partition_hoare(void *array, const dl_size_t length, const dl_size_t size, const dl_ptrdiff_t low, const dl_ptrdiff_t high, int (*comparison)(const void *l, const void *r, const void *context), const void *context) {
+dl_ptrdiff_t partition_hoare(void *array, const dl_size_t size, const dl_ptrdiff_t low, const dl_ptrdiff_t high, int (*comparison)(const void *l, const void *r, const void *context), const void *context) {
 	char pivot[size];
 	dl_ptrdiff_t left_index;
 	dl_ptrdiff_t right_index;
@@ -162,7 +162,7 @@ void quicksort_hoare(void *array, const dl_size_t length, const dl_size_t size, 
 	
 	if ((low >= 0) && (high >= 0) && (low < high)) {
 		
-		pivot = partition_hoare(array, length, size, low, high, comparison, context);
+		pivot = partition_hoare(array, size, low, high, comparison, context);
 		
 		quicksort_hoare(array, length, size, low, pivot, comparison, context);
 		quicksort_hoare(array, length, size, pivot + 1, high, comparison, context);
@@ -173,7 +173,7 @@ void quicksort_hoare(void *array, const dl_size_t length, const dl_size_t size, 
 
 
 
-int main(int argc, char *argv[]) {
+int main() {
 	int e = 0;
 
 	unsigned int seed = time(NULL);
@@ -183,8 +183,6 @@ int main(int argc, char *argv[]) {
 	long double heapsort_accumulated_time = 0;
 	long double quicksortlomuto_accumulated_time = 0;
 	long double quicksorthoare_accumulated_time = 0;
-	clock_t hashsort_start;
-	clock_t hashsort_end;
 
 	/* * * * * **
 	 * Heapsort *
@@ -351,7 +349,5 @@ int main(int argc, char *argv[]) {
 	printf("\nQuicksort (Hoare) time: %Lf sec.\n", quicksorthoare_accumulated_time / CLOCKS_PER_SEC);
 	printf("Run time: %Lf sec. (%.1Lf%% overhead)\n", (long double) (program_end - program_start) / CLOCKS_PER_SEC,  100.0 - 100.0 * quicksorthoare_accumulated_time / (long double) (program_end - program_start));
 
- cleanup:
-	
 	return e;
 }

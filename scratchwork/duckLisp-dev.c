@@ -94,7 +94,7 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			break;
 		case duckLisp_object_type_string:
 			putchar('"');
-			for (dl_ptrdiff_t k = 0; k < tempObject.value.string.value_length; k++) {
+			for (dl_ptrdiff_t k = 0; (dl_size_t) k < tempObject.value.string.value_length; k++) {
 				switch (tempObject.value.string.value[k]) {
 				case '\n':
 					putchar('\\');
@@ -138,12 +138,10 @@ int main(int argc, char *argv[]) {
 	dl_array_t sourceCode;
 	int tempInt;
 	char tempChar;
-	dl_ptrdiff_t printString_index = -1;
 	duckVM_t duckVM;
 	unsigned char *bytecode = dl_null;
 	dl_size_t bytecode_length = 0;
-	duckLisp_object_t tempObject;
-	
+
 	// All user-defined generators go here.
 	struct {
 		const char *name;
@@ -254,27 +252,27 @@ int main(int argc, char *argv[]) {
 	printf(COLOR_CYAN);
 	
 	// Note: The memSize/eleSize trick only works with the "fit" strategy.
-	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
 		printf("Scope %lli: locals\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].locals_trie);
 	}
 	putchar('\n');
-	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
 		printf("Scope %lli: statics\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].statics_trie);
 	}
 	putchar('\n');
-	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
 		printf("Scope %lli: generators\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].generators_trie);
 	}
 	putchar('\n');
-	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
 		printf("Scope %lli: functions (1: callback  2: script  3: generator)\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].functions_trie);
 	}
 	putchar('\n');
-	for (dl_ptrdiff_t i = 0; i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
 		printf("Scope %lli: labels\n", i);
 		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].labels_trie);
 	}
@@ -305,7 +303,7 @@ int main(int argc, char *argv[]) {
 		}
 		
 		printf(COLOR_CYAN);
-		for (dl_ptrdiff_t i = 0; i < sourceCode.elements_length; i++) {
+		for (dl_ptrdiff_t i = 0; (dl_size_t) i < sourceCode.elements_length; i++) {
 			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
 				putchar(' ');
 			else
@@ -335,7 +333,7 @@ int main(int argc, char *argv[]) {
 	putchar('\n');
 	
 	// Print bytecode in hex.
-	for (dl_ptrdiff_t i = 0; i < bytecode_length; i++) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) {
 		unsigned char byte = bytecode[i];
 		putchar(dl_nybbleToHexChar(byte >> 4));
 		putchar(dl_nybbleToHexChar(byte));

@@ -40,7 +40,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	// dl_size_t length1;
 	duckLisp_object_t object1;
 	duckLisp_object_t object2;
-	unsigned char *pointer1;
 	/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
 	
 	do {
@@ -53,8 +52,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_pushString32:
 			object1.value.string.value_length = *(ip)++;
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
+			// Fall through
 		case duckLisp_instruction_pushString16:
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
+			// Fall through
 		case duckLisp_instruction_pushString8:
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
 			object1.value.string.value = (char *) ip;
@@ -89,8 +90,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_pushIndex32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			// Fall through
 		case duckLisp_instruction_pushIndex16:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			// Fall through
 		case duckLisp_instruction_pushIndex8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
@@ -110,7 +113,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->call_stack, &ip);
 			if (e) break;
 			if (ptrdiff1 & 0x80000000ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFFFFFFFULL);
+				ip -= ((~((dl_size_t) ptrdiff1) + 1) & 0xFFFFFFFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -124,7 +127,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->call_stack, &ip);
 			if (e) break;
 			if (ptrdiff1 & 0x8000ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFFFULL);
+				ip -= ((~ptrdiff1 + 1) & 0xFFFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -137,7 +140,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->call_stack, &ip);
 			if (e) break;
 			if (ptrdiff1 & 0x80ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFULL);
+				ip -= ((~ptrdiff1 + 1) & 0xFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -148,8 +151,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_ccall32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			// Fall through
 		case duckLisp_instruction_ccall16:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			// Fall through
 		case duckLisp_instruction_ccall8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = DL_ARRAY_GETADDRESS(duckVM->statics, duckLisp_object_t, ptrdiff1).value.function.callback(duckVM);
@@ -162,7 +167,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			if (ptrdiff1 & 0x80000000ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFFFFFFFULL);
+				ip -= ((~ptrdiff1 + 1) & 0xFFFFFFFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -172,7 +177,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			if (ptrdiff1 & 0x8000ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFFFULL);
+				ip -= ((~ptrdiff1 + 1) & 0xFFFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -181,7 +186,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_jump8:
 			ptrdiff1 = *(ip++);
 			if (ptrdiff1 & 0x80ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFULL);
+				ip -= ((~ptrdiff1 + 1) & 0xFFULL);
 			}
 			else {
 				ip += ptrdiff1;
@@ -201,7 +206,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x80000000ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFFFFFFFULL);
+					ip -= ((~ptrdiff1 + 1) & 0xFFFFFFFFULL);
 				}
 				else {
 					ip += ptrdiff1;
@@ -219,7 +224,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x8000ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFFFULL);
+					ip -= ((~ptrdiff1 + 1) & 0xFFFFULL);
 				}
 				else {
 					ip += ptrdiff1;
@@ -236,7 +241,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (e) break;
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x80ULL) {
-				ip -= (~ptrdiff1 + 1 & 0xFFULL);
+					ip -= ((~ptrdiff1 + 1) & 0xFFULL);
 				}
 				else {
 					ip += ptrdiff1;
@@ -1426,7 +1431,7 @@ dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index) {
 	if (function_index < 0) {
 		function_index = duckVM->stack.elements_length + function_index;
 	}
-	if ((function_index < 0) || (function_index  >= duckVM->stack.elements_length)) {
+	if ((function_index < 0) || ((dl_size_t) function_index  >= duckVM->stack.elements_length)) {
 		e = dl_error_invalidValue;
 		goto l_cleanup;
 	}
@@ -1462,7 +1467,7 @@ dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, d
 	object.value.function.callback = callback;
 
 	// Make room for the object if the index reaches beyond the end.
-	if (callback_index >= duckVM->statics.elements_length) {
+	if ((dl_size_t) callback_index >= duckVM->statics.elements_length) {
 		e = dl_array_pushElements(&duckVM->statics, dl_null, 1 + callback_index - duckVM->statics.elements_length);
 		if (e) {
 			goto l_cleanup;

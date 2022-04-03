@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
 	
 	char lastChar = ' ';
 	
-	const int lineLength = 120;
+	const dl_size_t lineLength = 120;
 	
 	if (argc != 2) {
 		printf("Requires one argument.\n");
