@@ -172,7 +172,7 @@ typedef struct {
 } duckLisp_scope_t;
 
 typedef struct {
-	dl_memoryAllocation_t memoryAllocation;
+	dl_memoryAllocation_t *memoryAllocation;
 	
 	dl_array_t errors;
 	
@@ -326,14 +326,34 @@ typedef struct duckLisp_instructionObject_s {
 	// struct duckLisp_instructionObject_s *previous;
 } duckLisp_instructionObject_t;
 
-dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp, void *memory, dl_size_t size);
+dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp);
 void DECLSPEC duckLisp_quit(duckLisp_t *duckLisp);
 
 dl_error_t DECLSPEC duckLisp_error_pushRuntime(duckLisp_t *duckLisp, const char *message, const dl_size_t message_length);
-dl_error_t DECLSPEC duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp, duckLisp_ast_expression_t astExpression, const dl_size_t numArgs);
+dl_error_t DECLSPEC duckLisp_checkArgsAndReportError(
+    duckLisp_t *duckLisp, duckLisp_ast_expression_t astExpression,
+    const dl_size_t numArgs);
 
-dl_error_t DECLSPEC duckLisp_cst_print(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t cst);
-dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t ast);
+void cst_compoundExpression_init(
+    duckLisp_cst_compoundExpression_t *compoundExpression);
+void ast_compoundExpression_init(
+    duckLisp_ast_compoundExpression_t *compoundExpression);
+dl_error_t duckLisp_cst_append(duckLisp_t *duckLisp,
+                               duckLisp_cst_compoundExpression_t *cst,
+                               const dl_ptrdiff_t index, dl_bool_t throwErrors);
+dl_error_t duckLisp_ast_append(duckLisp_t *duckLisp,
+                               duckLisp_ast_compoundExpression_t *ast,
+                               duckLisp_cst_compoundExpression_t *cst,
+                               const dl_ptrdiff_t index, dl_bool_t throwErrors);
+dl_error_t DECLSPEC duckLisp_cst_print(duckLisp_t *duckLisp,
+                                       duckLisp_cst_compoundExpression_t cst);
+dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp,
+                                       duckLisp_ast_compoundExpression_t ast);
+dl_error_t cst_compoundExpression_quit(
+    duckLisp_t *duckLisp,
+    duckLisp_cst_compoundExpression_t *compoundExpression);
+dl_error_t ast_print_compoundExpression(
+    duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 
 dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
 
@@ -368,6 +388,13 @@ dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp, dl_array_t *assembly,
                               char *label, dl_size_t label_length, int pops);
 dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp, dl_array_t *assembly,
                               char *label, dl_size_t label_length);
+
+dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
+                                      dl_array_t *assembly,
+                                      duckLisp_ast_expression_t *expression);
+dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
+                                         dl_array_t *assembly,
+                                         duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp, dl_array_t *assembly, char *functionName,
 											   const dl_size_t functionName_length,

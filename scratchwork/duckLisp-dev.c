@@ -6,6 +6,8 @@
 #include "../duckLisp.h"
 #include "../duckVM.h"
 #include "DuckLib/memory.h"
+#include "DuckLib/array.h"
+#include "DuckLib/trie.h"
 
 
 #define COLOR_NORMAL    "\x1B[0m"
@@ -118,6 +120,180 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 	return e;
 }
 
+dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	duckLisp_t subLisp;
+
+	duckLisp_ast_string_t fileName;
+	char *cFileName = NULL;
+	FILE *sourceFile = NULL;
+	int tempInt = 0;
+	char tempChar = '\0';
+	dl_array_t sourceCode; /* dl_array_t:char */
+	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	duckLisp_cst_compoundExpression_t cst;
+	/**/ cst_compoundExpression_init(&cst);
+	duckLisp_ast_compoundExpression_t ast;
+	/**/ ast_compoundExpression_init(&ast);
+	
+	dl_size_t tempDlSize;
+	duckLisp_error_t error; // Compile errors.
+
+	/* Check arguments for call and type errors. */
+	
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2);
+	if (e) {
+		goto l_cleanup;
+	}
+
+	if (expression->compoundExpressions[1].type != duckLisp_ast_type_string) {
+		
+	}
+	
+	fileName.value = expression->compoundExpressions[1].value.string.value;
+	fileName.value_length = expression->compoundExpressions[1].value.string.value_length;
+
+	e = dl_malloc(duckLisp->memoryAllocation, (void **) &cFileName, (fileName.value_length + 1) * sizeof(char));
+	if (e) goto l_cleanup;
+	/**/ dl_memcopy_noOverlap(cFileName, fileName.value, fileName.value_length);
+	cFileName[fileName.value_length] = '\0';
+ 
+	subLisp.memoryAllocation = duckLisp->memoryAllocation;
+
+	e = duckLisp_init(&subLisp);
+	if (e) goto l_cFileName_cleanup;
+	
+	/* Fetch script. */
+
+	e = dl_array_pushElements(&sourceCode, DL_STR("("));
+	if (e) {
+		goto l_cFileName_cleanup;
+	}
+
+	sourceFile = fopen(cFileName, "r");
+	if (sourceFile == NULL) {
+		printf(COLOR_RED "Could not open file \"%s\".\n" COLOR_NORMAL, cFileName);
+		e = dl_error_nullPointer;
+		goto l_cFileName_cleanup;
+	}
+	while ((tempInt = fgetc(sourceFile)) != EOF) {
+		tempChar = tempInt & 0xFF;
+		e = dl_array_pushElement(&sourceCode, &tempChar);
+		if (e) {
+			fclose(sourceFile);
+			goto l_cFileName_cleanup;
+		}
+	}
+	fclose(sourceFile);
+
+	tempChar = ')';
+	e = dl_array_pushElement(&sourceCode, &tempChar);
+	if (e) {
+		goto l_cFileName_cleanup;
+	}
+
+	e = dl_array_pushElements(&subLisp.source, sourceCode.elements, sourceCode.elements_length);
+	if (e) goto l_cFileName_cleanup;
+	
+	/* Parse script. */
+
+	printf(COLOR_YELLOW);
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
+	printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
+	puts(COLOR_NORMAL);
+
+	e = duckLisp_cst_append(&subLisp, &cst, 0, dl_true);
+	if (e) goto l_cFileName_cleanup;
+
+	e = duckLisp_ast_append(&subLisp, &ast, &cst, 0, dl_true);
+	if (e) goto l_cFileName_cleanup;
+	
+	e = cst_compoundExpression_quit(&subLisp, &cst);
+	if (e) {
+		goto l_cFileName_cleanup;
+	}
+	
+	printf(COLOR_YELLOW);
+	printf("Included AST: ");
+	e = ast_print_compoundExpression(subLisp, ast);
+	putchar('\n');
+	if (e) {
+		goto l_cFileName_cleanup;
+	}
+	puts(COLOR_NORMAL);
+
+	printf(COLOR_YELLOW);
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
+	printf("include: Pre compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
+	puts(COLOR_NORMAL);
+
+	e = duckLisp_generator_noscope(duckLisp, assembly, &ast.value.expression);
+	if (e) goto l_cleanup;
+
+	printf(COLOR_YELLOW);
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
+	printf("include: Post compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
+	puts(COLOR_NORMAL);
+
+ l_cFileName_cleanup:
+
+	while (subLisp.errors.elements_length > 0) {
+		putchar('\n');
+
+		e = dl_array_popElement(&subLisp.errors, (void *) &error);
+		if (e) {
+			break;
+		}
+
+		printf(COLOR_RED);
+		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
+			putchar(error.message[i]);
+		}
+		printf(COLOR_NORMAL);
+		putchar('\n');
+		
+		if (error.index == -1) {
+			continue;
+		}
+		
+		printf(COLOR_YELLOW);
+		for (dl_ptrdiff_t i = 0; (dl_size_t) i < sourceCode.elements_length; i++) {
+			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
+				putchar(' ');
+			else
+				putchar(DL_ARRAY_GETADDRESS(sourceCode, char, i));
+		}
+		
+		puts(COLOR_RED);
+		for (dl_ptrdiff_t i = subLisp.source.elements_length - sourceCode.elements_length; i < error.index; i++) {
+			putchar(' ');
+		}
+		puts("^");
+
+		puts(COLOR_NORMAL);
+	}
+	
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &cFileName);
+	if (eError) e = eError;
+	
+ l_cleanup:
+
+	/**/ duckLisp_quit(&subLisp);
+
+	/**/ dl_array_quit(&sourceCode);
+		
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
 int main(int argc, char *argv[]) {
 	dl_error_t e = dl_error_ok;
 	struct {
@@ -126,11 +302,17 @@ int main(int argc, char *argv[]) {
 		dl_bool_t duckVMMemory;
 		dl_bool_t duckVM_init;
 	} d = {0};
+
+	const size_t duckLispMemory_size = 64 * 1024;
+	const size_t duckVMMemory_size = 1 * 1024;
 	
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
+	dl_memoryAllocation_t duckLispMemoryAllocation;
 	void *duckVMMemory = dl_null;
+	//	dl_memoryAllocation_t duckVMMemoryAllocation;
 	size_t tempMemory_size;
+	dl_size_t tempDlSize;
 	duckLisp_error_t error; // Compile errors.
 	dl_error_t loadError;
 	
@@ -148,7 +330,8 @@ int main(int argc, char *argv[]) {
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
 	} generators[] = {
-		{dl_null, 0,            dl_null}
+		{DL_STR("include"), duckLispDev_generator_include},
+		{dl_null, 0,        dl_null}
 	};
 	
 	// All user-defined callbacks go here.
@@ -170,7 +353,7 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	
-	tempMemory_size = 1024*1024;
+	tempMemory_size = duckLispMemory_size;
 	duckLispMemory = malloc(tempMemory_size);
 	if (duckLispMemory == NULL) {
 		e = dl_error_outOfMemory;
@@ -178,15 +361,21 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	d.duckLispMemory = dl_true;
+
+	e = dl_memory_init(&duckLispMemoryAllocation, duckLispMemory, tempMemory_size, dl_memoryFit_best);
+	if (e) {
+		goto l_cleanup;
+	}
+	duckLisp.memoryAllocation = &duckLispMemoryAllocation;
 	
-	e = duckLisp_init(&duckLisp, duckLispMemory, tempMemory_size);
+	e = duckLisp_init(&duckLisp);
 	if (e) {
 		printf(COLOR_RED "Could not initialize DuckLisp. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		goto l_cleanup;
 	}
 	d.duckLisp_init = dl_true;
-	
-	/**/ dl_array_init(&sourceCode, &duckLisp.memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	/**/ dl_array_init(&sourceCode, duckLisp.memoryAllocation, sizeof(char), dl_array_strategy_double);
 	
 	/* Create generators. */
 	
@@ -209,7 +398,7 @@ int main(int argc, char *argv[]) {
 	
 	/* Fetch script. */
 
-	// Create implicit progn.
+	// Provide implicit progn.
 	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
 	if (e) {
 		goto l_cleanup;
@@ -240,16 +429,24 @@ int main(int argc, char *argv[]) {
 	
 	/* Compile functions. */
 	
+	printf(COLOR_CYAN);
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
+	printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp.memoryAllocation->size, 100*tempDlSize/duckLisp.memoryAllocation->size);
+	puts(COLOR_NORMAL);
+
 	// e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, DL_STR(source0));
 	loadError = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
 	                        sourceCode.elements_length);
 	
-	e = dl_memory_checkHealth(duckLisp.memoryAllocation);
+	e = dl_memory_checkHealth(*duckLisp.memoryAllocation);
 	if (e) {
 		printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 	}
 
 	printf(COLOR_CYAN);
+	
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
+	printf("Compiler memory usage: %llu/%llu (%llu%%)\n\n", tempDlSize, duckLisp.memoryAllocation->size, 100*tempDlSize/duckLisp.memoryAllocation->size);
 	
 	// Note: The memSize/eleSize trick only works with the "fit" strategy.
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
@@ -315,8 +512,14 @@ int main(int argc, char *argv[]) {
 			putchar(' ');
 		}
 		puts("^");
+
 		puts(COLOR_NORMAL);
 	}
+
+	printf(COLOR_CYAN);
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
+	printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp.memoryAllocation->size, 100*tempDlSize/duckLisp.memoryAllocation->size);
+	puts(COLOR_NORMAL);
 
 	if (loadError) {
 		putchar('\n');
@@ -326,9 +529,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	{
-		char *disassembly = duckLisp_disassemble(&duckLisp.memoryAllocation, bytecode, bytecode_length);
+		char *disassembly = duckLisp_disassemble(duckLisp.memoryAllocation, bytecode, bytecode_length);
 		printf("%s", disassembly);
-		e = dl_free(&duckLisp.memoryAllocation, (void **) &disassembly);
+		e = dl_free(duckLisp.memoryAllocation, (void **) &disassembly);
 	}
 	putchar('\n');
 	
@@ -340,7 +543,7 @@ int main(int argc, char *argv[]) {
 	}
 	putchar('\n');
 	
-	tempMemory_size = 1024*1024;
+	tempMemory_size = duckVMMemory_size;
 	duckVMMemory = malloc(tempMemory_size);
 	if (duckVMMemory == NULL) {
 		e = dl_error_outOfMemory;
@@ -386,11 +589,15 @@ int main(int argc, char *argv[]) {
 	
 	puts(COLOR_CYAN);
 	if (d.duckVM_init) {
-		printf("(duckVM) Memory in use:   %llu\n", duckVM.memoryAllocation.used);
-		printf("(duckVM) Max memory used: %llu\n", duckVM.memoryAllocation.max_used);
-		// dl_memory_printMemoryAllocation(duckLisp.memoryAllocation);
-		// Clear 1 MiB of memory. Is surprisingly fast. I'm mainly did this to see how simple it was.
-		/**/ dl_memclear(duckVM.memoryAllocation.memory, duckVM.memoryAllocation.size * sizeof(char));
+		/**/ dl_memory_usage(&tempDlSize, duckVM.memoryAllocation);
+		printf("(duckVM) Current memory use: %llu/%llu (%llu%%)\n",
+			   tempDlSize,
+			   duckVM.memoryAllocation.size,
+			   100*tempDlSize/duckVM.memoryAllocation.size);
+		printf("(duckVM) Max memory used:    %llu/%llu (%llu%%)\n",
+			   duckVM.memoryAllocation.max_used,
+			   duckVM.memoryAllocation.size,
+			   100*duckVM.memoryAllocation.max_used/duckVM.memoryAllocation.size);
 		/**/ duckVM_quit(&duckVM);
 	}
 	if (d.duckVMMemory) {
@@ -400,11 +607,20 @@ int main(int argc, char *argv[]) {
 	
 	if (d.duckLisp_init) {
 		puts("");
-		printf("(duckLisp) Memory in use:   %llu\n", duckLisp.memoryAllocation.used);
-		printf("(duckLisp) Max memory used: %llu\n", duckLisp.memoryAllocation.max_used);
-		// dl_memory_printMemoryAllocation(duckLisp.memoryAllocation);
-		// Clear 1 MiB of memory. Is surprisingly fast. I'm mainly did this to see how simple it was.
-		/**/ dl_memclear(duckLisp.memoryAllocation.memory, duckLisp.memoryAllocation.size * sizeof(char));
+		/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
+		printf("(duckLisp) Current memory use: %llu/%llu (%llu%%)\n",
+			   tempDlSize,
+			   duckLisp.memoryAllocation->size,
+			   100*tempDlSize/duckLisp.memoryAllocation->size);
+		printf("(duckLisp) Max memory used:    %llu/%llu (%llu%%)\n",
+			   duckLisp.memoryAllocation->max_used,
+			   duckLisp.memoryAllocation->size,
+			   100*duckLisp.memoryAllocation->max_used/duckLisp.memoryAllocation->size);
+		
+		// Don't bother freeing since we are going to run `dl_memory_quit`.
+		/* No error */ dl_memory_quit(duckLisp.memoryAllocation);
+		// Prevent dangling pointers.
+		/* No error */ dl_memclear(&duckLisp, sizeof(duckLisp_t));
 		/**/ duckLisp_quit(&duckLisp);
 	}
 	if (d.duckLispMemory) {

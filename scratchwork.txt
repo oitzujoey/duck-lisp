@@ -894,3 +894,15 @@ Bookmark:
 	Find error messages that don't actually throw an error and force them to.
 
 FUNCTIONS WORK!!!
+
+REPL time!
+I need to free my memory. Here's the list of all resources:
+
+main::duckLispMemory freed
+duckLisp_init::duckLisp->source Needs to be reallocated in duckLisp_loadString and freed in duckLisp_quit
+duckLisp_init::duckLisp->errors Needs to be reallocated in duckLisp_loadString and freed in duckLisp_quit
+duckLisp_init::duckLisp->scope_stack Needs to be reallocated in duckLisp_loadString and freed in duckLisp_quit
+duckLisp_init::duckLisp->generators_stack Needs to be freed in duckLisp_quit
+duckLisp_init::duckLisp->labels_stack Needs to be reallocated in duckLisp_loadString and freed in duckLisp_quit
+I think cst_append is fine.
+

@@ -1,0 +1,6 @@
+(defun println (v)
+  (print v)
+  (print "\n"))
+
+(defun 1+ (x)
+  (+ x 1))
