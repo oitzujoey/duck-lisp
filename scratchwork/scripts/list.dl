@@ -1,0 +1,15 @@
+(include "../scripts/library.dl")
+
+(var ꙮωꙮ (cons (cons 4 true) (cons (cons 6 false) "Hello")))
+
+(println ꙮωꙮ)
+
+(var ツ (cons ꙮωꙮ (cons ꙮωꙮ (quote ()))))
+
+(println ꙮωꙮ)
+(println ツ)
+
+(print-stack)
+
+(println (quote ꙮωꙮ))
+(println (quote ツ))

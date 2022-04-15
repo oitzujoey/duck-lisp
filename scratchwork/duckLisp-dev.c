@@ -30,6 +30,50 @@
 #define B_COLOR_WHITE     "\x1B[47m"
 
 
+dl_error_t duckLispDev_callback_print(duckVM_t *duckVM);
+
+
+dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckVM_gclist_cons_t *cons) {
+	dl_error_t e = dl_error_ok;
+	
+	if ((cons->type == duckVM_gclist_cons_type_addrObject) ||
+		(cons->type == duckVM_gclist_cons_type_addrAddr)) {
+		printf("(");
+		e = duckLispDev_callback_printCons(duckVM, cons->car.addr);
+		if (e) goto l_cleanup;
+		printf(")");
+	}
+	else {
+		e = duckVM_push(duckVM, cons->car.data);
+		if (e) goto l_cleanup;
+		e = duckLispDev_callback_print(duckVM);
+		if (e) goto l_cleanup;
+		e = duckVM_pop(duckVM, dl_null);
+		if (e) goto l_cleanup;
+	}
+		
+	printf(" ");
+		
+	if ((cons->type == duckVM_gclist_cons_type_objectAddr) ||
+		(cons->type == duckVM_gclist_cons_type_addrAddr)) {
+		e = duckLispDev_callback_printCons(duckVM, cons->cdr.addr);
+		if (e) goto l_cleanup;
+	}
+	else {
+		printf(". ");
+		e = duckVM_push(duckVM, cons->cdr.data);
+		if (e) goto l_cleanup;
+		e = duckLispDev_callback_print(duckVM);
+		if (e) goto l_cleanup;
+		e = duckVM_pop(duckVM, dl_null);
+		if (e) goto l_cleanup;
+	}
+		
+ l_cleanup:
+	
+	return e;
+}
+
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 	
@@ -52,6 +96,45 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		break;
 	case duckLisp_object_type_bool:
 		printf("%s", object.value.boolean ? "true" : "false");
+		break;
+	case duckLisp_object_type_list:
+		/* printf("(%i: ", object.value.list->type); */
+		printf("(");
+
+		if ((object.value.list->type == duckVM_gclist_cons_type_addrObject) ||
+			(object.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+			printf("(");
+			e = duckLispDev_callback_printCons(duckVM, object.value.list->car.addr);
+			if (e) goto l_cleanup;
+			printf(")");
+		}
+		else {
+			e = duckVM_push(duckVM, object.value.list->car.data);
+			if (e) goto l_cleanup;
+			e = duckLispDev_callback_print(duckVM);
+			if (e) goto l_cleanup;
+			e = duckVM_pop(duckVM, dl_null);
+			if (e) goto l_cleanup;
+		}
+		
+		printf(" ");
+		
+		if ((object.value.list->type == duckVM_gclist_cons_type_objectAddr) ||
+			(object.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+			e = duckLispDev_callback_printCons(duckVM, object.value.list->cdr.addr);
+			if (e) goto l_cleanup;
+		}
+		else {
+			printf(". ");
+			e = duckVM_push(duckVM, object.value.list->cdr.data);
+			if (e) goto l_cleanup;
+			e = duckLispDev_callback_print(duckVM);
+			if (e) goto l_cleanup;
+			e = duckVM_pop(duckVM, dl_null);
+			if (e) goto l_cleanup;
+		}
+		
+		printf(")");
 		break;
 	default:
 		printf("print: Unsupported type.\n");
@@ -107,6 +190,45 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 				}
 			}
 			putchar('"');
+			putchar('\n');
+			break;
+		case duckLisp_object_type_list:
+			putchar('(');
+			
+			if ((tempObject.value.list->type == duckVM_gclist_cons_type_addrObject) ||
+				(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+				printf("(");
+				e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->car.addr);
+				if (e) goto l_cleanup;
+				printf(")");
+			}
+			else {
+				e = duckVM_push(duckVM, tempObject.value.list->car.data);
+				if (e) goto l_cleanup;
+				e = duckLispDev_callback_print(duckVM);
+				if (e) goto l_cleanup;
+				e = duckVM_pop(duckVM, dl_null);
+				if (e) goto l_cleanup;
+			}
+		
+			printf(" ");
+		
+			if ((tempObject.value.list->type == duckVM_gclist_cons_type_objectAddr) ||
+				(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+				e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->cdr.addr);
+				if (e) goto l_cleanup;
+			}
+			else {
+				printf(". ");
+				e = duckVM_push(duckVM, tempObject.value.list->cdr.data);
+				if (e) goto l_cleanup;
+				e = duckLispDev_callback_print(duckVM);
+				if (e) goto l_cleanup;
+				e = duckVM_pop(duckVM, dl_null);
+				if (e) goto l_cleanup;
+			}
+		
+			putchar(')');
 			putchar('\n');
 			break;
 		default:
@@ -304,7 +426,7 @@ int main(int argc, char *argv[]) {
 	} d = {0};
 
 	const size_t duckLispMemory_size = 64 * 1024;
-	const size_t duckVMMemory_size = 1 * 1024;
+	const size_t duckVMMemory_size = 64 * 1024;
 	
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
@@ -553,7 +675,7 @@ int main(int argc, char *argv[]) {
 	d.duckVMMemory = dl_true;
 	
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size);
+	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size, 1000);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;

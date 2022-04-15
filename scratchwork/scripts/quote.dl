@@ -1,0 +1,8 @@
+(comment (print (quote (defun println (v)
+				(print v)
+				(print "\n")))))
+
+(var x 4)
+(var y 8)
+(var z 122)
+(print (+ (quote y) (quote z)))

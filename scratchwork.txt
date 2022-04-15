@@ -906,3 +906,75 @@ duckLisp_init::duckLisp->generators_stack Needs to be freed in duckLisp_quit
 duckLisp_init::duckLisp->labels_stack Needs to be reallocated in duckLisp_loadString and freed in duckLisp_quit
 I think cst_append is fine.
 
+duckLisp_quit needs to clean up a bunch of stuff.
+
+Labels will need to be able to return absolute program addresses.
+
+(defun length (list)
+  (var i 0)
+  (while (not (null? list))
+	(setq list (cdr list))
+    (setq i (1+ i)))
+  i)
+
+(defun nreverse (list)
+  (var reversed-list (list))
+  (while (not (null? list))
+	(setq reversed-list (cons (car list)
+							  reversed-list))
+	(setq list (cdr list)))
+  reversed-list)
+
+(defun append (list1 list2)
+  (var appended-list (list))
+  (while (not (null? list1))
+	(setq appended-list (cons (car list1)
+							  appended-list))
+	(setq list1 (cdr list1)))
+  (while (not (null? list2))
+	(setq appended-list (cons (car list2)
+							  appended-list))
+	(setq list2 (cdr list2)))
+  
+  (nreverse appended-list))
+
+(defmacro lambda (caps args &rest body)
+  (var name (gensym))
+  `(no-scope
+	(defun ,name ,args
+	  ,body)
+	(list (get-label ,name)
+		  ,(append args caps))))
+
+;; This is complicated for a simple function call…
+(defun funcall (function arguments)
+  (var label (car function))
+  (var args (car (cdr function)))
+  (var args-length (length args))
+
+  (while (not (and (null? args) (null? arguments)))
+	(push (if (null? (car args))
+			  (
+			    (var result (car arguments))
+			    (setq arguments (cdr arguments))
+			   result)
+			  (car args)))
+	
+	(setq args (cdr args)))
+
+  (call label))
+
+Required keywords/functions
+    lambda
+        defmacro
+	    gensym — partially implemented
+		quote — partially implemented
+		list — partially implemented
+		    cons — implemented
+		get-label
+	funcall
+	    car — partially implemented
+		cdr — partially implemented
+		null? — partially implemented
+		push — partially implemented
+		call

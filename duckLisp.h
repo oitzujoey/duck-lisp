@@ -211,6 +211,7 @@ typedef enum {
 	duckLisp_instructionClass_equal,
 	duckLisp_instructionClass_less,
 	duckLisp_instructionClass_greater,
+	duckLisp_instructionClass_cons,
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_return,
 	duckLisp_instructionClass_pseudo_label,
@@ -280,6 +281,10 @@ typedef enum {
 	duckLisp_instruction_less8,
 	duckLisp_instruction_less16,
 	duckLisp_instruction_less32,
+	
+	duckLisp_instruction_cons8,
+	duckLisp_instruction_cons16,
+	duckLisp_instruction_cons32,
 	
 	duckLisp_instruction_pop8,
 	duckLisp_instruction_pop16,
