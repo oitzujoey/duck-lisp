@@ -973,8 +973,8 @@ Required keywords/functions
 		    cons — implemented
 		get-label
 	funcall
-	    car — partially implemented
-		cdr — partially implemented
-		null? — partially implemented
+	    car — implemented
+		cdr — implemented
+		null? — implemented
 		push — partially implemented
 		call

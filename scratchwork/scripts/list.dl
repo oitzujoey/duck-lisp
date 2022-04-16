@@ -1,7 +1,30 @@
 (include "../scripts/library.dl")
 
 (var シ (cons "I'm" (cons "a" (cons "list!" (quote ())))))
+(var x シ)
 
-(while (not (null? シ))
-  (println (car シ))
-  (setq シ (cdr シ)))
+(while (not (null? x))
+  (println (car x))
+  (setq x (cdr x)))
+
+(print "\n")
+
+(println シ)
+(println x)
+
+(print "\n")
+
+(println (car (nth 1 シ)))
+(println シ)
+(print "(length シ): ")
+(println (length シ))
+
+(println (nreverse シ))
+
+(print "(append シ シ): ") (println (append シ シ))
+
+(println (caddr シ))
+
+(println (last シ))
+
+(comment "ITS WORKING!!!")

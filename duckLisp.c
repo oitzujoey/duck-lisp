@@ -4634,6 +4634,13 @@ dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp, dl_array_t *assemb
 		goto l_cleanup;
 	}
 	
+	// Insert arg1 into this scope's name trie.
+	e = duckLisp_scope_addObject(duckLisp, expression->compoundExpressions[1].value.identifier.value,
+	                             expression->compoundExpressions[1].value.identifier.value_length);
+	if (e) {
+		goto l_cleanup;
+	}
+	
 	e = duckLisp_compile_compoundExpression(duckLisp,
 											assembly,
 											expression->compoundExpressions[0].value.identifier.value,
@@ -4644,19 +4651,10 @@ dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp, dl_array_t *assemb
 											dl_true);
 	if (e) goto l_cleanup;
 
-	e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
-	if (e) goto l_cleanup;
-	e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - startStack_length - 1);
-	if (e) goto l_cleanup;
-	
-	// Insert arg1 into this scope's name trie.
-	--duckLisp->locals_length;
-	e = duckLisp_scope_addObject(duckLisp, expression->compoundExpressions[1].value.identifier.value,
-	                             expression->compoundExpressions[1].value.identifier.value_length);
-	if (e) {
-		goto l_cleanup;
+	if (startStack_length != duckLisp->locals_length - 1) {
+		e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
+		if (e) goto l_cleanup;
 	}
-	duckLisp->locals_length++;
 	
 	l_cleanup:
 	
@@ -4840,9 +4838,11 @@ dl_error_t duckLisp_generator_subroutine(duckLisp_t *duckLisp, dl_array_t *assem
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	dl_ptrdiff_t identifier_index = -1;
-	dl_ptrdiff_t startStack_length = duckLisp->locals_length;
+	dl_ptrdiff_t outerStartStack_length = duckLisp->locals_length;
+	dl_ptrdiff_t innerStartStack_length;
 
 	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		innerStartStack_length = duckLisp->locals_length;
 		e = duckLisp_compile_compoundExpression(duckLisp,
 												assembly,
 												expression->compoundExpressions[0].value.identifier.value,
@@ -4852,22 +4852,24 @@ dl_error_t duckLisp_generator_subroutine(duckLisp_t *duckLisp, dl_array_t *assem
 												dl_null,
 												dl_true);
 		if (e) goto l_cleanup;
+		
+		e = duckLisp_emit_move(duckLisp, assembly, innerStartStack_length, duckLisp->locals_length - 1);
+		if (e) goto l_cleanup;
+		e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - innerStartStack_length - 1);
+		if (e) goto l_cleanup;
 	}
-	/* duckLisp->locals_length = startStack_length + 1; */
+	duckLisp->locals_length = outerStartStack_length + 1;
 
 	// The zeroth argument is the function name, which also happens to be a label.
-	e = duckLisp_emit_call(duckLisp, assembly, expression->compoundExpressions[0].value.string.value,
+	e = duckLisp_emit_call(duckLisp,
+						   assembly,
+						   expression->compoundExpressions[0].value.string.value,
 	                       expression->compoundExpressions[0].value.string.value_length,
 						   expression->compoundExpressions_length - 1);
 	if (e) {
 		goto l_cleanup;
 	}
 
-	e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
-	if (e) goto l_cleanup;
-	e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - startStack_length - 1);
-	if (e) goto l_cleanup;
-	
 	// Don't push label into trie. This will be done later during assembly.
 	
  l_cleanup:
@@ -4941,6 +4943,7 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 
 	dl_size_t startStack_length;
 	dl_bool_t noPop = dl_false;
+	dl_size_t pops = 0;
 	
 	// Push a new scope.
 	e = duckLisp_pushScope(duckLisp, dl_null);
@@ -5042,15 +5045,13 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 			}
 			e = duckLisp_compile_expression(duckLisp, assembly, &currentExpression.value.expression);
 			if (e) goto l_cleanup;
-			if (!noPop && (duckLisp->locals_length > startStack_length + ((dl_size_t) i == expression->compoundExpressions_length - 1))) {
-				if ((dl_size_t) i == expression->compoundExpressions_length - 1) {
-					e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
-				}
-				e = duckLisp_emit_pop(duckLisp,
-									  assembly,
-									  duckLisp->locals_length
-									  - startStack_length
-									  - ((dl_size_t) i == expression->compoundExpressions_length - 1));
+			if (duckLisp->locals_length > startStack_length + ((dl_size_t) i == expression->compoundExpressions_length - 1)) {
+				/* if ((dl_size_t) i != expression->compoundExpressions_length - 1) { */
+				/* 	e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1); */
+				/* } */
+				e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
+				pops = duckLisp->locals_length - startStack_length - ((dl_size_t) i == expression->compoundExpressions_length - 1) - noPop;
+				e = duckLisp_emit_pop(duckLisp, assembly, pops);
 				noPop = dl_true;
 			}
 			break;

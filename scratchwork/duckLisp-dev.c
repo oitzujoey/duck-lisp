@@ -109,7 +109,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		break;
 	case duckLisp_object_type_list:
 		if (object.value.list == dl_null) {
-			puts("nil");
+			printf("nil");
 		}
 		else {
 			/* printf("(%i: ", object.value.list->type); */
@@ -209,49 +209,55 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			putchar('\n');
 			break;
 		case duckLisp_object_type_list:
-			putchar('(');
-			
-			if ((tempObject.value.list->type == duckVM_gclist_cons_type_addrObject) ||
-				(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+			if (tempObject.value.list == dl_null) {
+				printf("nil");
+			}
+			else {
+				/* printf("(%i: ", tempObject.value.list->type); */
 				printf("(");
-				e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->car.addr);
-				if (e) goto l_cleanup;
+
+				if ((tempObject.value.list->type == duckVM_gclist_cons_type_addrObject) ||
+					(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+					printf("(");
+					e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->car.addr);
+					if (e) goto l_cleanup;
+					printf(")");
+				}
+				else {
+					e = duckVM_push(duckVM, tempObject.value.list->car.data);
+					if (e) goto l_cleanup;
+					e = duckLispDev_callback_print(duckVM);
+					if (e) goto l_cleanup;
+					e = duckVM_pop(duckVM, dl_null);
+					if (e) goto l_cleanup;
+				}
+
+				if ((tempObject.value.list->type == duckVM_gclist_cons_type_objectAddr) ||
+					(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+					if (tempObject.value.list->cdr.data != dl_null) {
+						printf(" ");
+						e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->cdr.addr);
+						if (e) goto l_cleanup;
+					}
+				}
+				else {
+					printf(" . ");
+					e = duckVM_push(duckVM, tempObject.value.list->cdr.data);
+					if (e) goto l_cleanup;
+					e = duckLispDev_callback_print(duckVM);
+					if (e) goto l_cleanup;
+					e = duckVM_pop(duckVM, dl_null);
+					if (e) goto l_cleanup;
+				}
+		
 				printf(")");
 			}
-			else {
-				e = duckVM_push(duckVM, tempObject.value.list->car.data);
-				if (e) goto l_cleanup;
-				e = duckLispDev_callback_print(duckVM);
-				if (e) goto l_cleanup;
-				e = duckVM_pop(duckVM, dl_null);
-				if (e) goto l_cleanup;
-			}
-		
-			printf(" ");
-		
-			if ((tempObject.value.list->type == duckVM_gclist_cons_type_objectAddr) ||
-				(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
-				e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->cdr.addr);
-				if (e) goto l_cleanup;
-			}
-			else {
-				printf(". ");
-				e = duckVM_push(duckVM, tempObject.value.list->cdr.data);
-				if (e) goto l_cleanup;
-				e = duckLispDev_callback_print(duckVM);
-				if (e) goto l_cleanup;
-				e = duckVM_pop(duckVM, dl_null);
-				if (e) goto l_cleanup;
-			}
-		
-			putchar(')');
 			putchar('\n');
 			break;
 		default:
 			printf("Bad object type %u.\n", tempObject.type);
 		}
 	})
-	putchar('\n');
 	
 	l_cleanup:
 	
