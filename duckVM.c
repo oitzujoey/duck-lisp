@@ -1609,6 +1609,261 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->stack, &object1);
 			if (e) break;
 			break;
+
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_cdr32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			if (object1.value.list == dl_null) {
+				object2.type = duckLisp_object_type_list;
+				object2.value.list = dl_null;
+			}
+			else {
+				switch (object1.value.list->type) {
+				case duckVM_gclist_cons_type_addrAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_objectAddr:
+					object2.type = duckLisp_object_type_list;
+					object2.value.list = object1.value.list->cdr.addr;
+					break;
+				case duckVM_gclist_cons_type_addrObject:
+					// Fall through
+				case duckVM_gclist_cons_type_objectObject:
+					object2 = *(object1.value.list->cdr.data);
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_cdr16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			if (object1.value.list == dl_null) {
+				object2.type = duckLisp_object_type_list;
+				object2.value.list = dl_null;
+			}
+			else {
+				switch (object1.value.list->type) {
+				case duckVM_gclist_cons_type_addrAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_objectAddr:
+					object2.type = duckLisp_object_type_list;
+					object2.value.list = object1.value.list->cdr.addr;
+					break;
+				case duckVM_gclist_cons_type_addrObject:
+					// Fall through
+				case duckVM_gclist_cons_type_objectObject:
+					object2 = *(object1.value.list->cdr.data);
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_cdr8:
+			ptrdiff1 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			if (object1.value.list == dl_null) {
+				object2.type = duckLisp_object_type_list;
+				object2.value.list = dl_null;
+			}
+			else {
+				switch (object1.value.list->type) {
+				case duckVM_gclist_cons_type_addrAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_objectAddr:
+					object2.type = duckLisp_object_type_list;
+					object2.value.list = object1.value.list->cdr.addr;
+					break;
+				case duckVM_gclist_cons_type_addrObject:
+					// Fall through
+				case duckVM_gclist_cons_type_objectObject:
+					object2 = *(object1.value.list->cdr.data);
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_car32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			if (object1.value.list == dl_null) {
+				object2.type = duckLisp_object_type_list;
+				object2.value.list = dl_null;
+			}
+			else {
+				switch (object1.value.list->type) {
+				case duckVM_gclist_cons_type_addrAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_addrObject:
+					object2.type = duckLisp_object_type_list;
+					object2.value.list = object1.value.list->car.addr;
+					break;
+				case duckVM_gclist_cons_type_objectAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_objectObject:
+					object2 = *(object1.value.list->car.data);
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_car16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			if (object1.value.list == dl_null) {
+				object2.type = duckLisp_object_type_list;
+				object2.value.list = dl_null;
+			}
+			else {
+				switch (object1.value.list->type) {
+				case duckVM_gclist_cons_type_addrAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_addrObject:
+					object2.type = duckLisp_object_type_list;
+					object2.value.list = object1.value.list->car.addr;
+					break;
+				case duckVM_gclist_cons_type_objectAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_objectObject:
+					object2 = *(object1.value.list->car.data);
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_car8:
+			ptrdiff1 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			if (object1.value.list == dl_null) {
+				object2.type = duckLisp_object_type_list;
+				object2.value.list = dl_null;
+			}
+			else {
+				switch (object1.value.list->type) {
+				case duckVM_gclist_cons_type_addrAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_addrObject:
+					object2.type = duckLisp_object_type_list;
+					object2.value.list = object1.value.list->car.addr;
+					break;
+				case duckVM_gclist_cons_type_objectAddr:
+					// Fall through
+				case duckVM_gclist_cons_type_objectObject:
+					object2 = *(object1.value.list->car.data);
+					break;
+				default:
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+			}
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+				
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_nullp32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			object2.type = duckLisp_object_type_bool;
+			object2.value.boolean = (object1.value.list == dl_null);
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_nullp16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			object2.type = duckLisp_object_type_bool;
+			object2.value.boolean = (object1.value.list == dl_null);
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_nullp8:
+			ptrdiff1 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				goto l_cleanup;
+			}
+			object2.type = duckLisp_object_type_bool;
+			object2.value.boolean = (object1.value.list == dl_null);
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
 		
 		case duckLisp_instruction_return32:
 			ptrdiff1 = *(ip++);
@@ -1676,6 +1931,13 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			}
 			break;
 
+		case duckLisp_instruction_nil:
+			object1.type = duckLisp_object_type_list;
+			object1.value.list = dl_null;
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			if (e) break;
+			break;
+		
 		default:
 			e = dl_error_invalidValue;
 			goto l_cleanup;

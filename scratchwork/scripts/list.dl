@@ -1,15 +1,7 @@
 (include "../scripts/library.dl")
 
-(var ꙮωꙮ (cons (cons 4 true) (cons (cons 6 false) "Hello")))
+(var シ (cons "I'm" (cons "a" (cons "list!" (quote ())))))
 
-(println ꙮωꙮ)
-
-(var ツ (cons ꙮωꙮ (cons ꙮωꙮ (quote ()))))
-
-(println ꙮωꙮ)
-(println ツ)
-
-(print-stack)
-
-(println (quote ꙮωꙮ))
-(println (quote ツ))
+(while (not (null? シ))
+  (println (car シ))
+  (setq シ (cdr シ)))
