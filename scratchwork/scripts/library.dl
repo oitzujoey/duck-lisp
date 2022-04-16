@@ -1,3 +1,12 @@
+
+(var duckLisp-object-type-none 0)
+(var duckLisp-object-type-bool 1)
+(var duckLisp-object-type-int 2)
+(var duckLisp-object-type-float 3)
+(var duckLisp-object-type-str 4)
+(var duckLisp-object-type-list 5)
+(comment (var duckLisp-object-type-func 6))
+
 (defun println (v)
   (print v)
   (print "\n")
@@ -5,6 +14,40 @@
 
 (defun 1+ (x)
   (+ x 1))
+
+(defun type-to-string (type)
+  (var duckLisp-object-type-none 0)
+  (var duckLisp-object-type-bool 1)
+  (var duckLisp-object-type-int 2)
+  (var duckLisp-object-type-float 3)
+  (var duckLisp-object-type-str 4)
+  (var duckLisp-object-type-list 5)
+  (comment (var duckLisp-object-type-func 6))
+  
+  (if (= type duckLisp-object-type-none)
+	  "none"
+	  (if (= type duckLisp-object-type-bool)
+		  "bool"
+		  (if (= type duckLisp-object-type-int)
+			  "int"
+			  (if (= type duckLisp-object-type-float)
+				  "float"
+				  (if (= type duckLisp-object-type-str)
+					  "str"
+					  (if (= type duckLisp-object-type-list)
+						  "list"
+						  "Invalid type")))))))
+
+(defun atom? (v)
+  (var duckLisp-object-type-none 0)
+  (var duckLisp-object-type-bool 1)
+  (var duckLisp-object-type-int 2)
+  (var duckLisp-object-type-float 3)
+  (var duckLisp-object-type-str 4)
+  (var duckLisp-object-type-list 5)
+  (comment (var duckLisp-object-type-func 6))
+  
+  (not (= (type-of v) duckLisp-object-type-list)))
 
 (defun nth (n list)
   (var i 0)

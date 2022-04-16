@@ -215,6 +215,7 @@ typedef enum {
 	duckLisp_instructionClass_car,
 	duckLisp_instructionClass_cdr,
 	duckLisp_instructionClass_nullp,
+	duckLisp_instructionClass_typeof,
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_return,
 	duckLisp_instructionClass_nil,
@@ -301,6 +302,10 @@ typedef enum {
 	duckLisp_instruction_nullp8,
 	duckLisp_instruction_nullp16,
 	duckLisp_instruction_nullp32,
+	
+	duckLisp_instruction_typeof8,
+	duckLisp_instruction_typeof16,
+	duckLisp_instruction_typeof32,
 	
 	duckLisp_instruction_pop8,
 	duckLisp_instruction_pop16,

@@ -1819,7 +1819,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->stack, &object2);
 			if (e) break;
 			break;
-				
+
 		// I probably don't need an `if` if I research the standard a bit.
 		case duckLisp_instruction_nullp32:
 			ptrdiff1 = *(ip++);
@@ -1864,7 +1864,40 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->stack, &object2);
 			if (e) break;
 			break;
-		
+
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_typeof32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			object2.type = duckLisp_object_type_integer;
+			object2.value.integer = object1.type;
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_typeof16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			object2.type = duckLisp_object_type_integer;
+			object2.value.integer = object1.type;
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+		case duckLisp_instruction_typeof8:
+			ptrdiff1 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			object2.type = duckLisp_object_type_integer;
+			object2.value.integer = object1.type;
+			e = dl_array_pushElement(&duckVM->stack, &object2);
+			if (e) break;
+			break;
+
 		case duckLisp_instruction_return32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);

@@ -27,4 +27,7 @@
 
 (println (last シ))
 
-(comment "ITS WORKING!!!")
+(print "\n") (println (type-of シ))
+(print "シ is a ") (println (type-to-string (type-of シ)))
+(println (atom? 5))
+(println (atom? シ))

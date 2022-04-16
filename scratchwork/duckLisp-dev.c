@@ -297,7 +297,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp, dl_array_t *assem
 	if (expression->compoundExpressions[1].type != duckLisp_ast_type_string) {
 		
 	}
-	
+
 	fileName.value = expression->compoundExpressions[1].value.string.value;
 	fileName.value_length = expression->compoundExpressions[1].value.string.value_length;
 
