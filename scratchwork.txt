@@ -978,3 +978,5 @@ Required keywords/functions
 		null? — implemented
 		push — partially implemented
 		call
+
+move.8 is throwing an error.

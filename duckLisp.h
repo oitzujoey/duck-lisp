@@ -197,6 +197,7 @@ typedef struct {
 typedef enum {
 	duckLisp_instructionClass_nop = 0,
 	duckLisp_instructionClass_pushString,
+	duckLisp_instructionClass_pushBoolean,
 	duckLisp_instructionClass_pushInteger,
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_call,
@@ -230,6 +231,9 @@ typedef enum {
 	duckLisp_instruction_pushString8,
 	duckLisp_instruction_pushString16,
 	duckLisp_instruction_pushString32,
+	
+	duckLisp_instruction_pushBooleanFalse,
+	duckLisp_instruction_pushBooleanTrue,
 	
 	duckLisp_instruction_pushInteger8,
 	duckLisp_instruction_pushInteger16,

@@ -2203,7 +2203,7 @@ dl_error_t duckLisp_emit_pushBoolean(duckLisp_t *duckLisp, dl_array_t *assembly,
 	/**/ dl_array_init(&instruction.args, duckLisp->memoryAllocation, sizeof(duckLisp_instructionArgClass_t), dl_array_strategy_double);
 	
 	// Write instruction.
-	instruction.instructionClass = duckLisp_instructionClass_pushInteger;
+	instruction.instructionClass = duckLisp_instructionClass_pushBoolean;
 	
 	// Push arguments into instruction.
 	argument.type = duckLisp_instructionArgClass_type_integer;
@@ -4338,6 +4338,7 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 
 		e = duckLisp_emit_brnz(duckLisp, assembly, gensym_then.value, gensym_then.value_length, pops);
 		if (e) goto l_free_gensym_end;
+		
 		startStack_length = duckLisp->locals_length;
 		e = duckLisp_compile_compoundExpression(duckLisp,
 												assembly,
@@ -4349,16 +4350,23 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 												dl_true);
 		pops = duckLisp->locals_length - startStack_length - 1;
 		if (pops < 0) {
-			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
+			e = dl_array_pushElements(&eString, DL_STR("if: \"else\" part of expression contains an invalid form"));
+			if (e) {
+				goto l_free_gensym_end;
+			}
 		}
 		else if (pops > 0) {
+			e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
+			if (e) goto l_free_gensym_end;
 			e = duckLisp_emit_pop(duckLisp, assembly, pops);
 		}
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_jump(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_then.value, gensym_then.value_length);
-		startStack_length = duckLisp->locals_length;
+		
+		duckLisp->locals_length = startStack_length;
+		
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_compile_compoundExpression(duckLisp,
 												assembly,
@@ -4370,13 +4378,18 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 												dl_true);
 		pops = duckLisp->locals_length - startStack_length - 1;
 		if (pops < 0) {
-			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
+			e = dl_array_pushElements(&eString, DL_STR("if: \"then\" part of expression contains an invalid form"));
+			if (e) {
+				goto l_free_gensym_end;
+			}
 		}
 		else if (pops > 0) {
+			e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
+			if (e) goto l_free_gensym_end;
 			e = duckLisp_emit_pop(duckLisp, assembly, pops);
 		}
 		if (e) goto l_free_gensym_end;
-		--duckLisp->locals_length;  // This is to account for the fact that we have two expressions, but only one that is run.
+
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 
@@ -5009,7 +5022,6 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 	dl_ptrdiff_t identifier_index = -1;
 
 	dl_size_t startStack_length;
-	dl_bool_t noPop = dl_false;
 	dl_bool_t foundVar = dl_false;
 	dl_bool_t foundInclude = dl_false;
 	dl_size_t pops = 0;
@@ -5111,10 +5123,10 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 				dl_string_compare(&foundVar, currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 								  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
 								  DL_STR("var"));
+				// `include` is an exception because the included file exists in the parent scope.
 				dl_string_compare(&foundInclude, currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 								  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
 								  DL_STR("include"));
-				noPop = foundVar || foundInclude;
 			}
 			e = duckLisp_compile_expression(duckLisp, assembly, &currentExpression.value.expression);
 			if (e) goto l_cleanup;
@@ -5122,11 +5134,16 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 				/* if ((dl_size_t) i != expression->compoundExpressions_length - 1) { */
 				/* 	e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1); */
 				/* } */
-				e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
-				pops = duckLisp->locals_length - startStack_length - ((dl_size_t) i == expression->compoundExpressions_length - 1) - noPop;
-				e = duckLisp_emit_pop(duckLisp, assembly, pops);
-				noPop = dl_true;
+				if (startStack_length != duckLisp->locals_length - 1) {
+					e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
+					if (e) goto l_cleanup;
+				}
+				pops = duckLisp->locals_length - startStack_length - ((dl_size_t) i == expression->compoundExpressions_length - 1) - foundVar;
+				if (pops > 0) {
+					e = duckLisp_emit_pop(duckLisp, assembly, pops);
+				}
 			}
+			foundInclude = dl_false;
 			break;
 		case duckLisp_ast_type_identifier:
 			e = duckLisp_scope_getLocalIndexFromName(duckLisp, &identifier_index,
@@ -5558,11 +5575,12 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 			io = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j);
 			/* printf("{\n"); */
 			printf("Instruction class: %s",
-				(char *[25]){
+				(char *[26]){
 					"nop",
-					"pushString",
-					"pushInteger",
-					"pushIndex",
+					"push-string",
+					"push-boolean",
+					"push-integer",
+					"push-index",
 					"call",
 					"ccall",
 					"jump",
@@ -5701,6 +5719,18 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 					if (eError) {
 						e = eError;
 					}
+					goto l_cleanup;
+				}
+				break;
+			}
+			case duckLisp_instructionClass_pushBoolean: {
+				switch (args[0].type) {
+				case duckLisp_instructionArgClass_type_integer:
+					currentInstruction.byte = duckLisp_instruction_pushBooleanFalse + (args[0].value.integer != 0);
+					break;
+				default:
+					eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
+					if (eError) e = eError;
 					goto l_cleanup;
 				}
 				break;
@@ -7070,6 +7100,38 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uin
 					}
 					break;
 				}
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+		    }
+			break;
+
+		case duckLisp_instruction_pushBooleanFalse:
+			switch (arg) {
+			case 0: 
+				e = dl_array_pushElements(&disassembly, DL_STR("push-boolean-false"));
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+		    }
+			break;
+
+		case duckLisp_instruction_pushBooleanTrue:
+			switch (arg) {
+			case 0: 
+				e = dl_array_pushElements(&disassembly, DL_STR("push-boolean-true"));
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
 				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
 				if (e) return dl_null;
 		    }

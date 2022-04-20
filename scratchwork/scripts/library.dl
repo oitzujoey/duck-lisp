@@ -16,6 +16,7 @@
   (+ x 1))
 
 (defun type-to-string (type)
+  (comment "No lexical scope yet.")
   (var duckLisp-object-type-none 0)
   (var duckLisp-object-type-bool 1)
   (var duckLisp-object-type-int 2)
@@ -23,7 +24,6 @@
   (var duckLisp-object-type-str 4)
   (var duckLisp-object-type-list 5)
   (comment (var duckLisp-object-type-func 6))
-  
   (if (= type duckLisp-object-type-none)
 	  "none"
 	  (if (= type duckLisp-object-type-bool)
@@ -39,15 +39,31 @@
 						  "Invalid type")))))))
 
 (defun atom? (v)
-  (var duckLisp-object-type-none 0)
-  (var duckLisp-object-type-bool 1)
-  (var duckLisp-object-type-int 2)
-  (var duckLisp-object-type-float 3)
-  (var duckLisp-object-type-str 4)
   (var duckLisp-object-type-list 5)
-  (comment (var duckLisp-object-type-func 6))
-  
   (not (= (type-of v) duckLisp-object-type-list)))
+
+(defun and (a b)
+  (if a
+	  (if b
+		  true
+		  false)
+	  false))
+
+(defun pair (x y)
+  (if (and (null? x) (null? y))
+	  ()
+	  (if (and (not (atom? x)) (not (atom? y)))
+		  (cons (cons (car x) (cons (car y) ()))
+				(pair (cdr x) (cdr y)))
+		  ())))
+
+(defun assoc (x y)
+  (var duckLisp-object-type-list 5)
+  (if (and (= (type-of y) duckLisp-object-type-list) (not (null? y)))
+	  (if (= (car (car y)) x)
+		  (car (cdr (car y)))
+		  (assoc x (cdr y)))
+	  ()))
 
 (defun nth (n list)
   (var i 0)
@@ -84,7 +100,6 @@
 	(setq appended-list (cons (car list2)
 							  appended-list))
 	(setq list2 (cdr list2)))
-  
   (nreverse appended-list))
 
 (comment " Copied straight out of CLHS B）")

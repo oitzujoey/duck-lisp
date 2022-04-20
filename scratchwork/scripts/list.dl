@@ -10,24 +10,32 @@
 (print "\n")
 
 (println シ)
-(println x)
 
 (print "\n")
 
 (println (car (nth 1 シ)))
-(println シ)
-(print "(length シ): ")
+((print "シ has a length of "))
 (println (length シ))
-
 (println (nreverse シ))
-
-(print "(append シ シ): ") (println (append シ シ))
-
+(println (append シ シ))
 (println (caddr シ))
-
 (println (last シ))
-
-(print "\n") (println (type-of シ))
 (print "シ is a ") (println (type-to-string (type-of シ)))
-(println (atom? 5))
-(println (atom? シ))
+
+
+(comment "Pair and assoc")
+
+(print "\n")
+(setq x (pair (cons "x" (cons "y" (cons "z" ()))) (cons "a" (cons "b" (cons "c" ())))))
+(println x)
+
+(println (assoc "x" x))
+(println (assoc "y" x))
+(println (assoc "z" x))
+(println (assoc "7" x))
+
+
+(comment "Stack balance test")
+
+(print "\n")
+(println シ)

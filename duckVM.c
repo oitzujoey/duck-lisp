@@ -3,6 +3,7 @@
 #include "DuckLib/array.h"
 #include "DuckLib/core.h"
 #include "DuckLib/memory.h"
+#include "DuckLib/string.h"
 #include "duckLisp.h"
 #include <stdio.h>
 
@@ -175,6 +176,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	duckLisp_object_t *objectPtr2;
 	/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
 	duckVM_gclist_cons_t cons1;
+	dl_bool_t bool1;
 	
 	do {
 		ptrdiff1 = 0;
@@ -195,6 +197,17 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			object1.value.string.value = (char *) ip;
 			ip += object1.value.string.value_length;
 			object1.type = duckLisp_object_type_string;
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+
+		case duckLisp_instruction_pushBooleanFalse:
+			object1.type = duckLisp_object_type_bool;
+			object1.value.integer = dl_false;
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+		case duckLisp_instruction_pushBooleanTrue:
+			object1.type = duckLisp_object_type_bool;
+			object1.value.integer = dl_true;
 			e = dl_array_pushElement(&duckVM->stack, &object1);
 			break;
 
@@ -1148,6 +1161,21 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
+			case duckLisp_object_type_string:
+				switch (object2.type) {
+				case duckLisp_object_type_string:
+					/**/ dl_string_compare(&bool1,
+										   object1.value.string.value,
+										   object1.value.string.value_length,
+										   object2.value.string.value,
+										   object2.value.string.value_length);
+					object1.value.boolean = bool1;
+					break;
+				default:
+					object1.value.boolean = dl_false;
+					goto l_cleanup;
+				}
+				break;
 			case duckLisp_object_type_float:
 				switch (object2.type) {
 				case duckLisp_object_type_float:
@@ -1196,6 +1224,21 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
+			case duckLisp_object_type_string:
+				switch (object2.type) {
+				case duckLisp_object_type_string:
+					/**/ dl_string_compare(&bool1,
+										   object1.value.string.value,
+										   object1.value.string.value_length,
+										   object2.value.string.value,
+										   object2.value.string.value_length);
+					object1.value.boolean = bool1;
+					break;
+				default:
+					object1.value.boolean = dl_false;
+					goto l_cleanup;
+				}
+				break;
 			case duckLisp_object_type_float:
 				switch (object2.type) {
 				case duckLisp_object_type_float:
@@ -1241,6 +1284,21 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
+			case duckLisp_object_type_string:
+				switch (object2.type) {
+				case duckLisp_object_type_string:
+					/**/ dl_string_compare(&bool1,
+										   object1.value.string.value,
+										   object1.value.string.value_length,
+										   object2.value.string.value,
+										   object2.value.string.value_length);
+					object1.value.boolean = bool1;
+					break;
+				default:
+					object1.value.boolean = dl_false;
+					goto l_cleanup;
+				}
+				break;
 			case duckLisp_object_type_float:
 				switch (object2.type) {
 				case duckLisp_object_type_float:
@@ -1978,6 +2036,12 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	} while (!e);
 	
 	l_cleanup:
+
+	if (e) {
+		puts("VM ERROR");
+		printf("ip 0x%lX\n", ip - bytecode);
+		printf("*ip 0x%X\n", *ip);
+	}
 	
 	return e;
 }

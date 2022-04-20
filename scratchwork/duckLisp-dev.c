@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <string.h>
 #include "../DuckLib/core.h"
 #include "../duckLisp.h"
 #include "../duckVM.h"
@@ -549,21 +550,28 @@ int main(int argc, char *argv[]) {
 	}
 	
 	sourceFile = fopen(argv[1], "r");
-	if (sourceFile == NULL) {
-		printf(COLOR_RED "Could not open file \"%s\".\n" COLOR_NORMAL, argv[1]);
-		e = dl_error_nullPointer;
-		goto l_cleanup;
-	}
-	while ((tempInt = fgetc(sourceFile)) != EOF) {
-		tempChar = tempInt & 0xFF;
-		e = dl_array_pushElement(&sourceCode, &tempChar);
-		if (e) {
-			fclose(sourceFile);
-			goto l_cleanup;
+	if (sourceFile != NULL) {
+		while ((tempInt = fgetc(sourceFile)) != EOF) {
+			tempChar = tempInt & 0xFF;
+			e = dl_array_pushElement(&sourceCode, &tempChar);
+			if (e) {
+				fclose(sourceFile);
+				goto l_cleanup;
+			}
 		}
+		fclose(sourceFile);
 	}
-	fclose(sourceFile);
-
+	else {
+		for (dl_ptrdiff_t j = 1; j < argc - 1; j++) {
+			e = dl_array_pushElements(&sourceCode, argv[j], strlen(argv[j]));
+			if (e) goto l_cleanup;
+			e = dl_array_pushElements(&sourceCode, DL_STR(" "));
+			if (e) goto l_cleanup;
+		}
+		e = dl_array_pushElements(&sourceCode, argv[argc - 1], strlen(argv[argc - 1]));
+		if (e) goto l_cleanup;
+	}
+	
 	tempChar = ')';
 	e = dl_array_pushElement(&sourceCode, &tempChar);
 	if (e) {
