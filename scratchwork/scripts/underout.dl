@@ -1,0 +1,28 @@
+(include "../scripts/library.dl")
+
+(defun new-deck (size)
+  (var i 0)
+  (var deck ())
+  (while (< i size)
+		 (setq deck (cons (- size i) deck))
+		 (setq i (1+ i)))
+  deck)
+
+(var deck (new-deck 10))
+
+(println deck)
+
+(defun pseudo-sort (deck unders-count)
+  (var new-deck ())
+  (var i 0)
+  (while (atom? (car deck))
+		 (setq i 0)
+		 (while (< i unders-count)
+				(setq deck (nreverse (cons (car deck) (nreverse (cdr deck)))))
+				(setq i (1+ i)))
+		 (setq new-deck (cons (car deck) new-deck))
+		 (setq deck (cdr deck)))
+  new-deck)
+
+(var new-deck (pseudo-sort deck 1))
+(println new-deck)

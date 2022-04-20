@@ -59,7 +59,7 @@
 
 (defun assoc (x y)
   (var duckLisp-object-type-list 5)
-  (if (and (= (type-of y) duckLisp-object-type-list) (not (null? y)))
+  (if (not (null? y))
 	  (if (= (car (car y)) x)
 		  (car (cdr (car y)))
 		  (assoc x (cdr y)))
@@ -101,6 +101,7 @@
 							  appended-list))
 	(setq list2 (cdr list2)))
   (nreverse appended-list))
+
 
 (comment " Copied straight out of CLHS B）")
 
