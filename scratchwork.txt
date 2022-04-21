@@ -979,4 +979,21 @@ Required keywords/functions
 		push — partially implemented
 		call
 
-move.8 is throwing an error.
+move.8 is throwing an error. This is resolved and was probably caused by bad balancing.
+
+It would be *nice* to intern symbols, but I don't know how easy that would be. If I omit symbols, string literals could be a problem, but then again, I could just put them inside strings. It shouldn't be too hard to detect a string literal. The only problem this causes is when algorithmically creating string literals, but in this case, just wrap quotes around the string to distinguish it.
+
+So here are the disadvantages of not having a dedicated symbol type:
+    Symbol comparison is slow.
+	The difference between symbols and strings is that symbols have a specific string format.
+
+There is now a new symbol data type. It does not yet have a master package.
+
+Todo:
+    quote
+	Fix GC.
+	macros
+	funcall/lambda
+	Clean up.
+	Merge with Hidey-Chess and add required functions.
+	Clean up.

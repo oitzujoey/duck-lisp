@@ -184,7 +184,40 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		switch (*(ip++)) {
 		case duckLisp_instruction_nop:
 			break;
-			
+
+		case duckLisp_instruction_pushSymbol32:
+			object1.value.symbol.id = *(ip++);
+			object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
+			object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
+			object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
+			object1.value.symbol.value_length = *(ip++);
+			object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
+			object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
+			object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
+			object1.value.symbol.value = (char *) ip;
+			ip += object1.value.symbol.value_length;
+			object1.type = duckLisp_object_type_symbol;
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+		case duckLisp_instruction_pushSymbol16:
+			object1.value.symbol.id = *(ip++);
+			object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
+			object1.value.symbol.value_length = *(ip++);
+			object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
+			object1.value.symbol.value = (char *) ip;
+			ip += object1.value.symbol.value_length;
+			object1.type = duckLisp_object_type_symbol;
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+		case duckLisp_instruction_pushSymbol8:
+			object1.value.symbol.id = *(ip++);
+			object1.value.symbol.value_length = *(ip++);
+			object1.value.symbol.value = (char *) ip;
+			ip += object1.value.symbol.value_length;
+			object1.type = duckLisp_object_type_symbol;
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+
 		case duckLisp_instruction_pushString32:
 			object1.value.string.value_length = *(ip)++;
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);

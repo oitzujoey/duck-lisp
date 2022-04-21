@@ -94,6 +94,12 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	}
 	
 	switch (object.type) {
+	case duckLisp_object_type_symbol:
+		for (dl_size_t i = 0; i < object.value.symbol.value_length; i++) {
+			putchar(object.value.symbol.value[i]);
+		}
+		printf("→%llu", object.value.symbol.id);
+		break;
 	case duckLisp_object_type_string:
 		for (dl_size_t i = 0; i < object.value.string.value_length; i++) {
 			putchar(object.value.string.value[i]);

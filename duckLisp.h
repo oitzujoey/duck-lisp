@@ -192,6 +192,9 @@ typedef struct {
 	dl_array_t labels;  // duckLisp_label_t
 
 	dl_size_t gensym_number;
+
+	dl_trie_t symbols_trie;    // Index points to the string in `symbols_array`
+	dl_array_t symbols_array;  // duckLisp_ast_identifier_t
 } duckLisp_t;
 
 typedef enum {
@@ -200,6 +203,7 @@ typedef enum {
 	duckLisp_instructionClass_pushBoolean,
 	duckLisp_instructionClass_pushInteger,
 	duckLisp_instructionClass_pushIndex,
+	duckLisp_instructionClass_pushSymbol,
 	duckLisp_instructionClass_call,
 	duckLisp_instructionClass_ccall,
 	duckLisp_instructionClass_jump,
@@ -242,7 +246,11 @@ typedef enum {
 	duckLisp_instruction_pushIndex8,
 	duckLisp_instruction_pushIndex16,
 	duckLisp_instruction_pushIndex32,
-	
+
+	duckLisp_instruction_pushSymbol8,
+	duckLisp_instruction_pushSymbol16,
+	duckLisp_instruction_pushSymbol32,
+
 	duckLisp_instruction_call8,
 	duckLisp_instruction_call16,
 	duckLisp_instruction_call32,

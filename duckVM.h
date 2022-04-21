@@ -31,6 +31,7 @@ typedef enum {
 	duckLisp_object_type_float,
 	duckLisp_object_type_string,
 	duckLisp_object_type_list,
+	duckLisp_object_type_symbol,
 	duckLisp_object_type_function
 } duckLisp_object_type_t;
 
@@ -43,6 +44,11 @@ typedef struct duckLisp_object_s {
 			char *value;
 			dl_size_t value_length;
 		} string;
+		struct {
+			dl_size_t id;
+			char *value;
+			dl_size_t value_length;
+		} symbol;
 		struct{
 			// duckLisp_ast_compoundExpression_t tree;
 			unsigned char *bytecode;
