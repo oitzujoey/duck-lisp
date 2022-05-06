@@ -166,7 +166,7 @@ void duckVM_quit(duckVM_t *duckVM) {
 dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	dl_error_t e = dl_error_ok;
 	
-	unsigned char *ip = bytecode;
+	dl_uint8_t *ip = bytecode;
 	dl_ptrdiff_t ptrdiff1;
 	dl_ptrdiff_t ptrdiff2;
 	// dl_size_t length1;
@@ -326,6 +326,52 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				ip += ptrdiff1;
 			}
 			--ip;
+			break;
+
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_acall32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			e = dl_array_pushElement(&duckVM->call_stack, &ip);
+			if (e) break;
+			if (ptrdiff1 & 0x80000000ULL) {
+				ip -= ((~((dl_size_t) ptrdiff1) + 1) & 0xFFFFFFFFULL);
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			--ip;
+			break;
+		case duckLisp_instruction_acall16:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			e = dl_array_pushElement(&duckVM->call_stack, &ip);
+			if (e) break;
+			if (ptrdiff1 & 0x8000ULL) {
+				ip -= ((~ptrdiff1 + 1) & 0xFFFFULL);
+			}
+			else {
+				ip += ptrdiff1;
+			}
+			--ip;
+			break;
+		case duckLisp_instruction_acall8:
+			ptrdiff1 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_integer) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_pushElement(&duckVM->call_stack, &ip);
+			if (e) break;
+			ip = &bytecode[object1.value.integer];
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			if (e) break;
 			break;
 
 		case duckLisp_instruction_ccall32:

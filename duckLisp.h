@@ -211,6 +211,7 @@ typedef enum {
 	duckLisp_instructionClass_pushSymbol,
 	duckLisp_instructionClass_call,
 	duckLisp_instructionClass_ccall,
+	duckLisp_instructionClass_acall,
 	duckLisp_instructionClass_jump,
 	duckLisp_instructionClass_brz,
 	duckLisp_instructionClass_brnz,
@@ -264,6 +265,10 @@ typedef enum {
 	duckLisp_instruction_ccall8,
 	duckLisp_instruction_ccall16,
 	duckLisp_instruction_ccall32,
+	
+	duckLisp_instruction_acall8,
+	duckLisp_instruction_acall16,
+	duckLisp_instruction_acall32,
 	
 	duckLisp_instruction_jump8,
 	duckLisp_instruction_jump16,

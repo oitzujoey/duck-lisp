@@ -1014,8 +1014,7 @@ The proper way would be to add another boolean to `jumpLink_t` that keeps it fro
 
 Absolute addressing routed using boolean.
 
-Next:
-    push-label.32
+Callbacks implemented, likely with bugs.
 
 Todo:
 	funcall/lambda
