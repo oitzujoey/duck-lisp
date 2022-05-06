@@ -2463,7 +2463,7 @@ dl_error_t duckLisp_emit_pushIndex(duckLisp_t *duckLisp, dl_array_t *assembly, d
 	return e;
 }
 
-dl_error_t duckLisp_emit_acall(duckLisp_t *duckLisp, dl_array_t *assembly, const dl_size_t count) {
+dl_error_t duckLisp_emit_acall(duckLisp_t *duckLisp, dl_array_t *assembly, const dl_ptrdiff_t function_index, const dl_size_t count) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -2477,6 +2477,13 @@ dl_error_t duckLisp_emit_acall(duckLisp_t *duckLisp, dl_array_t *assembly, const
 	instruction.instructionClass = duckLisp_instructionClass_acall;
 	
 	// Push arguments into instruction.
+	argument.type = duckLisp_instructionArgClass_type_integer;
+	argument.value.integer = duckLisp->locals_length - function_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) {
+		goto l_cleanup;
+	}
+	
 	argument.type = duckLisp_instructionArgClass_type_integer;
 	argument.value.integer = count;
 	e = dl_array_pushElement(&instruction.args, &argument);
@@ -5176,7 +5183,7 @@ dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	dl_ptrdiff_t identifier_index = -1;
-	dl_ptrdiff_t outerStartStack_length = duckLisp->locals_length;
+	dl_ptrdiff_t outerStartStack_length;
 	dl_ptrdiff_t innerStartStack_length;
 
 
@@ -5217,16 +5224,30 @@ dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp, dl_array_t *assembly, 
 			goto l_cleanup;
 		}
 		goto l_cleanup;
-	}	
+	}
 
-	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+	/* Generate */
+
+	e = duckLisp_compile_compoundExpression(duckLisp,
+											assembly,
+											expression->compoundExpressions[0].value.identifier.value,
+											expression->compoundExpressions[0].value.identifier.value_length,
+											&expression->compoundExpressions[1],
+											&identifier_index,
+											dl_null,
+											dl_true);
+	if (e) goto l_cleanup;
+
+	outerStartStack_length = duckLisp->locals_length;
+
+	for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
 		innerStartStack_length = duckLisp->locals_length;
 		e = duckLisp_compile_compoundExpression(duckLisp,
 												assembly,
 												expression->compoundExpressions[0].value.identifier.value,
 												expression->compoundExpressions[0].value.identifier.value_length,
 												&expression->compoundExpressions[i],
-												&identifier_index,
+												dl_null,
 												dl_null,
 												dl_true);
 		if (e) goto l_cleanup;
@@ -5236,13 +5257,14 @@ dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - innerStartStack_length - 1);
 		if (e) goto l_cleanup;
 	}
-	duckLisp->locals_length = outerStartStack_length + 1;
 
 	// The zeroth argument is the function name, which also happens to be a label.
-	e = duckLisp_emit_acall(duckLisp, assembly, expression->compoundExpressions_length - 1);
+	e = duckLisp_emit_acall(duckLisp, assembly, identifier_index, 0);
 	if (e) {
 		goto l_cleanup;
 	}
+	
+	duckLisp->locals_length = outerStartStack_length + 1;
 
 	// Don't push label into trie. This will be done later during assembly.
 	
@@ -6707,12 +6729,16 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 						currentInstruction.byte = duckLisp_instruction_acall32;
 						byte_length = 4;
 					}
-					e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+					e = dl_array_pushElements(&currentArgs, dl_null, byte_length + 1);
 					if (e) {
 						goto l_cleanup;
 					}
+					printf("%i\n", args[0].value.integer);
 					for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = (args[0].value.index >> 8*(byte_length - n - 1)) & 0xFFU;
+					}
+					for (dl_ptrdiff_t n = 0; (dl_size_t) n < 1; n++) {
+						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n + 1) = args[1].value.integer & 0xFFU;
 					}
 					break;
 				}
@@ -7956,6 +7982,18 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uin
 				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
 				e = dl_array_pushElement(&disassembly, &tempChar);
 				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
 				tempChar = '\n';
 				e = dl_array_pushElement(&disassembly, &tempChar);
 				if (e) return dl_null;
@@ -7969,7 +8007,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uin
 		case duckLisp_instruction_acall16:
 			switch (arg) {
 			case 0: 
-				e = dl_array_pushElements(&disassembly, DL_STR("acall.16         "));
+				e = dl_array_pushElements(&disassembly, DL_STR("acall.16        "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -7982,6 +8020,19 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uin
 				if (e) return dl_null;
 				break;
 			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+				
+			case 3:
 				tempSize = bytecode[i];
 				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
 				e = dl_array_pushElement(&disassembly, &tempChar);
@@ -8033,6 +8084,19 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uin
 				if (e) return dl_null;
 				break;
 			case 4:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 5:
 				tempSize = bytecode[i];
 				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
 				e = dl_array_pushElement(&disassembly, &tempChar);

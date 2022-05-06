@@ -334,7 +334,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++);
 			e = dl_array_pushElement(&duckVM->call_stack, &ip);
 			if (e) break;
 			if (ptrdiff1 & 0x80000000ULL) {
@@ -348,7 +347,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 		case duckLisp_instruction_acall16:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++);
 			e = dl_array_pushElement(&duckVM->call_stack, &ip);
 			if (e) break;
 			if (ptrdiff1 & 0x8000ULL) {
@@ -361,7 +359,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			break;
 		case duckLisp_instruction_acall8:
 			ptrdiff1 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
+			ptrdiff2 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			if (object1.type != duckLisp_object_type_integer) {
 				e = dl_error_invalidValue;
@@ -370,7 +369,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_pushElement(&duckVM->call_stack, &ip);
 			if (e) break;
 			ip = &bytecode[object1.value.integer];
-			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff1);
+			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff2);
 			if (e) break;
 			break;
 
