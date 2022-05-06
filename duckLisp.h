@@ -152,10 +152,15 @@ typedef enum {
 } duckLisp_functionType_t;
 
 typedef struct {
+	dl_ptrdiff_t source;
+	dl_bool_t absolute;
+} duckLisp_label_source_t;
+
+typedef struct {
 	char *name;
 	dl_size_t name_length;
 	dl_ptrdiff_t target;
-	dl_array_t sources; // dl_ptrdiff_t
+	dl_array_t sources; // duckLisp_label_source_t
 } duckLisp_label_t;
 
 typedef struct {
@@ -224,6 +229,7 @@ typedef enum {
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_return,
 	duckLisp_instructionClass_nil,
+	duckLisp_instructionClass_pushLabel,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
 

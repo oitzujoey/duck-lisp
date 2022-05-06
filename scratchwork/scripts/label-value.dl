@@ -1,0 +1,7 @@
+
+(print (+ 1 3))
+(print "\n")
+
+(label hello)
+
+(print hello)

@@ -968,16 +968,18 @@ Required keywords/functions
     lambda
         defmacro
 	    gensym — partially implemented
-		quote — partially implemented
+		quote — Implemented
 		list — partially implemented
-		    cons — implemented
+		    cons — Implemented
 		get-label
 	funcall
-	    car — implemented
-		cdr — implemented
-		null? — implemented
+	    car — Implemented
+		cdr — Implemented
+		null? — Implemented
 		push — partially implemented
 		call
+
+(setq a-closure (list func a b c))
 
 move.8 is throwing an error. This is resolved and was probably caused by bad balancing.
 
@@ -987,13 +989,38 @@ So here are the disadvantages of not having a dedicated symbol type:
     Symbol comparison is slow.
 	The difference between symbols and strings is that symbols have a specific string format.
 
-There is now a new symbol data type. It does not yet have a master package.
+There is now a new symbol data type. It does not yet have a master package. Edit: Now it does.
+
+get-label prerequisites:
+    Fetch absolute address of labels. I may have to do more fixups. On the other hand, these addresses are absolute, so that means four bytes for every one of them.
+	Fetch labels by name, ID, or pointer. Labels lose all of their identity when they are copied into the links array, and multiple target duplicates are created.
+
+I need to keep track of
+    Absolute address of target
+	Absolute address of push-integer.32
+
+number of targets != number of push-integers
+number of links > number of targets
+number of links != number of push-integers
+
+Easy solution: Add an array to certain links, the elements of which point to the push-integer.32s.
+Slightly more difficult solution(?): Create a target-reference link array.
+
+Create a second set of links which point from the `push-integer.32`s to the targets?
+I think all I have to do is set `.size` to 4 and the optimizer will figure everything out for me.
+
+I could do something really hacky. 😀 Subtract 4 from "push-integer.32" and then set `.size` to 4 before optimization. 4 will be added to the instruction during optimization, which will change the instruction back to "push-integer.32".
+The proper way would be to add another boolean to `jumpLink_t` that keeps it from being optimized and treats it as if there's a size of 4. This should be slightly slower.
+
+Absolute addressing routed using boolean.
+
+Next:
+    push-label.32
 
 Todo:
-    quote
+	funcall/lambda
 	Fix GC.
 	macros
-	funcall/lambda
 	Clean up.
 	Merge with Hidey-Chess and add required functions.
 	Clean up.
