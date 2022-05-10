@@ -938,6 +938,7 @@ Labels will need to be able to return absolute program addresses.
   
   (nreverse appended-list))
 
+;; Edit: I don't believe this will work. It can capture variables, but it will create a copy instead of pointing to it.
 (defmacro lambda (caps args &rest body)
   (var name (gensym))
   `(no-scope
@@ -969,7 +970,7 @@ Required keywords/functions
         defmacro
 	    gensym — partially implemented
 		quote — Implemented
-		list — partially implemented
+		list — Implemented
 		    cons — Implemented
 		get-label — Implemented
 	funcall
@@ -1018,7 +1019,6 @@ Callbacks implemented.
 
 Todo:
 	funcall/lambda
-	Fix GC.
 	macros
 	Clean up.
 	Merge with Hidey-Chess and add required functions.

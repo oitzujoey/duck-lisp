@@ -4,13 +4,9 @@
   (var i 0)
   (var deck ())
   (while (< i size)
-		 (setq deck (cons (- size i) deck))
+		 (setq deck (cons (- (- size i) 1) deck))
 		 (setq i (1+ i)))
   deck)
-
-(var deck (new-deck 10))
-
-(println deck)
 
 (defun pseudo-sort (deck unders-count)
   (var new-deck ())
@@ -24,5 +20,38 @@
 		 (setq deck (cdr deck)))
   new-deck)
 
-(var new-deck (pseudo-sort deck 1))
-(println new-deck)
+(defun find-cycles (deck unders-count)
+  (
+   (var shuffled-deck (pseudo-sort (copy-list deck) unders-count))
+   (var cycles ())
+   (var cycle-number 0)
+   (var found ())
+   (var i 0)
+   (while (< i (length deck))
+		  (comment Find the next element that has not been touched. This is the start of the next loop.)
+		  (while (and (< i (length deck))
+					  (member (elt shuffled-deck i) found))
+				 (setq i (1+ i)))
+		  (if (< i (length deck))
+			  (
+			   (setq cycles (cons () cycles))
+			   (var cycle (first cycles))
+			   (var endcard (elt shuffled-deck i))
+			   (setq cycle (cons endcard cycle))
+			   (setq found (cons endcard found))
+			   (comment Trace the cycle.)
+			   (while (not (= endcard
+							  (elt shuffled-deck (first cycle))))
+					  (setq found (cons (elt shuffled-deck (first cycle)) found))
+					  (setq cycle (cons (elt shuffled-deck (first cycle)) cycle)))
+			   (comment Move to the next cycle.)
+			   (setq cycles (cons cycle (cdr cycles)))
+			   (setq cycle-number (1+ cycle-number))
+			   (setq i (1+ i)))
+			  (
+			   ())))
+   (cons shuffled-deck (cons cycles (cons cycle-number ())))))
+
+(var deck (println (new-deck 52)))
+(var new-deck (println (pseudo-sort deck 1)))
+(var cycles (println (find-cycles deck 1)))

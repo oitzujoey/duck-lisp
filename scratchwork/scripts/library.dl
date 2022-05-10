@@ -15,6 +15,9 @@
 (defun 1+ (x)
   (+ x 1))
 
+(defun >= (x y)
+  (not (< x y)))
+
 (defun type-to-string (type)
   (comment "No lexical scope yet.")
   (var duckLisp-object-type-none 0)
@@ -49,6 +52,13 @@
 		  false)
 	  false))
 
+(defun or (a b)
+  (if a
+	  true
+	  (if b
+		  true
+		  false)))
+
 (defun pair (x y)
   (if (and (null? x) (null? y))
 	  ()
@@ -71,6 +81,13 @@
 	(setq list (cdr list))
 	(setq i (1+ i)))
   list)
+
+(defun elt (list n)
+  (var i 0)
+  (while (< i n)
+	(setq list (cdr list))
+	(setq i (1+ i)))
+  (car list))
 
 (defun length (list)
   (var i 0)
@@ -101,6 +118,22 @@
 							  appended-list))
 	(setq list2 (cdr list2)))
   (nreverse appended-list))
+
+(defun copy-list (list)
+  list)
+
+(defun member (element list)
+  (var found false)
+  (while (and (not (null? list)) (not found))
+	(if (= element (car list))
+		(setq found true)
+	    ())
+	(setq list (cdr list)))
+  found)
+
+
+(defun first (x)
+  (car x))
 
 
 (comment " Copied straight out of CLHS B）")
