@@ -57,6 +57,7 @@ typedef struct duckLisp_object_s {
 		struct duckVM_gclist_cons_s *list;
 	} value;
 	duckLisp_object_type_t type;
+	dl_bool_t inUse;
 } duckLisp_object_t;
 
 typedef enum {

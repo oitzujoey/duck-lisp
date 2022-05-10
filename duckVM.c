@@ -57,18 +57,22 @@ dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	return e;
 }
 
-dl_error_t duckVM_gclist_markCons(duckVM_gclist_cons_t *cons) {
+dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons) {
 	dl_error_t e = dl_error_ok;
-	
-	if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
-		(cons->type == duckVM_gclist_cons_type_addrObject)) {
-		e = duckVM_gclist_markCons(cons->car.addr);
-		if (e) goto cleanup;
-	}
-	if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
-		(cons->type == duckVM_gclist_cons_type_objectAddr)) {
-		e = duckVM_gclist_markCons(cons->car.addr);
-		if (e) goto cleanup;
+
+	if (cons) {
+		printf("%lli\n", (dl_ptrdiff_t) (cons - gclist->conses));
+		gclist->inUse[(dl_ptrdiff_t) (cons - gclist->conses)] = dl_true;
+		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
+			(cons->type == duckVM_gclist_cons_type_addrObject)) {
+			e = duckVM_gclist_markCons(gclist, cons->car.addr);
+			if (e) goto cleanup;
+		}
+		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
+			(cons->type == duckVM_gclist_cons_type_objectAddr)) {
+			e = duckVM_gclist_markCons(gclist, cons->cdr.addr);
+			if (e) goto cleanup;
+		}
 	}
 
  cleanup:
@@ -81,6 +85,8 @@ dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	/* Clear the in use flags. */
 
+	printf("Collect\n");
+
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.conses_length; i++) {
 		duckVM->gclist.inUse[i] = dl_false;
 	}
@@ -90,7 +96,7 @@ dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->stack.elements_length; i++) {
 		duckLisp_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, i);
 		if (object->type == duckLisp_object_type_list) {
-			e = duckVM_gclist_markCons(object->value.list);
+			e = duckVM_gclist_markCons(&duckVM->gclist, object->value.list);
 			if (e) goto cleanup;
 		}
 	}
@@ -99,7 +105,7 @@ dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	duckVM->gclist.freeConses_length = 0;  // This feels horribly inefficient.
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.conses_length; i++) {
-		if (duckVM->gclist.inUse[i]) {
+		if (!duckVM->gclist.inUse[i]) {
 			duckVM->gclist.freeConses[duckVM->gclist.freeConses_length++] = &duckVM->gclist.conses[i];
 		}
 	}
@@ -126,8 +132,8 @@ dl_error_t duckVM_gclist_pushCons(duckVM_t *duckVM, duckVM_gclist_cons_t **consO
 		}
 	}
 
-	*gclist->freeConses[--gclist->conses_length] = consIn;
-	*consOut = gclist->freeConses[gclist->conses_length];
+	*gclist->freeConses[--gclist->freeConses_length] = consIn;
+	*consOut = gclist->freeConses[gclist->freeConses_length];
 	
 	return e;
 }

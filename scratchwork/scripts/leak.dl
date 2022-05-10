@@ -1,0 +1,17 @@
+(print "Starting leak\n")
+(var x ())
+(while true
+
+  (; Force the conses to be popped.
+   )
+  (setq x (cons (cons () ()) ()))
+  (print-stack)
+  (print x)
+  (; Stack objects don't leak.
+   )
+  (print "\n")
+  (;
+   (print "Leaking\n"))
+  (;
+   (print-stack)
+  (print "\n")))

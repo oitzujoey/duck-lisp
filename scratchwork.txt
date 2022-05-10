@@ -971,13 +971,13 @@ Required keywords/functions
 		quote — Implemented
 		list — partially implemented
 		    cons — Implemented
-		get-label
+		get-label — Implemented
 	funcall
 	    car — Implemented
 		cdr — Implemented
 		null? — Implemented
 		push — partially implemented
-		call
+		call — Implemented
 
 (setq a-closure (list func a b c))
 
@@ -1014,7 +1014,7 @@ The proper way would be to add another boolean to `jumpLink_t` that keeps it fro
 
 Absolute addressing routed using boolean.
 
-Callbacks implemented, likely with bugs.
+Callbacks implemented.
 
 Todo:
 	funcall/lambda
