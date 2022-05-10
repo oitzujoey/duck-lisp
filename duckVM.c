@@ -1328,6 +1328,15 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
+			case duckLisp_object_type_list:
+				switch (object2.type) {
+				case duckLisp_object_type_list:
+					object1.value.boolean = object1.value.list == object2.value.list;
+					break;
+				default:
+					object1.value.boolean = dl_false;
+				}
+				break;
 			case duckLisp_object_type_string:
 				switch (object2.type) {
 				case duckLisp_object_type_string:
@@ -1340,7 +1349,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_float:
@@ -1350,7 +1358,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_integer:
@@ -1360,7 +1367,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_bool:
@@ -1370,7 +1376,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			default:
@@ -1391,6 +1396,15 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
+			case duckLisp_object_type_list:
+				switch (object2.type) {
+				case duckLisp_object_type_list:
+					object1.value.boolean = object1.value.list == object2.value.list;
+					break;
+				default:
+					object1.value.boolean = dl_false;
+				}
+				break;
 			case duckLisp_object_type_string:
 				switch (object2.type) {
 				case duckLisp_object_type_string:
@@ -1403,7 +1417,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_float:
@@ -1413,7 +1426,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_integer:
@@ -1423,7 +1435,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_bool:
@@ -1433,7 +1444,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			default:
@@ -1451,6 +1461,15 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			switch (object1.type) {
+			case duckLisp_object_type_list:
+				switch (object2.type) {
+				case duckLisp_object_type_list:
+					object1.value.boolean = object1.value.list == object2.value.list;
+					break;
+				default:
+					object1.value.boolean = dl_false;
+				}
+				break;
 			case duckLisp_object_type_string:
 				switch (object2.type) {
 				case duckLisp_object_type_string:
@@ -1463,7 +1482,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_float:
@@ -1473,7 +1491,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_integer:
@@ -1483,7 +1500,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			case duckLisp_object_type_bool:
@@ -1493,7 +1509,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					break;
 				default:
 					object1.value.boolean = dl_false;
-					goto l_cleanup;
 				}
 				break;
 			default:
@@ -1744,7 +1759,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				else cons1.type = duckVM_gclist_cons_type_objectObject;
 			}
 			e = duckVM_gclist_pushCons(duckVM, &object1.value.list, cons1);
-			if (e) goto l_cleanup;
+			if (e) break;
 			object1.type = duckLisp_object_type_list;
 			e = dl_array_pushElement(&duckVM->stack, &object1);
 			if (e) break;
@@ -1784,7 +1799,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				else cons1.type = duckVM_gclist_cons_type_objectObject;
 			}
 			e = duckVM_gclist_pushCons(duckVM, &object1.value.list, cons1);
-			if (e) goto l_cleanup;
+			if (e) break;
 			object1.type = duckLisp_object_type_list;
 			e = dl_array_pushElement(&duckVM->stack, &object1);
 			if (e) break;
@@ -1822,7 +1837,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				else cons1.type = duckVM_gclist_cons_type_objectObject;
 			}
 			e = duckVM_gclist_pushCons(duckVM, &object1.value.list, cons1);
-			if (e) goto l_cleanup;
+			if (e) break;
 
 			object1.type = duckLisp_object_type_list;
 			e = dl_array_pushElement(&duckVM->stack, &object1);

@@ -5553,13 +5553,8 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
 			else {
 				// We are NOT pushing an index since the index is part of the instruction.
 				/* e = duckLisp_emit_pushIndex(duckLisp, assembly, dl_null, identifier_index); */
-				/* if (e) goto l_cleanup; */
-				/* if (temp_index != duckLisp->locals_length - 1) { */
 				e = duckLisp_emit_pushIndex(duckLisp, assembly, dl_null, identifier_index);
-				if (e) {
-					goto l_cleanup;
-					/* } */
-				}
+				if (e) goto l_cleanup;
 			}
 			break;
 		case duckLisp_ast_type_string:
