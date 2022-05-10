@@ -7,10 +7,11 @@
 #include "duckLisp.h"
 #include <stdio.h>
 
-dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist, dl_memoryAllocation_t *memoryAllocation, dl_size_t maxConses) {
+dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist, dl_memoryAllocation_t *memoryAllocation, dl_size_t maxConses, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
 	gclist->memoryAllocation = memoryAllocation;
+
 
 	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->conses,
@@ -19,20 +20,46 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist, dl_memoryAllocation_t *me
 	gclist->conses_length = maxConses;
 
 	e = dl_malloc(gclist->memoryAllocation,
+				  (void **) &gclist->objects,
+				  maxConses * sizeof(duckLisp_object_t));
+	if (e) goto cleanup;
+	gclist->objects_length = maxObjects;
+
+
+	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->freeConses,
-				  maxConses * sizeof(duckVM_gclist_cons_t));
+				  maxConses * sizeof(duckVM_gclist_cons_t *));
 	if (e) goto cleanup;
 	gclist->freeConses_length = maxConses;
 
 	e = dl_malloc(gclist->memoryAllocation,
-				  (void **) &gclist->inUse,
+				  (void **) &gclist->freeObjects,
+				  maxConses * sizeof(duckLisp_object_t *));
+	if (e) goto cleanup;
+	gclist->freeObjects_length = maxObjects;
+
+
+	e = dl_malloc(gclist->memoryAllocation,
+				  (void **) &gclist->consInUse,
 				  maxConses * sizeof(dl_bool_t));
 	if (e) goto cleanup;
 
+	e = dl_malloc(gclist->memoryAllocation,
+				  (void **) &gclist->objectInUse,
+				  maxConses * sizeof(dl_bool_t));
+	if (e) goto cleanup;
+
+
 	/**/ dl_memclear(gclist->conses, gclist->conses_length * sizeof(duckVM_gclist_cons_t));
+	/**/ dl_memclear(gclist->objects, gclist->objects_length * sizeof(duckLisp_object_t));
+
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxConses; i++) {
 		gclist->freeConses[i] = &gclist->conses[i];
+	}
+
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxObjects; i++) {
+		gclist->freeObjects[i] = &gclist->objects[i];
 	}
 
  cleanup:
@@ -47,31 +74,54 @@ dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeConses);
 	gclist->freeConses_length = 0;
 	
+	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeObjects);
+	gclist->freeObjects_length = 0;
+
+
 	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->conses);
 	e = eError ? eError : e;
 	gclist->conses_length = 0;
 
-	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->inUse);
+	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->objects);
+	e = eError ? eError : e;
+	gclist->objects_length = 0;
+
+
+	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->consInUse);
+	e = eError ? eError : e;
+
+	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->objectInUse);
 	e = eError ? eError : e;
 	
 	return e;
+}
+
+void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
+	if (object) {
+		gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
+	}
 }
 
 dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons) {
 	dl_error_t e = dl_error_ok;
 
 	if (cons) {
-		printf("%lli\n", (dl_ptrdiff_t) (cons - gclist->conses));
-		gclist->inUse[(dl_ptrdiff_t) (cons - gclist->conses)] = dl_true;
+		gclist->consInUse[(dl_ptrdiff_t) (cons - gclist->conses)] = dl_true;
 		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
 			(cons->type == duckVM_gclist_cons_type_addrObject)) {
 			e = duckVM_gclist_markCons(gclist, cons->car.addr);
 			if (e) goto cleanup;
 		}
+		else {
+			duckVM_gclist_markObject(gclist, cons->car.data);
+		}
 		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
 			(cons->type == duckVM_gclist_cons_type_objectAddr)) {
 			e = duckVM_gclist_markCons(gclist, cons->cdr.addr);
 			if (e) goto cleanup;
+		}
+		else {
+			duckVM_gclist_markObject(gclist, cons->cdr.data);
 		}
 	}
 
@@ -85,10 +135,12 @@ dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	/* Clear the in use flags. */
 
-	printf("Collect\n");
-
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.conses_length; i++) {
-		duckVM->gclist.inUse[i] = dl_false;
+		duckVM->gclist.consInUse[i] = dl_false;
+	}
+
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.objects_length; i++) {
+		duckVM->gclist.objectInUse[i] = dl_false;
 	}
 
 	/* Mark the cells in use. */
@@ -105,8 +157,15 @@ dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	duckVM->gclist.freeConses_length = 0;  // This feels horribly inefficient.
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.conses_length; i++) {
-		if (!duckVM->gclist.inUse[i]) {
+		if (!duckVM->gclist.consInUse[i]) {
 			duckVM->gclist.freeConses[duckVM->gclist.freeConses_length++] = &duckVM->gclist.conses[i];
+		}
+	}
+
+	duckVM->gclist.freeObjects_length = 0;  // This feels horribly inefficient.
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.objects_length; i++) {
+		if (!duckVM->gclist.objectInUse[i]) {
+			duckVM->gclist.freeObjects[duckVM->gclist.freeObjects_length++] = &duckVM->gclist.objects[i];
 		}
 	}
 
@@ -123,6 +182,7 @@ dl_error_t duckVM_gclist_pushCons(duckVM_t *duckVM, duckVM_gclist_cons_t **consO
 	// Try once
 	if (gclist->freeConses_length == 0) {
 		// STOP THE WORLD
+		puts("pushCons : Collect");
 		e = duckVM_gclist_garbageCollect(duckVM);
 		if (e) return e;
 		
@@ -138,9 +198,32 @@ dl_error_t duckVM_gclist_pushCons(duckVM_t *duckVM, duckVM_gclist_cons_t **consO
 	return e;
 }
 
+dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **objectOut, duckLisp_object_t objectIn) {
+	dl_error_t e = dl_error_ok;
+
+	duckVM_gclist_t *gclist = &duckVM->gclist;
+
+	// Try once
+	if (gclist->freeObjects_length == 0) {
+		// STOP THE WORLD
+		puts("pushObject: Collect");
+		e = duckVM_gclist_garbageCollect(duckVM);
+		if (e) return e;
+		
+		// Try twice
+		if (gclist->freeObjects_length == 0) {
+			return dl_error_outOfMemory;
+		}
+	}
+
+	*gclist->freeObjects[--gclist->freeObjects_length] = objectIn;
+	*objectOut = gclist->freeObjects[gclist->freeObjects_length];
+	
+	return e;
+}
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t maxConses) {
+dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t maxConses, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
 	e = dl_memory_init(&duckVM->memoryAllocation, memory, size, dl_memoryFit_best);
@@ -152,7 +235,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t
 	/**/ dl_array_init(&duckVM->stack, &duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->call_stack, &duckVM->memoryAllocation, sizeof(unsigned char *), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->statics, &duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
-	e = duckVM_gclist_init(&duckVM->gclist, &duckVM->memoryAllocation, maxConses);
+	e = duckVM_gclist_init(&duckVM->gclist, &duckVM->memoryAllocation, maxConses, maxObjects);
 	if (e) goto l_cleanup;
 
 	l_cleanup:
@@ -1639,18 +1722,16 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				cons1.car.addr = object1.value.list;
 			}
 			else {
-				e = dl_malloc(&duckVM->memoryAllocation, (void **) &objectPtr1, sizeof(duckLisp_object_t *));
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 				if (e) break;
-				*objectPtr1 = object2;
 				cons1.car.data = objectPtr1;
 			}
 			if (object2.type == duckLisp_object_type_list) {
 				cons1.car.addr = object2.value.list;
 			}
 			else {
-				e = dl_malloc(&duckVM->memoryAllocation, (void **) &objectPtr2, sizeof(duckLisp_object_t *));
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object2);
 				if (e) break;
-				*objectPtr2 = object2;
 				cons1.cdr.data = objectPtr2;
 			}
 			// This is stupid.
@@ -1681,18 +1762,16 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				cons1.car.addr = object1.value.list;
 			}
 			else {
-				e = dl_malloc(&duckVM->memoryAllocation, (void **) &objectPtr1, sizeof(duckLisp_object_t *));
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 				if (e) break;
-				*objectPtr1 = object2;
 				cons1.car.data = objectPtr1;
 			}
 			if (object2.type == duckLisp_object_type_list) {
 				cons1.car.addr = object2.value.list;
 			}
 			else {
-				e = dl_malloc(&duckVM->memoryAllocation, (void **) &objectPtr2, sizeof(duckLisp_object_t *));
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object2);
 				if (e) break;
-				*objectPtr2 = object2;
 				cons1.cdr.data = objectPtr2;
 			}
 			// This is stupid.
@@ -1721,18 +1800,16 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				cons1.car.addr = object1.value.list;
 			}
 			else {
-				e = dl_malloc(&duckVM->memoryAllocation, (void **) &objectPtr1, sizeof(duckLisp_object_t));
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 				if (e) break;
-				*objectPtr1 = object1;
 				cons1.car.data = objectPtr1;
 			}
 			if (object2.type == duckLisp_object_type_list) {
 				cons1.cdr.addr = object2.value.list;
 			}
 			else {
-				e = dl_malloc(&duckVM->memoryAllocation, (void **) &objectPtr2, sizeof(duckLisp_object_t));
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object2);
 				if (e) break;
-				*objectPtr2 = object2;
 				cons1.cdr.data = objectPtr2;
 			}
 			// This is stupid.

@@ -7,10 +7,15 @@
 
 typedef struct duckVM_gclist_s {
 	struct duckVM_gclist_cons_s *conses;
+	struct duckLisp_object_s *objects;
 	struct duckVM_gclist_cons_s **freeConses;
-	dl_bool_t *inUse;
+	struct duckLisp_object_s **freeObjects;
+	dl_bool_t *consInUse;
+	dl_bool_t *objectInUse;
 	dl_size_t conses_length;
+	dl_size_t objects_length;
 	dl_size_t freeConses_length;
+	dl_size_t freeObjects_length;
 	dl_array_strategy_t strategy;
 	dl_memoryAllocation_t *memoryAllocation;
 } duckVM_gclist_t;
@@ -80,7 +85,7 @@ typedef struct duckVM_gclist_cons_s {
 } duckVM_gclist_cons_t;
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t maxConses);
+dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t maxConses, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode);
 dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index);

@@ -711,7 +711,7 @@ int main(int argc, char *argv[]) {
 	d.duckVMMemory = dl_true;
 	
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size, 1000);
+	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size, 200, 100);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;

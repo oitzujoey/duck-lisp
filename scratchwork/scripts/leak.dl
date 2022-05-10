@@ -2,16 +2,12 @@
 (var x ())
 (while true
 
-  (; Force the conses to be popped.
-   )
+  (comment  Test stack)
+  5
+  ()
+  
+  (comment  Force conses to be popped)
   (setq x (cons (cons () ()) ()))
-  (print-stack)
-  (print x)
-  (; Stack objects don't leak.
-   )
-  (print "\n")
-  (;
-   (print "Leaking\n"))
-  (;
-   (print-stack)
-  (print "\n")))
+
+  (comment  Force objects to be popped)
+  (setq x (cons (cons 1 2) 3)))
