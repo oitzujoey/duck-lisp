@@ -169,6 +169,8 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	}
 	
 	l_cleanup:
+
+	fflush(stdout);
 	
 	return e;
 }
@@ -455,7 +457,9 @@ int main(int argc, char *argv[]) {
 	} d = {0};
 
 	const size_t duckLispMemory_size = 1024 * 1024;
-	const size_t duckVMMemory_size = 64 * 1024;
+	const size_t duckVMMemory_size = 100 * 64 * 1024;
+	const size_t duckVMMaxConses = 10000;
+	const size_t duckVMMaxObjects = 10000;
 	
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
@@ -711,7 +715,7 @@ int main(int argc, char *argv[]) {
 	d.duckVMMemory = dl_true;
 	
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size, 800, 400);
+	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size, duckVMMaxConses, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;
@@ -737,12 +741,6 @@ int main(int argc, char *argv[]) {
 	
 	puts(COLOR_CYAN "}" COLOR_NORMAL);
 
-	// e = duckVM_call(&duckVM, helloWorld_index);
-	// if (e) {
-	// 	printf("Function call failed. (%s)\n", dl_errorString[e]);
-	// 	goto l_cleanup;
-	// }
-	
 	l_cleanup:
 	
 	puts(COLOR_CYAN);

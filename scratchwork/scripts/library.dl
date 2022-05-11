@@ -18,6 +18,16 @@
 (defun >= (x y)
   (not (< x y)))
 
+(defun gcd (a b)
+  (while (not (= a b))
+	(if (> a b)
+		(setq a (- a b))
+		(setq b (- b a))))
+  a)
+
+(defun lcm (a b)
+  (* a (/ b (gcd a b))))
+
 (defun type-to-string (type)
   (comment "No lexical scope yet.")
   (var duckLisp-object-type-none 0)

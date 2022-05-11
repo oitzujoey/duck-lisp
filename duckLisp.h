@@ -217,6 +217,8 @@ typedef enum {
 	duckLisp_instructionClass_brnz,
 	duckLisp_instructionClass_move,
 	duckLisp_instructionClass_not,
+	duckLisp_instructionClass_mul,
+	duckLisp_instructionClass_div,
 	duckLisp_instructionClass_add,
 	duckLisp_instructionClass_sub,
 	duckLisp_instructionClass_equal,
@@ -289,6 +291,14 @@ typedef enum {
 	duckLisp_instruction_not8,
 	duckLisp_instruction_not16,
 	duckLisp_instruction_not32,
+	
+	duckLisp_instruction_mul8,
+	duckLisp_instruction_mul16,
+	duckLisp_instruction_mul32,
+	
+	duckLisp_instruction_div8,
+	duckLisp_instruction_div16,
+	duckLisp_instruction_div32,
 	
 	duckLisp_instruction_add8,
 	duckLisp_instruction_add16,
