@@ -1,5 +1,11 @@
 (include "../scripts/library.dl")
 
+(comment Under-Out
+		 `new-deck' generates a new deck of cards.
+		 `pseudo-shuffle' shoves a specified number of cards under the deck and then places the top card on a new deck.
+		 `find-cycles' determines which cards move where during a shuffle.
+		 `calculate-identity-shuffle' calculates how many times the deck must be shuffled to place it back in its original state.)
+
 (defun new-deck (size)
   (print "* <new-deck ") (print size) (println ">")
   (var i 0)
@@ -9,8 +15,8 @@
 	(setq i (1+ i)))
   deck)
 
-(defun pseudo-sort (deck unders-count)
-  (print "* <pseudo-sort ") (print (quote deck)) (print unders-count) (println ">")
+(defun pseudo-shuffle (deck unders-count)
+  (print "* <pseudo-shuffle ") (print (quote deck)) (print unders-count) (println ">")
   (var new-deck ())
   (var i 0)
   (while (atom? (car deck))
@@ -25,7 +31,7 @@
 (defun find-cycles (deck unders-count)
   (print "* <find-cycles ") (print (quote deck)) (print unders-count) (println ">")
   (println "Shuffling deck…")
-  (var shuffled-deck (pseudo-sort (copy-list deck) unders-count))
+  (var shuffled-deck (pseudo-shuffle (copy-list deck) unders-count))
   (println "Starting analysis:")
   (var cycles ())
   (var cycle-number 0)

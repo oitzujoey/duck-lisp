@@ -55,9 +55,17 @@ Examples can be found in the scratchwork directory.
 ```
 
 ```bash
-# Run the duck-lisp program "0.dl".
-./duckLisp-dev ../fibonacci.dl
+# Run the duck-lisp program "factorial.dl".
+./duckLisp-dev ../scripts/factorial.dl
 ```
+
+Note: Multiplication is defined in the VM, but this program was written pre-multiplication, so it reimplements it.
+
+```bash
+# Run a script with arguments.
+./duckLisp-dev "(include ../scripts/underout.dl) (main 52)"
+```
+
 
 ## Usage
 
