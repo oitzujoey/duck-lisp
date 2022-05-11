@@ -518,6 +518,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++);
 			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff2);
 			if (e) break;
+			if (object1.type != duckLisp_object_type_bool) {
+				e = dl_error_invalidValue;
+				break;
+			}
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x80000000ULL) {
 					ip -= ((~ptrdiff1 + 1) & 0xFFFFFFFFULL);
@@ -536,6 +540,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++);
 			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff2);
 			if (e) break;
+			if (object1.type != duckLisp_object_type_bool) {
+				e = dl_error_invalidValue;
+				break;
+			}
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x8000ULL) {
 					ip -= ((~ptrdiff1 + 1) & 0xFFFFULL);
@@ -553,6 +561,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++);
 			e = dl_array_popElements(&duckVM->stack, dl_null, ptrdiff2);
 			if (e) break;
+			if (object1.type != duckLisp_object_type_bool) {
+				e = dl_error_invalidValue;
+				break;
+			}
 			if (object1.value.boolean) {
 				if (ptrdiff1 & 0x80ULL) {
 					ip -= ((~ptrdiff1 + 1) & 0xFFULL);
