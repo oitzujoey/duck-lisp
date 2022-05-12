@@ -3755,7 +3755,7 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp, dl_array_t *assemb
 	subVM.memoryAllocation = duckLisp->memoryAllocation;
 
 	// Shouldn't need too much.
-	e = duckVM_init(&subVM, 10, 10);
+	e = duckVM_init(&subVM, 1000, 1000);
 	if (e) goto l_cleanupDL;
 
 	e = duckVM_execute(&subVM, bytecodeArray.elements);
@@ -3790,6 +3790,12 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp, dl_array_t *assemb
 	/**/ duckVM_quit(&subVM);
 
  l_cleanupDL:
+
+	eError = dl_array_pushElements(&duckLisp->errors,
+								   subCompiler.errors.elements,
+								   subCompiler.errors.elements_length);
+	if (eError) e = eError;
+	
 	/**/ duckLisp_quit(&subCompiler);
 
  l_cleanup:
