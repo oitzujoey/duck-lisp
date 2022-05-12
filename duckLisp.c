@@ -3609,35 +3609,41 @@ dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp, duckLisp_ast_compoundExpress
 	/* (cons a b) */
 
 	if (cons != dl_null) {
+		const dl_uint8_t op = 0;
 		const dl_uint8_t car = 1;
 		const dl_uint8_t cdr = 2;
 
-		e = dl_malloc(duckLisp->memoryAllocation, (void **) &ast->value.expression.compoundExpressions, 3);
+		e = dl_malloc(duckLisp->memoryAllocation, (void **) &ast->value.expression.compoundExpressions, 3 * sizeof(duckLisp_ast_compoundExpression_t));
 		if (e) goto cleanup;
 		ast->value.expression.compoundExpressions_length = 3;
 		ast->type = duckLisp_ast_type_expression;
 
 		e = dl_malloc(duckLisp->memoryAllocation,
-					  (void **) &ast->value.expression.compoundExpressions[0].value.identifier.value,
+					  (void **) &ast->value.expression.compoundExpressions[op].value.identifier.value,
 					  sizeof("cons") - 1);
 		if (e) goto cleanup;
-		/**/ dl_memcopy_noOverlap(ast->value.expression.compoundExpressions[0].value.identifier.value, DL_STR("cons"));
-		ast->value.expression.compoundExpressions[0].value.identifier.value_length = sizeof("cons") - 1;
+		/**/ dl_memcopy_noOverlap(ast->value.expression.compoundExpressions[op].value.identifier.value, DL_STR("cons"));
+		ast->value.expression.compoundExpressions[op].value.identifier.value_length = sizeof("cons") - 1;
+		ast->value.expression.compoundExpressions[op].type = duckLisp_ast_type_identifier;
 
 		switch (cons->type) {
 		case duckVM_gclist_cons_type_addrAddr:
+			puts("addr-addr");
 			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
 			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
 			break;
 		case duckVM_gclist_cons_type_addrObject:
+			puts("addr-object");
 			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data);
 			break;
 		case duckVM_gclist_cons_type_objectAddr:
+			puts("object-addr");
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data);
 			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
 			break;
 		case duckVM_gclist_cons_type_objectObject:
+			puts("object-object");
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data);
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data);
 			break;
@@ -3646,8 +3652,10 @@ dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp, duckLisp_ast_compoundExpress
 		}
 	}
 	else {
+		puts("null");
 		ast->value.expression.compoundExpressions = dl_null;
 		ast->value.expression.compoundExpressions_length = 0;
+		ast->type = duckLisp_ast_type_expression;
 	}
 
  cleanup:
