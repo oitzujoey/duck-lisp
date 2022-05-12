@@ -1017,6 +1017,8 @@ Absolute addressing routed using boolean.
 
 Callbacks implemented.
 
+Macros will be a special case of generators. There will be a dedicated generator macro that will look at its name and then call the macro script associated with it.
+
 Todo:
 	funcall/lambda
 	macros

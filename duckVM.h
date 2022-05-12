@@ -3,7 +3,8 @@
 #define DUCKVM_H
 
 #include "DuckLib/core.h"
-#include "duckLisp.h"
+#include "DuckLib/memory.h"
+#include "DuckLib/array.h"
 
 typedef struct duckVM_gclist_s {
 	struct duckVM_gclist_cons_s *conses;
@@ -21,7 +22,7 @@ typedef struct duckVM_gclist_s {
 } duckVM_gclist_t;
 
 typedef struct {
-	dl_memoryAllocation_t memoryAllocation;
+	dl_memoryAllocation_t *memoryAllocation;
 	dl_array_t errors;                          // Runtime errors.
 	dl_array_t stack;                           // For data.
 	dl_array_t call_stack;
@@ -85,7 +86,7 @@ typedef struct duckVM_gclist_cons_s {
 } duckVM_gclist_cons_t;
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t maxConses, dl_size_t maxObjects);
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxConses, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode);
 dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index);

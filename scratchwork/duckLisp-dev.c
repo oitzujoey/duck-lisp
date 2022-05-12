@@ -465,7 +465,7 @@ int main(int argc, char *argv[]) {
 	void *duckLispMemory = dl_null;
 	dl_memoryAllocation_t duckLispMemoryAllocation;
 	void *duckVMMemory = dl_null;
-	//	dl_memoryAllocation_t duckVMMemoryAllocation;
+	dl_memoryAllocation_t duckVMMemoryAllocation;
 	size_t tempMemory_size;
 	dl_size_t tempDlSize;
 	duckLisp_error_t error; // Compile errors.
@@ -712,10 +712,17 @@ int main(int argc, char *argv[]) {
 		printf("Out of memory.\n");
 		goto l_cleanup;
 	}
+	
+	e = dl_memory_init(&duckVMMemoryAllocation, duckVMMemory, tempMemory_size, dl_memoryFit_best);
+	if (e) {
+		goto l_cleanup;
+	}
+	duckVM.memoryAllocation = &duckVMMemoryAllocation;
+
 	d.duckVMMemory = dl_true;
 	
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMemory, tempMemory_size, duckVMMaxConses, duckVMMaxObjects);
+	e = duckVM_init(&duckVM, duckVMMaxConses, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;
@@ -745,15 +752,15 @@ int main(int argc, char *argv[]) {
 	
 	puts(COLOR_CYAN);
 	if (d.duckVM_init) {
-		/**/ dl_memory_usage(&tempDlSize, duckVM.memoryAllocation);
+		/**/ dl_memory_usage(&tempDlSize, *duckVM.memoryAllocation);
 		printf("(duckVM) Current memory use: %llu/%llu (%llu%%)\n",
 			   tempDlSize,
-			   duckVM.memoryAllocation.size,
-			   100*tempDlSize/duckVM.memoryAllocation.size);
+			   duckVM.memoryAllocation->size,
+			   100*tempDlSize/duckVM.memoryAllocation->size);
 		printf("(duckVM) Max memory used:    %llu/%llu (%llu%%)\n",
-			   duckVM.memoryAllocation.max_used,
-			   duckVM.memoryAllocation.size,
-			   100*duckVM.memoryAllocation.max_used/duckVM.memoryAllocation.size);
+			   duckVM.memoryAllocation->max_used,
+			   duckVM.memoryAllocation->size,
+			   100*duckVM.memoryAllocation->max_used/duckVM.memoryAllocation->size);
 		/**/ duckVM_quit(&duckVM);
 	}
 	if (d.duckVMMemory) {

@@ -6,7 +6,6 @@
 #include "DuckLib/string.h"
 #include "DuckLib/sort.h"
 #include "DuckLib/trie.h"
-#include "duckVM.h"
 #include <stdio.h>
 
 dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assembly,
@@ -3602,6 +3601,196 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp, dl_array_t *assembly
 	}
 	
 	return e;
+ }
+ 
+dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *ast, duckVM_gclist_cons_t *cons) {
+	dl_error_t e = dl_error_ok;
+
+	/* (cons a b) */
+
+	if (cons != dl_null) {
+		const dl_uint8_t car = 1;
+		const dl_uint8_t cdr = 2;
+
+		e = dl_malloc(duckLisp->memoryAllocation, (void **) &ast->value.expression.compoundExpressions, 3);
+		if (e) goto cleanup;
+		ast->value.expression.compoundExpressions_length = 3;
+		ast->type = duckLisp_ast_type_expression;
+
+		e = dl_malloc(duckLisp->memoryAllocation,
+					  (void **) &ast->value.expression.compoundExpressions[0].value.identifier.value,
+					  sizeof("cons") - 1);
+		if (e) goto cleanup;
+		/**/ dl_memcopy_noOverlap(ast->value.expression.compoundExpressions[0].value.identifier.value, DL_STR("cons"));
+		ast->value.expression.compoundExpressions[0].value.identifier.value_length = sizeof("cons") - 1;
+
+		switch (cons->type) {
+		case duckVM_gclist_cons_type_addrAddr:
+			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
+			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
+			break;
+		case duckVM_gclist_cons_type_addrObject:
+			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data);
+			break;
+		case duckVM_gclist_cons_type_objectAddr:
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data);
+			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
+			break;
+		case duckVM_gclist_cons_type_objectObject:
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data);
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data);
+			break;
+		default:
+			e = dl_error_invalidValue;
+		}
+	}
+	else {
+		ast->value.expression.compoundExpressions = dl_null;
+		ast->value.expression.compoundExpressions_length = 0;
+	}
+
+ cleanup:
+	
+	return e;
+}
+
+dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *ast, duckLisp_object_t *object) {
+	dl_error_t e = dl_error_ok;
+
+	switch (object->type) {
+	case duckLisp_object_type_bool:
+		puts("boolean");
+		ast->value.boolean.value = object->value.boolean;
+		ast->type = duckLisp_ast_type_bool;
+		break;
+	case duckLisp_object_type_integer:
+		printf("integer %lli\n", object->value.integer);
+		ast->value.integer.value = object->value.integer;
+		ast->type = duckLisp_ast_type_int;
+		break;
+	case duckLisp_object_type_float:
+		puts("float");
+		ast->value.floatingPoint.value = object->value.floatingPoint;
+		ast->type = duckLisp_ast_type_float;
+		break;
+	case duckLisp_object_type_string:
+		puts("string");
+		// @TODO: This (and case symbol below) is a problem since it will never be freed.
+		ast->value.string.value_length = object->value.string.value_length;
+		e = dl_malloc(duckLisp->memoryAllocation, (void **) &ast->value.string.value, object->value.string.value_length);
+		if (e) break;
+		/**/ dl_memcopy_noOverlap(ast->value.string.value,
+								  object->value.string.value,
+								  object->value.string.value_length);
+		ast->type = duckLisp_ast_type_string;
+		break;
+	case duckLisp_object_type_symbol:
+		puts("symbol");
+		ast->value.identifier.value_length = object->value.symbol.value_length;
+		e = dl_malloc(duckLisp->memoryAllocation, (void **) &ast->value.identifier.value, object->value.symbol.value_length);
+		if (e) break;
+		/**/ dl_memcopy_noOverlap(ast->value.identifier.value,
+								  object->value.symbol.value,
+								  object->value.symbol.value_length);
+		ast->type = duckLisp_ast_type_identifier;
+		break;
+	case duckLisp_object_type_function:
+		puts("function");
+		e = dl_error_invalidValue;
+		break;
+	case duckLisp_object_type_list:
+		puts("list");
+		e = duckLisp_consToAST(duckLisp, ast, object->value.list);
+		break;
+	default:
+		e = dl_error_invalidValue;
+	}
+
+	return e;
+}
+
+dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	duckLisp_t subCompiler;
+	duckVM_t subVM;
+	dl_size_t tempDlSize;
+	dl_array_t bytecodeArray;
+	duckLisp_object_t object;
+	duckLisp_ast_compoundExpression_t ast;
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2);
+	if (e) goto l_cleanup;
+
+	/* Compile */
+		
+	subCompiler.memoryAllocation = duckLisp->memoryAllocation;
+		
+	e = duckLisp_init(&subCompiler);
+	if (e) goto l_cleanup;
+		
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
+	printf("constexpr: Pre compilation memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
+
+	e = duckLisp_compileAST(&subCompiler, &bytecodeArray, expression->compoundExpressions[1]);
+	if (e) goto l_cleanupDL;
+
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
+	printf("constexpr: Post compilation/Pre execution memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
+
+	/* Execute */
+
+	subVM.memoryAllocation = duckLisp->memoryAllocation;
+
+	// Shouldn't need too much.
+	e = duckVM_init(&subVM, 10, 10);
+	if (e) goto l_cleanupDL;
+
+	e = duckVM_execute(&subVM, bytecodeArray.elements);
+	if (e) goto l_cleanupVM;
+	object = DL_ARRAY_GETTOPADDRESS(subVM.stack, duckLisp_object_t);
+
+	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
+	printf("constexpr: Post execution memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
+
+	// Compile result.
+	
+	e = duckLisp_objectToAST(duckLisp, &ast, &object);
+	if (e) goto l_cleanupVM;
+
+	e = ast_print_compoundExpression(*duckLisp, ast);
+	if (e) goto l_cleanupVM;
+	putchar('\n');
+	
+	e = duckLisp_compile_compoundExpression(duckLisp,
+											assembly,
+											expression->compoundExpressions[0].value.identifier.value,
+											expression->compoundExpressions[0].value.identifier.value_length,
+											&ast,
+											dl_null,
+											dl_null,
+											dl_false);
+	if (e) goto l_cleanupVM;
+
+	puts("done");
+
+ l_cleanupVM:
+	/**/ duckVM_quit(&subVM);
+
+ l_cleanupDL:
+	/**/ duckLisp_quit(&subCompiler);
+
+ l_cleanup:
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+	
+	return e;
 }
 
 dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
@@ -6036,7 +6225,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp, dl_array_t *assembl
 	return e;
 }
 
-static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_ast_compoundExpression_t astCompoundexpression) {
+dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_ast_compoundExpression_t astCompoundexpression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -6276,11 +6465,11 @@ static dl_error_t compile(duckLisp_t *duckLisp, dl_array_t *bytecode, duckLisp_a
 				
 				switch (args[0].type) {
 				case duckLisp_instructionArgClass_type_integer:
-					if (absolute < 0x100LU) {
+					if (absolute < 0x80LU) {
 						currentInstruction.byte = duckLisp_instruction_pushInteger8;
 						byte_length = 1;
 					}
-					else if (absolute < 0x10000LU) {
+					else if (absolute < 0x8000LU) {
 						currentInstruction.byte = duckLisp_instruction_pushInteger16;
 						byte_length = 2;
 					}
@@ -7462,6 +7651,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 		{DL_STR("<"),            duckLisp_generator_less},
 		{DL_STR(">"),            duckLisp_generator_greater},
 		{DL_STR("defun"),        duckLisp_generator_defun},
+		{DL_STR("constexpr"),    duckLisp_generator_constexpr},
 		{DL_STR("noscope"),      duckLisp_generator_noscope},
 		{DL_STR("quote"),        duckLisp_generator_quote},
 		{DL_STR("list"),         duckLisp_generator_list},
@@ -7603,7 +7793,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, d
 	
 	/* Compile AST to bytecode. */
 	
-	e = compile(duckLisp, &bytecodeArray, ast);
+	e = duckLisp_compileAST(duckLisp, &bytecodeArray, ast);
 	if (e) {
 		goto l_cleanup;
 	}

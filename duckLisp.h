@@ -6,6 +6,7 @@
 #include "DuckLib/memory.h"
 #include "DuckLib/array.h"
 #include "DuckLib/trie.h"
+#include "duckVM.h"
 
 /*
 node
@@ -450,6 +451,14 @@ dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp, dl_array_t *assembly,
 dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp, dl_array_t *assembly,
                               char *label, dl_size_t label_length);
 
+dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp,
+                              duckLisp_ast_compoundExpression_t *ast,
+                              duckVM_gclist_cons_t *cons);
+dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
+                                duckLisp_ast_compoundExpression_t *ast,
+                                duckLisp_object_t *object);
+
+
 dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
                                       dl_array_t *assembly,
                                       duckLisp_ast_expression_t *expression);
@@ -462,8 +471,12 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp, dl_array_t 
 											   duckLisp_ast_compoundExpression_t *compoundExpression,
 											   dl_ptrdiff_t *index, duckLisp_ast_type_t *type,
 											   dl_bool_t pushReference);
-dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression);
+dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
+                                       dl_array_t *assembly,
+                                       duckLisp_ast_expression_t *expression);
 
+dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp, dl_array_t *bytecode,
+							   duckLisp_ast_compoundExpression_t astCompoundexpression);
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
                                char *source, const dl_size_t source_length);
 

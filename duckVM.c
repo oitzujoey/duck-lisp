@@ -223,19 +223,14 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 }
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t maxConses, dl_size_t maxObjects) {
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxConses, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
-	e = dl_memory_init(&duckVM->memoryAllocation, memory, size, dl_memoryFit_best);
-	if (e) {
-		goto l_cleanup;
-	}
-
-	/**/ dl_array_init(&duckVM->errors, &duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
-	/**/ dl_array_init(&duckVM->stack, &duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
-	/**/ dl_array_init(&duckVM->call_stack, &duckVM->memoryAllocation, sizeof(unsigned char *), dl_array_strategy_fit);
-	/**/ dl_array_init(&duckVM->statics, &duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
-	e = duckVM_gclist_init(&duckVM->gclist, &duckVM->memoryAllocation, maxConses, maxObjects);
+	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->call_stack, duckVM->memoryAllocation, sizeof(unsigned char *), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->statics, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
+	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxConses, maxObjects);
 	if (e) goto l_cleanup;
 
 	l_cleanup:
@@ -245,7 +240,6 @@ dl_error_t duckVM_init(duckVM_t *duckVM, void *memory, dl_size_t size, dl_size_t
 
 void duckVM_quit(duckVM_t *duckVM) {
 	/**/ duckVM_gclist_quit(&duckVM->gclist);
-	/**/ dl_memory_quit(&duckVM->memoryAllocation);
 	/**/ dl_memclear(&duckVM->errors, sizeof(dl_array_t));
 	/**/ dl_memclear(&duckVM->statics, sizeof(dl_array_t));
 	/**/ dl_memclear(&duckVM->stack, sizeof(dl_array_t));
