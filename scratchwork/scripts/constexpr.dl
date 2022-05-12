@@ -1,0 +1,305 @@
+
+(print (constexpr (
+				   (var duckLisp-object-type-none 0)
+				   (var duckLisp-object-type-bool 1)
+				   (var duckLisp-object-type-int 2)
+				   (var duckLisp-object-type-float 3)
+				   (var duckLisp-object-type-str 4)
+				   (var duckLisp-object-type-list 5)
+				   (comment (var duckLisp-object-type-func 6))
+
+				   (defun 1+ (x)
+					 (+ x 1))
+
+				   (defun >= (x y)
+					 (not (< x y)))
+
+				   (defun gcd (a b)
+					 (while (not (= a b))
+					   (if (> a b)
+						   (setq a (- a b))
+						   (setq b (- b a))))
+					 a)
+
+				   (defun lcm (a b)
+					 (* a (/ b (gcd a b))))
+
+				   (defun type-to-string (type)
+					 (comment "No lexical scope yet.")
+					 (var duckLisp-object-type-none 0)
+					 (var duckLisp-object-type-bool 1)
+					 (var duckLisp-object-type-int 2)
+					 (var duckLisp-object-type-float 3)
+					 (var duckLisp-object-type-str 4)
+					 (var duckLisp-object-type-list 5)
+					 (comment (var duckLisp-object-type-func 6))
+					 (if (= type duckLisp-object-type-none)
+						 "none"
+						 (if (= type duckLisp-object-type-bool)
+							 "bool"
+							 (if (= type duckLisp-object-type-int)
+								 "int"
+								 (if (= type duckLisp-object-type-float)
+									 "float"
+									 (if (= type duckLisp-object-type-str)
+										 "str"
+										 (if (= type duckLisp-object-type-list)
+											 "list"
+											 "Invalid type")))))))
+
+				   (defun atom? (v)
+					 (var duckLisp-object-type-list 5)
+					 (not (= (type-of v) duckLisp-object-type-list)))
+
+				   (defun and (a b)
+					 (if a
+						 (if b
+							 true
+							 false)
+						 false))
+
+				   (defun or (a b)
+					 (if a
+						 true
+						 (if b
+							 true
+							 false)))
+
+				   (defun pair (x y)
+					 (if (and (null? x) (null? y))
+						 ()
+						 (if (and (not (atom? x)) (not (atom? y)))
+							 (cons (cons (car x) (cons (car y) ()))
+								   (pair (cdr x) (cdr y)))
+							 ())))
+
+				   (defun assoc (x y)
+					 (var duckLisp-object-type-list 5)
+					 (if (not (null? y))
+						 (if (= (car (car y)) x)
+							 (car (cdr (car y)))
+							 (assoc x (cdr y)))
+						 ()))
+
+				   (defun nth (n list)
+					 (var i 0)
+					 (while (< i n)
+					   (setq list (cdr list))
+					   (setq i (1+ i)))
+					 list)
+
+				   (defun elt (list n)
+					 (var i 0)
+					 (while (< i n)
+					   (setq list (cdr list))
+					   (setq i (1+ i)))
+					 (car list))
+
+				   (defun length (list)
+					 (var i 0)
+					 (while (not (null? list))
+					   (setq list (cdr list))
+					   (setq i (1+ i)))
+					 i)
+
+				   (defun nreverse (list)
+					 (var reversed-list ())
+					 (while (not (null? list))
+					   (setq reversed-list (cons (car list)
+												 reversed-list))
+					   (setq list (cdr list)))
+					 reversed-list)
+
+				   (defun last (list)
+					 (car (nreverse list)))
+
+				   (defun append (list1 list2)
+					 (var appended-list ())
+					 (while (not (null? list1))
+					   (setq appended-list (cons (car list1)
+												 appended-list))
+					   (setq list1 (cdr list1)))
+					 (while (not (null? list2))
+					   (setq appended-list (cons (car list2)
+												 appended-list))
+					   (setq list2 (cdr list2)))
+					 (nreverse appended-list))
+
+				   (defun copy-list (list)
+					 list)
+
+				   (defun member (element list)
+					 (var found false)
+					 (while (and (not (null? list)) (not found))
+					   (if (= element (car list))
+						   (setq found true)
+						   ())
+					   (setq list (cdr list)))
+					 found)
+
+
+				   (defun first (x)
+					 (car x))
+
+
+				   (comment " Copied straight out of CLHS B）")
+
+				   (defun caar (x)
+					 (car (car x)))
+
+				   (defun cadr (x)
+					 (car (cdr x)))
+
+				   (defun cdar (x)
+					 (cdr (car x)))
+
+				   (defun cddr (x)
+					 (cdr (cdr x)))
+
+				   (defun caaar (x)
+					 (car (car (car x))))
+
+				   (defun caadr (x)
+					 (car (car (cdr x))))
+
+				   (defun cadar (x)
+					 (car (cdr (car x))))
+
+				   (defun caddr (x)
+					 (car (cdr (cdr x))))
+
+				   (defun cdaar (x)
+					 (cdr (car (car x))))
+
+				   (defun cdadr (x)
+					 (cdr (car (cdr x))))
+
+				   (defun cddar (x)
+					 (cdr (cdr (car x))))
+
+				   (defun cdddr (x)
+					 (cdr (cdr (cdr x))))
+
+				   (defun caaaar (x)
+					 (car (car (car (car x)))))
+
+				   (defun caaadr (x)
+					 (car (car (car (cdr x)))))
+
+				   (defun caadar (x)
+					 (car (car (cdr (car x)))))
+
+				   (defun caaddr (x)
+					 (car (car (cdr (cdr x)))))
+
+				   (defun cadaar (x)
+					 (car (cdr (car (car x)))))
+
+				   (defun cadadr (x)
+					 (car (cdr (car (cdr x)))))
+
+				   (defun caddar (x)
+					 (car (cdr (cdr (car x)))))
+
+				   (defun cadddr (x)
+					 (car (cdr (cdr (cdr x)))))
+
+				   (defun cdaaar (x)
+					 (cdr (car (car (car x)))))
+
+				   (defun cdaadr (x)
+					 (cdr (car (car (cdr x)))))
+
+				   (defun cdadar (x)
+					 (cdr (car (cdr (car x)))))
+
+				   (defun cdaddr (x)
+					 (cdr (car (cdr (cdr x)))))
+
+				   (defun cddaar (x)
+					 (cdr (cdr (car (car x)))))
+
+				   (defun cddadr (x)
+					 (cdr (cdr (car (cdr x)))))
+
+				   (defun cdddar (x)
+					 (cdr (cdr (cdr (car x)))))
+
+				   (defun cddddr (x)
+					 (cdr (cdr (cdr (cdr x)))))
+
+
+				   (comment Under-Out
+							`new-deck' generates a new deck of cards.
+							`pseudo-shuffle' shoves a specified number of cards under the deck and then places the top card on a new deck.
+							`find-cycles' determines which cards move where during a shuffle.
+							`calculate-identity-shuffle' calculates how many times the deck must be shuffled to place it back in its original state.)
+
+				   (defun new-deck (size)
+					 (var i 0)
+					 (var deck ())
+					 (while (< i size)
+					   (setq deck (cons (- (- size i) 1) deck))
+					   (setq i (1+ i)))
+					 deck)
+
+				   (defun pseudo-shuffle (deck unders-count)
+					 (var new-deck ())
+					 (var i 0)
+					 (while (atom? (car deck))
+					   (setq i 0)
+					   (while (< i unders-count)
+						 (setq deck (nreverse (cons (car deck) (nreverse (cdr deck)))))
+						 (setq i (1+ i)))
+					   (setq new-deck (cons (car deck) new-deck))
+					   (setq deck (cdr deck)))
+					 new-deck)
+
+				   (defun find-cycles (deck unders-count)
+					 (var shuffled-deck (pseudo-shuffle (copy-list deck) unders-count))
+					 (var cycles ())
+					 (var cycle-number 0)
+					 (var found ())
+					 (var i 0)
+					 (while (< i (length deck))
+					   (while (and (< i (length deck))
+								   (member (elt shuffled-deck i) found))
+						 (setq i (1+ i)))
+					   (if (< i (length deck))
+						   (
+							(setq cycles (cons () cycles))
+							(var cycle (first cycles))
+							(var endcard (elt shuffled-deck i))
+							(setq cycle (cons endcard cycle))
+							(setq found (cons endcard found))
+							(while (not (= endcard
+										   (elt shuffled-deck (first cycle))))
+							  (setq found (cons (elt shuffled-deck (first cycle)) found))
+							  (setq cycle (cons (elt shuffled-deck (first cycle)) cycle)))
+							(setq cycles (cons cycle (cdr cycles)))
+							(setq cycle-number (1+ cycle-number))
+							(setq i (1+ i)))
+						   (
+							())))
+					 (cons shuffled-deck (cons cycles (cons cycle-number ()))))
+
+				   (defun calculate-identity-shuffle (cycles)
+					 (var lengths ())
+					 (var cycle ())
+					 (while (not (null? cycles))
+					   (setq cycle (car cycles))
+					   (setq lengths (cons (length cycle) lengths))
+					   (setq cycles (cdr cycles)))
+					 (var len ())
+					 (var total (car lengths))
+					 (while (not (null? lengths))
+					   (setq len (car lengths))
+					   (setq total (lcm len total))
+					   (setq lengths (cdr lengths)))
+					 total)
+
+				   (var deck (new-deck 52))
+				   (var cycles (find-cycles deck 1))
+				   (var identity-shuffles (calculate-identity-shuffle (cadr cycles)))
+
+				   identity-shuffles)))
