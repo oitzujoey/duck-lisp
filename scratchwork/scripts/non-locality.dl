@@ -1,0 +1,6 @@
+(var x (cons 5 ()))
+(var y (cons 6 ()))
+(var z (cons x y))
+(setq x 3)
+;; It's not working. That seems like a Good Thing.
+(print-stack)

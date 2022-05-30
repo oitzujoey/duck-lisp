@@ -1,0 +1,4 @@
+(defun alambda (x body)
+  (array (array (quote labels) (array (array this x
+										 body))
+			  this)))

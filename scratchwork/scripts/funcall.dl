@@ -1,0 +1,18 @@
+(include "../scripts/library.dl")
+
+(defun funcall (function arguments)
+  (var label (car function))
+  (var args (car (cdr function)))
+  (var args-length (length args))
+
+  (while (not (and (null? args) (null? arguments)))
+	(push (if (null? (car args))
+			  (
+			   (var result (car arguments))
+			   (setq arguments (cdr arguments))
+			   result)
+			  (
+			   (car args)
+			   (setq args (cdr args))))))
+
+  (call label))

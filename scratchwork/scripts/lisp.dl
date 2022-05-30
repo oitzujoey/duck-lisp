@@ -1,0 +1,9 @@
+(include "../scripts/library.dl")
+
+(defun eval (e a)
+  (if (atom? e) (assoc e a)
+	  (if (atom? (car e)) ()
+		  (if (= (caar e) 'label) ()
+			  (if (= (caar e) 'lambda) (eval (caddar e)
+											 (append (pair (cadar e) (evlis))))
+				  ())))))

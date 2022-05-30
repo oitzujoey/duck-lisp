@@ -175,6 +175,8 @@ typedef struct {
 	dl_size_t generators_length;
 	
 	dl_trie_t labels_trie;
+
+	dl_bool_t function_scope;
 } duckLisp_scope_t;
 
 typedef struct {
@@ -480,7 +482,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp, dl_array_t *bytecode,
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
                                char *source, const dl_size_t source_length);
 
-dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
+dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t is_function);
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
 dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 // dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const
