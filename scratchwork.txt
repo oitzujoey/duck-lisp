@@ -1019,6 +1019,72 @@ Callbacks implemented.
 
 Macros will be a special case of generators. There will be a dedicated generator macro that will look at its name and then call the macro script associated with it.
 
+Lambdas are about twice as complicated as I expected. Apparently I need to capture *the original variable*, not a copy.
+
+defun f x
+        [λ y
+          (funcall y x)
+       	 λ z
+       	   ← x z]
+(funcall f 5)
+
+compiles to
+
+    f: jump e0				  defun
+   λ0: jump e1				  defun→lambda0
+       funcall y			  defun→lambda0→funcall→expression
+	   return 1				  defun→lambda0
+  $c0: push-closure λ0 1 x 	  defun→lambda0
+e1,λ1: jump e2				  defun→lambda1
+       set-uv ux z			  defun→lambda1→expression
+	   return 1				  defun→lambda1
+  $c1: push-closure λ1 1 x	  defun→lambda1
+   e2: push-list 2 $c0 $c1	  defun
+       make-uv 1 x			  defun
+	   return 3				  defun
+e0,$x: push 5				  funcall
+       call f				  funcall
+
+New functions:
+    push-closure λ0 1 x — stack.append('(λ0 &x))
+	call c — (let ((a (cdr c)))
+	           (while a
+	             push (car a)
+				 ← a (cdr a))
+			   jump (car c))
+	set-uv i x — ← uv[i] x
+	push-uv i — stack.append(uv[i])
+	make-uv 1 x — uv.append(x)
+
+Maybe I should make all functions anonymous. That would certainly help with consistency. On the other hand, It would be nice if pure functions could be called normally so that a ton of near-empty closures aren't stored on the stack.
+
+Let's try both.
+`defun` will return a closure on the stack. It will then be popped unless it is explicitly saved by a `var` or `setq`. `lambda` will do the exact same thing, but it will not be given a name. This makes `defun` into a labeled lambda.
+
+Added function scoping. Function scoping is different from normal scoping because it indicates the boundary of local variables. If a form breaks that boundary and references variables in a parent function, a closure must be formed to keep addressing from breaking.
+
+`generator_expression` and `generator_compoundExpression` will need to know how to register an upvalue, and possibly allocate space on the stack for it.
+`generator_setq` will need to know how to register and set an upvalue.
+
+Compiler: Stack space needs to be allocated for an upvalue *before* the upvalue is actually used so that it can be treated as a function argument. The most direct way is to traverse the code tree beforehand to see if any upvalues are used. I'd rather not do this. A potential alternative is to create a VM instruction, `push-uv`, that will push the specified upvalue on the stack. This is less efficient if the upvalue is used multiple times since the original plan would do one push at the start of the function while this plan will push the upvalue every time it is used.
+
+`push-closure` pushes a closure on the stack. A closure contains the function address and upvalue addresses.
+`funcall` saves the current instruction pointer and upvalues, jumps to the new function, and sets the new upvalues as the current one.
+`set-uv` sets an upvalue to the value of a stack object. The address of the upvalue is found by pointing to the correct upvalue address in the current upvalue array.
+`push-uv` pushes a upvalue onto the stack. The address of the upvalue is found by pointing to the correct upvalue address in the current upvalue array.
+`make-uv` creates
+
+Why did I clear the locals_length in functions?
+It is preventing me from accessing variables in parent scopes.
+I suppose that is how it is supposed to work. All addressing is supposed to be done with an upvalue.
+The problem is that an upvalue needs an index to point to. With multiple nested functions, it is impossible to determine the proper index of the free local.
+Fixed. locals_length is no longer cleared in functions.
+
+Statics can be added in a very similar way to upvalues. push-static, get-static, set-static
+
+The upvalue list will actually be multiple. There will be one for each scope. When the scope is popped, so is the list. When the scope is initialized, the list is empty.
+Each scope will have a upvalue trie. If a free variable is used in an inner scope, the current scope's trie will be searched for the upvalue index. If the index is nonexistent, a new upvalue will be created. The index will be inserted into the instruction that references the free variable.
+
 Todo:
 	funcall/lambda
 	macros

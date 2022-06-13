@@ -1,0 +1,41 @@
+
+(defun println (x)
+  (print x)
+  (print "\n")
+  x)
+
+(defun ptest (expected actual)
+  (print expected)
+  (println actual))
+
+(comment Variables are numbered by scope.
+		 All values should be printed in double.)
+
+(println "Basic variable test")
+(var x 1)
+(ptest 1 x)
+
+(println "Scope and shadowing test")
+((println "{")
+ (ptest 1 x)
+ (var x 2)
+ (ptest 2 x)
+ (println "}"))
+(println x)
+
+(println "Function scope and shadowing test")
+(defun print-x (x)
+  (println "{")
+  (ptest 1 x)
+  (comment This works?!? I'm pretty sure this should be an error.)
+  (var x 2)
+  (ptest 2 x)
+  (println "}"))
+(print-x x)
+
+(println "Free variable test")
+(defun print-free-x ()
+  (println "{")
+  (ptest 1 x)
+  (println "}"))
+(print-free-x)
