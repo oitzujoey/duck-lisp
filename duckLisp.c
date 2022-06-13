@@ -4010,7 +4010,11 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 				                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
 				                  DL_STR("var"));
 			}
-			e = duckLisp_compile_expression(duckLisp, assembly, &currentExpression.value.expression);
+			e = duckLisp_compile_expression(duckLisp,
+			                                assembly,
+			                                expression->compoundExpressions[0].value.identifier.value,
+			                                expression->compoundExpressions[0].value.identifier.value_length,
+			                                &currentExpression.value.expression);
 			if (e) goto l_cleanup;
 			if (!noPop
 			    && (duckLisp->locals_length
@@ -5134,7 +5138,11 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		break;
 	case duckLisp_ast_type_expression:
 		startStack_length = duckLisp->locals_length;
-		e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[1].value.expression);
+		e = duckLisp_compile_expression(duckLisp,
+		                                assembly,
+		                                expression->compoundExpressions[0].value.identifier.value,
+		                                expression->compoundExpressions[0].value.identifier.value_length,
+		                                &expression->compoundExpressions[1].value.expression);
 		if (e) goto l_cleanup;
 		pops = duckLisp->locals_length - startStack_length;
 
@@ -5313,7 +5321,11 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp, dl_array_t *assembly, d
 		break;
 	case duckLisp_ast_type_expression:
 		startStack_length = duckLisp->locals_length;
-		e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[1].value.expression);
+		e = duckLisp_compile_expression(duckLisp,
+		                                assembly,
+		                                expression->compoundExpressions[0].value.identifier.value,
+		                                expression->compoundExpressions[0].value.identifier.value_length,
+		                                &expression->compoundExpressions[1].value.expression);
 		if (e) goto l_cleanup;
 		pops = duckLisp->locals_length - startStack_length;
 
@@ -5490,7 +5502,11 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 		break;
 	case duckLisp_ast_type_expression:
 		startStack_length = duckLisp->locals_length;
-		e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[1].value.expression);
+		e = duckLisp_compile_expression(duckLisp,
+		                                assembly,
+		                                expression->compoundExpressions[0].value.identifier.value,
+		                                expression->compoundExpressions[0].value.identifier.value_length,
+		                                &expression->compoundExpressions[1].value.expression);
 		if (e) goto l_cleanup;
 		pops = duckLisp->locals_length - startStack_length;
 
@@ -5709,7 +5725,11 @@ dl_error_t duckLisp_generator_brnz(duckLisp_t *duckLisp, dl_array_t *assembly, d
 		/*						  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length, */
 		/*						  DL_STR("var")); */
 		/* } */
-		e = duckLisp_compile_expression(duckLisp, assembly, &expression->compoundExpressions[1].value.expression);
+		e = duckLisp_compile_expression(duckLisp,
+		                                assembly,
+		                                expression->compoundExpressions[0].value.identifier.value,
+		                                expression->compoundExpressions[0].value.identifier.value_length,
+		                                &expression->compoundExpressions[1].value.expression);
 		if (e) goto l_cleanup;
 		pops = duckLisp->locals_length - startStack_length;
 		/* if (!noPop && (duckLisp->locals_length > startStack_length)) { */
@@ -6346,7 +6366,6 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
 	dl_bool_t result = dl_false;
 	duckLisp_scope_t scope;
 	dl_ptrdiff_t label_index = -1;
-	dl_ptrdiff_t identifier_index = -1;
 
 	dl_size_t startStack_length;
 	dl_bool_t foundVar = dl_false;
@@ -6443,136 +6462,47 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < expression->compoundExpressions_length; i++) {
 		duckLisp_ast_compoundExpression_t currentExpression = expression->compoundExpressions[i];
-		switch (currentExpression.type) {
-		case duckLisp_ast_type_none:
-			break;
-		case duckLisp_ast_type_expression:
-			startStack_length = duckLisp->locals_length;
-			if ((currentExpression.value.expression.compoundExpressions_length > 0)
-			    && (currentExpression.value.expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)) {
-				dl_string_compare(&foundVar,
-				                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
-				                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
-				                  DL_STR("var"));
-				// `include` is an exception because the included file exists in the parent scope.
-				dl_string_compare(&foundInclude,
-				                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
-				                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
-				                  DL_STR("include"));
-			}
-			e = duckLisp_compile_expression(duckLisp, assembly, &currentExpression.value.expression);
-			if (e) goto l_cleanup;
-			if (!foundInclude
-			    && (duckLisp->locals_length
-			        > (startStack_length + ((dl_size_t) i == expression->compoundExpressions_length - 1)))) {
-				/* if ((dl_size_t) i != expression->compoundExpressions_length - 1) { */
-				/*		e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1); */
-				/* } */
-				if (startStack_length != duckLisp->locals_length - 1) {
-					e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
-					if (e) goto l_cleanup;
-				}
-				pops = (duckLisp->locals_length
-				        - startStack_length
-				        - ((dl_size_t) i == expression->compoundExpressions_length - 1)
-				        - foundVar);
-				if (pops > 0) {
-					e = duckLisp_emit_pop(duckLisp, assembly, pops);
-				}
-			}
-			foundInclude = dl_false;
-			break;
-		case duckLisp_ast_type_identifier:
-			e = duckLisp_scope_getLocalIndexFromName(duckLisp,
-			                                         &identifier_index,
-			                                         currentExpression.value.identifier.value,
-			                                         currentExpression.value.identifier.value_length);
-			if (e) goto l_cleanup;
-			if (identifier_index == -1) {
-				e = duckLisp_scope_getFreeLocalIndexFromName(duckLisp,
-				                                             &identifier_index,
-				                                             dl_null,
-				                                             currentExpression.value.identifier.value,
-				                                             currentExpression.value.identifier.value_length);
-				if (e) goto l_cleanup;
-				if (identifier_index == -1) {
-					// Now we check for labels.
-					e = scope_getLabelFromName(duckLisp,
-					                           &identifier_index,
-					                           currentExpression.value.identifier.value,
-					                           currentExpression.value.identifier.value_length);
-					if (e) goto l_cleanup;
-					if (identifier_index == -1) {
-						e = dl_array_pushElements(&eString, DL_STR("expression: Could not find local \""));
-						if (e) {
-							goto l_cleanup;
-						}
-						e = dl_array_pushElements(&eString,
-						                          currentExpression.value.identifier.value,
-						                          currentExpression.value.identifier.value_length);
-						if (e) {
-							goto l_cleanup;
-						}
-						e = dl_array_pushElements(&eString, DL_STR("\"."));
-						if (e) {
-							goto l_cleanup;
-						}
-						eError = duckLisp_error_pushRuntime(duckLisp,
-						                                    eString.elements,
-						                                    eString.elements_length * eString.element_size);
-						if (eError) {
-							e = eError;
-						}
-						e = dl_error_invalidValue;
-						goto l_cleanup;
-					}
-					else {
-						e = duckLisp_emit_pushLabel(duckLisp, assembly, dl_null, identifier_index);
-					}
-				}
-				else {
-					/**/
-					printf("Found free variable \"");
-					for (dl_ptrdiff_t i = 0; (dl_size_t) i < currentExpression.value.identifier.value_length; i++) {
-						putchar(currentExpression.value.identifier.value[i]);
-					}
-					printf("\".\n");
-				}
-			}
-			else {
-				// We are NOT pushing an index since the index is part of the instruction.
-				/* e = duckLisp_emit_pushIndex(duckLisp, assembly, dl_null, identifier_index); */
-				e = duckLisp_emit_pushIndex(duckLisp, assembly, dl_null, identifier_index);
-				if (e) goto l_cleanup;
-			}
-			break;
-		case duckLisp_ast_type_string:
-			e = duckLisp_emit_pushString(duckLisp,
-			                             assembly,
-			                             dl_null,
-			                             currentExpression.value.string.value,
-			                             currentExpression.value.string.value_length);
-			if (e) goto l_cleanup;
-			break;
-		case duckLisp_ast_type_float:
-			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Float constants are not yet supported."));
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
-			break;
-		case duckLisp_ast_type_int:
-			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, currentExpression.value.integer.value);
-			if (e) goto l_cleanup;
-			break;
-		case duckLisp_ast_type_bool:
-			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Boolean constants are not yet supported."));
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
-			break;
+		startStack_length = duckLisp->locals_length;
+		if ((currentExpression.type == duckLisp_ast_type_expression)
+		    && (currentExpression.value.expression.compoundExpressions_length > 0)
+		    && (currentExpression.value.expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)) {
+			dl_string_compare(&foundVar,
+			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
+			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
+			                  DL_STR("var"));
+			// `include` is an exception because the included file exists in the parent scope.
+			dl_string_compare(&foundInclude,
+			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
+			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
+			                  DL_STR("include"));
 		}
+		e = duckLisp_compile_compoundExpression(duckLisp,
+		                                        assembly,
+		                                        DL_STR("expression"),
+		                                        &expression->compoundExpressions[i],
+		                                        dl_null,
+		                                        dl_null,
+		                                        dl_true);
+		if (e) goto l_cleanup;
+		if (!foundInclude
+		    && (duckLisp->locals_length
+		        > (startStack_length + ((dl_size_t) i == expression->compoundExpressions_length - 1)))) {
+			/* if ((dl_size_t) i != expression->compoundExpressions_length - 1) { */
+			/*		e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1); */
+			/* } */
+			if (startStack_length != duckLisp->locals_length - 1) {
+				e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
+				if (e) goto l_cleanup;
+			}
+			pops = (duckLisp->locals_length
+			        - startStack_length
+			        - ((dl_size_t) i == expression->compoundExpressions_length - 1)
+			        - foundVar);
+			if (pops > 0) {
+				e = duckLisp_emit_pop(duckLisp, assembly, pops);
+			}
+		}
+		foundInclude = dl_false;
 	}
 
 	// And pop it... This is so much easier than it used to be. No more queuing `pop-scope`s.
@@ -6764,7 +6694,11 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 		temp_type = duckLisp_ast_type_none;  // Let's use `none` as a wildcard. Variables do not have a set type.
 		break;
 	case duckLisp_ast_type_expression:
-		e = duckLisp_compile_expression(duckLisp, assembly, &compoundExpression->value.expression);
+		e = duckLisp_compile_expression(duckLisp,
+		                                assembly,
+		                                functionName,
+		                                functionName_length,
+		                                &compoundExpression->value.expression);
 		if (e) goto l_cleanup;
 		temp_index = duckLisp->locals_length - 1;
 		temp_type = duckLisp_ast_type_none;
@@ -6795,13 +6729,14 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        dl_array_t *assembly,
+                                       char *functionName,
+                                       const dl_size_t functionName_length,
                                        duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	duckLisp_ast_identifier_t functionName = {0};
 	duckLisp_functionType_t functionType;
 	dl_ptrdiff_t functionIndex = -1;
 
@@ -6835,34 +6770,37 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		break;
 	case duckLisp_ast_type_identifier:
 		// Run function generator.
-		functionName = expression->compoundExpressions[0].value.identifier;
-		e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value,
-		                              functionName.value_length);
-		if (e) {
-			goto l_cleanup;
-		}
-		if (functionType == duckLisp_functionType_none) {
-			e = dl_error_invalidValue;
-			eError = dl_array_pushElements(&eString, DL_STR("Symbol \""));
-			if (eError) {
-				e = eError;
+		{
+			duckLisp_ast_identifier_t functionName = {0};
+			functionName = expression->compoundExpressions[0].value.identifier;
+			e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value,
+			                              functionName.value_length);
+			if (e) {
 				goto l_cleanup;
 			}
-			eError = dl_array_pushElements(&eString, functionName.value, functionName.value_length);
-			if (eError) {
-				e = eError;
+			if (functionType == duckLisp_functionType_none) {
+				e = dl_error_invalidValue;
+				eError = dl_array_pushElements(&eString, DL_STR("Symbol \""));
+				if (eError) {
+					e = eError;
+					goto l_cleanup;
+				}
+				eError = dl_array_pushElements(&eString, functionName.value, functionName.value_length);
+				if (eError) {
+					e = eError;
+					goto l_cleanup;
+				}
+				eError = dl_array_pushElements(&eString, DL_STR("\" is not a function, callback, or generator."));
+				if (eError) {
+					e = eError;
+					goto l_cleanup;
+				}
+				eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements), eString.elements_length);
+				if (eError) {
+					e = eError;
+				}
 				goto l_cleanup;
 			}
-			eError = dl_array_pushElements(&eString, DL_STR("\" is not a function, callback, or generator."));
-			if (eError) {
-				e = eError;
-				goto l_cleanup;
-			}
-			eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements), eString.elements_length);
-			if (eError) {
-				e = eError;
-			}
-			goto l_cleanup;
 		}
 		switch (functionType) {
 		case duckLisp_functionType_ducklisp:
@@ -6898,7 +6836,15 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		}
 		break;
 	default:
-		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid compound expression type. Can't happen."));
+		e = dl_array_pushElements(&eString, functionName, functionName_length);
+		if (e) {
+			goto l_cleanup;
+		}
+		e = dl_array_pushElements(&eString, DL_STR(": Unsupported data type."));
+		if (e) {
+			goto l_cleanup;
+		}
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
 		if (eError) {
 			e = eError;
 		}
@@ -6969,7 +6915,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	/* First stage: Create assembly tree from AST. */
 
-	e = duckLisp_compile_expression(duckLisp, &assembly, &astCompoundexpression.value.expression);
+	e = duckLisp_compile_expression(duckLisp, &assembly, DL_STR("compileAST"), &astCompoundexpression.value.expression);
 	if (e) goto l_cleanup;
 
 	// Print list.
