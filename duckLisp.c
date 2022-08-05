@@ -4439,16 +4439,6 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	                            expression->compoundExpressions[1].value.identifier.value_length);
 	if (e) goto l_cleanup;
 
-	e = duckLisp_gensym(duckLisp, &gensym);
-	if (e) goto l_cleanup;
-
-	e = duckLisp_register_label(duckLisp, gensym.value, gensym.value_length);
-	if (e) goto l_cleanup;
-
-	// (goto gensym)
-	e = duckLisp_emit_jump(duckLisp, assembly, gensym.value, gensym.value_length);
-	if (e) goto l_cleanup;
-
 	// (label function_name)
 	e = duckLisp_emit_label(duckLisp,
 	                        assembly,
@@ -4460,6 +4450,16 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		dl_ptrdiff_t function_label_index = -1;
 
 		e = duckLisp_pushScope(duckLisp, dl_null, dl_true);
+		if (e) goto l_cleanup;
+
+		e = duckLisp_gensym(duckLisp, &gensym);
+		if (e) goto l_cleanup;
+
+		e = duckLisp_register_label(duckLisp, gensym.value, gensym.value_length);
+		if (e) goto l_cleanup;
+
+		// (goto gensym)
+		e = duckLisp_emit_jump(duckLisp, assembly, gensym.value, gensym.value_length);
 		if (e) goto l_cleanup;
 
 		// `label_index` should never equal -1 after this function exits.
@@ -4520,6 +4520,10 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 
 		duckLisp->locals_length = startStack_length;
 
+		// (label gensym)
+		e = duckLisp_emit_label(duckLisp, assembly, gensym.value, gensym.value_length);
+		if (e) goto l_cleanup;
+
 		{
 			/* This needs to be in the same scope or outer than the function arguments so that they don't get
 			   captured. It should not need access to the function's local variables, so this scope should be fine. */
@@ -4538,10 +4542,6 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		e = duckLisp_popScope(duckLisp, dl_null);
 		if (e) goto l_cleanup;
 	}
-
-	// (label gensym)
-	e = duckLisp_emit_label(duckLisp, assembly, gensym.value, gensym.value_length);
-	if (e) goto l_cleanup;
 
  l_cleanup:
 
