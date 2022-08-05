@@ -1071,8 +1071,8 @@ Compiler: Stack space needs to be allocated for an upvalue *before* the upvalue 
 `push-closure` pushes a closure on the stack. A closure contains the function address and upvalue addresses.
 `funcall` saves the current instruction pointer and upvalues, jumps to the new function, and sets the new upvalues as the current one.
 `set-uv` sets an upvalue to the value of a stack object. The address of the upvalue is found by pointing to the correct upvalue address in the current upvalue array.
-`push-uv` pushes a upvalue onto the stack. The address of the upvalue is found by pointing to the correct upvalue address in the current upvalue array.
-`make-uv` creates
+`push-uv` pushes an upvalue onto the stack. The address of the upvalue is found by pointing to the correct upvalue address in the current upvalue array.
+`make-uv` allocates a new upvalue.
 
 Why did I clear the locals_length in functions?
 It is preventing me from accessing variables in parent scopes.
@@ -1083,11 +1083,98 @@ Fixed. locals_length is no longer cleared in functions.
 Statics can be added in a very similar way to upvalues. push-static, get-static, set-static
 
 The upvalue list will actually be multiple. There will be one for each scope. When the scope is popped, so is the list. When the scope is initialized, the list is empty.
-Each scope will have a upvalue trie. If a free variable is used in an inner scope, the current scope's trie will be searched for the upvalue index. If the index is nonexistent, a new upvalue will be created. The index will be inserted into the instruction that references the free variable.
+Each scope will have an upvalue trie. If a free variable is used in an inner scope, the current scope's trie will be searched for the upvalue index. If the index is nonexistent, a new upvalue will be created. The index will be inserted into the instruction that references the free variable.
+
+These multiple arrays of upvalues will exist in both the compiler and the VM.
+
+defun f x
+        [λ y
+          (funcall y x)
+       	 λ z
+       	   ← x z]
+(funcall f 5)
+
+compiles to
+
+    f: jump e0
+   λ0: jump e1
+   $y: push-uv uy
+  $x1: push-index $x
+       funcall $y $x1
+	   return 1
+  $c0: push-closure λ0 1 x
+e1,λ1: jump e2
+       set-uv ux z
+	   return 1
+  $c1: push-closure λ1 1 x
+   e2: push-list 2 $c0 $c1
+       make-uv 1 x
+	   return 3
+e0,$x: push 5
+       call f
+
+Made big mistake. Variables are allocated and freed on the stack based on scope. What I should be doing is allocating and freeing locals only during function call and return.
+
+Should I be creating closures for a variable in any parent scope?
+I think the answer is "yes". Let's do that.
+From now on, every scope may have upvalues. This may take more VM memory and increase program size, but it should make it more regular.
+
+The first instance of an upvalue should register itself with the nearest function body above it if the free variable exists and is defined outside the function. Each scope can do some bookkeeping if needed to check if it has encountered that variable before.
+
+Only create an upvalue if the free variable is defined outside of the current function.
+Locals are kept track of per scope; upvalues are kept track of per function.
+If the search for a variable remains inside the current function, do what you normally would do.
+If the search for a variable crosses the function boundary, then create an upvalue.
+If you find yourself creating an upvalue, first check to see if one already exists in the current function.
+The upvalue is stored in the scope where the original variable was defined, but all containing functions will push closures referencing it.
+When the scope containing the upvalue exits, it should move the local into the upvalue heap.
+
+Parent scopes possess and manage upvalues.
+Child functions create and capture upvalues.
+
+`push-closure` is executed at the end of a function definition.
+`funcall` is executed to trigger a function call.
+`set-uv` is executed during function execution. Does not affect the stack.
+`push-uv` is executed during function execution.
+`make-uv` is executed at the end of a scope. Does not affect the stack.
+
+Referencing non-local values will have zero overhead if the variable and the reference are in the same function.
+Function definition will have overhead of one extra instruction.
+Referencing an upvalue may add overhead.
+Setting an upvalue should have zero overhead.
+Exiting a scope will have overhead of one extra instruction if an upvalue is created.
+
+I *think* I can implement this in the compiler now. It actually doesn't sound that hard.
+
+`make-uv` doesn't actually make an upvalue. It might, but most of the time `push-closure` will do that. `make-uv` will just copy the local into the heap, so maybe it should be called something like `transfer-uv`?
+
+`make-uv` and `push-closure` can both create upvalues.
+
+`set-uv` and `push-uv` will both index upvalues by upvalue array address. This is an index into the function's array of upvalues.
+`make-uv` and `push-closure` will both index upvalues by the index of the local variable. The index will be used as the key to access the upvalue address (not index), which will later be used during function calls to create the upvalue array, which is an array of pointers to the upvalues.
+
+Creating a closure in the VM:
+    There exists a stack of the same length as the data stack that contains pointers to upvalues.
+    push-closure:
+	    Arguments are indices of the free variables.
+		Do a lookup of the variables in the upvalue stack. If an element corresponding to a free variable is null, create an upvalue and link it in the stack. Upvalues should point to the stack element that they were created for.
+		Create the closure, storing the upvalue addresses.
+	make-uv:
+	    Arguments are indices of the free variables.
+		Do a lookup of the variables in the upvalue stack. Copy the stack elements they correspond to into the upvalue heap (I think this means another implementation of GC).
+	return:
+	    Pop upvalues stack same number of times as data stack.
+
+Compiler should be emitting all code required to read free variables.
+
+Next step: Simplify upvalues struct to a dl_ptrdiff_t. Either generate code for `make-uv` or start implementing closures in the VM.
 
 Todo:
 	funcall/lambda
 	macros
+	Clean up.
+	Profile.
+	Optimize?
 	Clean up.
 	Merge with Hidey-Chess and add required functions.
 	Clean up.

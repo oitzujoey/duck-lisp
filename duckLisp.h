@@ -165,6 +165,11 @@ typedef struct {
 } duckLisp_label_t;
 
 typedef struct {
+	dl_ptrdiff_t key;
+	dl_ptrdiff_t value;
+} duckLisp_upvalues_t ;
+
+typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   // Points to stack objects.
 	dl_trie_t statics_trie;   // Points to static objects.
@@ -177,6 +182,12 @@ typedef struct {
 	dl_trie_t labels_trie;
 
 	dl_bool_t function_scope;
+
+	duckLisp_upvalues_t *scope_uvs;
+	dl_size_t scope_uvs_length;
+	
+	duckLisp_upvalues_t *function_uvs;
+	dl_size_t function_uvs_length;
 } duckLisp_scope_t;
 
 typedef struct {
@@ -212,6 +223,8 @@ typedef enum {
 	duckLisp_instructionClass_pushInteger,
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_pushSymbol,
+	duckLisp_instructionClass_pushUpvalue,
+	duckLisp_instructionClass_pushClosure,
 	duckLisp_instructionClass_call,
 	duckLisp_instructionClass_ccall,
 	duckLisp_instructionClass_acall,
@@ -262,6 +275,12 @@ typedef enum {
 	duckLisp_instruction_pushSymbol8,
 	duckLisp_instruction_pushSymbol16,
 	duckLisp_instruction_pushSymbol32,
+
+	duckLisp_instruction_pushUpvalue8,
+	duckLisp_instruction_pushUpvalue16,
+	duckLisp_instruction_pushUpvalue32,
+
+	duckLisp_instruction_pushClosure32,
 
 	duckLisp_instruction_call8,
 	duckLisp_instruction_call16,

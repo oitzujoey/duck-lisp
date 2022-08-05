@@ -21,7 +21,7 @@
  (var x 2)
  (ptest 2 x)
  (println "}"))
-(println x)
+(ptest 1 x)
 
 (println "Function scope and shadowing test")
 (defun print-x (x)
@@ -34,8 +34,10 @@
 (print-x x)
 
 (println "Free variable test")
+((var y 4)
 (defun print-free-x ()
   (println "{")
   (ptest 1 x)
+  (println y)
   (println "}"))
-(print-free-x)
+(print-free-x))
