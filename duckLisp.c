@@ -1777,46 +1777,40 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
 
 	if (*index != -1) {
 		/* We found it, which means it's an upvalue. Check to make sure it has been registered. */
-		dl_ptrdiff_t upvalue_index = -1;
+		dl_bool_t found_upvalue = dl_false;
 		DL_DOTIMES(i, function_scope.function_uvs_length) {
-			if (function_scope.function_uvs[i].key == *index) {
-				upvalue_index = function_scope.function_uvs[i].value;
+			if (function_scope.function_uvs[i] == *index) {
+				found_upvalue = dl_true;
 				break;
 			}
 		}
-		if (upvalue_index == -1) {
+		if (!found_upvalue) {
 			/* Not registered. Register. */
 			e = dl_realloc(duckLisp->memoryAllocation,
 			               (void **) &function_scope.function_uvs,
-			               (function_scope.function_uvs_length + 1) * sizeof(duckLisp_upvalues_t));
+			               (function_scope.function_uvs_length + 1) * sizeof(dl_ptrdiff_t));
 			if (e) goto cleanup;
 			function_scope.function_uvs_length++;
-			function_scope.function_uvs[function_scope.function_uvs_length - 1].key = *index;
-			/* This field is unnecessary. */
-			function_scope.function_uvs[function_scope.function_uvs_length
-			                            - 1].value = 0;
+			function_scope.function_uvs[function_scope.function_uvs_length - 1] = *index;
 			e = dl_array_set(&duckLisp->scope_stack, (void *) &function_scope, function_scope_index);
 			if (e) goto cleanup;
 		}
 
 		/* Now register the upvalue in the original scope if needed. */
-		upvalue_index = -1;
+		found_upvalue = dl_false;
 		DL_DOTIMES(i, scope.scope_uvs_length) {
-			if (scope.scope_uvs[i].key == *index) {
-				upvalue_index = scope.scope_uvs[i].value;
+			if (scope.scope_uvs[i] == *index) {
+				found_upvalue = dl_true;
 				break;
 			}
 		}
-		if (upvalue_index == -1) {
+		if (!found_upvalue) {
 			e = dl_realloc(duckLisp->memoryAllocation,
 			               (void **) &scope.scope_uvs,
-			               (scope.scope_uvs_length + 1) * sizeof(duckLisp_upvalues_t));
+			               (scope.scope_uvs_length + 1) * sizeof(dl_ptrdiff_t));
 			if (e) goto cleanup;
 			scope.scope_uvs_length++;
-			scope.scope_uvs[scope.scope_uvs_length - 1].key = *index;
-			/* This field is unnecessary. */
-			scope.scope_uvs[scope.scope_uvs_length - 1].value = 0;
-			upvalue_index = scope.scope_uvs[scope.scope_uvs_length - 1].value;
+			scope.scope_uvs[scope.scope_uvs_length - 1] = *index;
 			e = dl_array_set(&duckLisp->scope_stack, (void *) &scope, *scope_index);
 			if (e) goto cleanup;
 		}
@@ -1826,36 +1820,6 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
  cleanup:
 	return e;
 }
-
-dl_error_t duckLisp_scope_getUpvalueIndex(duckLisp_t *duckLisp,
-                                          dl_ptrdiff_t *upvalue_index,
-                                          dl_ptrdiff_t scope_index,
-                                          const dl_ptrdiff_t local_index) {
-	dl_error_t e = dl_error_ok;
-
-	/* Failure to find key will result in `upvalue = -1` */
-	*upvalue_index = -1;
-	printf("scope index %lli\n", scope_index);
-
-	/* First thing we do is search for the variable in the current function, so navigate to it. */
-	duckLisp_scope_t scope;
-	e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
-	if (e) {
-		if (e == dl_error_invalidValue) {
-			e = dl_error_ok;
-		}
-	}
-
-	/* Now get the index. */
-	DL_DOTIMES(i, scope.function_uvs_length) {
-		if (scope.function_uvs[i].key == local_index) {
-			*upvalue_index = scope.function_uvs[i].value;
-			break;
-		}
-	}
-
-	return e;
- }
 
 dl_error_t duckLisp_scope_getStaticIndexFromName(duckLisp_t *duckLisp,
                                                  dl_ptrdiff_t *index,
@@ -2887,7 +2851,7 @@ dl_error_t duckLisp_emit_pushClosure(duckLisp_t *duckLisp,
                                      dl_array_t *assembly,
                                      dl_ptrdiff_t *stackIndex,
                                      const dl_ptrdiff_t function_label_index,
-                                     const duckLisp_upvalues_t *captures,
+                                     const dl_ptrdiff_t *captures,
                                      const dl_size_t captures_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -2918,7 +2882,7 @@ dl_error_t duckLisp_emit_pushClosure(duckLisp_t *duckLisp,
 	argument.type = duckLisp_instructionArgClass_type_integer;
 	DL_DOTIMES(i, captures_length) {
 		// This is the absolute index, not relative to the top of the stack.
-		argument.value.integer = captures[i].key;
+		argument.value.integer = captures[i];
 		e = dl_array_pushElement(&instruction.args, &argument);
 		if (e) goto l_cleanup;
 	}
@@ -6723,7 +6687,7 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 				                           compoundExpression->value.identifier.value_length);
 				if (e) goto l_cleanup;
 				if (temp_index == -1) {
-					e = dl_array_pushElements(&eString, DL_STR("compoundExpression: Could not find local \""));
+					e = dl_array_pushElements(&eString, DL_STR("compoundExpression: Could not find variable \""));
 					if (e) {
 						goto l_cleanup;
 					}
@@ -6759,10 +6723,6 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 					putchar(compoundExpression->value.identifier.value[i]);
 				}
 				printf("\" in scope %lli with index %lli.\n", scope_index, temp_index);
-
-				/* e = duckLisp_scope_getUpvalueIndex(duckLisp, &upvalue_index, scope_index, temp_index); */
-				/* if (e) goto l_cleanup; */
-				/* printf("upvalue_index: %lli\n", upvalue_index); */
 				e = duckLisp_emit_pushUpvalue(duckLisp, assembly, dl_null, temp_index);
 				if (e) goto l_cleanup;
 			}

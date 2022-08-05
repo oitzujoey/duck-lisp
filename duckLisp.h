@@ -165,11 +165,6 @@ typedef struct {
 } duckLisp_label_t;
 
 typedef struct {
-	dl_ptrdiff_t key;
-	dl_ptrdiff_t value;
-} duckLisp_upvalues_t ;
-
-typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   // Points to stack objects.
 	dl_trie_t statics_trie;   // Points to static objects.
@@ -183,10 +178,10 @@ typedef struct {
 
 	dl_bool_t function_scope;
 
-	duckLisp_upvalues_t *scope_uvs;
+	dl_ptrdiff_t *scope_uvs;
 	dl_size_t scope_uvs_length;
 	
-	duckLisp_upvalues_t *function_uvs;
+	dl_ptrdiff_t *function_uvs;
 	dl_size_t function_uvs_length;
 } duckLisp_scope_t;
 
