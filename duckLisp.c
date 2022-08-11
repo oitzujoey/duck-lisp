@@ -2894,7 +2894,7 @@ dl_error_t duckLisp_emit_pushClosure(duckLisp_t *duckLisp,
 	}
 
 	if (stackIndex != dl_null) *stackIndex = duckLisp->locals_length;
-	/* duckLisp->locals_length++; */
+	duckLisp->locals_length++;
 
  l_cleanup:
 
