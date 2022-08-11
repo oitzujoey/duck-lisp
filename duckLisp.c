@@ -4315,7 +4315,7 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	subVM.memoryAllocation = duckLisp->memoryAllocation;
 
 	// Shouldn't need too much.
-	e = duckVM_init(&subVM, 1000, 1000);
+	e = duckVM_init(&subVM, 1000, 1000, 1000);
 	if (e) goto l_cleanupDL;
 
 	e = duckVM_execute(&subVM, bytecodeArray.elements);
@@ -6718,7 +6718,6 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	dl_ptrdiff_t temp_index;
-	/* dl_ptrdiff_t upvalue_index; */
 	duckLisp_ast_type_t temp_type;
 
 	switch (compoundExpression->type) {
@@ -8161,8 +8160,8 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 						                                                            >> 8*(byte_length - m - 1))
 						                                                           & 0xFFU);
 					}
+					index += byte_length;
 				}
-				index += byte_length * (instruction.args.elements_length - 1);
 			}
 			break;
 		}

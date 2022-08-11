@@ -7,38 +7,53 @@
 #include "DuckLib/array.h"
 
 typedef struct duckVM_gclist_s {
+	struct duckVM_upvalue_s *upvalues;
 	struct duckVM_gclist_cons_s *conses;
 	struct duckLisp_object_s *objects;
+	struct duckVM_upvalue_s **freeUpvalues;
 	struct duckVM_gclist_cons_s **freeConses;
 	struct duckLisp_object_s **freeObjects;
+	dl_bool_t *upvalueInUse;
 	dl_bool_t *consInUse;
 	dl_bool_t *objectInUse;
+	dl_size_t upvalues_length;
 	dl_size_t conses_length;
 	dl_size_t objects_length;
+	dl_size_t freeUpvalues_length;
 	dl_size_t freeConses_length;
 	dl_size_t freeObjects_length;
 	dl_array_strategy_t strategy;
 	dl_memoryAllocation_t *memoryAllocation;
 } duckVM_gclist_t;
 
+typedef struct duckVM_upvalue_s {
+	dl_bool_t onStack;
+	union {
+		dl_ptrdiff_t stack_index;
+		struct duckLisp_object_s *heap_object;
+	} value;
+} duckVM_upvalue_t;
+
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
-	dl_array_t errors;                          // Runtime errors.
-	dl_array_t stack;                           // For data.
-	dl_array_t call_stack;
-	dl_array_t statics;                         // Stack for static variables. These never get deallocated.
+	dl_array_t errors;  // Runtime errors.
+	dl_array_t stack;  // duckLisp_object_t For data.
+	dl_array_t call_stack;  // unsigned char *
+	dl_array_t upvalue_stack;  // duckVM_upvalue_t *
+	dl_array_t statics;  // Stack for static variables. These never get deallocated.
 	duckVM_gclist_t gclist;
 } duckVM_t;
 
 typedef enum {
-	duckLisp_object_type_none,
-	duckLisp_object_type_bool,
-	duckLisp_object_type_integer,
-	duckLisp_object_type_float,
-	duckLisp_object_type_string,
-	duckLisp_object_type_list,
-	duckLisp_object_type_symbol,
-	duckLisp_object_type_function
+  duckLisp_object_type_none,
+  duckLisp_object_type_bool,
+  duckLisp_object_type_integer,
+  duckLisp_object_type_float,
+  duckLisp_object_type_string,
+  duckLisp_object_type_list,
+  duckLisp_object_type_symbol,
+  duckLisp_object_type_function,
+  duckLisp_object_type_closure
 } duckLisp_object_type_t;
 
 typedef struct duckLisp_object_s {
@@ -60,6 +75,11 @@ typedef struct duckLisp_object_s {
 			unsigned char *bytecode;
 			dl_error_t (*callback)(duckVM_t *);
 		} function;
+		struct {
+			dl_size_t name;
+			duckVM_upvalue_t **upvalues;
+			dl_size_t upvalues_length;
+		} closure;
 		struct duckVM_gclist_cons_s *list;
 	} value;
 	duckLisp_object_type_t type;
@@ -86,7 +106,7 @@ typedef struct duckVM_gclist_cons_s {
 } duckVM_gclist_cons_t;
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxConses, dl_size_t maxObjects);
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxConses, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode);
 dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index);

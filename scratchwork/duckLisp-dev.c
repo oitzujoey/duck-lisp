@@ -458,6 +458,7 @@ int main(int argc, char *argv[]) {
 
 	const size_t duckLispMemory_size = 1024 * 1024;
 	const size_t duckVMMemory_size = 100 * 64 * 1024;
+	const size_t duckVMMaxUpvalues = 10000;
 	const size_t duckVMMaxConses = 10000;
 	const size_t duckVMMaxObjects = 10000;
 	
@@ -722,7 +723,7 @@ int main(int argc, char *argv[]) {
 	d.duckVMMemory = dl_true;
 	
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMaxConses, duckVMMaxObjects);
+	e = duckVM_init(&duckVM, duckVMMaxUpvalues, duckVMMaxConses, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;
