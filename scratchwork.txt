@@ -1167,7 +1167,17 @@ Creating a closure in the VM:
 
 Compiler should be emitting all code required to read free variables.
 
-Next step: Simplify upvalues struct to a dl_ptrdiff_t. Either generate code for `make-uv` or start implementing closures in the VM.
+`push-closure` must be inside the function scope so it can access the upvalues list. Function bypass label must come before `push-closure`, so it and its jump must be in the same scope. Function name label must come after the function bypass jump, so it must be in the same scope. Function name label must be outside the scope so that other functions can reference it.
+
+And the answer? Temporarily break the scope abstraction. We can fix it later by emitting a `lambda` and a `var`.
+Everything is kept in the local scope except the function name label.
+
+Next step: Start implementing closures in the VM.
+
+Defer:
+    Fix defun kludge.
+    Fix memory ownership in reader.
+	Free unfreed memory.
 
 Todo:
 	funcall/lambda

@@ -4429,25 +4429,18 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 
 	// Register function.
 
-	e = duckLisp_addInterpretedFunction(duckLisp, expression->compoundExpressions[1].value.identifier);
-	if (e) goto l_cleanup;
-
-	// Header.
-
 	e = duckLisp_register_label(duckLisp,
 	                            expression->compoundExpressions[1].value.identifier.value,
 	                            expression->compoundExpressions[1].value.identifier.value_length);
 	if (e) goto l_cleanup;
 
-	// (label function_name)
-	e = duckLisp_emit_label(duckLisp,
-	                        assembly,
-	                        expression->compoundExpressions[1].value.identifier.value,
-	                        expression->compoundExpressions[1].value.identifier.value_length);
+	e = duckLisp_addInterpretedFunction(duckLisp, expression->compoundExpressions[1].value.identifier);
 	if (e) goto l_cleanup;
 
 	{
 		dl_ptrdiff_t function_label_index = -1;
+
+		// Header.
 
 		e = duckLisp_pushScope(duckLisp, dl_null, dl_true);
 		if (e) goto l_cleanup;
@@ -4460,6 +4453,94 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 
 		// (goto gensym)
 		e = duckLisp_emit_jump(duckLisp, assembly, gensym.value, gensym.value_length);
+		if (e) goto l_cleanup;
+
+		// (label function_name)
+		/* e = duckLisp_emit_label(duckLisp, */
+		/*                         assembly, */
+		/*                         expression->compoundExpressions[1].value.identifier.value, */
+		/*                         expression->compoundExpressions[1].value.identifier.value_length); */
+		// Delete the below code and uncomment the above once closures are implemented.
+		{
+			duckLisp_scope_t scope;
+			dl_ptrdiff_t label_index = -1;
+			duckLisp_instructionObject_t instruction = {0};
+			duckLisp_instructionArgClass_t argument = {0};
+			/**/ dl_array_init(&instruction.args,
+			                   duckLisp->memoryAllocation,
+			                   sizeof(duckLisp_instructionArgClass_t),
+			                   dl_array_strategy_double);
+
+			// Write instruction.
+			instruction.instructionClass = duckLisp_instructionClass_pseudo_label;
+
+			// This is why we pushed the scope here.
+			// Kludge: Get the scope above the current one.
+			e = dl_array_get(&duckLisp->scope_stack, &scope, duckLisp->scope_stack.elements_length - 2);
+			if (e == dl_error_bufferUnderflow) {
+				// Push a scope if we don't have one yet.
+				/**/ scope_init(duckLisp, &scope, dl_true);
+				e = dl_array_pushElement(&duckLisp->scope_stack, &scope);
+				if (e) {
+					goto l_cleanupKludge;
+				}
+			}
+
+			// Make sure label is declared.
+			/**/ dl_trie_find(scope.labels_trie,
+			                  &label_index,
+			                  expression->compoundExpressions[1].value.identifier.value,
+			                  expression->compoundExpressions[1].value.identifier.value_length);
+			if (e) {
+				goto l_cleanupKludge;
+			}
+			if (label_index == -1) {
+				e = dl_error_invalidValue;
+				eError = dl_array_pushElements(&eString, DL_STR("defun: Label \""));
+				if (eError) {
+					e = eError;
+					goto l_cleanupKludge;
+				}
+				eError = dl_array_pushElements(&eString,
+				                               expression->compoundExpressions[1].value.identifier.value,
+				                               expression->compoundExpressions[1].value.identifier.value_length);
+				if (eError) {
+					e = eError;
+					goto l_cleanupKludge;
+				}
+				eError = dl_array_pushElements(&eString, DL_STR("\" is not a top-level expression in a closed scope."));
+				if (eError) {
+					e = eError;
+					goto l_cleanupKludge;
+				}
+				eError = duckLisp_error_pushRuntime(duckLisp,
+				                                    ((char *) eString.elements),
+				                                    eString.elements_length);
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanupKludge;
+			}
+
+			// Push arguments into instruction.
+			argument.type = duckLisp_instructionArgClass_type_integer;
+			argument.value.integer = label_index;
+			e = dl_array_pushElement(&instruction.args, &argument);
+			if (e) {
+				goto l_cleanupKludge;
+			}
+
+			// Push instruction into list.
+			e = dl_array_pushElement(assembly, &instruction);
+			if (e) {
+				goto l_cleanupKludge;
+			}
+
+		l_cleanupKludge:
+			if (eError) {
+				e = eError;
+			}
+		}
 		if (e) goto l_cleanup;
 
 		// `label_index` should never equal -1 after this function exits.
@@ -7320,59 +7401,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			}
 			break;
 		}
-		case duckLisp_instructionClass_pushClosure: {
-			if (args[0].type == duckLisp_instructionArgClass_type_integer) {
-				dl_ptrdiff_t index = 0;
-				currentInstruction.byte = duckLisp_instruction_pushClosure32;
-				byte_length = 4;
-				// Function label
-				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
-				if (e) goto l_cleanup;
-				DL_DOTIMES (l, byte_length) {
-					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, l) = ((args[0].value.integer
-					                                                    >> 8*(byte_length - l - 1))
-					                                                   & 0xFFU);
-				}
-				index += byte_length;
-
-				// Number of upvalues
-				byte_length = 4;
-				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
-				if (e) goto l_cleanup;
-				DL_DOTIMES (l, byte_length) {
-					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + l) = (((instruction.args.elements_length - 1)
-					                                                            >> 8*(byte_length - l - 1))
-					                                                           & 0xFFU);
-				}
-				index += byte_length;
-
-				// Upvalues
-				// I'm not going to check args here either.
-				byte_length = 4;
-				e = dl_array_pushElements(&currentArgs,
-				                          dl_null,
-				                          (instruction.args.elements_length - 1) * byte_length);
-				if (e) {
-					goto l_cleanup;
-				}
-				for (dl_ptrdiff_t l = 1; (dl_size_t) l < instruction.args.elements_length; l++) {
-					DL_DOTIMES(m, byte_length) {
-						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + m) = ((args[l].value.integer
-						                                                            >> 8*(byte_length - m - 1))
-						                                                           & 0xFFU);
-					}
-				}
-				index += byte_length * (instruction.args.elements_length - 1);
-			}
-			else {
-				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class[es]. Aborting."));
-				if (eError) {
-					e = eError;
-				}
-				goto l_cleanup;
-			}
-			break;
-		}
 		case duckLisp_instructionClass_move: {
 			if ((args[0].type == duckLisp_instructionArgClass_type_index)
 			    && (args[1].type == duckLisp_instructionArgClass_type_index)) {
@@ -8016,12 +8044,15 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			}
 			break;
 		}
-			// @TODO: Redo scoping. Tries in parent scopes need to be searched as well.
+			/* Labels */
 		case duckLisp_instructionClass_pseudo_label:
 		case duckLisp_instructionClass_pushLabel:
+		case duckLisp_instructionClass_pushClosure:
+			/* Branches */
 		case duckLisp_instructionClass_call:
 		case duckLisp_instructionClass_jump:
 		case duckLisp_instructionClass_brnz: {
+			dl_ptrdiff_t index = 0;
 			dl_ptrdiff_t label_index = -1;
 			duckLisp_label_t label;
 			duckLisp_label_source_t labelSource;
@@ -8044,9 +8075,11 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 					goto l_cleanup;
 				}
 			}
-			else if (instruction.instructionClass == duckLisp_instructionClass_pushLabel) {
+			else if ((instruction.instructionClass == duckLisp_instructionClass_pushLabel)
+			         || (instruction.instructionClass == duckLisp_instructionClass_pushClosure)) {
 				tempPtrdiff++;	// `++` for opcode. This is so the optimizer can be used with generic address links.
 				labelSource.source = tempPtrdiff;
+				// Don't optimize for size; force 32-bit address.
 				labelSource.absolute = dl_true;
 				e = dl_array_pushElement(&label.sources, &labelSource);
 				if (e) {
@@ -8057,6 +8090,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			else {
 				tempPtrdiff++;	// `++` for opcode. This is so the optimizer can be used with generic address links.
 				labelSource.source = tempPtrdiff;
+				// Optimize for size.
 				labelSource.absolute = dl_false;
 				e = dl_array_pushElement(&label.sources, &labelSource);
 				if (e) {
@@ -8066,41 +8100,69 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			}
 			DL_ARRAY_GETADDRESS(duckLisp->labels, duckLisp_label_t, label_index) = label;
 
-			if (instruction.instructionClass == duckLisp_instructionClass_pseudo_label) {
-				continue;
+			if (instruction.instructionClass == duckLisp_instructionClass_pseudo_label) continue;
+
+			switch (instruction.instructionClass) {
+			case duckLisp_instructionClass_pushLabel:
+				currentInstruction.byte = duckLisp_instruction_pushInteger32;
+				break;
+			case duckLisp_instructionClass_pushClosure:
+				currentInstruction.byte = duckLisp_instruction_pushClosure32;
+				break;
+			case duckLisp_instructionClass_call:
+				currentInstruction.byte = duckLisp_instruction_call8;
+				break;
+			case duckLisp_instructionClass_jump:
+				currentInstruction.byte = duckLisp_instruction_jump8;
+				break;
+			case duckLisp_instructionClass_brnz:
+				currentInstruction.byte = duckLisp_instruction_brnz8;
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto l_cleanup;
 			}
+
 			if ((instruction.instructionClass == duckLisp_instructionClass_brnz)
-			    || (instruction.instructionClass == duckLisp_instructionClass_call)
-			    || (instruction.instructionClass == duckLisp_instructionClass_pushLabel)) {
-				switch (instruction.instructionClass) {
-				case duckLisp_instructionClass_pushLabel:
-					currentInstruction.byte = duckLisp_instruction_pushInteger32;
-					break;
-				case duckLisp_instructionClass_brnz:
-					currentInstruction.byte = duckLisp_instruction_brnz8;
-					break;
-				case duckLisp_instructionClass_call:
-					currentInstruction.byte = duckLisp_instruction_call8;
-					break;
-				default:
-					e = dl_error_invalidValue;
+			    || (instruction.instructionClass == duckLisp_instructionClass_call)) {
+				// br?? also have a pop argument. Insert that.
+				e = dl_array_pushElements(&currentArgs, dl_null, 1);
+				if (e) {
 					goto l_cleanup;
 				}
-
-				if (instruction.instructionClass != duckLisp_instructionClass_pushLabel) {
-					// br?? also have a pop argument. Insert that.
-					e = dl_array_pushElements(&currentArgs, dl_null, 1);
-					if (e) {
-						goto l_cleanup;
-					}
-					for (dl_ptrdiff_t n = 0; (dl_size_t) n < 1; n++) {
-						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = args[1].value.integer & 0xFFU;
-					}
+				for (dl_ptrdiff_t n = 0; (dl_size_t) n < 1; n++) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = args[1].value.integer & 0xFFU;
 				}
 			}
-			else {
-				// First guess: Jump is < 128 B away.
-				currentInstruction.byte = duckLisp_instruction_jump8;
+			else if (instruction.instructionClass == duckLisp_instructionClass_pushClosure) {
+				// Number of upvalues
+				byte_length = 4;
+				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+				if (e) goto l_cleanup;
+				DL_DOTIMES (l, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + l) = (((instruction.args.elements_length - 1)
+					                                                            >> 8*(byte_length - l - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+
+				// Upvalues
+				// I'm not going to check args here either.
+				byte_length = 4;
+				e = dl_array_pushElements(&currentArgs,
+				                          dl_null,
+				                          (instruction.args.elements_length - 1) * byte_length);
+				if (e) {
+					goto l_cleanup;
+				}
+				for (dl_ptrdiff_t l = 1; (dl_size_t) l < instruction.args.elements_length; l++) {
+					DL_DOTIMES(m, byte_length) {
+						DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + m) = ((args[l].value.integer
+						                                                            >> 8*(byte_length - m - 1))
+						                                                           & 0xFFU);
+					}
+				}
+				index += byte_length * (instruction.args.elements_length - 1);
 			}
 			break;
 		}
