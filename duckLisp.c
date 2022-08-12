@@ -2180,6 +2180,8 @@ dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp, dl_array_t *assembly, const d
 	                   sizeof(duckLisp_instructionArgClass_t),
 	                   dl_array_strategy_double);
 
+	if (count == 0) goto l_cleanup;
+
 	// Write instruction.
 	instruction.instructionClass = duckLisp_instructionClass_pop;
 
@@ -2568,6 +2570,8 @@ dl_error_t duckLisp_emit_move(duckLisp_t *duckLisp,
                               const dl_ptrdiff_t destination_index,
                               const dl_ptrdiff_t source_index) {
 	dl_error_t e = dl_error_ok;
+
+	if (destination_index == source_index) goto l_cleanup;
 
 	duckLisp_instructionObject_t instruction = {0};
 	duckLisp_instructionArgClass_t argument = {0};
@@ -4061,9 +4065,9 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 				}
 				e = duckLisp_emit_pop(duckLisp,
 				                      assembly,
-				                      duckLisp->locals_length
-				                      - startStack_length
-				                      - ((dl_size_t) i == expression->compoundExpressions_length - 1));
+				                      (duckLisp->locals_length
+				                       - startStack_length
+				                       - ((dl_size_t) i == expression->compoundExpressions_length - 1)));
 				noPop = dl_true;
 			}
 			break;
@@ -5074,9 +5078,8 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp, dl_array_t *assembly, 
 			e = duckLisp_generator_expression(duckLisp, assembly, &progn);
 			if (e) goto l_free_gensym_start;
 
-			if (duckLisp->locals_length > startStack_length) {
-				e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - startStack_length);
-			}
+			e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - startStack_length);
+			if (e) goto l_free_gensym_start;
 
 			e = duckLisp_popScope(duckLisp, dl_null);
 			if (e) goto l_free_gensym_start;
@@ -5121,9 +5124,8 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp, dl_array_t *assembly, 
 			e = duckLisp_generator_expression(duckLisp, assembly, &progn);
 			if (e) goto l_free_gensym_end;
 
-			if (duckLisp->locals_length > startStack_length) {
-				e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - startStack_length);
-			}
+			e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - startStack_length);
+			if (e) goto l_free_gensym_end;
 
 			e = duckLisp_popScope(duckLisp, dl_null);
 			if (e) goto l_free_gensym_end;
@@ -5326,12 +5328,9 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		                                        dl_true);
 		if (e) goto l_free_gensym_end;
 		pops = duckLisp->locals_length - startStack_length - 1;
-		if (pops < 0) {
-			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
-		}
-		else if (pops > 0) {
-			e = duckLisp_emit_pop(duckLisp, assembly, pops);
-		}
+		if (pops < 0) e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
+		else e = duckLisp_emit_pop(duckLisp, assembly, pops);
+		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_jump(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_then.value, gensym_then.value_length);
@@ -5514,12 +5513,8 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp, dl_array_t *assembly, d
 		                                        dl_true);
 		if (e) goto l_free_gensym_end;
 		pops = duckLisp->locals_length - startStack_length - 1;
-		if (pops < 0) {
-			e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
-		}
-		else if (pops > 0) {
-			e = duckLisp_emit_pop(duckLisp, assembly, pops);
-		}
+		if (pops < 0) e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
+		else e = duckLisp_emit_pop(duckLisp, assembly, pops);
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
@@ -5694,11 +5689,8 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 		pops = duckLisp->locals_length - startStack_length - 1;
 		if (pops < 0) {
 			e = dl_array_pushElements(&eString, DL_STR("if: \"else\" part of expression contains an invalid form"));
-			if (e) {
-				goto l_free_gensym_end;
-			}
 		}
-		else if (pops > 0) {
+		else {
 			e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
 			if (e) goto l_free_gensym_end;
 			e = duckLisp_emit_pop(duckLisp, assembly, pops);
@@ -5722,11 +5714,8 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 		pops = duckLisp->locals_length - startStack_length - 1;
 		if (pops < 0) {
 			e = dl_array_pushElements(&eString, DL_STR("if: \"then\" part of expression contains an invalid form"));
-			if (e) {
-				goto l_free_gensym_end;
-			}
 		}
-		else if (pops > 0) {
+		else {
 			e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
 			if (e) goto l_free_gensym_end;
 			e = duckLisp_emit_pop(duckLisp, assembly, pops);
@@ -6418,7 +6407,7 @@ dl_error_t duckLisp_generator_subroutine(duckLisp_t *duckLisp,
 	                       assembly,
 	                       expression->compoundExpressions[0].value.string.value,
 	                       expression->compoundExpressions[0].value.string.value_length,
-	                       expression->compoundExpressions_length - 1);
+	                       0);  // So apparently this does nothing in the VM.
 	if (e) {
 		goto l_cleanup;
 	}
@@ -6628,9 +6617,8 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
 			        - startStack_length
 			        - ((dl_size_t) i == expression->compoundExpressions_length - 1)
 			        - foundVar);
-			if (pops > 0) {
-				e = duckLisp_emit_pop(duckLisp, assembly, pops);
-			}
+			e = duckLisp_emit_pop(duckLisp, assembly, pops);
+			if (e) goto l_cleanup;
 		}
 		foundInclude = dl_false;
 	}
@@ -7063,7 +7051,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 		io = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j);
 		/* printf("{\n"); */
 		printf("Instruction class: %s",
-		       (char *[33]){
+		       (char *[34]){
 			       ""  // Trick the formatter.
 				       "nop",
 				       "push-string",
@@ -7073,6 +7061,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				       "push-symbol",
 				       "push-upvalue",
 				       "push-closure",
+				       "funcall",
 				       "call",
 				       "ccall",
 				       "acall",

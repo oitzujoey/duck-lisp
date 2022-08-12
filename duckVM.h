@@ -40,6 +40,8 @@ typedef struct {
 	dl_array_t stack;  // duckLisp_object_t For data.
 	dl_array_t call_stack;  // unsigned char *
 	dl_array_t upvalue_stack;  // duckVM_upvalue_t *
+	dl_array_t upvalue_array_call_stack;  // duckVM_upvalue_t **
+	dl_array_t upvalue_array_length_call_stack;  // dl_size_t
 	dl_array_t statics;  // Stack for static variables. These never get deallocated.
 	duckVM_gclist_t gclist;
 } duckVM_t;
@@ -76,7 +78,7 @@ typedef struct duckLisp_object_s {
 			dl_error_t (*callback)(duckVM_t *);
 		} function;
 		struct {
-			dl_size_t name;
+			dl_ptrdiff_t name;
 			duckVM_upvalue_t **upvalues;
 			dl_size_t upvalues_length;
 		} closure;

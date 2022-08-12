@@ -1172,10 +1172,10 @@ Compiler should be emitting all code required to read free variables.
 And the answer? Temporarily break the scope abstraction. We can fix it later by emitting a `lambda` and a `var`.
 Everything is kept in the local scope except the function name label.
 
-Next step: Modify allocator & GC for upvalues.
-
 Containers: objects, conses, upvalues
 Closures are not on the list because they are contained in objects.
+
+Next step: Modify allocator & GC for closures. Modify compiler to create function variables instead of labels.
 
 Defer:
     Fix defun kludge.
