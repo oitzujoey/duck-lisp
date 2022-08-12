@@ -6,6 +6,9 @@
 #include "duckLisp.h"
 #include <stdio.h>
 
+dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons);
+dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue);
+
 dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
                               dl_memoryAllocation_t *memoryAllocation,
                               const dl_size_t maxUpvalues,
@@ -131,11 +134,23 @@ dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	return e;
 }
 
-void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
+dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
+	dl_error_t e = dl_error_ok;
+
 	if (object) {
 		gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
-		// Bug? Objects can refer to conses, right? Also upvalues now.
+		if (object->type == duckLisp_object_type_list) {
+			e = duckVM_gclist_markCons(gclist, object->value.list);
+		}
+		else if (object->type == duckLisp_object_type_closure) {
+			DL_DOTIMES(k, object->value.closure.upvalues_length) {
+				e = duckVM_gclist_markUpvalue(gclist, object->value.closure.upvalues[k]);
+				if (e) break;
+			}
+		}
 	}
+
+	return e;
 }
 
 dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons) {
@@ -146,22 +161,19 @@ dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t 
 		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
 			(cons->type == duckVM_gclist_cons_type_addrObject)) {
 			e = duckVM_gclist_markCons(gclist, cons->car.addr);
-			if (e) goto cleanup;
 		}
 		else {
-			duckVM_gclist_markObject(gclist, cons->car.data);
+			e = duckVM_gclist_markObject(gclist, cons->car.data);
 		}
 		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
 			(cons->type == duckVM_gclist_cons_type_objectAddr)) {
 			e = duckVM_gclist_markCons(gclist, cons->cdr.addr);
-			if (e) goto cleanup;
 		}
 		else {
-			duckVM_gclist_markObject(gclist, cons->cdr.data);
+			e = duckVM_gclist_markObject(gclist, cons->cdr.data);
 		}
 	}
 
- cleanup:
 	return e;
 }
 
@@ -171,8 +183,7 @@ dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *
 	if (upvalue) {
 		gclist->upvalueInUse[(dl_ptrdiff_t) (upvalue - gclist->upvalues)] = dl_true;
 		if (!upvalue->onStack) {
-			duckVM_gclist_markObject(gclist, upvalue->value.heap_object);
-			/* e = duckVM_gclist_markObject(gclist, upvalue->value.heap_object); */
+			e = duckVM_gclist_markObject(gclist, upvalue->value.heap_object);
 		}
 		/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 	}
