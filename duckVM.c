@@ -549,6 +549,11 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			// Need another stack with same depth as call stack to pull out upvalues.
 			// Like to live dangerously?
+			/* if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 >= duckVM->upvalue_array_call_stack.elements_length)) { */
+			/* 	printf("ptr %lli >= %llu\n", ptrdiff1, duckVM->upvalue_array_call_stack.elements_length); */
+			/* 	e = dl_error_invalidValue; */
+			/* 	break; */
+			/* } */
 			duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
 			                                                   duckVM_upvalue_t **)[ptrdiff1];
 			if (upvalue->onStack) {
@@ -577,7 +582,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			if (object1.value.closure.upvalues_length > 0) {
 				e = dl_malloc(duckVM->memoryAllocation,
 				              (void **) &object1.value.closure.upvalues,
-				              object1.value.closure.upvalues_length * sizeof(duckVM_upvalue_t *));
+				              object1.value.closure.upvalues_length * sizeof(duckVM_upvalue_t **));
 				if (e) break;
 			}
 

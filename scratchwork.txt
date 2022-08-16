@@ -1167,7 +1167,7 @@ Creating a closure in the VM:
 
 Compiler should be emitting all code required to read free variables.
 
-`push-closure` must be inside the function scope so it can access the upvalues list. Function bypass label must come before `push-closure`, so it and its jump must be in the same scope. Function name label must come after the function bypass jump, so it must be in the same scope. Function name label must be outside the scope so that other functions can reference it.
+`push-closure` must be inside the function scope so it can access the upvalues list. Function bypass label must come before `push-closure`, which means it and its jump must reside in the same scope. Function name label must come after the function bypass jump, so it must be in the same scope. Function name label must be outside the scope so that other functions can reference it.
 
 And the answer? Temporarily break the scope abstraction. We can fix it later by emitting a `lambda` and a `var`.
 Everything is kept in the local scope except the function name label.
@@ -1175,7 +1175,9 @@ Everything is kept in the local scope except the function name label.
 Containers: objects, conses, upvalues
 Closures are not on the list because they are contained in objects.
 
-Next step: Modify allocator & GC for closures. Modify compiler to create function variables instead of labels.
+Functions must all become closures. The only valid call to a function is through a closure. The function label will become a gensym that is wholly contained by the function scope. The function name will be associated with an object instead of a label. Recursion might still be possible by sheer luck.
+
+Next step: Modify compiler to create function variables instead of labels.
 
 Defer:
     Fix defun kludge.

@@ -159,6 +159,30 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			printf(")");
 		}
 		break;
+	case duckLisp_object_type_closure:
+		printf("(closure %lli", object.value.closure.name);
+		DL_DOTIMES(k, object.value.closure.upvalues_length) {
+			duckVM_upvalue_t *uv = object.value.closure.upvalues[k];
+			putchar(' ');
+			if (uv->onStack) {
+				e = duckVM_push(duckVM, &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
+				if (e) goto l_cleanup;
+				e = duckLispDev_callback_print(duckVM);
+				if (e) goto l_cleanup;
+				e = duckVM_pop(duckVM, dl_null);
+				if (e) goto l_cleanup;
+			}
+			else {
+				e = duckVM_push(duckVM, uv->value.heap_object);
+				if (e) goto l_cleanup;
+				e = duckLispDev_callback_print(duckVM);
+				if (e) goto l_cleanup;
+				e = duckVM_pop(duckVM, dl_null);
+				if (e) goto l_cleanup;
+			}
+		}
+		printf(")");
+		break;
 	default:
 		printf("print: Unsupported type. [%u]\n", object.type);
 	}
@@ -262,6 +286,30 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 				printf(")");
 			}
 			putchar('\n');
+			break;
+		case duckLisp_object_type_closure:
+			printf("(closure %lli", tempObject.value.closure.name);
+			DL_DOTIMES(k, tempObject.value.closure.upvalues_length) {
+				duckVM_upvalue_t *uv = tempObject.value.closure.upvalues[k];
+				putchar(' ');
+				if (uv->onStack) {
+					e = duckVM_push(duckVM, &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
+					if (e) goto l_cleanup;
+					e = duckLispDev_callback_print(duckVM);
+					if (e) goto l_cleanup;
+					e = duckVM_pop(duckVM, dl_null);
+					if (e) goto l_cleanup;
+				}
+				else {
+					e = duckVM_push(duckVM, uv->value.heap_object);
+					if (e) goto l_cleanup;
+					e = duckLispDev_callback_print(duckVM);
+					if (e) goto l_cleanup;
+					e = duckVM_pop(duckVM, dl_null);
+					if (e) goto l_cleanup;
+				}
+			}
+			puts(")");
 			break;
 		default:
 			printf("Bad object type %u.\n", tempObject.type);
