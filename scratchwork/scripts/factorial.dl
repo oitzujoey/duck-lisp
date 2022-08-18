@@ -9,25 +9,15 @@
   (var acc 0)
 
   (var i 0)
-  (label multiply-loop)
-
-  (brnz (not (< i b)) multiply-end)
-  (
-   (← acc (+ acc a))
-   
-   (← i (+ i 1)))
-  (goto multiply-loop)
-  (label multiply-end)
+  (while (< i b)
+	(← acc (+ acc a))
+	(← i (+ i 1)))
   acc)
 
 (defun factorial-helper (n acc)
-  (brnz (= n 1) exit)
-  (setq acc (factorial-helper (1- n) (* n acc)))
-
-  (label exit)
+  (unless (= n 1) 
+	(setq acc (factorial-helper (1- n) (* n acc))))
   acc)
-
-
 
 (defun factorial (n)
   (factorial-helper n 1))

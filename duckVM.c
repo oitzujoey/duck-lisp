@@ -336,6 +336,8 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxCon
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckVM_upvalue_t **),
 	                   dl_array_strategy_fit);
+	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, dl_null);
+	if (e) goto l_cleanup;
 	/**/ dl_array_init(&duckVM->upvalue_array_length_call_stack,
 	                   duckVM->memoryAllocation,
 	                   sizeof(dl_size_t),
@@ -549,11 +551,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			// Need another stack with same depth as call stack to pull out upvalues.
 			// Like to live dangerously?
-			/* if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 >= duckVM->upvalue_array_call_stack.elements_length)) { */
-			/* 	printf("ptr %lli >= %llu\n", ptrdiff1, duckVM->upvalue_array_call_stack.elements_length); */
-			/* 	e = dl_error_invalidValue; */
-			/* 	break; */
-			/* } */
+			if (ptrdiff1 < 0) {
+				e = dl_error_invalidValue;
+				break;
+			}
 			duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
 			                                                   duckVM_upvalue_t **)[ptrdiff1];
 			if (upvalue->onStack) {
@@ -586,31 +587,54 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				if (e) break;
 			}
 
+			dl_bool_t recursive = dl_false;
+
 			DL_DOTIMES(k, object1.value.closure.upvalues_length) {
 				ptrdiff1 = *(ip++);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 >= duckVM->upvalue_stack.elements_length)) {
+				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->upvalue_stack.elements_length)) {
 					e = dl_error_invalidValue;
 					break;
 				}
-				duckVM_upvalue_t *upvalue_pointer = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack,
-				                                                        duckVM_upvalue_t *,
-				                                                        ptrdiff1);
-				if (upvalue_pointer == dl_null) {
-					printf("Upvalue %lli:%lli doesn't exist\n", k, ptrdiff1);
+				duckVM_upvalue_t *upvalue_pointer = dl_null;
+				if ((dl_size_t) ptrdiff1 == duckVM->upvalue_stack.elements_length) {
+					/* *Recursion* */
+					recursive = dl_true;
+					/* Our upvalue definitely doesn't exist yet. */
 					duckVM_upvalue_t upvalue;
-					upvalue.onStack = dl_true;
+					upvalue.onStack = dl_true;  /* Lie for now. */
 					upvalue.value.stack_index = ptrdiff1;
 					e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
 					if (e) break;
+					/* Break push_scope abstraction. */
+					e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
+					/* Upvalue stack slot exists now, so insert the new UV. */
 					DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1) = upvalue_pointer;
 				}
-				else printf("Upvalue %lli:%lli exists\n", k, ptrdiff1);
+				else {
+					upvalue_pointer = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1);
+					if (upvalue_pointer == dl_null) {
+						printf("Upvalue %lli:%lli doesn't exist\n", k, ptrdiff1);
+						duckVM_upvalue_t upvalue;
+						upvalue.onStack = dl_true;
+						upvalue.value.stack_index = ptrdiff1;
+						e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
+						if (e) break;
+						DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1) = upvalue_pointer;
+					}
+					else printf("Upvalue %lli:%lli exists\n", k, ptrdiff1);
+				}
 				object1.value.closure.upvalues[k] = upvalue_pointer;
 			}
-			e = stack_push(duckVM, &object1);
+			if (!recursive) {
+				/* Break push_scope abstraction. */
+				e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
+				if (e) break;
+			}
+			/* e = stack_push(duckVM, &object1); */
+			e = dl_array_pushElement(&duckVM->stack, &object1);
 			break;
 
 		case duckLisp_instruction_funcall8:

@@ -4484,7 +4484,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	                             expression->compoundExpressions[1].value.identifier.value,
 	                             expression->compoundExpressions[1].value.identifier.value_length);
 	if (e) goto l_cleanup;
-	/* duckLisp->locals_length++; */
+	duckLisp->locals_length++;
 
 	e = duckLisp_addInterpretedFunction(duckLisp, expression->compoundExpressions[1].value.identifier);
 	if (e) goto l_cleanup;
@@ -4668,7 +4668,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 			duckLisp_scope_t scope;
 			e = scope_getTop(duckLisp, &scope);
 			if (e) goto l_cleanup;
-			/* --duckLisp->locals_length; */
+			--duckLisp->locals_length;
 			e = duckLisp_emit_pushClosure(duckLisp,
 			                              assembly,
 			                              dl_null,
@@ -8135,7 +8135,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				if (e) {
 					goto l_cleanup;
 				}
-				printf("%i\n", args[0].value.integer);
 				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.index >> 8*(byte_length - n - 1))
 					                                                   & 0xFFU);
@@ -8169,7 +8168,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				if (e) {
 					goto l_cleanup;
 				}
-				printf("%i\n", args[0].value.integer);
 				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.index >> 8*(byte_length - n - 1))
 					                                                   & 0xFFU);
@@ -11419,7 +11417,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_equal8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("equal.8				"));
+				e = dl_array_pushElements(&disassembly, DL_STR("equal.8         "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -11455,7 +11453,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_equal16:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("equal.16	   "));
+				e = dl_array_pushElements(&disassembly, DL_STR("equal.16       "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -11509,7 +11507,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_equal32:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("equal.32		"));
+				e = dl_array_pushElements(&disassembly, DL_STR("equal.32        "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -11783,7 +11781,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_less8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("less.8			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("less.8          "));
 				if (e) return dl_null;
 				break;
 			case 1:
