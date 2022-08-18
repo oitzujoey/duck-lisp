@@ -21,7 +21,7 @@
 
 (defun factorial (n)
   (factorial-helper n 1))
-
+(print-stack)
 (var x 5)
 (var y (factorial x))
 (print y)
