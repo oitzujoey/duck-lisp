@@ -41,7 +41,7 @@
    (println "}"))
  (print-free-x))
 
-(println "Recursion test")
+(comment (println "Recursion test")
 (defun recursion (x)
   (println x)
   (if (> x 0)
@@ -53,3 +53,15 @@
 (print 1)
 (recursion 1)
 (println "}")
+
+(println "Type test")
+(ptest 8 (type-of recursion)))
+
+(println "Capture test")
+(
+ (var z 0)
+ (
+  (var y 14)
+  (defun closure () y)
+  (← z closure))
+ (println (funcall z)))

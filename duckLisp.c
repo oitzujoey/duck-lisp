@@ -2912,6 +2912,50 @@ dl_error_t duckLisp_emit_pushClosure(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_emit_releaseUpvalues(duckLisp_t *duckLisp,
+                                         dl_array_t *assembly,
+                                         const dl_ptrdiff_t *upvalues,
+                                         const dl_size_t upvalues_length) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	duckLisp_instructionObject_t instruction = {0};
+	duckLisp_instructionArgClass_t argument = {0};
+	/**/ dl_array_init(&instruction.args,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionArgClass_t),
+	                   dl_array_strategy_double);
+
+	// Write instruction.
+	instruction.instructionClass = duckLisp_instructionClass_releaseUpvalues;
+
+	// Push arguments into instruction.
+
+	// Upvalues
+	argument.type = duckLisp_instructionArgClass_type_integer;
+	DL_DOTIMES(i, upvalues_length) {
+		// This is the absolute index, not relative to the top of the stack.
+		argument.value.integer = upvalues[i];
+		e = dl_array_pushElement(&instruction.args, &argument);
+		if (e) goto l_cleanup;
+	}
+
+	// Push instruction into list.
+	e = dl_array_pushElement(assembly, &instruction);
+	if (e) {
+		goto l_cleanup;
+	}
+
+ l_cleanup:
+
+	eError = dl_array_quit(&eString);
+	if (eError) e = eError;
+
+	return e;
+}
+
 dl_error_t duckLisp_emit_ccall(duckLisp_t *duckLisp, dl_array_t *assembly, dl_ptrdiff_t callback_index) {
 	dl_error_t e = dl_error_ok;
 
@@ -6573,6 +6617,70 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_generator_funcall2(duckLisp_t *duckLisp,
+                                       dl_array_t *assembly,
+                                       duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	dl_ptrdiff_t identifier_index = -1;
+	dl_ptrdiff_t innerStartStack_length;
+	dl_ptrdiff_t outerStartStack_length;
+
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[1],
+	                                        &identifier_index,
+	                                        dl_null,
+	                                        dl_true);
+	if (e) goto l_cleanup;
+
+	outerStartStack_length = duckLisp->locals_length;
+
+	for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		innerStartStack_length = duckLisp->locals_length;
+		e = duckLisp_compile_compoundExpression(duckLisp,
+		                                        assembly,
+		                                        expression->compoundExpressions[0].value.identifier.value,
+		                                        expression->compoundExpressions[0].value.identifier.value_length,
+		                                        &expression->compoundExpressions[i],
+		                                        dl_null,
+		                                        dl_null,
+		                                        dl_true);
+		if (e) goto l_cleanup;
+
+		e = duckLisp_emit_move(duckLisp, assembly, innerStartStack_length, duckLisp->locals_length - 1);
+		if (e) goto l_cleanup;
+		e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - innerStartStack_length - 1);
+		if (e) goto l_cleanup;
+	}
+
+	// The zeroth argument is the function name, which also happens to be a label.
+	e = duckLisp_emit_funcall(duckLisp,
+	                          assembly,
+	                          identifier_index);
+	if (e) {
+		goto l_cleanup;
+	}
+
+	duckLisp->locals_length = outerStartStack_length + 1;
+
+	// Don't push label into trie. This will be done later during assembly.
+
+ l_cleanup:
+
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
 dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp,
                                        dl_array_t *assembly,
                                        duckLisp_ast_expression_t *expression) {
@@ -6638,6 +6746,14 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
 	}
 
 	e = duckLisp_generator_noscope(duckLisp, assembly, expression);
+	if (e) goto l_cleanup;
+
+	duckLisp_scope_t scope;
+
+	e = scope_getTop(duckLisp, &scope);
+	if (e) goto l_cleanup;
+
+	e = duckLisp_emit_releaseUpvalues(duckLisp, assembly, scope.scope_uvs, scope.scope_uvs_length);
 	if (e) goto l_cleanup;
 
 	// And pop it... This is so much easier than it used to be. No more queuing `pop-scope`s.
@@ -7068,7 +7184,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 		io = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j);
 		/* printf("{\n"); */
 		printf("Instruction class: %s",
-		       (char *[34]){
+		       (char *[35]){
 			       ""  // Trick the formatter.
 				       "nop",
 				       "push-string",
@@ -7078,6 +7194,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				       "push-symbol",
 				       "push-upvalue",
 				       "push-closure",
+				       "release-upvalues",
 				       "funcall",
 				       "call",
 				       "ccall",
@@ -7978,6 +8095,35 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			currentInstruction.byte = duckLisp_instruction_nil;
 			break;
 		}
+		case duckLisp_instructionClass_releaseUpvalues: {
+			dl_ptrdiff_t index = 0;
+			currentInstruction.byte = duckLisp_instruction_releaseUpvalues8;
+			// Number of upvalues
+			byte_length = 1;
+			e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+			if (e) goto l_cleanup;
+			DL_DOTIMES (l, byte_length) {
+				DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + l) = ((instruction.args.elements_length
+				                                                            >> 8*(byte_length - l - 1))
+				                                                           & 0xFFU);
+			}
+			index += byte_length;
+			// Upvalues
+			byte_length = 1;
+			e = dl_array_pushElements(&currentArgs, dl_null, instruction.args.elements_length * byte_length);
+			if (e) {
+				goto l_cleanup;
+			}
+			for (dl_ptrdiff_t k = 0; (dl_size_t) k < instruction.args.elements_length; k++) {
+				DL_DOTIMES(l, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + l) = ((args[k].value.integer
+					                                                            >> 8*(byte_length - l - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+			}
+			break;
+		}
 		case duckLisp_instructionClass_ccall: {
 			switch (args[0].type) {
 			case duckLisp_instructionArgClass_type_integer:
@@ -8631,6 +8777,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                  {DL_STR(";"),            duckLisp_generator_comment},
 	                  {DL_STR("nop"),          duckLisp_generator_nop},
 	                  {DL_STR("goto"),         duckLisp_generator_goto},
+	                  {DL_STR("funcall"),      duckLisp_generator_funcall2},
 	                  {DL_STR("call"),         duckLisp_generator_acall},
 	                  {DL_STR("label"),        duckLisp_generator_label},
 	                  {DL_STR("var"),          duckLisp_generator_createVar},
@@ -9480,6 +9627,58 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 						e = dl_array_pushElement(&disassembly, &tempChar);
 						if (e) return dl_null;
 						if (m != (4 - 1)) i++;
+					}
+					if (tempSize == 0) tempChar = '\n';
+					else tempChar = ' ';
+					e = dl_array_pushElement(&disassembly, &tempChar);
+					if (e) return dl_null;
+					if (tempSize == 0) {
+						arg = 0;
+						continue;
+					}
+					break;
+				}
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+
+		case duckLisp_instruction_releaseUpvalues8:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("release-uvs.8   "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				// Upvalues length
+				tempSize = (dl_size_t) bytecode[i] << 8 * 0;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				if (tempSize == 0) tempChar = '\n';
+				else tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				if (tempSize == 0) {
+					arg = 0;
+					continue;
+				}
+				break;
+			default:
+				// Upvalues
+				if (tempSize-- > 0) {
+					const dl_size_t top = 1;
+					DL_DOTIMES(m, top) {
+						tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						if ((dl_size_t) m != (top - 1)) i++;
 					}
 					if (tempSize == 0) tempChar = '\n';
 					else tempChar = ' ';

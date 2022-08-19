@@ -382,9 +382,9 @@ static dl_error_t stack_pop(duckVM_t *duckVM, duckLisp_object_t *object) {
 
 static dl_error_t stack_pop_multiple(duckVM_t *duckVM, dl_size_t pops) {
 	dl_error_t e = dl_error_ok;
-	e = dl_array_popElements(&duckVM->stack, dl_null, pops);
-	if (e) goto cleanup;
 	e = dl_array_popElements(&duckVM->upvalue_stack, dl_null, pops);
+	if (e) goto cleanup;
+	e = dl_array_popElements(&duckVM->stack, dl_null, pops);
  cleanup:
 	return e;
  }
@@ -420,7 +420,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	dl_uint8_t *ip = bytecode;
 	dl_ptrdiff_t ptrdiff1;
 	dl_ptrdiff_t ptrdiff2;
-	// dl_size_t length1;
+	dl_size_t size1;
 	duckLisp_object_t object1 = {0};
 	duckLisp_object_t object2 = {0};
 	duckLisp_object_t *objectPtr1;
@@ -635,6 +635,30 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			}
 			/* e = stack_push(duckVM, &object1); */
 			e = dl_array_pushElement(&duckVM->stack, &object1);
+			break;
+
+		case duckLisp_instruction_releaseUpvalues8:
+			size1 = *(ip++);
+
+			DL_DOTIMES(k, size1) {
+				ptrdiff1 = *(ip++);
+				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->upvalue_stack.elements_length)) {
+					e = dl_error_invalidValue;
+					break;
+				}
+				duckVM_upvalue_t *upvalue = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack,
+				                                                duckVM_upvalue_t *,
+				                                                ptrdiff1);
+				if (upvalue != dl_null) {
+					e = duckVM_gclist_pushObject(duckVM,
+					                             &upvalue->value.heap_object,
+					                             DL_ARRAY_GETADDRESS(duckVM->stack,
+					                                                 duckLisp_object_t,
+					                                                 ptrdiff1));
+					if (e) break;
+					upvalue->onStack = dl_false;
+				}
+			}
 			break;
 
 		case duckLisp_instruction_funcall8:

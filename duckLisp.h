@@ -220,6 +220,7 @@ typedef enum {
 	duckLisp_instructionClass_pushSymbol,
 	duckLisp_instructionClass_pushUpvalue,
 	duckLisp_instructionClass_pushClosure,
+	duckLisp_instructionClass_releaseUpvalues,
 	duckLisp_instructionClass_funcall,
 	duckLisp_instructionClass_call,
 	duckLisp_instructionClass_ccall,
@@ -252,18 +253,18 @@ typedef enum {
 // Order must be 8→16→32 otherwise there will be optimization problems.
 typedef enum {
 	duckLisp_instruction_nop = 0,
-	
+
 	duckLisp_instruction_pushString8,
 	duckLisp_instruction_pushString16,
 	duckLisp_instruction_pushString32,
-	
+
 	duckLisp_instruction_pushBooleanFalse,
 	duckLisp_instruction_pushBooleanTrue,
-	
+
 	duckLisp_instruction_pushInteger8,
 	duckLisp_instruction_pushInteger16,
 	duckLisp_instruction_pushInteger32,
-	
+
 	duckLisp_instruction_pushIndex8,
 	duckLisp_instruction_pushIndex16,
 	duckLisp_instruction_pushIndex32,
@@ -278,30 +279,34 @@ typedef enum {
 
 	duckLisp_instruction_pushClosure32,
 
+	duckLisp_instruction_releaseUpvalues8,
+	duckLisp_instruction_releaseUpvalues16,
+	duckLisp_instruction_releaseUpvalues32,
+
 	duckLisp_instruction_funcall8,
 	duckLisp_instruction_funcall16,
 	duckLisp_instruction_funcall32,
-	
+
 	duckLisp_instruction_call8,
 	duckLisp_instruction_call16,
 	duckLisp_instruction_call32,
-	
+
 	duckLisp_instruction_ccall8,
 	duckLisp_instruction_ccall16,
 	duckLisp_instruction_ccall32,
-	
+
 	duckLisp_instruction_acall8,
 	duckLisp_instruction_acall16,
 	duckLisp_instruction_acall32,
-	
+
 	duckLisp_instruction_jump8,
 	duckLisp_instruction_jump16,
 	duckLisp_instruction_jump32,
-	
+
 	duckLisp_instruction_brz8,
 	duckLisp_instruction_brz16,
 	duckLisp_instruction_brz32,
-	
+
 	duckLisp_instruction_brnz8,
 	duckLisp_instruction_brnz16,
 	duckLisp_instruction_brnz32,

@@ -1177,7 +1177,7 @@ Closures are not on the list because they are contained in objects.
 
 Functions must all become closures. The only valid call to a function is through a closure. The function label will become a gensym that is wholly contained by the function scope. The function name will be associated with an object instead of a label. Recursion might still be possible by sheer luck.
 
-Next step: Modify compiler to create function variables instead of labels.
+Next step: 
 
 Defer:
     Fix defun kludge.
