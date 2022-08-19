@@ -5,7 +5,9 @@
 (var duckLisp-object-type-float 3)
 (var duckLisp-object-type-str 4)
 (var duckLisp-object-type-list 5)
-(comment (var duckLisp-object-type-func 6))
+(var duckLisp-object-type-symbol 6)
+(var duckLisp-object-type-function 7)
+(var duckLisp-object-type-closure 8)
 
 (defun println (v)
   (print v)
@@ -29,14 +31,6 @@
   (* a (/ b (gcd a b))))
 
 (defun type-to-string (type)
-  (comment "No lexical scope yet.")
-  (var duckLisp-object-type-none 0)
-  (var duckLisp-object-type-bool 1)
-  (var duckLisp-object-type-int 2)
-  (var duckLisp-object-type-float 3)
-  (var duckLisp-object-type-str 4)
-  (var duckLisp-object-type-list 5)
-  (comment (var duckLisp-object-type-func 6))
   (if (= type duckLisp-object-type-none)
 	  "none"
 	  (if (= type duckLisp-object-type-bool)
@@ -49,10 +43,15 @@
 					  "str"
 					  (if (= type duckLisp-object-type-list)
 						  "list"
-						  "Invalid type")))))))
+						  (if (= type duckLisp-object-type-symbol)
+							  "sym"
+							  (if (= type duckLisp-object-type-function)
+								  "func"
+								  (if (= type duckLisp-object-type-closure)
+									  "clos"
+									  "Invalid type"))))))))))
 
 (defun atom? (v)
-  (var duckLisp-object-type-list 5)
   (not (= (type-of v) duckLisp-object-type-list)))
 
 (defun and (a b)
