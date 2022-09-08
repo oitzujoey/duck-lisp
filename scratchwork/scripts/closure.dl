@@ -61,10 +61,10 @@
 (
  (var z 0)
  (
-  (var y 14)
+  (var y 7)
   (defun closure () y)
   (← z closure))
- (println (funcall z)))
+ (ptest 7 (funcall z)))
 
 (println "Closure factory")
 (println "{")
@@ -73,9 +73,10 @@
    ((defun closure ()
 	  x)))
  (var q (closure-factory 5))
+ (var r (closure-factory 9))
  (comment Should read "closure # #")
- (println q)
- (println (funcall q)))
+ (ptest 5 (funcall q))
+ (ptest 9 (funcall r)))
 (println "}")
 
 (println "Deeply nested closure")
