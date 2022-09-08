@@ -594,6 +594,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
 				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->upvalue_stack.elements_length)) {
 					e = dl_error_invalidValue;
 					break;
@@ -642,6 +643,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 
 			DL_DOTIMES(k, size1) {
 				ptrdiff1 = *(ip++);
+				ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
 				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->upvalue_stack.elements_length)) {
 					e = dl_error_invalidValue;
 					break;

@@ -1735,49 +1735,67 @@ dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
-                                                    dl_ptrdiff_t *index,
-                                                    dl_ptrdiff_t *scope_index,
-                                                    const char *name,
-                                                    const dl_size_t name_length) {
+dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
+                                                           dl_bool_t *found,
+                                                           dl_ptrdiff_t *index,
+                                                           dl_ptrdiff_t *scope_index,
+                                                           const char *name,
+                                                           const dl_size_t name_length,
+                                                           duckLisp_scope_t function_scope,
+                                                           dl_ptrdiff_t function_scope_index) {
 	dl_error_t e = dl_error_ok;
 
-	duckLisp_scope_t function_scope;
-	dl_ptrdiff_t function_scope_index = duckLisp->scope_stack.elements_length;
 	// Fix this stupid variable here.
 	dl_ptrdiff_t return_index = -1;
+	/* First look for an upvalue in the scope immediately above. If it exists, make a normal upvalue to it. If it
+	   doesn't exist, search in higher scopes. If it exists, create an upvalue to it in the function below that scope.
+	   Then chain upvalues leading to that upvalue through all the nested functions. Stack upvalues will have a positive
+	   index. Upvalue upvalues will have a negative index.
+	   Scopes will always have positive indices. Functions may have negative indices.
+	*/
 
-	*index = -1;
+	/* dl_ptrdiff_t local_index; */
+	*found = dl_false;
 
-	/* Skip the current function. */
+	duckLisp_scope_t scope = {0};
 	do {
-		e = dl_array_get(&duckLisp->scope_stack, (void *) &function_scope, --function_scope_index);
-		if (e) {
-			if (e == dl_error_invalidValue) {
-				e = dl_error_ok;
-			}
-			break;
-		}
-	} while (!function_scope.function_scope);
-
-	duckLisp_scope_t scope;
-	*scope_index = function_scope_index;
-	while (dl_true) {
 		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --(*scope_index));
 		if (e) {
 			if (e == dl_error_invalidValue) {
 				e = dl_error_ok;
 			}
-			break;
+			goto cleanup;
 		}
 
 		/**/ dl_trie_find(scope.locals_trie, index, name, name_length);
 		if (*index != -1) {
+			*found = dl_true;
 			break;
 		}
+	} while (!scope.function_scope);
+	dl_ptrdiff_t local_scope_index = *scope_index;
+	dl_bool_t chained = !*found;
+	if (chained) {
+		function_scope = scope;
+		function_scope_index = *scope_index;
+		printf("scope entered %lli\n", *scope_index);
+		e = duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp,
+		                                                    found,
+		                                                    index,
+		                                                    scope_index,
+		                                                    name,
+		                                                    name_length,
+		                                                    function_scope,
+		                                                    function_scope_index);
+		if (e) goto cleanup;
+		// Don't set `index` below here.
+		// Create a closure to the scope above.
+		printf("index %lli -> ", *index);
+		if (*index >= 0) *index = -(*index + 1);
+		printf("%lli\n", *index);
 	}
-
-	if (*index != -1) {
+	/* sic. */
+	if (*found) {
 		/* We found it, which means it's an upvalue. Check to make sure it has been registered. */
 		dl_bool_t found_upvalue = dl_false;
 		DL_DOTIMES(i, function_scope.function_uvs_length) {
@@ -1788,6 +1806,7 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
 			}
 		}
 		if (!found_upvalue) {
+			printf("funreg %lli\n", function_scope_index);
 			/* Not registered. Register. */
 			e = dl_realloc(duckLisp->memoryAllocation,
 			               (void **) &function_scope.function_uvs,
@@ -1809,18 +1828,52 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
 			}
 		}
 		if (!found_upvalue) {
+			puts("sunreg");
 			e = dl_realloc(duckLisp->memoryAllocation,
 			               (void **) &scope.scope_uvs,
 			               (scope.scope_uvs_length + 1) * sizeof(dl_ptrdiff_t));
 			if (e) goto cleanup;
 			scope.scope_uvs_length++;
 			scope.scope_uvs[scope.scope_uvs_length - 1] = *index;
-			e = dl_array_set(&duckLisp->scope_stack, (void *) &scope, *scope_index);
+			e = dl_array_set(&duckLisp->scope_stack, (void *) &scope, local_scope_index);
 			if (e) goto cleanup;
 		}
-		*index = return_index;
+		*index = chained ? -(return_index + 1) : return_index;
 	}
 
+ cleanup:
+	return e;
+}
+
+dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
+                                                    dl_bool_t *found,
+                                                    dl_ptrdiff_t *index,
+                                                    dl_ptrdiff_t *scope_index,
+                                                    const char *name,
+                                                    const dl_size_t name_length) {
+	dl_error_t e = dl_error_ok;
+	duckLisp_scope_t function_scope;
+	dl_ptrdiff_t function_scope_index = duckLisp->scope_stack.elements_length;
+	/* Skip the current function. */
+	do {
+		e = dl_array_get(&duckLisp->scope_stack, (void *) &function_scope, --function_scope_index);
+		if (e) {
+			if (e == dl_error_invalidValue) {
+				e = dl_error_ok;
+			}
+			goto cleanup;
+		}
+	} while (!function_scope.function_scope);
+
+	*scope_index = function_scope_index;
+	e = duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp,
+	                                                    found,
+	                                                    index,
+	                                                    scope_index,
+	                                                    name,
+	                                                    name_length,
+	                                                    function_scope,
+	                                                    function_scope_index);
  cleanup:
 	return e;
 }
@@ -2889,8 +2942,8 @@ dl_error_t duckLisp_emit_pushClosure(duckLisp_t *duckLisp,
 	// Captures
 	argument.type = duckLisp_instructionArgClass_type_integer;
 	DL_DOTIMES(i, captures_length) {
-		// This is the absolute index, not relative to the top of the stack.
-		argument.value.integer = captures[i];
+		argument.value.integer = (captures[i] >= 0
+		                          ? (dl_ptrdiff_t) duckLisp->locals_length - captures[i] : captures[i]);
 		e = dl_array_pushElement(&instruction.args, &argument);
 		if (e) goto l_cleanup;
 	}
@@ -2936,8 +2989,7 @@ dl_error_t duckLisp_emit_releaseUpvalues(duckLisp_t *duckLisp,
 	// Upvalues
 	argument.type = duckLisp_instructionArgClass_type_integer;
 	DL_DOTIMES(i, upvalues_length) {
-		// This is the absolute index, not relative to the top of the stack.
-		argument.value.integer = upvalues[i];
+		argument.value.integer = duckLisp->locals_length - upvalues[i];
 		e = dl_array_pushElement(&instruction.args, &argument);
 		if (e) goto l_cleanup;
 	}
@@ -4593,87 +4645,6 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		                        assembly,
 		                        expression->compoundExpressions[1].value.identifier.value,
 		                        expression->compoundExpressions[1].value.identifier.value_length);
-		// Delete the below code and uncomment the above once closures are implemented.
-		/* { */
-		/* 	duckLisp_scope_t scope; */
-		/* 	dl_ptrdiff_t label_index = -1; */
-		/* 	duckLisp_instructionObject_t instruction = {0}; */
-		/* 	duckLisp_instructionArgClass_t argument = {0}; */
-		/* 	/\**\/ dl_array_init(&instruction.args, */
-		/* 	                   duckLisp->memoryAllocation, */
-		/* 	                   sizeof(duckLisp_instructionArgClass_t), */
-		/* 	                   dl_array_strategy_double); */
-
-		/* 	// Write instruction. */
-		/* 	instruction.instructionClass = duckLisp_instructionClass_pseudo_label; */
-
-		/* 	// This is why we pushed the scope here. */
-		/* 	// Kludge: Get the scope above the current one. */
-		/* 	e = dl_array_get(&duckLisp->scope_stack, &scope, duckLisp->scope_stack.elements_length - 2); */
-		/* 	if (e == dl_error_bufferUnderflow) { */
-		/* 		// Push a scope if we don't have one yet. */
-		/* 		/\**\/ scope_init(duckLisp, &scope, dl_true); */
-		/* 		e = dl_array_pushElement(&duckLisp->scope_stack, &scope); */
-		/* 		if (e) { */
-		/* 			goto l_cleanupKludge; */
-		/* 		} */
-		/* 	} */
-
-		/* 	// Make sure label is declared. */
-		/* 	/\**\/ dl_trie_find(scope.labels_trie, */
-		/* 	                  &label_index, */
-		/* 	                  expression->compoundExpressions[1].value.identifier.value, */
-		/* 	                  expression->compoundExpressions[1].value.identifier.value_length); */
-		/* 	if (e) { */
-		/* 		goto l_cleanupKludge; */
-		/* 	} */
-		/* 	if (label_index == -1) { */
-		/* 		e = dl_error_invalidValue; */
-		/* 		eError = dl_array_pushElements(&eString, DL_STR("defun: Label \"")); */
-		/* 		if (eError) { */
-		/* 			e = eError; */
-		/* 			goto l_cleanupKludge; */
-		/* 		} */
-		/* 		eError = dl_array_pushElements(&eString, */
-		/* 		                               expression->compoundExpressions[1].value.identifier.value, */
-		/* 		                               expression->compoundExpressions[1].value.identifier.value_length); */
-		/* 		if (eError) { */
-		/* 			e = eError; */
-		/* 			goto l_cleanupKludge; */
-		/* 		} */
-		/* 		eError = dl_array_pushElements(&eString, DL_STR("\" is not a top-level expression in a closed scope.")); */
-		/* 		if (eError) { */
-		/* 			e = eError; */
-		/* 			goto l_cleanupKludge; */
-		/* 		} */
-		/* 		eError = duckLisp_error_pushRuntime(duckLisp, */
-		/* 		                                    ((char *) eString.elements), */
-		/* 		                                    eString.elements_length); */
-		/* 		if (eError) { */
-		/* 			e = eError; */
-		/* 		} */
-		/* 		goto l_cleanupKludge; */
-		/* 	} */
-
-		/* 	// Push arguments into instruction. */
-		/* 	argument.type = duckLisp_instructionArgClass_type_integer; */
-		/* 	argument.value.integer = label_index; */
-		/* 	e = dl_array_pushElement(&instruction.args, &argument); */
-		/* 	if (e) { */
-		/* 		goto l_cleanupKludge; */
-		/* 	} */
-
-		/* 	// Push instruction into list. */
-		/* 	e = dl_array_pushElement(assembly, &instruction); */
-		/* 	if (e) { */
-		/* 		goto l_cleanupKludge; */
-		/* 	} */
-
-		/* l_cleanupKludge: */
-		/* 	if (eError) { */
-		/* 		e = eError; */
-		/* 	} */
-		/* } */
 		if (e) goto l_cleanup;
 
 		// `label_index` should never equal -1 after this function exits.
@@ -4724,6 +4695,17 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		if (e) goto l_cleanup;
 
 		// Footer
+
+		{
+			duckLisp_scope_t scope;
+			e = scope_getTop(duckLisp, &scope);
+			if (e) goto l_cleanup;
+
+			if (scope.scope_uvs_length) {
+				e = duckLisp_emit_releaseUpvalues(duckLisp, assembly, scope.scope_uvs, scope.scope_uvs_length);
+				if (e) goto l_cleanup;
+			}
+		}
 
 		e = duckLisp_emit_return(duckLisp,
 		                         assembly,
@@ -6660,9 +6642,7 @@ dl_error_t duckLisp_generator_funcall2(duckLisp_t *duckLisp,
 	}
 
 	// The zeroth argument is the function name, which also happens to be a label.
-	e = duckLisp_emit_funcall(duckLisp,
-	                          assembly,
-	                          identifier_index);
+	e = duckLisp_emit_funcall(duckLisp, assembly, identifier_index);
 	if (e) {
 		goto l_cleanup;
 	}
@@ -6749,12 +6729,13 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
 	if (e) goto l_cleanup;
 
 	duckLisp_scope_t scope;
-
 	e = scope_getTop(duckLisp, &scope);
 	if (e) goto l_cleanup;
 
-	e = duckLisp_emit_releaseUpvalues(duckLisp, assembly, scope.scope_uvs, scope.scope_uvs_length);
-	if (e) goto l_cleanup;
+	if (scope.scope_uvs_length) {
+		e = duckLisp_emit_releaseUpvalues(duckLisp, assembly, scope.scope_uvs, scope.scope_uvs_length);
+		if (e) goto l_cleanup;
+	}
 
 	// And pop it... This is so much easier than it used to be. No more queuing `pop-scope`s.
 	e = duckLisp_popScope(duckLisp, dl_null);
@@ -6874,13 +6855,15 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 		if (e) goto l_cleanup;
 		if (temp_index == -1) {
 			dl_ptrdiff_t scope_index;
+			dl_bool_t found;
 			e = duckLisp_scope_getFreeLocalIndexFromName(duckLisp,
+			                                             &found,
 			                                             &temp_index,
 			                                             &scope_index,
 			                                             compoundExpression->value.identifier.value,
 			                                             compoundExpression->value.identifier.value_length);
 			if (e) goto l_cleanup;
-			if (temp_index == -1) {
+			if (!found) {
 				// Now we check for labels.
 				e = scope_getLabelFromName(duckLisp,
 				                           &temp_index,
@@ -6922,7 +6905,7 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 				for (dl_ptrdiff_t i = 0; (dl_size_t) i < compoundExpression->value.identifier.value_length; i++) {
 					putchar(compoundExpression->value.identifier.value[i]);
 				}
-				printf("\" in scope %lli with index %lli.\n", scope_index, temp_index);
+				printf("\" in scope %lli with function upvalue index %lli.\n", scope_index, temp_index);
 				e = duckLisp_emit_pushUpvalue(duckLisp, assembly, dl_null, temp_index);
 				if (e) goto l_cleanup;
 				temp_index = duckLisp->locals_length - 1;
@@ -10965,7 +10948,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_mul8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("mul.8			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("mul.8           "));
 				if (e) return dl_null;
 				break;
 			case 1:
