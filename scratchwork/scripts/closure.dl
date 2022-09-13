@@ -5,6 +5,9 @@
 
 (defun ptest (expected actual)
   (print expected)
+  (if (> expected 9)
+	  (print "|")
+	  ())
   (println actual))
 
 (comment Variables are numbered by scope.
@@ -41,22 +44,6 @@
    (println "}"))
  (print-free-x))
 
-(comment (println "Recursion test")
-		 (defun recursion (x)
-		   (println x)
-		   (if (> x 0)
-			   (
-				(print 0)
-				(recursion (- x 1)))
-			   0))
-		 (println "{")
-		 (print 1)
-		 (recursion 1)
-		 (println "}")
-
-		 (println "Type test")
-		 (ptest 8 (type-of recursion)))
-
 (println "Capture test")
 (
  (var z 0)
@@ -74,9 +61,30 @@
 	  x)))
  (var q (closure-factory 5))
  (var r (closure-factory 9))
- (comment Should read "closure # #")
  (ptest 5 (funcall q))
  (ptest 9 (funcall r)))
+(println "}")
+
+(println "Fixed point combinator")
+(println "{")
+(defun factorial-fixed-point (f x)
+  (if (= x 1)
+	  1
+	  (* x (funcall f (- x 1)))))
+(defun fixed-point (f x)
+  (funcall ((defun dummy (x)
+			  (funcall f dummy x)))
+		   x))
+(ptest 120 (fixed-point factorial-fixed-point 5))
+(println "}")
+
+(println "Recursion")
+(println "{")
+(defun factorial-recursion (x)
+  (if (= x 1)
+	  1
+	  (* x (factorial-recursion (- x 1)))))
+(ptest 720 (factorial-recursion 6))
 (println "}")
 
 (println "Deeply nested closure")
@@ -87,19 +95,3 @@
 	  x)))
 (println (funcall (funcall (c1))))
 (println "}")
-
-(comment (println "Factorial")
-		 (println "{")
-		 (defun Y (f) (funcall ((defun y1 (x) (funcall f (funcall x x))))
-							   ((defun y1 (x) (funcall f (funcall x x))))))
-		 (print-stack)
-		 (defun factorial (f)
-		   ((defun f1 (x)
-			  (if (= x 1)
-				  1
-				  (* x (funcall f (- x 1)))))))
-		 (defun c (x y)
-		   (funcall ((defun n () (funcall x y)))))
-		 (c println "Hello")
-		 (println (funcall (Y factorial) 1))
-		 (println "}"))
