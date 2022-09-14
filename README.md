@@ -7,16 +7,29 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 ## Features
 
 * Separate compiler and VM
-* Lexical scoping (not yet implemented)
+* Lexical scoping (partially implemented)
 * User created keywords
 * C FFI
 * Low memory VM
+* UTF-8 compatible
 
 ### Planned features
 
 * Independent of the standard library
 * Independent of OS
 * Independent of processor architecture
+
+### Quirks
+
+* Functions created by `defun` are lexically scoped.
+* Built-in keywords can be overridden using `defun`.
+* Variables are declared as they are in C-based languages. There is no `let`.
+
+### Misfeatures
+
+* Functions do not have signatures. i.e. `(funcall ((defun mod (a b) (- a (* (/ a b) b)))) 5)` will compile but crash the VM.
+* Error reporting is horrible. It will likely stay this way.
+* There are no debug features other than a disassembler.
 
 ## Examples
 

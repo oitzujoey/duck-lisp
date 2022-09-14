@@ -1,0 +1,9 @@
+(defun ~~+~~ (a b)
+  (+ a b))
+
+(var + ~~+~~)
+
+(defun apply2 (f a b)
+  (f a b))
+
+(print (apply2 + 4 5))
