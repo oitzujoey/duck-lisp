@@ -3000,7 +3000,13 @@ dl_error_t duckLisp_emit_releaseUpvalues(duckLisp_t *duckLisp,
 
 	// Upvalues
 	argument.type = duckLisp_instructionArgClass_type_integer;
+	{
+		dl_size_t num_objects = 0;
+		DL_DOTIMES(i, upvalues_length) if (upvalues[i] >= 0) num_objects++;
+		if (num_objects == 0) goto l_cleanup;
+	}
 	DL_DOTIMES(i, upvalues_length) {
+		if (upvalues[i] < 0) continue;
 		argument.value.integer = duckLisp->locals_length - upvalues[i];
 		e = dl_array_pushElement(&instruction.args, &argument);
 		if (e) goto l_cleanup;
