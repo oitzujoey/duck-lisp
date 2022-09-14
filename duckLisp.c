@@ -1776,8 +1776,6 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 	dl_ptrdiff_t local_scope_index = *scope_index;
 	dl_bool_t chained = !*found;
 	if (chained) {
-		function_scope = scope;
-		function_scope_index = *scope_index;
 		printf("scope entered %lli\n", *scope_index);
 		e = duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp,
 		                                                    found,
@@ -1785,8 +1783,8 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 		                                                    scope_index,
 		                                                    name,
 		                                                    name_length,
-		                                                    function_scope,
-		                                                    function_scope_index);
+		                                                    scope,
+		                                                    *scope_index);
 		if (e) goto cleanup;
 		// Don't set `index` below here.
 		// Create a closure to the scope above.
@@ -1807,6 +1805,13 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 		}
 		if (!found_upvalue) {
 			printf("funreg %lli\n", function_scope_index);
+			e = dl_array_get(&duckLisp->scope_stack, (void *) &function_scope, function_scope_index);
+			if (e) {
+				if (e == dl_error_invalidValue) {
+					e = dl_error_ok;
+				}
+				goto cleanup;
+			}
 			/* Not registered. Register. */
 			e = dl_realloc(duckLisp->memoryAllocation,
 			               (void **) &function_scope.function_uvs,
@@ -1828,7 +1833,14 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 			}
 		}
 		if (!found_upvalue) {
-			puts("sunreg");
+			printf("sunreg %lli\n", local_scope_index);
+			e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, local_scope_index);
+			if (e) {
+				if (e == dl_error_invalidValue) {
+					e = dl_error_ok;
+				}
+				goto cleanup;
+			}
 			e = dl_realloc(duckLisp->memoryAllocation,
 			               (void **) &scope.scope_uvs,
 			               (scope.scope_uvs_length + 1) * sizeof(dl_ptrdiff_t));
