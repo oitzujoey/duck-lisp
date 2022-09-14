@@ -7024,29 +7024,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 			if (e) {
 				goto l_cleanup;
 			}
-			if (functionType == duckLisp_functionType_none) {
-				e = dl_error_invalidValue;
-				eError = dl_array_pushElements(&eString, DL_STR("Symbol \""));
-				if (eError) {
-					e = eError;
-					goto l_cleanup;
-				}
-				eError = dl_array_pushElements(&eString, functionName.value, functionName.value_length);
-				if (eError) {
-					e = eError;
-					goto l_cleanup;
-				}
-				eError = dl_array_pushElements(&eString, DL_STR("\" is not a function, callback, or generator."));
-				if (eError) {
-					e = eError;
-					goto l_cleanup;
-				}
-				eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements), eString.elements_length);
-				if (eError) {
-					e = eError;
-				}
-				goto l_cleanup;
-			}
+			if (functionType == duckLisp_functionType_none) functionType = duckLisp_functionType_ducklisp;
 		}
 		switch (functionType) {
 		case duckLisp_functionType_ducklisp:
