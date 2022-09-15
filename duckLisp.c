@@ -1872,6 +1872,7 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
 		if (e) {
 			if (e == dl_error_invalidValue) {
 				e = dl_error_ok;
+				*found = dl_false;
 			}
 			goto cleanup;
 		}
@@ -5308,10 +5309,12 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	*/
 
  l_free_gensym_end:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_loop.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_loop.value);
+	if (eError) e = eError;
 	gensym_loop.value_length = 0;
  l_free_gensym_start:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_start.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_start.value);
+	if (eError) e = eError;
 	gensym_start.value_length = 0;
 
  l_cleanup:
@@ -12038,7 +12041,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_cons8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("cons.8			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("cons.8          "));
 				if (e) return dl_null;
 				break;
 			case 1:
