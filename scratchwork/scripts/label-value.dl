@@ -7,4 +7,4 @@
 
 (setq callback println)
 
-(call callback "Hello, world!")
+(callback "Hello, world!")

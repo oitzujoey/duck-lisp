@@ -1,13 +1,27 @@
 (print "Starting leak\n")
 (var x ())
+
+(defun lcons (a b)
+  ((defun _ (f)
+	 (f a b))))
+
+(defun lcar (f)
+  (f ((defun _ (a b) a))))
+
+(defun lcdr (f)
+  (f ((defun _ (a b) b))))
+
 (while true
 
   (comment  Test stack)
   5
   ()
-  
+  (defun _ () ())
   (comment  Force conses to be popped)
   (setq x (cons (cons () ()) ()))
 
   (comment  Force objects to be popped)
-  (setq x (cons (cons 1 2) 3)))
+  (setq x (cons (cons 1 2) 3))
+
+  (comment Force closures (objects) to be popped)
+  (setq x (lcons (lcons 1 2) 3)))

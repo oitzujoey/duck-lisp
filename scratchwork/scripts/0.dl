@@ -4,11 +4,11 @@
 
 (comment "Push a new scope.")
 (
-  (comment "This string overrides `s` defined in the outer scope.")
+  (comment "This string overrides `s' defined in the outer scope.")
   (var s "in-scope\n")
   (print s)
 
-	(comment "Print `t` from the outer scope.")
+	(comment "Print `t' from the outer scope.")
   (print t))
 
 (print-stack)
