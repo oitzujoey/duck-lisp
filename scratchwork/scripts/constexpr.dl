@@ -25,14 +25,6 @@
 					 (* a (/ b (gcd a b))))
 
 				   (defun type-to-string (type)
-					 (comment "No lexical scope yet.")
-					 (var duckLisp-object-type-none 0)
-					 (var duckLisp-object-type-bool 1)
-					 (var duckLisp-object-type-int 2)
-					 (var duckLisp-object-type-float 3)
-					 (var duckLisp-object-type-str 4)
-					 (var duckLisp-object-type-list 5)
-					 (comment (var duckLisp-object-type-func 6))
 					 (if (= type duckLisp-object-type-none)
 						 "none"
 						 (if (= type duckLisp-object-type-bool)
@@ -70,7 +62,7 @@
 						 ()
 						 (if (and (not (atom? x)) (not (atom? y)))
 							 (cons (cons (car x) (cons (car y) ()))
-								   (pair (cdr x) (cdr y)))
+								   (self (cdr x) (cdr y)))
 							 ())))
 
 				   (defun assoc (x y)
@@ -78,7 +70,7 @@
 					 (if (not (null? y))
 						 (if (= (car (car y)) x)
 							 (car (cdr (car y)))
-							 (assoc x (cdr y)))
+							 (self x (cdr y)))
 						 ()))
 
 				   (defun nth (n list)

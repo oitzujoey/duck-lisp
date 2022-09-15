@@ -19,8 +19,8 @@
 	(setq acc (self (1- n) (* n acc))))
   acc)
 
-(defun factorial3 (n)
+(defun factorial (n)
   (factorial-helper n 1))
 (var x 5)
-(var y (factorial3 x))
+(var y (factorial x))
 (print y)

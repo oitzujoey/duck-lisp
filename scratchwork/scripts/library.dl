@@ -73,7 +73,7 @@
 	  ()
 	  (if (and (not (atom? x)) (not (atom? y)))
 		  (cons (cons (car x) (cons (car y) ()))
-				(pair (cdr x) (cdr y)))
+				(self (cdr x) (cdr y)))
 		  ())))
 
 (defun assoc (x y)
@@ -81,7 +81,7 @@
   (if (not (null? y))
 	  (if (= (car (car y)) x)
 		  (car (cdr (car y)))
-		  (assoc x (cdr y)))
+		  (self x (cdr y)))
 	  ()))
 
 (defun nth (n list)
@@ -143,6 +143,9 @@
 
 (defun first (x)
   (car x))
+
+(defun rest (x)
+  (cdr x))
 
 
 (comment " Copied straight out of CLHS B）")

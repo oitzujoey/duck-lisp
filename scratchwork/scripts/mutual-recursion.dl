@@ -24,11 +24,9 @@
 				 (f2 フン1 n))))
   (フン1 n))
 
-(comment "`factorial' doesn't seem to be a valid name. Probably a bug in the trie.
-		  At any rate, this isn't actually factorial.")
-(defun factorial3 (n)
+(defun factorial (n)
   (fix2 factorial1 factorial2 n))
 
 (var x 5)
-(var y (factorial3 x))
+(var y (factorial x))
 (print y)
