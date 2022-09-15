@@ -16,12 +16,11 @@
 
 (defun factorial-helper (n acc)
   (unless (= n 1) 
-	(setq acc (factorial-helper (1- n) (* n acc))))
+	(setq acc (self (1- n) (* n acc))))
   acc)
 
-(defun factorial (n)
+(defun factorial3 (n)
   (factorial-helper n 1))
-(print-stack)
 (var x 5)
-(var y (factorial x))
+(var y (factorial3 x))
 (print y)

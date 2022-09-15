@@ -4626,15 +4626,6 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	/* Register function. */
 	/* This is not actually where stack functions are allocated. The magic happens in
 	   `duckLisp_generator_expression`. */
-	e = duckLisp_scope_addObject(duckLisp,
-	                             expression->compoundExpressions[1].value.identifier.value,
-	                             expression->compoundExpressions[1].value.identifier.value_length);
-	if (e) goto l_cleanup;
-	duckLisp->locals_length++;
-
-	e = duckLisp_addInterpretedFunction(duckLisp, expression->compoundExpressions[1].value.identifier);
-	if (e) goto l_cleanup;
-
 	{
 		dl_ptrdiff_t function_label_index = -1;
 
@@ -4642,6 +4633,22 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 
 		e = duckLisp_pushScope(duckLisp, dl_null, dl_true);
 		if (e) goto l_cleanup;
+
+		e = duckLisp_scope_addObject(duckLisp,
+		                             DL_STR("self"));
+		if (e) goto l_cleanup;
+		duckLisp->locals_length++;
+
+		{
+			duckLisp_ast_identifier_t identifier;
+			identifier.value = "self";
+			identifier.value_length = sizeof("self") - 1;
+			DL_DOTIMES(i, expression->compoundExpressions[1].value.identifier.value_length) {
+				putchar(expression->compoundExpressions[1].value.identifier.value[i]);
+			}
+			e = duckLisp_addInterpretedFunction(duckLisp, identifier);
+			if (e) goto l_cleanup;
+		}
 
 		e = duckLisp_gensym(duckLisp, &gensym);
 		if (e) goto l_cleanup;
@@ -4654,22 +4661,19 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		if (e) goto l_cleanup;
 
 		e = duckLisp_register_label(duckLisp,
-		                            expression->compoundExpressions[1].value.identifier.value,
-		                            expression->compoundExpressions[1].value.identifier.value_length);
+		                            DL_STR("self"));
 		if (e) goto l_cleanup;
 
 		// (label function_name)
 		e = duckLisp_emit_label(duckLisp,
 		                        assembly,
-		                        expression->compoundExpressions[1].value.identifier.value,
-		                        expression->compoundExpressions[1].value.identifier.value_length);
+		                        DL_STR("self"));
 		if (e) goto l_cleanup;
 
 		// `label_index` should never equal -1 after this function exits.
 		e = scope_getLabelFromName(duckLisp,
 		                           &function_label_index,
-		                           expression->compoundExpressions[1].value.identifier.value,
-		                           expression->compoundExpressions[1].value.identifier.value_length);
+		                           DL_STR("self"));
 		if (e) goto l_cleanup;
 		if (function_label_index == -1) {
 			// We literally just added the function name to the parent scope.
@@ -4757,6 +4761,15 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		e = duckLisp_popScope(duckLisp, dl_null);
 		if (e) goto l_cleanup;
 	}
+
+	--duckLisp->locals_length;
+	e = duckLisp_scope_addObject(duckLisp,
+	                             expression->compoundExpressions[1].value.identifier.value,
+	                             expression->compoundExpressions[1].value.identifier.value_length);
+	if (e) goto l_cleanup;
+	duckLisp->locals_length++;
+	e = duckLisp_addInterpretedFunction(duckLisp, expression->compoundExpressions[1].value.identifier);
+	if (e) goto l_cleanup;
 
  l_cleanup:
 
@@ -5477,18 +5490,18 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 	/* Flow does not reach here. */
 
  l_free_gensym_end:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	if (eError) e = eError;
 	gensym_end.value_length = 0;
  l_free_gensym_then:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	if (eError) e = eError;
 	gensym_then.value_length = 0;
 
  l_cleanup:
 
 	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
+	if (eError) e = eError;
 
 	return e;
 }
@@ -7021,35 +7034,24 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 			functionName = expression->compoundExpressions[0].value.identifier;
 			e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value,
 			                              functionName.value_length);
-			if (e) {
-				goto l_cleanup;
-			}
+			if (e) goto l_cleanup;
 			if (functionType == duckLisp_functionType_none) functionType = duckLisp_functionType_ducklisp;
 		}
 		switch (functionType) {
 		case duckLisp_functionType_ducklisp:
 			/* What's nice is we only need the label to generate the required code. No tries required. ^‿^ */
 			e = duckLisp_generator_funcall(duckLisp, assembly, expression);
-			if (e) {
-				goto l_cleanup;
-			}
+			if (e) goto l_cleanup;
 			break;
 		case duckLisp_functionType_c:
 			e = duckLisp_generator_callback(duckLisp, assembly, expression);
-			if (e) {
-				goto l_cleanup;
-			}
+			if (e) goto l_cleanup;
 			break;
 		case duckLisp_functionType_generator:
-			// e = m_generatorAt(functionIndex)(duckLisp, &currentExpression)
 			e = dl_array_get(&duckLisp->generators_stack, &generatorCallback, functionIndex);
-			if (e) {
-				goto l_cleanup;
-			}
+			if (e) goto l_cleanup;
 			e = generatorCallback(duckLisp, assembly, expression);
-			if (e) {
-				goto l_cleanup;
-			}
+			if (e) goto l_cleanup;
 			break;
 		default:
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid function type. Can't happen."));

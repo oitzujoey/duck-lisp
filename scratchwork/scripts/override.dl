@@ -1,7 +1,5 @@
-(defun ~~+~~ (a b)
+(defun + (a b)
   (+ a b))
-
-(var + ~~+~~)
 
 (defun apply2 (f a b)
   (f a b))
