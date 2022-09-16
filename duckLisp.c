@@ -11208,7 +11208,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_not8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("not.8			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("not.8           "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -11232,7 +11232,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_not16:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("not.16		   "));
+				e = dl_array_pushElements(&disassembly, DL_STR("not.16         "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -11265,7 +11265,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_not32:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("not.32			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("not.32           "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12227,7 +12227,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_greater8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("greater.8		"));
+				e = dl_array_pushElements(&disassembly, DL_STR("greater.8       "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12263,7 +12263,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_greater16:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("greater.16	   "));
+				e = dl_array_pushElements(&disassembly, DL_STR("greater.16     "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12317,7 +12317,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_greater32:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("greater.32		"));
+				e = dl_array_pushElements(&disassembly, DL_STR("greater.32      "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12773,7 +12773,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_car8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("car.8			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("car.8           "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12797,7 +12797,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_car16:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("car.16		   "));
+				e = dl_array_pushElements(&disassembly, DL_STR("car.16         "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12830,7 +12830,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_car32:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("car.32			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("car.32          "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12882,7 +12882,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_cdr8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("cdr.8			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("cdr.8           "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12906,7 +12906,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_cdr16:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("cdr.16		   "));
+				e = dl_array_pushElements(&disassembly, DL_STR("cdr.16         "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12939,7 +12939,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_cdr32:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("cdr.32			"));
+				e = dl_array_pushElements(&disassembly, DL_STR("cdr.32          "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -13355,7 +13355,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_nullp8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("null?.8				"));
+				e = dl_array_pushElements(&disassembly, DL_STR("null?.8         "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -13379,7 +13379,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_nullp16:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("null?.16	   "));
+				e = dl_array_pushElements(&disassembly, DL_STR("null?.16       "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -13412,7 +13412,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_nullp32:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("null?.32		"));
+				e = dl_array_pushElements(&disassembly, DL_STR("null?.32        "));
 				if (e) return dl_null;
 				break;
 			case 1:
