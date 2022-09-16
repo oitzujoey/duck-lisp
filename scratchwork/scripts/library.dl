@@ -84,19 +84,22 @@
 		  (self x (cdr y)))
 	  ()))
 
-(defun nth (n list)
+(defun nthcdr (n list)
   (var i 0)
   (while (< i n)
 	(setq list (cdr list))
 	(setq i (1+ i)))
   list)
 
-(defun elt (list n)
+(defun nth (n list)
   (var i 0)
   (while (< i n)
 	(setq list (cdr list))
 	(setq i (1+ i)))
   (car list))
+
+(defun elt (list n)
+  (nth n list))
 
 (defun length (list)
   (var i 0)
