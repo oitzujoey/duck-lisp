@@ -4796,6 +4796,78 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
+                                        dl_array_t *assembly,
+                                        duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	dl_size_t startStack_length = duckLisp->locals_length;
+
+	/* Check arguments for call and type errors. */
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3);
+	if (e) {
+		goto l_cleanup;
+	}
+
+	if (expression->compoundExpressions[1].type != duckLisp_ast_type_identifier) {
+		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
+		if (e) {
+			goto l_cleanup;
+		}
+		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
+		                          expression->compoundExpressions[0].value.identifier.value_length);
+		if (e) {
+			goto l_cleanup;
+		}
+		e = dl_array_pushElements(&eString, DL_STR("\" should be an identifier."));
+		if (e) {
+			goto l_cleanup;
+		}
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
+		if (eError) {
+			e = eError;
+		}
+		goto l_cleanup;
+	}
+
+	// Notice here, that a variable could potentially refer to itself.
+	/* Insert arg1 into this scope's name trie. */
+	/* This is not actually where stack variables are allocated. The magic happens in
+	   `duckLisp_generator_expression`. */
+	dl_size_t startLocals_length = duckLisp->locals_length;
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[2],
+	                                        dl_null,
+	                                        dl_null,
+	                                        dl_true);
+	if (e) goto l_cleanup;
+	dl_size_t endLocals_length = duckLisp->locals_length;
+	duckLisp->locals_length = startLocals_length;
+	e = duckLisp_scope_addObject(duckLisp,
+	                             expression->compoundExpressions[1].value.identifier.value,
+	                             expression->compoundExpressions[1].value.identifier.value_length);
+	if (e) goto l_cleanup;
+	duckLisp->locals_length = endLocals_length;
+
+	e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
+
+ l_cleanup:
+
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
 dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
                                      dl_array_t *assembly,
                                      duckLisp_ast_expression_t *expression) {
@@ -4994,9 +5066,6 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	duckLisp_ast_identifier_t gensym = {0};
-	dl_size_t startStack_length = 0;
-
 	if (expression->compoundExpressions_length < 3) {
 		e = dl_array_pushElements(&eString, DL_STR("Too few arguments for function \""));
 		if (e) {
@@ -5045,148 +5114,37 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 		goto l_cleanup;
 	}
 
-	/* Register function. */
-	/* This is not actually where stack functions are allocated. The magic happens in
-	   `duckLisp_generator_expression`. */
-	{
-		dl_ptrdiff_t function_label_index = -1;
-
-		// Header.
-
-		e = duckLisp_pushScope(duckLisp, dl_null, dl_true);
-		if (e) goto l_cleanup;
-
-		e = duckLisp_scope_addObject(duckLisp,
-		                             DL_STR("self"));
-		if (e) goto l_cleanup;
-		duckLisp->locals_length++;
-
-		{
-			duckLisp_ast_identifier_t identifier;
-			identifier.value = "self";
-			identifier.value_length = sizeof("self") - 1;
-			e = duckLisp_addInterpretedFunction(duckLisp, identifier);
-			if (e) goto l_cleanup;
-		}
-
-		e = duckLisp_gensym(duckLisp, &gensym);
-		if (e) goto l_cleanup;
-
-		e = duckLisp_register_label(duckLisp, gensym.value, gensym.value_length);
-		if (e) goto l_cleanup;
-
-		// (goto gensym)
-		e = duckLisp_emit_jump(duckLisp, assembly, gensym.value, gensym.value_length);
-		if (e) goto l_cleanup;
-
-		e = duckLisp_register_label(duckLisp,
-		                            DL_STR("self"));
-		if (e) goto l_cleanup;
-
-		// (label function_name)
-		e = duckLisp_emit_label(duckLisp,
-		                        assembly,
-		                        DL_STR("self"));
-		if (e) goto l_cleanup;
-
-		// `label_index` should never equal -1 after this function exits.
-		e = scope_getLabelFromName(duckLisp,
-		                           &function_label_index,
-		                           DL_STR("self"));
-		if (e) goto l_cleanup;
-		if (function_label_index == -1) {
-			// We literally just added the function name to the parent scope.
-			e = dl_error_cantHappen;
-			goto l_cleanup;
-		}
-
-
-		// Arguments
-
-		startStack_length = duckLisp->locals_length;
-
-		if (expression->compoundExpressions[2].type != duckLisp_ast_type_int) {
-			duckLisp_ast_expression_t *args_list = &expression->compoundExpressions[2].value.expression;
-			for (dl_ptrdiff_t j = 0; (dl_size_t) j < args_list->compoundExpressions_length; j++) {
-
-				if (args_list->compoundExpressions[j].type != duckLisp_ast_type_identifier) {
-					e = duckLisp_error_pushRuntime(duckLisp, DL_STR("defun: All args must be identifiers."));
-					if (e) goto l_cleanup;
-					e = dl_error_invalidValue;
-					goto l_cleanup;
-				}
-
-				/* --duckLisp->locals_length; */
-				e = duckLisp_scope_addObject(duckLisp,
-				                             args_list->compoundExpressions[j].value.identifier.value,
-				                             args_list->compoundExpressions[j].value.identifier.value_length);
-				if (e) {
-					goto l_cleanup;
-				}
-				duckLisp->locals_length++;
-			}
-		}
-
-		// Body
-
-		duckLisp_ast_expression_t progn;
-		progn.compoundExpressions = &expression->compoundExpressions[3];
-		progn.compoundExpressions_length = expression->compoundExpressions_length - 3;
-		e = duckLisp_generator_expression(duckLisp, assembly, &progn);
-		if (e) goto l_cleanup;
-
-		// Footer
-
-		{
-			duckLisp_scope_t scope;
-			e = scope_getTop(duckLisp, &scope);
-			if (e) goto l_cleanup;
-
-			if (scope.scope_uvs_length) {
-				e = duckLisp_emit_releaseUpvalues(duckLisp, assembly, scope.scope_uvs, scope.scope_uvs_length);
-				if (e) goto l_cleanup;
-			}
-		}
-
-		e = duckLisp_emit_return(duckLisp,
-		                         assembly,
-		                         TIF(expression->compoundExpressions[2].type == duckLisp_ast_type_expression,
-		                             duckLisp->locals_length - startStack_length - 1,
-		                             0));
-		if (e) goto l_cleanup;
-
-		duckLisp->locals_length = startStack_length;
-
-		// (label gensym)
-		e = duckLisp_emit_label(duckLisp, assembly, gensym.value, gensym.value_length);
-		if (e) goto l_cleanup;
-
-		{
-			/* This needs to be in the same scope or outer than the function arguments so that they don't get
-			   captured. It should not need access to the function's local variables, so this scope should be fine. */
-			duckLisp_scope_t scope;
-			e = scope_getTop(duckLisp, &scope);
-			if (e) goto l_cleanup;
-			--duckLisp->locals_length;
-			e = duckLisp_emit_pushClosure(duckLisp,
-			                              assembly,
-			                              dl_null,
-			                              function_label_index,
-			                              scope.function_uvs,
-			                              scope.function_uvs_length);
-			if (e) goto l_cleanup;
-		}
-
-		e = duckLisp_popScope(duckLisp, dl_null);
-		if (e) goto l_cleanup;
-	}
-
-	--duckLisp->locals_length;
-	e = duckLisp_scope_addObject(duckLisp,
-	                             expression->compoundExpressions[1].value.identifier.value,
-	                             expression->compoundExpressions[1].value.identifier.value_length);
+	duckLisp_ast_expression_t lambda;
+	e = DL_MALLOC(duckLisp->memoryAllocation,
+	              (void **) &lambda.compoundExpressions,
+	              expression->compoundExpressions_length - 1,
+	              duckLisp_ast_compoundExpression_t);
 	if (e) goto l_cleanup;
-	duckLisp->locals_length++;
+	lambda.compoundExpressions_length = expression->compoundExpressions_length - 1;
+	lambda.compoundExpressions[0].type = duckLisp_ast_type_identifier;
+	lambda.compoundExpressions[0].value.identifier.value = "\0defun:lambda";
+	lambda.compoundExpressions[0].value.identifier.value_length = sizeof("\0defun:lambda") - 1;
+	for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		lambda.compoundExpressions[i - 1] = expression->compoundExpressions[i];
+	};
+	duckLisp_ast_expression_t var;
+	e = DL_MALLOC(duckLisp->memoryAllocation, (void **) &var.compoundExpressions, 3, duckLisp_ast_compoundExpression_t);
+	if (e) goto l_cleanup;
+	var.compoundExpressions_length = 3;
+	var.compoundExpressions[0].type = duckLisp_ast_type_identifier;
+	var.compoundExpressions[0].value.identifier.value = "\0defun:var";
+	var.compoundExpressions[0].value.identifier.value_length = sizeof("\0defun:var") - 1;
+	var.compoundExpressions[1] = expression->compoundExpressions[1];
+	var.compoundExpressions[2].type = duckLisp_ast_type_expression;
+	var.compoundExpressions[2].value.expression = lambda;
+	e = duckLisp_generator_createVar(duckLisp, assembly, &var);
+	if (e) goto l_cleanup;
+
+	e = DL_FREE(duckLisp->memoryAllocation, (void **) &var.compoundExpressions);
+	if (e) goto l_cleanup;
+	e = DL_FREE(duckLisp->memoryAllocation, (void **) &lambda.compoundExpressions);
+	if (e) goto l_cleanup;
+
 	e = duckLisp_addInterpretedFunction(duckLisp, expression->compoundExpressions[1].value.identifier);
 	if (e) goto l_cleanup;
 
@@ -6584,78 +6542,6 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly, d
 		e = duckLisp_emit_move(duckLisp, assembly, identifier_index, duckLisp->locals_length - 1);
 		if (e) goto l_cleanup;
 	}
-
- l_cleanup:
-
-	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
-
-	return e;
-}
-
-dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
-                                        dl_array_t *assembly,
-                                        duckLisp_ast_expression_t *expression) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
-	dl_array_t eString;
-	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
-
-	dl_size_t startStack_length = duckLisp->locals_length;
-
-	/* Check arguments for call and type errors. */
-
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3);
-	if (e) {
-		goto l_cleanup;
-	}
-
-	if (expression->compoundExpressions[1].type != duckLisp_ast_type_identifier) {
-		e = dl_array_pushElements(&eString, DL_STR("Argument 1 of function \""));
-		if (e) {
-			goto l_cleanup;
-		}
-		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
-		                          expression->compoundExpressions[0].value.identifier.value_length);
-		if (e) {
-			goto l_cleanup;
-		}
-		e = dl_array_pushElements(&eString, DL_STR("\" should be an identifier."));
-		if (e) {
-			goto l_cleanup;
-		}
-		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-		if (eError) {
-			e = eError;
-		}
-		goto l_cleanup;
-	}
-
-	// Notice here, that a variable could potentially refer to itself.
-	/* Insert arg1 into this scope's name trie. */
-	/* This is not actually where stack variables are allocated. The magic happens in
-	   `duckLisp_generator_expression`. */
-	dl_size_t startLocals_length = duckLisp->locals_length;
-	e = duckLisp_compile_compoundExpression(duckLisp,
-	                                        assembly,
-	                                        expression->compoundExpressions[0].value.identifier.value,
-	                                        expression->compoundExpressions[0].value.identifier.value_length,
-	                                        &expression->compoundExpressions[2],
-	                                        dl_null,
-	                                        dl_null,
-	                                        dl_true);
-	if (e) goto l_cleanup;
-	dl_size_t endLocals_length = duckLisp->locals_length;
-	duckLisp->locals_length = startLocals_length;
-	e = duckLisp_scope_addObject(duckLisp,
-	                             expression->compoundExpressions[1].value.identifier.value,
-	                             expression->compoundExpressions[1].value.identifier.value_length);
-	if (e) goto l_cleanup;
-	duckLisp->locals_length = endLocals_length;
-
-	e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
 
  l_cleanup:
 
@@ -9348,43 +9234,44 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 		const char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
-	} generators[] = {{DL_STR("comment"),      duckLisp_generator_comment},
-	                  {DL_STR(";"),            duckLisp_generator_comment},
-	                  {DL_STR("nop"),          duckLisp_generator_nop},
-	                  {DL_STR("goto"),         duckLisp_generator_goto},
-	                  {DL_STR("funcall"),      duckLisp_generator_funcall2},
-	                  {DL_STR("call"),         duckLisp_generator_acall},
-	                  {DL_STR("label"),        duckLisp_generator_label},
-	                  {DL_STR("var"),          duckLisp_generator_createVar},
-	                  {DL_STR("setq"),         duckLisp_generator_setq},
-	                  {DL_STR("\xE2\x86\x90"), duckLisp_generator_setq},
-	                  {DL_STR("not"),          duckLisp_generator_not},
-	                  {DL_STR("*"),            duckLisp_generator_multiply},
-	                  {DL_STR("/"),            duckLisp_generator_divide},
-	                  {DL_STR("+"),            duckLisp_generator_add},
-	                  {DL_STR("-"),            duckLisp_generator_sub},
-	                  {DL_STR("while"),        duckLisp_generator_while},
-	                  {DL_STR("if"),           duckLisp_generator_if},
-	                  {DL_STR("when"),         duckLisp_generator_when},
-	                  {DL_STR("unless"),       duckLisp_generator_unless},
-	                  {DL_STR("brnz"),         duckLisp_generator_brnz},
-	                  {DL_STR("="),            duckLisp_generator_equal},
-	                  {DL_STR("<"),            duckLisp_generator_less},
-	                  {DL_STR(">"),            duckLisp_generator_greater},
-	                  {DL_STR("defun"),        duckLisp_generator_defun},
-	                  {DL_STR("lambda"),       duckLisp_generator_lambda},
-	                  {DL_STR("constexpr"),    duckLisp_generator_constexpr},
-	                  {DL_STR("noscope"),      duckLisp_generator_noscope},
-	                  {DL_STR("quote"),        duckLisp_generator_quote},
-	                  {DL_STR("list"),         duckLisp_generator_list},
-	                  {DL_STR("cons"),         duckLisp_generator_cons},
-	                  {DL_STR("car"),          duckLisp_generator_car},
-	                  {DL_STR("cdr"),          duckLisp_generator_cdr},
-	                  {DL_STR("set-car"),      duckLisp_generator_setCar},
-	                  {DL_STR("set-cdr"),      duckLisp_generator_setCdr},
-	                  {DL_STR("null?"),        duckLisp_generator_nullp},
-	                  {DL_STR("type-of"),      duckLisp_generator_typeof},
-	                  {dl_null, 0,             dl_null}};
+	} generators[] = {{DL_STR("comment"),        duckLisp_generator_comment},
+	                  {DL_STR(";"),              duckLisp_generator_comment},
+	                  {DL_STR("nop"),            duckLisp_generator_nop},
+	                  {DL_STR("goto"),           duckLisp_generator_goto},
+	                  {DL_STR("funcall"),        duckLisp_generator_funcall2},
+	                  {DL_STR("call"),           duckLisp_generator_acall},
+	                  {DL_STR("label"),          duckLisp_generator_label},
+	                  {DL_STR("var"),            duckLisp_generator_createVar},
+	                  {DL_STR("setq"),           duckLisp_generator_setq},
+	                  {DL_STR("\xE2\x86\x90"),   duckLisp_generator_setq},
+	                  {DL_STR("not"),            duckLisp_generator_not},
+	                  {DL_STR("*"),              duckLisp_generator_multiply},
+	                  {DL_STR("/"),              duckLisp_generator_divide},
+	                  {DL_STR("+"),              duckLisp_generator_add},
+	                  {DL_STR("-"),              duckLisp_generator_sub},
+	                  {DL_STR("while"),          duckLisp_generator_while},
+	                  {DL_STR("if"),             duckLisp_generator_if},
+	                  {DL_STR("when"),           duckLisp_generator_when},
+	                  {DL_STR("unless"),         duckLisp_generator_unless},
+	                  {DL_STR("brnz"),           duckLisp_generator_brnz},
+	                  {DL_STR("="),              duckLisp_generator_equal},
+	                  {DL_STR("<"),              duckLisp_generator_less},
+	                  {DL_STR(">"),              duckLisp_generator_greater},
+	                  {DL_STR("defun"),          duckLisp_generator_defun},
+	                  {DL_STR("\0defun:lambda"), duckLisp_generator_lambda},
+	                  {DL_STR("lambda"),         duckLisp_generator_lambda},
+	                  {DL_STR("constexpr"),      duckLisp_generator_constexpr},
+	                  {DL_STR("noscope"),        duckLisp_generator_noscope},
+	                  {DL_STR("quote"),          duckLisp_generator_quote},
+	                  {DL_STR("list"),           duckLisp_generator_list},
+	                  {DL_STR("cons"),           duckLisp_generator_cons},
+	                  {DL_STR("car"),            duckLisp_generator_car},
+	                  {DL_STR("cdr"),            duckLisp_generator_cdr},
+	                  {DL_STR("set-car"),        duckLisp_generator_setCar},
+	                  {DL_STR("set-cdr"),        duckLisp_generator_setCdr},
+	                  {DL_STR("null?"),          duckLisp_generator_nullp},
+	                  {DL_STR("type-of"),        duckLisp_generator_typeof},
+	                  {dl_null, 0,               dl_null}};
 
 	/* No error */ dl_array_init(&duckLisp->source, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_fit);
 	// /* No error */ cst_expression_init(&duckLisp->cst);
