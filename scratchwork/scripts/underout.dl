@@ -1,4 +1,3 @@
-(include "../scripts/better-cons.dl")
 (include "../scripts/library.dl")
 
 (comment Under-Out
@@ -105,14 +104,8 @@
   (var identity-shuffles (calculate-identity-shuffle (cadr cycles)))
 
   (print "\n")
-  (print "\nOriginal deck ․․․․․․ ") (println-list deck)
-  (print "\nShuffled deck ․․․․․․ ") (println-list (car cycles))
-  (print "\nCycles ․․․․․․․․․․․․․ <\n")
-  (var temp-cycles (cadr cycles))
-  (while (not (null? temp-cycles))
-	(print "  ")
-	(println-list (car temp-cycles))
-	(setq temp-cycles (cdr temp-cycles)))
-  (println ">")
+  (print "\nOriginal deck ․․․․․․ ") (println deck)
+  (print "\nShuffled deck ․․․․․․ ") (println (car cycles))
+  (print "\nCycles ․․․․․․․․․․․․․ ") (println (cadr cycles))
   (print "\nNumber of cycles ․․․ ") (println (caddr cycles))
   (print "\nIdentity shuffles ․․ ") (println identity-shuffles))

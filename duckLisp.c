@@ -2131,8 +2131,6 @@ dl_error_t duckLisp_emit_setCar(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
-	duckLisp->locals_length++;
-
  l_cleanup:
 
 	return e;
@@ -2174,8 +2172,6 @@ dl_error_t duckLisp_emit_setCdr(duckLisp_t *duckLisp,
 	if (e) {
 		goto l_cleanup;
 	}
-
-	duckLisp->locals_length++;
 
  l_cleanup:
 
@@ -3938,7 +3934,7 @@ dl_error_t duckLisp_generator_setCar(duckLisp_t *duckLisp,
 	dl_ptrdiff_t destination_index;
 	dl_ptrdiff_t source_index;
 
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2);
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3);
 	if (e) {
 		goto l_cleanup;
 	}
@@ -3987,7 +3983,7 @@ dl_error_t duckLisp_generator_setCdr(duckLisp_t *duckLisp,
 	dl_ptrdiff_t destination_index;
 	dl_ptrdiff_t source_index;
 
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2);
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3);
 	if (e) {
 		goto l_cleanup;
 	}

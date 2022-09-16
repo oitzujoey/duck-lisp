@@ -2906,6 +2906,160 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			break;
 
 		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_setCar32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			parsedBytecode = dl_true;
+			// Fall through
+		case duckLisp_instruction_setCar16:
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++);
+				ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+				parsedBytecode = dl_true;
+			}
+			// Fall through
+		case duckLisp_instruction_setCar8:
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff2 = *(ip++);
+			}
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
+			if (e) break;
+
+			if (object2.type == duckLisp_object_type_list) {
+				if (object1.type == duckLisp_object_type_list) {
+					if (object1.value.list == dl_null) object2.value.list->car.addr = dl_null;
+					else object2.value.list->car.addr = object1.value.list;
+					switch (object2.value.list->type) {
+					case duckVM_gclist_cons_type_objectAddr:
+						object2.value.list->type = duckVM_gclist_cons_type_addrAddr;
+						break;
+					case duckVM_gclist_cons_type_objectObject:
+						object2.value.list->type = duckVM_gclist_cons_type_addrObject;
+						break;
+						/* Already correct. */
+					case duckVM_gclist_cons_type_addrAddr:
+						break;
+					case duckVM_gclist_cons_type_addrObject:
+						break;
+					default:
+						e = dl_error_invalidValue;
+						goto l_cleanup;
+					}
+				}
+				else {
+					e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+					if (e) break;
+					object2.value.list->car.data = objectPtr1;
+					switch (object2.value.list->type) {
+					case duckVM_gclist_cons_type_addrAddr:
+						object2.value.list->type = duckVM_gclist_cons_type_objectAddr;
+						break;
+					case duckVM_gclist_cons_type_addrObject:
+						object2.value.list->type = duckVM_gclist_cons_type_objectObject;
+						break;
+						/* Already correct. */
+					case duckVM_gclist_cons_type_objectAddr:
+						break;
+					case duckVM_gclist_cons_type_objectObject:
+						break;
+					default:
+						e = dl_error_invalidValue;
+						goto l_cleanup;
+					}
+				}
+			}
+			else e = dl_error_invalidValue;
+			break;
+
+		// I probably don't need an `if` if I research the standard a bit.
+		case duckLisp_instruction_setCdr32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			parsedBytecode = dl_true;
+			// Fall through
+		case duckLisp_instruction_setCdr16:
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++);
+				ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+				parsedBytecode = dl_true;
+			}
+			// Fall through
+		case duckLisp_instruction_setCdr8:
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff2 = *(ip++);
+			}
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
+			if (e) break;
+
+			if (object2.type == duckLisp_object_type_list) {
+				if (object1.type == duckLisp_object_type_list) {
+					if (object1.value.list == dl_null) object2.value.list->cdr.addr = dl_null;
+					else object2.value.list->cdr.addr = object1.value.list;
+					switch (object2.value.list->type) {
+					case duckVM_gclist_cons_type_addrObject:
+						object2.value.list->type = duckVM_gclist_cons_type_addrAddr;
+						break;
+					case duckVM_gclist_cons_type_objectObject:
+						object2.value.list->type = duckVM_gclist_cons_type_objectAddr;
+						break;
+						/* Already correct. */
+					case duckVM_gclist_cons_type_addrAddr:
+						break;
+					case duckVM_gclist_cons_type_objectAddr:
+						break;
+					default:
+						e = dl_error_invalidValue;
+						goto l_cleanup;
+					}
+				}
+				else {
+					e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+					if (e) break;
+					object2.value.list->cdr.data = objectPtr1;
+					switch (object2.value.list->type) {
+					case duckVM_gclist_cons_type_addrAddr:
+						object2.value.list->type = duckVM_gclist_cons_type_addrObject;
+						break;
+					case duckVM_gclist_cons_type_objectAddr:
+						object2.value.list->type = duckVM_gclist_cons_type_objectObject;
+						break;
+						/* Already correct. */
+					case duckVM_gclist_cons_type_addrObject:
+						break;
+					case duckVM_gclist_cons_type_objectObject:
+						break;
+					default:
+						e = dl_error_invalidValue;
+						goto l_cleanup;
+					}
+				}
+			}
+			else e = dl_error_invalidValue;
+			break;
+
+		// I probably don't need an `if` if I research the standard a bit.
 		case duckLisp_instruction_nullp32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
