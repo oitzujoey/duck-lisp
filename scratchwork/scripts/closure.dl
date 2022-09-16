@@ -115,3 +115,12 @@
 (ptest -5 (funcall (funcall (s1))))
 (ptest -5 (funcall (funcall (g1))))
 (println "}")
+
+(println "Lambda recursion")
+(println "{")
+(ptest 24 (funcall (lambda (x)
+					 (if (= x 1)
+						 1
+						 (* x (self (- x 1)))))
+				   4))
+(println "}")

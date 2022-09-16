@@ -1184,7 +1184,6 @@ Defer:
 	Free unfreed memory.
 
 Todo:
-	funcall/lambda
 	macros
 	Clean up.
 	Profile.

@@ -4796,6 +4796,198 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
+                                     dl_array_t *assembly,
+                                     duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	duckLisp_ast_identifier_t gensym = {0};
+	dl_size_t startStack_length = 0;
+
+	if (expression->compoundExpressions_length < 2) {
+		e = dl_array_pushElements(&eString, DL_STR("Too few arguments for function \""));
+		if (e) {
+			goto l_cleanup;
+		}
+
+		e = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
+		                          expression->compoundExpressions[0].value.identifier.value_length);
+		if (e) {
+			goto l_cleanup;
+		}
+
+		e = dl_array_pushElements(&eString, DL_STR("\"."));
+		if (e) {
+			goto l_cleanup;
+		}
+
+		e = duckLisp_error_pushRuntime(duckLisp,
+		                               (char *) eString.elements,
+		                               eString.elements_length * eString.element_size);
+		if (e) {
+			goto l_cleanup;
+		}
+
+		e = dl_error_invalidValue;
+		goto l_cleanup;
+	}
+
+	if ((expression->compoundExpressions[1].type != duckLisp_ast_type_expression)
+	    && ((expression->compoundExpressions[1].type == duckLisp_ast_type_int)
+	        && (expression->compoundExpressions[1].value.integer.value != 0))) {
+
+		e = duckLisp_error_pushRuntime(duckLisp, DL_STR("lambda: Args field must be a list."));
+		if (e) {
+			goto l_cleanup;
+		}
+
+		e = dl_error_invalidValue;
+		goto l_cleanup;
+	}
+
+	/* Register function. */
+	/* This is not actually where stack functions are allocated. The magic happens in
+	   `duckLisp_generator_expression`. */
+	{
+		dl_ptrdiff_t function_label_index = -1;
+
+		// Header.
+
+		e = duckLisp_pushScope(duckLisp, dl_null, dl_true);
+		if (e) goto l_cleanup;
+
+		e = duckLisp_scope_addObject(duckLisp, DL_STR("self"));
+		if (e) goto l_cleanup;
+		duckLisp->locals_length++;
+
+		{
+			duckLisp_ast_identifier_t identifier;
+			identifier.value = "self";
+			identifier.value_length = sizeof("self") - 1;
+			e = duckLisp_addInterpretedFunction(duckLisp, identifier);
+			if (e) goto l_cleanup;
+		}
+
+		e = duckLisp_gensym(duckLisp, &gensym);
+		if (e) goto l_cleanup;
+
+		e = duckLisp_register_label(duckLisp, gensym.value, gensym.value_length);
+		if (e) goto l_cleanup;
+
+		// (goto gensym)
+		e = duckLisp_emit_jump(duckLisp, assembly, gensym.value, gensym.value_length);
+		if (e) goto l_cleanup;
+
+		e = duckLisp_register_label(duckLisp, DL_STR("self"));
+		if (e) goto l_cleanup;
+
+		// (label function_name)
+		e = duckLisp_emit_label(duckLisp, assembly, DL_STR("self"));
+		if (e) goto l_cleanup;
+
+		// `label_index` should never equal -1 after this function exits.
+		e = scope_getLabelFromName(duckLisp, &function_label_index, DL_STR("self"));
+		if (e) goto l_cleanup;
+		if (function_label_index == -1) {
+			// We literally just added the function name to the parent scope.
+			e = dl_error_cantHappen;
+			goto l_cleanup;
+		}
+
+
+		// Arguments
+
+		startStack_length = duckLisp->locals_length;
+
+		if (expression->compoundExpressions[1].type != duckLisp_ast_type_int) {
+			duckLisp_ast_expression_t *args_list = &expression->compoundExpressions[1].value.expression;
+			for (dl_ptrdiff_t j = 0; (dl_size_t) j < args_list->compoundExpressions_length; j++) {
+
+				if (args_list->compoundExpressions[j].type != duckLisp_ast_type_identifier) {
+					e = duckLisp_error_pushRuntime(duckLisp, DL_STR("lambda: All args must be identifiers."));
+					if (e) goto l_cleanup;
+					e = dl_error_invalidValue;
+					goto l_cleanup;
+				}
+
+				/* --duckLisp->locals_length; */
+				e = duckLisp_scope_addObject(duckLisp,
+				                             args_list->compoundExpressions[j].value.identifier.value,
+				                             args_list->compoundExpressions[j].value.identifier.value_length);
+				if (e) {
+					goto l_cleanup;
+				}
+				duckLisp->locals_length++;
+			}
+		}
+
+		// Body
+
+		duckLisp_ast_expression_t progn;
+		progn.compoundExpressions = &expression->compoundExpressions[2];
+		progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+		e = duckLisp_generator_expression(duckLisp, assembly, &progn);
+		if (e) goto l_cleanup;
+
+		// Footer
+
+		{
+			duckLisp_scope_t scope;
+			e = scope_getTop(duckLisp, &scope);
+			if (e) goto l_cleanup;
+
+			if (scope.scope_uvs_length) {
+				e = duckLisp_emit_releaseUpvalues(duckLisp, assembly, scope.scope_uvs, scope.scope_uvs_length);
+				if (e) goto l_cleanup;
+			}
+		}
+
+		e = duckLisp_emit_return(duckLisp,
+		                         assembly,
+		                         TIF(expression->compoundExpressions[1].type == duckLisp_ast_type_expression,
+		                             duckLisp->locals_length - startStack_length - 1,
+		                             0));
+		if (e) goto l_cleanup;
+
+		duckLisp->locals_length = startStack_length;
+
+		// (label gensym)
+		e = duckLisp_emit_label(duckLisp, assembly, gensym.value, gensym.value_length);
+		if (e) goto l_cleanup;
+
+		{
+			/* This needs to be in the same scope or outer than the function arguments so that they don't get
+			   captured. It should not need access to the function's local variables, so this scope should be fine. */
+			duckLisp_scope_t scope;
+			e = scope_getTop(duckLisp, &scope);
+			if (e) goto l_cleanup;
+			--duckLisp->locals_length;
+			e = duckLisp_emit_pushClosure(duckLisp,
+			                              assembly,
+			                              dl_null,
+			                              function_label_index,
+			                              scope.function_uvs,
+			                              scope.function_uvs_length);
+			if (e) goto l_cleanup;
+		}
+
+		e = duckLisp_popScope(duckLisp, dl_null);
+		if (e) goto l_cleanup;
+	}
+
+ l_cleanup:
+
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
 dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -9177,6 +9369,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                  {DL_STR("<"),            duckLisp_generator_less},
 	                  {DL_STR(">"),            duckLisp_generator_greater},
 	                  {DL_STR("defun"),        duckLisp_generator_defun},
+	                  {DL_STR("lambda"),       duckLisp_generator_lambda},
 	                  {DL_STR("constexpr"),    duckLisp_generator_constexpr},
 	                  {DL_STR("noscope"),      duckLisp_generator_noscope},
 	                  {DL_STR("quote"),        duckLisp_generator_quote},
