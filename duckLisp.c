@@ -1779,7 +1779,6 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 	dl_ptrdiff_t local_scope_index = *scope_index;
 	dl_bool_t chained = !*found;
 	if (chained) {
-		printf("scope entered %lli\n", *scope_index);
 		e = duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp,
 		                                                    found,
 		                                                    index,
@@ -1791,9 +1790,7 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 		// Don't set `index` below here.
 		// Create a closure to the scope above.
-		printf("index %lli -> ", *index);
 		if (*index >= 0) *index = -(*index + 1);
-		printf("%lli\n", *index);
 	}
 	/* sic. */
 	if (*found) {
@@ -1807,7 +1804,6 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 			}
 		}
 		if (!found_upvalue) {
-			printf("funreg %lli\n", function_scope_index);
 			e = dl_array_get(&duckLisp->scope_stack, (void *) &function_scope, function_scope_index);
 			if (e) {
 				if (e == dl_error_invalidValue) {
@@ -1836,7 +1832,6 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 			}
 		}
 		if (!found_upvalue) {
-			printf("sunreg %lli\n", local_scope_index);
 			e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, local_scope_index);
 			if (e) {
 				if (e == dl_error_invalidValue) {
@@ -4647,9 +4642,6 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp, dl_array_t *assembly, 
 			duckLisp_ast_identifier_t identifier;
 			identifier.value = "self";
 			identifier.value_length = sizeof("self") - 1;
-			DL_DOTIMES(i, expression->compoundExpressions[1].value.identifier.value_length) {
-				putchar(expression->compoundExpressions[1].value.identifier.value[i]);
-			}
 			e = duckLisp_addInterpretedFunction(duckLisp, identifier);
 			if (e) goto l_cleanup;
 		}
@@ -6938,11 +6930,6 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 				/* Now the trick here is that we need to mirror the free variable as a local variable.
 				   Actually, scratch that. We need to simply push the UV. Creating it as a local variable is an
 				   optimization that can be done in `duckLisp_compile_expression`. It can't be done here. */
-				printf("Found free variable \"");
-				for (dl_ptrdiff_t i = 0; (dl_size_t) i < compoundExpression->value.identifier.value_length; i++) {
-					putchar(compoundExpression->value.identifier.value[i]);
-				}
-				printf("\" in scope %lli with function upvalue index %lli.\n", scope_index, temp_index);
 				e = duckLisp_emit_pushUpvalue(duckLisp, assembly, dl_null, temp_index);
 				if (e) goto l_cleanup;
 				temp_index = duckLisp->locals_length - 1;
