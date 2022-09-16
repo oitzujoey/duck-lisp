@@ -129,7 +129,11 @@
   (nreverse appended-list))
 
 (defun copy-list (list)
-  list)
+  (var new-list ())
+  (while (not (null? list))
+		 (setq new-list (cons (car list) new-list))
+		 (setq list (cdr list)))
+  (nreverse new-list))
 
 (defun member (element list)
   (var found false)

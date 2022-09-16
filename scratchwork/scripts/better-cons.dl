@@ -1,0 +1,54 @@
+
+
+(defun list? (v)
+  (var duckLisp-object-type-closure 8)
+  (= (type-of v) duckLisp-object-type-closure))
+
+(defun cons (car cdr)
+  ((defun _ (selector)
+	 (selector car
+			   cdr
+			   ((defun _ (v)
+				  (setq car v)
+				  v))
+			   ((defun _ (v)
+				  (setq cdr v)
+				  v))))))
+
+(defun car (cons)
+  (if (list? cons)
+	  (if (null? cons)
+		  ()
+		  (cons ((defun _ (car cdr set-car set-cdr)
+				   car))))
+	  ()))
+
+(defun cdr (cons)
+  (if (list? cons)
+	  (if (null? cons)
+		  ()
+		  (cons ((defun _ (car cdr set-car set-cdr)
+				   cdr))))
+	  ()))
+
+(defun set-car (cons v)
+  (cons ((defun _ (car cdr set-car set-cdr)
+		   (set-car v)))))
+
+(defun set-cdr (cons v)
+  (cons ((defun _ (car cdr set-car set-cdr)
+		   (set-cdr v)))))
+
+(defun print-list (list)
+  (print "< ")
+  (while (not (null? list))
+	(print (car list))
+	(print " ")
+	(setq list (cdr list)))
+  (print ">")
+  ())
+
+(defun println-list (list)
+  (print-list list)
+  (print "\n")
+  ())
