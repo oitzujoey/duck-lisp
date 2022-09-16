@@ -607,6 +607,7 @@ void ast_identifier_init(duckLisp_ast_identifier_t *identifier) {
 }
 
 static dl_error_t ast_identifier_quit(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *identifier) {
+	(void) duckLisp;  /* Unused when using native malloc */
 	dl_error_t e = dl_error_ok;
 
 	identifier->value_length = 0;
@@ -1235,6 +1236,7 @@ void ast_string_init(duckLisp_ast_string_t *string) {
 }
 
 static dl_error_t ast_string_quit(duckLisp_t *duckLisp, duckLisp_ast_string_t *string) {
+	(void) duckLisp;  /* Unused when using native malloc */
 	dl_error_t e = dl_error_ok;
 
 	string->value_length = 0;
