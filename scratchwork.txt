@@ -1180,7 +1180,6 @@ Functions must all become closures. The only valid call to a function is through
 Next step: 
 
 Defer:
-    Fix defun kludge.
     Fix memory ownership in reader.
 	Free unfreed memory.
 

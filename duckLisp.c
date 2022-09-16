@@ -17,8 +17,11 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assem
   ===============
 */
 
-static dl_error_t duckLisp_error_pushSyntax(duckLisp_t *duckLisp, const char *message, const dl_size_t message_length,
-                                            const dl_ptrdiff_t index, dl_bool_t throwErrors) {
+static dl_error_t duckLisp_error_pushSyntax(duckLisp_t *duckLisp,
+                                            const char *message,
+                                            const dl_size_t message_length,
+                                            const dl_ptrdiff_t index,
+                                            dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_error_t error;
@@ -1850,7 +1853,7 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 			e = dl_array_set(&duckLisp->scope_stack, (void *) &scope, local_scope_index);
 			if (e) goto cleanup;
 		}
-		*index = chained ? -(return_index + 1) : return_index;
+		*index = return_index;
 	}
 
  cleanup:

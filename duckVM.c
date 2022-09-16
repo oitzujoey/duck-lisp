@@ -182,8 +182,11 @@ dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *
 
 	if (upvalue) {
 		gclist->upvalueInUse[(dl_ptrdiff_t) (upvalue - gclist->upvalues)] = dl_true;
-		if (!upvalue->onStack) {
+		if (upvalue->type == duckVM_upvalue_type_stack_index) {
 			e = duckVM_gclist_markObject(gclist, upvalue->value.heap_object);
+		}
+		else if (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
+			e = duckVM_gclist_markUpvalue(gclist, upvalue->value.heap_upvalue);
 		}
 		/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 	}
@@ -557,12 +560,24 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			}
 			duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
 			                                                   duckVM_upvalue_t **)[ptrdiff1];
-			if (upvalue->onStack) {
+			if (upvalue->type == duckVM_upvalue_type_stack_index) {
 				e = dl_array_get(&duckVM->stack, &object1, upvalue->value.stack_index);
 				if (e) break;
 			}
-			else {
+			else if (upvalue->type == duckVM_upvalue_type_heap_object) {
 				object1 = *upvalue->value.heap_object;
+			}
+			else {
+				while (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
+					upvalue = upvalue->value.heap_upvalue;
+				}
+				if (upvalue->type == duckVM_upvalue_type_stack_index) {
+					e = dl_array_get(&duckVM->stack, &object1, upvalue->value.stack_index);
+					if (e) break;
+				}
+				else {
+					object1 = *upvalue->value.heap_object;
+				}
 			}
 			// We are eventually going to have *major* problems with strings.
 			e = stack_push(duckVM, &object1);
@@ -594,18 +609,25 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-				ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
-				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->upvalue_stack.elements_length)) {
-					e = dl_error_invalidValue;
-					break;
+				if (ptrdiff1 > 0x7FFFFFFF) {
+					/* Nested upvalue */
+					ptrdiff1 = -(0x100000000 - ptrdiff1);
+				}
+				else {
+					/* Normal upvalue */
+					ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
+					if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->upvalue_stack.elements_length)) {
+						e = dl_error_invalidValue;
+						break;
+					}
 				}
 				duckVM_upvalue_t *upvalue_pointer = dl_null;
 				if ((dl_size_t) ptrdiff1 == duckVM->upvalue_stack.elements_length) {
-					/* *Recursion* */
+					/* *Recursion* Capture upvalue we are about to push. */
 					recursive = dl_true;
 					/* Our upvalue definitely doesn't exist yet. */
 					duckVM_upvalue_t upvalue;
-					upvalue.onStack = dl_true;  /* Lie for now. */
+					upvalue.type = duckVM_upvalue_type_stack_index;  /* Lie for now. */
 					upvalue.value.stack_index = ptrdiff1;
 					e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
 					if (e) break;
@@ -614,15 +636,29 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					/* Upvalue stack slot exists now, so insert the new UV. */
 					DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1) = upvalue_pointer;
 				}
+				else if (ptrdiff1 < 0) {
+					/* Capture upvalue in currently executing function. */
+					ptrdiff1 = -(ptrdiff1 + 1);
+					duckVM_upvalue_t upvalue;
+					upvalue.type = duckVM_upvalue_type_heap_upvalue;
+					/* Link new upvalue to upvalue from current context. */
+					upvalue.value.heap_upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+					                                                    duckVM_upvalue_t **)[ptrdiff1];
+					e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
+					if (e) break;
+				}
 				else {
+					/* Capture upvalue on stack. */
 					upvalue_pointer = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1);
 					if (upvalue_pointer == dl_null) {
 						printf("Upvalue %lli:%lli doesn't exist\n", k, ptrdiff1);
 						duckVM_upvalue_t upvalue;
-						upvalue.onStack = dl_true;
+						upvalue.type = duckVM_upvalue_type_stack_index;
 						upvalue.value.stack_index = ptrdiff1;
 						e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
 						if (e) break;
+						// Is this a bug? I'm not confident that this element exists.
+						/* Keep reference to upvalue on stack so that we know where to release the object to. */
 						DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1) = upvalue_pointer;
 					}
 					else printf("Upvalue %lli:%lli exists\n", k, ptrdiff1);
@@ -658,7 +694,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					                                                 duckLisp_object_t,
 					                                                 ptrdiff1));
 					if (e) break;
-					upvalue->onStack = dl_false;
+					upvalue->type = duckVM_upvalue_type_heap_object;
 				}
 			}
 			break;

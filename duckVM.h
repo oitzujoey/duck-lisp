@@ -26,11 +26,18 @@ typedef struct duckVM_gclist_s {
 	dl_memoryAllocation_t *memoryAllocation;
 } duckVM_gclist_t;
 
+typedef enum {
+	duckVM_upvalue_type_stack_index,
+	duckVM_upvalue_type_heap_object,
+	duckVM_upvalue_type_heap_upvalue
+} duckVM_upvalue_type_t;
+
 typedef struct duckVM_upvalue_s {
-	dl_bool_t onStack;
+	duckVM_upvalue_type_t type;
 	union {
 		dl_ptrdiff_t stack_index;
 		struct duckLisp_object_s *heap_object;
+		struct duckVM_upvalue_s *heap_upvalue;
 	} value;
 } duckVM_upvalue_t;
 
@@ -72,7 +79,7 @@ typedef struct duckLisp_object_s {
 			char *value;
 			dl_size_t value_length;
 		} symbol;
-		struct{
+		struct {
 			// duckLisp_ast_compoundExpression_t tree;
 			unsigned char *bytecode;
 			dl_error_t (*callback)(duckVM_t *);

@@ -3,9 +3,16 @@
   (print x)
   (print "\n"))
 
+(defun or (a b)
+  (if a
+	  true
+	  (if b
+		  true
+		  false)))
+
 (defun ptest (expected actual)
   (print expected)
-  (if (> expected 9)
+  (if (or (> expected 9) (< expected 0))
 	  (print "|")
 	  ())
   (println actual))
@@ -89,9 +96,15 @@
 
 (println "Deeply nested closure")
 (println "{")
-(defun c1 ()
-  (defun c2 ()
-	(defun c3 ()
-	  x)))
-(println (funcall (funcall (c1))))
+(var o 5)
+(comment (defun s1 ()
+  (defun s2 ()
+	(defun s3 ()
+	  (setq o -5)))))
+(defun g1 ()
+  (defun g2 ()
+	(defun g3 ()
+	  o)))
+(comment (ptest 5 (funcall (funcall (s1)))))
+(ptest -5 (funcall (funcall (g1))))
 (println "}")
