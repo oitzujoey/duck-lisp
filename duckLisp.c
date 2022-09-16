@@ -6637,11 +6637,7 @@ dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
 	/* Insert arg1 into this scope's name trie. */
 	/* This is not actually where stack variables are allocated. The magic happens in
 	   `duckLisp_generator_expression`. */
-	e = duckLisp_scope_addObject(duckLisp,
-	                             expression->compoundExpressions[1].value.identifier.value,
-	                             expression->compoundExpressions[1].value.identifier.value_length);
-	if (e) goto l_cleanup;
-
+	dl_size_t startLocals_length = duckLisp->locals_length;
 	e = duckLisp_compile_compoundExpression(duckLisp,
 	                                        assembly,
 	                                        expression->compoundExpressions[0].value.identifier.value,
@@ -6651,6 +6647,13 @@ dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
 	                                        dl_null,
 	                                        dl_true);
 	if (e) goto l_cleanup;
+	dl_size_t endLocals_length = duckLisp->locals_length;
+	duckLisp->locals_length = startLocals_length;
+	e = duckLisp_scope_addObject(duckLisp,
+	                             expression->compoundExpressions[1].value.identifier.value,
+	                             expression->compoundExpressions[1].value.identifier.value_length);
+	if (e) goto l_cleanup;
+	duckLisp->locals_length = endLocals_length;
 
 	e = duckLisp_emit_move(duckLisp, assembly, startStack_length, duckLisp->locals_length - 1);
 
