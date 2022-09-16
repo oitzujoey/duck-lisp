@@ -9,9 +9,8 @@
 (println (quote ()))
 (println (quote "adsf"))
 (println (quote 4))
-(println (quote (defun println (v)
-				  (print v)
-				  (print "\n"))))
+(println (quote (lambda (left right)
+				  (cons left right))))
 
 (print "\n")
 

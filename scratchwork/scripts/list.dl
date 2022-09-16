@@ -13,7 +13,7 @@
 
 (print "\n")
 
-(println (car (nth 1 シ)))
+(println (car (nthcdr 1 シ)))
 ((print "シ has a length of "))
 (println (length シ))
 (println (nreverse シ))

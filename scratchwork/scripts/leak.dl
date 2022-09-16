@@ -2,21 +2,21 @@
 (var x ())
 
 (defun lcons (a b)
-  ((defun _ (f)
-	 (f a b))))
+  (lambda (f)
+	(f a b)))
 
 (defun lcar (f)
-  (f ((defun _ (a b) a))))
+  (f (lambda (a b) a)))
 
 (defun lcdr (f)
-  (f ((defun _ (a b) b))))
+  (f (lambda (a b) b)))
 
 (while true
 
   (comment  Test stack)
   5
   ()
-  (defun _ () ())
+  (lambda () ())
   (comment  Force conses to be popped)
   (setq x (cons (cons () ()) ()))
 
