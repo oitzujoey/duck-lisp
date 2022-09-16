@@ -111,6 +111,7 @@
   (defun g2 ()
 	(defun g3 ()
 	  o)))
-(ptest 5 (funcall (funcall (s1))))
+(ptest 5 (funcall (funcall (g1))))
+(ptest -5 (funcall (funcall (s1))))
 (ptest -5 (funcall (funcall (g1))))
 (println "}")
