@@ -655,7 +655,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					/* Capture upvalue on stack. */
 					upvalue_pointer = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1);
 					if (upvalue_pointer == dl_null) {
-						printf("Upvalue %lli:%lli doesn't exist\n", k, ptrdiff1);
 						duckVM_upvalue_t upvalue;
 						upvalue.type = duckVM_upvalue_type_stack_index;
 						upvalue.value.stack_index = ptrdiff1;
@@ -665,7 +664,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 						/* Keep reference to upvalue on stack so that we know where to release the object to. */
 						DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1) = upvalue_pointer;
 					}
-					else printf("Upvalue %lli:%lli exists\n", k, ptrdiff1);
 				}
 				object1.value.closure.upvalues[k] = upvalue_pointer;
 			}
