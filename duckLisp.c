@@ -13046,12 +13046,15 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		arg++;
 	}
 
+	/* Push a return. */
+	e = dl_array_pushElements(&disassembly, "\0", 1);
+	if (e) return dl_null;
+
+	/* No more editing, so shrink array. */
 	e = dl_realloc(memoryAllocation, &disassembly.elements, disassembly.elements_length * disassembly.element_size);
 	if (e) {
 		return dl_null;
 	}
 
-	e = dl_array_pushElements(&disassembly, DL_STR("\0"));
-	if (e) return dl_null;
 	return ((char *) disassembly.elements);
 }
