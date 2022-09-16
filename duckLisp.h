@@ -241,6 +241,8 @@ typedef enum {
 	duckLisp_instructionClass_cons,
 	duckLisp_instructionClass_car,
 	duckLisp_instructionClass_cdr,
+	duckLisp_instructionClass_setCar,
+	duckLisp_instructionClass_setCdr,
 	duckLisp_instructionClass_nullp,
 	duckLisp_instructionClass_typeof,
 	duckLisp_instructionClass_pop,
@@ -331,56 +333,64 @@ typedef enum {
 	duckLisp_instruction_div8,
 	duckLisp_instruction_div16,
 	duckLisp_instruction_div32,
-	
+
 	duckLisp_instruction_add8,
 	duckLisp_instruction_add16,
 	duckLisp_instruction_add32,
-	
+
 	duckLisp_instruction_sub8,
 	duckLisp_instruction_sub16,
 	duckLisp_instruction_sub32,
-	
+
 	duckLisp_instruction_equal8,
 	duckLisp_instruction_equal16,
 	duckLisp_instruction_equal32,
-	
+
 	duckLisp_instruction_greater8,
 	duckLisp_instruction_greater16,
 	duckLisp_instruction_greater32,
-	
+
 	duckLisp_instruction_less8,
 	duckLisp_instruction_less16,
 	duckLisp_instruction_less32,
-	
+
 	duckLisp_instruction_cons8,
 	duckLisp_instruction_cons16,
 	duckLisp_instruction_cons32,
-	
+
 	duckLisp_instruction_car8,
 	duckLisp_instruction_car16,
 	duckLisp_instruction_car32,
-	
+
 	duckLisp_instruction_cdr8,
 	duckLisp_instruction_cdr16,
 	duckLisp_instruction_cdr32,
-	
+
+	duckLisp_instruction_setCar8,
+	duckLisp_instruction_setCar16,
+	duckLisp_instruction_setCar32,
+
+	duckLisp_instruction_setCdr8,
+	duckLisp_instruction_setCdr16,
+	duckLisp_instruction_setCdr32,
+
 	duckLisp_instruction_nullp8,
 	duckLisp_instruction_nullp16,
 	duckLisp_instruction_nullp32,
-	
+
 	duckLisp_instruction_typeof8,
 	duckLisp_instruction_typeof16,
 	duckLisp_instruction_typeof32,
-	
+
 	duckLisp_instruction_pop8,
 	duckLisp_instruction_pop16,
 	duckLisp_instruction_pop32,
-	
+
 	duckLisp_instruction_return0,
 	duckLisp_instruction_return8,
 	duckLisp_instruction_return16,
 	duckLisp_instruction_return32,
-	
+
 	duckLisp_instruction_nil,
 } duckLisp_instruction_t;
 
