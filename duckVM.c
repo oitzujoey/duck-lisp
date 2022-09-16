@@ -182,7 +182,7 @@ dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *
 
 	if (upvalue) {
 		gclist->upvalueInUse[(dl_ptrdiff_t) (upvalue - gclist->upvalues)] = dl_true;
-		if (upvalue->type == duckVM_upvalue_type_stack_index) {
+		if (upvalue->type == duckVM_upvalue_type_heap_object) {
 			e = duckVM_gclist_markObject(gclist, upvalue->value.heap_object);
 		}
 		else if (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
@@ -219,6 +219,12 @@ dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		if (object->type == duckLisp_object_type_list) {
 			e = duckVM_gclist_markCons(&duckVM->gclist, object->value.list);
 			if (e) goto cleanup;
+		}
+		else if (object->type == duckLisp_object_type_closure) {
+			DL_DOTIMES(k, object->value.closure.upvalues_length) {
+				e = duckVM_gclist_markUpvalue(&duckVM->gclist, object->value.closure.upvalues[k]);
+				if (e) break;
+			}
 		}
 	}
 
@@ -2934,12 +2940,13 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff1 = *(ip++);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
+				object2.type = duckLisp_object_type_bool;
 			if (object1.type != duckLisp_object_type_list) {
-				e = dl_error_invalidValue;
-				goto l_cleanup;
+				object2.value.boolean = dl_false;
 			}
-			object2.type = duckLisp_object_type_bool;
-			object2.value.boolean = (object1.value.list == dl_null);
+			else {
+				object2.value.boolean = (object1.value.list == dl_null);
+			}
 			e = stack_push(duckVM, &object2);
 			if (e) break;
 			break;

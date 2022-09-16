@@ -546,8 +546,8 @@ int main(int argc, char *argv[]) {
 		dl_bool_t duckVM_init;
 	} d = {0};
 
-	const size_t duckLispMemory_size = 1024 * 1024;
-	const size_t duckVMMemory_size = 100 * 64 * 1024;
+	const size_t duckLispMemory_size = 10 * 1024 * 1024;
+	const size_t duckVMMemory_size = 1000 * 64 * 1024;
 	const size_t duckVMMaxUpvalues = 10000;
 	const size_t duckVMMaxConses = 10000;
 	const size_t duckVMMaxObjects = 10000;
