@@ -431,9 +431,11 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 	/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
 	duckVM_gclist_cons_t cons1;
 	dl_bool_t bool1;
+	dl_bool_t parsedBytecode;
 
 	do {
 		ptrdiff1 = 0;
+		parsedBytecode = dl_false;
 		/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
 		switch (*(ip++)) {
 		case duckLisp_instruction_nop:
@@ -552,36 +554,38 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			/* Fall through */
 		case duckLisp_instruction_pushUpvalue8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			// Need another stack with same depth as call stack to pull out upvalues.
-			// Like to live dangerously?
-			if (ptrdiff1 < 0) {
-				e = dl_error_invalidValue;
-				break;
-			}
-			duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-			                                                   duckVM_upvalue_t **)[ptrdiff1];
-			if (upvalue->type == duckVM_upvalue_type_stack_index) {
-				e = dl_array_get(&duckVM->stack, &object1, upvalue->value.stack_index);
-				if (e) break;
-			}
-			else if (upvalue->type == duckVM_upvalue_type_heap_object) {
-				object1 = *upvalue->value.heap_object;
-			}
-			else {
-				while (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
-					upvalue = upvalue->value.heap_upvalue;
+			{
+				// Need another stack with same depth as call stack to pull out upvalues.
+				// Like to live dangerously?
+				if (ptrdiff1 < 0) {
+					e = dl_error_invalidValue;
+					break;
 				}
+				duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+				                                                   duckVM_upvalue_t **)[ptrdiff1];
 				if (upvalue->type == duckVM_upvalue_type_stack_index) {
 					e = dl_array_get(&duckVM->stack, &object1, upvalue->value.stack_index);
 					if (e) break;
 				}
-				else {
+				else if (upvalue->type == duckVM_upvalue_type_heap_object) {
 					object1 = *upvalue->value.heap_object;
 				}
+				else {
+					while (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
+						upvalue = upvalue->value.heap_upvalue;
+					}
+					if (upvalue->type == duckVM_upvalue_type_stack_index) {
+						e = dl_array_get(&duckVM->stack, &object1, upvalue->value.stack_index);
+						if (e) break;
+					}
+					else {
+						object1 = *upvalue->value.heap_object;
+					}
+				}
+				// We are eventually going to have *major* problems with strings.
+				e = stack_push(duckVM, &object1);
+				break;
 			}
-			// We are eventually going to have *major* problems with strings.
-			e = stack_push(duckVM, &object1);
-			break;
 
 		case duckLisp_instruction_pushClosure32:
 			object1.value.closure.name = *(ip++);
@@ -695,6 +699,60 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 					                                                 ptrdiff1));
 					if (e) break;
 					upvalue->type = duckVM_upvalue_type_heap_object;
+				}
+			}
+			break;
+
+		case duckLisp_instruction_setUpvalue32:
+			ptrdiff1 = *(ip++);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			parsedBytecode = dl_true;
+			/* Fall through */
+		case duckLisp_instruction_setUpvalue16:
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff2 = *(ip++);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				parsedBytecode = dl_true;
+			}
+			/* Fall through */
+		case duckLisp_instruction_setUpvalue8:
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff2 = *(ip++);
+			}
+			{
+				// Need another stack with same depth as call stack to pull out upvalues.
+				// Like to live dangerously?
+				if (ptrdiff1 < 0) {
+					e = dl_error_invalidValue;
+					break;
+				}
+				e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff2);
+				if (e) break;
+				duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+				                                                   duckVM_upvalue_t **)[ptrdiff1];
+				if (upvalue->type == duckVM_upvalue_type_stack_index) {
+					e = dl_array_set(&duckVM->stack, &object1, upvalue->value.stack_index);
+					if (e) break;
+				}
+				else if (upvalue->type == duckVM_upvalue_type_heap_object) {
+					*upvalue->value.heap_object = object1;
+				}
+				else {
+					while (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
+						upvalue = upvalue->value.heap_upvalue;
+					}
+					if (upvalue->type == duckVM_upvalue_type_stack_index) {
+						e = dl_array_set(&duckVM->stack, &object1, upvalue->value.stack_index);
+						if (e) break;
+					}
+					else {
+						*upvalue->value.heap_object = object1;
+					}
 				}
 			}
 			break;
