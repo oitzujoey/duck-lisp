@@ -6665,9 +6665,7 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 	}
 
 	// The zeroth argument is the function name, which also happens to be a label.
-	e = duckLisp_emit_funcall(duckLisp,
-	                          assembly,
-	                          identifier_index);
+	e = duckLisp_emit_funcall(duckLisp, assembly, identifier_index);
 	if (e) {
 		goto l_cleanup;
 	}
@@ -7058,6 +7056,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 	}
 
 	// Compile!
+	duckLisp_ast_identifier_t name = expression->compoundExpressions[0].value.identifier;
 	switch (expression->compoundExpressions[0].type) {
 	case duckLisp_ast_type_bool:
 	case duckLisp_ast_type_int:
@@ -7080,13 +7079,51 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		break;
 	case duckLisp_ast_type_identifier:
 		// Run function generator.
+		functionType = duckLisp_functionType_none;
 		{
-			duckLisp_ast_identifier_t functionName = {0};
-			functionName = expression->compoundExpressions[0].value.identifier;
-			e = scope_getFunctionFromName(duckLisp, &functionType, &functionIndex, functionName.value,
-			                              functionName.value_length);
+			dl_ptrdiff_t index = -1;
+			e = duckLisp_scope_getLocalIndexFromName(duckLisp, &index, name.value, name.value_length);
 			if (e) goto l_cleanup;
-			if (functionType == duckLisp_functionType_none) functionType = duckLisp_functionType_ducklisp;
+			if (index == -1) {
+				dl_bool_t found = dl_false;
+				dl_ptrdiff_t scope_index;
+				e = duckLisp_scope_getFreeLocalIndexFromName(duckLisp,
+				                                             &found,
+				                                             &index,
+				                                             &scope_index,
+				                                             name.value,
+				                                             name.value_length);
+				if (e) goto l_cleanup;
+				if (found) functionType = duckLisp_functionType_ducklisp;
+			}
+			else functionType = duckLisp_functionType_ducklisp;
+		}
+		if (functionType != duckLisp_functionType_ducklisp) {
+			name = expression->compoundExpressions[0].value.identifier;
+			e = scope_getFunctionFromName(duckLisp,
+			                              &functionType,
+			                              &functionIndex,
+			                              name.value,
+			                              name.value_length);
+			if (e) goto l_cleanup;
+			if (functionType == duckLisp_functionType_none) {
+				e = dl_error_invalidValue;
+				eError = dl_array_pushElements(&eString, functionName, functionName_length);
+				if (eError) e = eError;
+				eError = dl_array_pushElements(&eString, DL_STR(": Could not find variable \""));
+				if (eError) e = eError;
+				eError = dl_array_pushElements(&eString,
+				                               name.value,
+				                               name.value_length);
+				if (eError) e = eError;
+				eError = dl_array_pushElements(&eString, DL_STR("\"."));
+				if (eError) e = eError;
+				eError = duckLisp_error_pushRuntime(duckLisp,
+				                                    eString.elements,
+				                                    eString.elements_length * eString.element_size);
+				if (eError) e = eError;
+				goto l_cleanup;
+			}
 		}
 		switch (functionType) {
 		case duckLisp_functionType_ducklisp:
