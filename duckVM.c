@@ -2174,139 +2174,21 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
-			if (e) break;
-			switch (object1.type) {
-			case duckLisp_object_type_list:
-				switch (object2.type) {
-				case duckLisp_object_type_list:
-					object1.value.boolean = object1.value.list == object2.value.list;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_string:
-				switch (object2.type) {
-				case duckLisp_object_type_string:
-					/**/ dl_string_compare(&bool1,
-										   object1.value.string.value,
-										   object1.value.string.value_length,
-										   object2.value.string.value,
-										   object2.value.string.value_length);
-					object1.value.boolean = bool1;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_float:
-				switch (object2.type) {
-				case duckLisp_object_type_float:
-					object1.value.boolean = object1.value.floatingPoint == object2.value.floatingPoint;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_integer:
-				switch (object2.type) {
-				case duckLisp_object_type_integer:
-					object1.value.boolean = object1.value.integer == object2.value.integer;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_bool:
-				switch (object2.type) {
-				case duckLisp_object_type_bool:
-					object1.value.boolean = object1.value.boolean == object2.value.boolean;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			default:
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			object1.type = duckLisp_object_type_bool;
-			e = stack_push(duckVM, &object1);
-			if (e) break;
-			break;
+			parsedBytecode = dl_true;
+			// Fall through
 		case duckLisp_instruction_equal16:
-			ptrdiff1 = *(ip++);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
-			if (e) break;
-			switch (object1.type) {
-			case duckLisp_object_type_list:
-				switch (object2.type) {
-				case duckLisp_object_type_list:
-					object1.value.boolean = object1.value.list == object2.value.list;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_string:
-				switch (object2.type) {
-				case duckLisp_object_type_string:
-					/**/ dl_string_compare(&bool1,
-										   object1.value.string.value,
-										   object1.value.string.value_length,
-										   object2.value.string.value,
-										   object2.value.string.value_length);
-					object1.value.boolean = bool1;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_float:
-				switch (object2.type) {
-				case duckLisp_object_type_float:
-					object1.value.boolean = object1.value.floatingPoint == object2.value.floatingPoint;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_integer:
-				switch (object2.type) {
-				case duckLisp_object_type_integer:
-					object1.value.boolean = object1.value.integer == object2.value.integer;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			case duckLisp_object_type_bool:
-				switch (object2.type) {
-				case duckLisp_object_type_bool:
-					object1.value.boolean = object1.value.boolean == object2.value.boolean;
-					break;
-				default:
-					object1.value.boolean = dl_false;
-				}
-				break;
-			default:
-				e = dl_error_invalidValue;
-				goto l_cleanup;
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++);
+				ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
 			}
-			object1.type = duckLisp_object_type_bool;
-			e = stack_push(duckVM, &object1);
-			break;
+			// Fall through
 		case duckLisp_instruction_equal8:
-			ptrdiff1 = *(ip++);
-			ptrdiff2 = *(ip++);
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff2 = *(ip++);
+			}
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -2316,6 +2198,15 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 				switch (object2.type) {
 				case duckLisp_object_type_list:
 					object1.value.boolean = object1.value.list == object2.value.list;
+					break;
+				default:
+					object1.value.boolean = dl_false;
+				}
+				break;
+			case duckLisp_object_type_symbol:
+				switch (object2.type) {
+				case duckLisp_object_type_symbol:
+					object1.value.boolean = object1.value.symbol.id == object2.value.symbol.id;
 					break;
 				default:
 					object1.value.boolean = dl_false;
