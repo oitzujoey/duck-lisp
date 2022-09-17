@@ -51,9 +51,6 @@
 									  "clos"
 									  "Invalid type"))))))))))
 
-(defun atom? (v)
-  (not (= (type-of v) duckLisp-object-type-list)))
-
 (defun and (a b)
   (if a
 	  (if b
@@ -67,6 +64,18 @@
 	  (if b
 		  true
 		  false)))
+
+(defun atom? (v)
+  (or (not (= (type-of v) duckLisp-object-type-list))
+	  (null? v)))
+
+(defun subst (x y z)
+  (if (atom? z)
+	  (if (= z y)
+		  x
+		  z)
+	  (cons (self x y (car z))
+			(self x y (cdr z)))))
 
 (defun pair (x y)
   (if (and (null? x) (null? y))
