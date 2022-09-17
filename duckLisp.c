@@ -4102,9 +4102,7 @@ dl_error_t duckLisp_generator_cons(duckLisp_t *duckLisp, dl_array_t *assembly, d
 	dl_ptrdiff_t args_index[2];
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < expression->compoundExpressions_length - 1; i++) {
 		e = duckLisp_compile_compoundExpression(duckLisp,
@@ -4124,9 +4122,7 @@ dl_error_t duckLisp_generator_cons(duckLisp_t *duckLisp, dl_array_t *assembly, d
  l_cleanup:
 
 	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
+	if (eError) e = eError;
 
 	return e;
 }
@@ -6083,9 +6079,7 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 	/* Check arguments for call and type errors. */
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 4);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
 
 	// Condition
 
@@ -6115,33 +6109,21 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 		if (args_index[0] == -1) {
 			e = dl_error_invalidValue;
 			eError = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
-			if (eError) {
-				goto l_cleanup;
-			}
+			if (eError) goto l_cleanup;
 			eError = dl_array_pushElements(&eString, expression->compoundExpressions[1].value.identifier.value,
 			                               expression->compoundExpressions[1].value.identifier.value_length);
-			if (eError) {
-				goto l_cleanup;
-			}
+			if (eError) goto l_cleanup;
 			eError = dl_array_pushElements(&eString, DL_STR("\" in generator \""));
-			if (eError) {
-				goto l_cleanup;
-			}
+			if (eError) goto l_cleanup;
 			eError = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
 			                               expression->compoundExpressions[0].value.identifier.value_length);
-			if (eError) {
-				goto l_cleanup;
-			}
+			if (eError) goto l_cleanup;
 			eError = dl_array_pushElements(&eString, DL_STR("\"."));
-			if (eError) {
-				goto l_cleanup;
-			}
+			if (eError) goto l_cleanup;
 			eError = duckLisp_error_pushRuntime(duckLisp,
 			                                    eString.elements,
 			                                    eString.elements_length * eString.element_size);
-			if (eError) {
-				e = eError;
-			}
+			if (eError) e = eError;
 			goto l_cleanup;
 		}
 		e = duckLisp_emit_pushIndex(duckLisp, assembly, dl_null, args_index[0]);
@@ -6161,13 +6143,9 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 		break;
 	default:
 		e = dl_array_pushElements(&eString, DL_STR("if: Unsupported data type."));
-		if (e) {
-			goto l_cleanup;
-		}
+		if (e) goto l_cleanup;
 		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
-		if (eError) {
-			e = eError;
-		}
+		if (eError) e = eError;
 		goto l_cleanup;
 	}
 
@@ -6208,6 +6186,7 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 		                                        dl_null,
 		                                        dl_null,
 		                                        dl_true);
+		if (e) goto l_free_gensym_end;
 		pops = duckLisp->locals_length - startStack_length - 1;
 		if (pops < 0) {
 			e = dl_array_pushElements(&eString, DL_STR("if: \"else\" part of expression contains an invalid form"));
@@ -6233,6 +6212,7 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 		                                        dl_null,
 		                                        dl_null,
 		                                        dl_true);
+		if (e) goto l_free_gensym_end;
 		pops = duckLisp->locals_length - startStack_length - 1;
 		if (pops < 0) {
 			e = dl_array_pushElements(&eString, DL_STR("if: \"then\" part of expression contains an invalid form"));
@@ -6259,18 +6239,18 @@ dl_error_t duckLisp_generator_if(duckLisp_t *duckLisp, dl_array_t *assembly, duc
 	/* (label $end); */
 
  l_free_gensym_end:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	if (eError) e = eError;
 	gensym_end.value_length = 0;
  l_free_gensym_then:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	if (eError) e = eError;
 	gensym_then.value_length = 0;
 
  l_cleanup:
 
 	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
+	if (eError) e = eError;
 
 	return e;
 }
