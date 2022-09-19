@@ -1177,7 +1177,80 @@ Closures are not on the list because they are contained in objects.
 
 Functions must all become closures. The only valid call to a function is through a closure. The function label will become a gensym that is wholly contained by the function scope. The function name will be associated with an object instead of a label. Recursion might still be possible by sheer luck.
 
-Next step: 
+(keyword get-env ())
+(keyword eval (exp env))
+(keyword set-env ())
+(
+ (var x 5)
+ (eval (quote (
+			   (var y 3)
+			   (+ x y)))
+	   (get-env)))
+
+(lambda (n)
+  (if (= n 1)
+	  1
+	  (* n (self (1- n)))))
+
+(defun let ((quote name) value (quote body))
+  (eval (list ((quote var) name value)
+			  body)
+		(get-env)))
+
+(let x 5
+  (
+   (setq x (1+ x))
+   x))
+
+(
+ (var name (quote x))
+ (var value 5)
+ (var body (quote (
+				   (setq x (1+ x))
+				   x)))
+ (eval (list ((quote var) name value)
+			 body)
+	   (get-env)))
+
+(
+ (eval (list ((quote var) (quote x) 5)
+			 (quote (
+					 (setq x (1+ x))
+					 x)))
+	   (get-env)))
+
+Two types of macros?
+(comptime (defmacro ...))
+(runtime (defmacro ...))
+
+Ideal duck-lisp reader: All steps happen at the same time. A single char is read at a time, and if a form is ready, it is compiled. Reader macros can call any function that is fully defined when that parser function is run. Macros can call any function that is fully defined by the time it is called.
+
+duck-lisp v1.1: Functions are compiled as soon
+
+Macros capture something. What do they capture?
+
+(let ((x 5))
+  (defexpander (lambda (body)
+				 `(progn
+					,@(mapcar (lambda () body) (number-sequence 1 x))))))
+
+Macros themselves aren't a problem. Scoped macros that call functions aren't even that bad. The problem is that while functions can potentially exist at compile time, variables only have values at runtime.
+
+Here's the root of the problem. What does the following code do? Perhaps `x' is a symbol at compiletime?
+
+(runtime (
+		  (var x 5)
+		  (defun *2 (v) (* v 2))
+		  (funcall (compiletime ((defun naughty () (*2 x)))))))
+
+`*2' exists at both runtime and compiletime, primarily because it doesn't capture anything. If you want it to only exist at runtime, then change it to `(var *2 (lambda ...))`. `defun' is special.
+`naughty' exists only at compiletime. It seems to me that the current environment should be the symbols names assigned to themselves.
+
+First step is to redo how functions are compiled. Currently, when a function definition is found, high-level assembly is generated. In the new system, each function will be fully compiled to bytecode as soon as it is found. Function signatures will be added as well since those are nice. Maybe I'll add variadic functions too.
+Second step is to implement macros, which should be easy once the above is done. A macro will be a normal function with a flag set that says it is a macro. It exists only at compile time. When a macro instance is encountered, just call the compiled functions on the code in the arguments and compile the result. Macros will be able to call existing functions, but only if they are not closures.
+
+
+Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:
     Fix memory ownership in reader.
