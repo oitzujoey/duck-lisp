@@ -361,14 +361,16 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxCon
 }
 
 void duckVM_quit(duckVM_t *duckVM) {
+	dl_error_t e;
 	/**/ duckVM_gclist_quit(&duckVM->gclist);
 	/**/ dl_memclear(&duckVM->errors, sizeof(dl_array_t));
-	/**/ dl_memclear(&duckVM->statics, sizeof(dl_array_t));
-	/**/ dl_memclear(&duckVM->stack, sizeof(dl_array_t));
+	e = dl_free(duckVM->memoryAllocation, &duckVM->statics);
+	e = dl_free(duckVM->memoryAllocation, &duckVM->stack);
 	/**/ dl_memclear(&duckVM->call_stack, sizeof(dl_array_t));
-	/**/ dl_memclear(&duckVM->upvalue_stack, sizeof(dl_array_t));
-	/**/ dl_memclear(&duckVM->upvalue_array_call_stack, sizeof(dl_array_t));
+	e = dl_free(duckVM->memoryAllocation, &duckVM->upvalue_stack);
+	e = dl_free(duckVM->memoryAllocation, &duckVM->upvalue_array_call_stack);
 	/**/ dl_memclear(&duckVM->upvalue_array_length_call_stack, sizeof(dl_array_t));
+	(void) e;
 }
 
 static dl_error_t stack_push(duckVM_t *duckVM, duckLisp_object_t *object) {

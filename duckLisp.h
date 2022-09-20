@@ -187,11 +187,9 @@ typedef struct {
 
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
-	
+
 	dl_array_t errors;
-	
-	dl_array_t source; // dl_array_t:char
-	
+
 	// This is where we keep all of our variables.
 	// dl_array_t stack;  // dl_array_t:duckLisp_object_t
 	// This is where we keep everything that needs to be scoped.
@@ -432,23 +430,27 @@ typedef struct duckLisp_instructionObject_s {
 dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp);
 void DECLSPEC duckLisp_quit(duckLisp_t *duckLisp);
 
-dl_error_t DECLSPEC duckLisp_error_pushRuntime(duckLisp_t *duckLisp, const char *message, const dl_size_t message_length);
+dl_error_t DECLSPEC duckLisp_error_pushRuntime(duckLisp_t *duckLisp,
+                                               const char *message,
+                                               const dl_size_t message_length);
 dl_error_t DECLSPEC duckLisp_checkArgsAndReportError(
     duckLisp_t *duckLisp, duckLisp_ast_expression_t astExpression,
     const dl_size_t numArgs);
 
-void cst_compoundExpression_init(
-    duckLisp_cst_compoundExpression_t *compoundExpression);
-void ast_compoundExpression_init(
-    duckLisp_ast_compoundExpression_t *compoundExpression);
+void cst_compoundExpression_init(duckLisp_cst_compoundExpression_t *compoundExpression);
+void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression);
 dl_error_t duckLisp_cst_append(duckLisp_t *duckLisp,
+                               const char *source,
+                               const dl_size_t source_length,
                                duckLisp_cst_compoundExpression_t *cst,
                                const dl_ptrdiff_t index, dl_bool_t throwErrors);
 dl_error_t duckLisp_ast_append(duckLisp_t *duckLisp,
+                               const char *source,
                                duckLisp_ast_compoundExpression_t *ast,
                                duckLisp_cst_compoundExpression_t *cst,
                                const dl_ptrdiff_t index, dl_bool_t throwErrors);
 dl_error_t DECLSPEC duckLisp_cst_print(duckLisp_t *duckLisp,
+                                       const char *source,
                                        duckLisp_cst_compoundExpression_t cst);
 dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp,
                                        duckLisp_ast_compoundExpression_t ast);
@@ -458,7 +460,10 @@ dl_error_t cst_compoundExpression_quit(
 dl_error_t ast_print_compoundExpression(
     duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 
-dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
+dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp,
+                                                dl_ptrdiff_t *index,
+                                                const char *name,
+                                                const dl_size_t name_length);
 
 dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp, dl_array_t *assembly,
                              const dl_size_t count);
@@ -523,8 +528,11 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp, dl_array_t *bytecode,
 							   duckLisp_ast_compoundExpression_t astCompoundexpression);
-dl_error_t duckLisp_loadString(duckLisp_t *duckLisp, unsigned char **bytecode, dl_size_t *bytecode_length,
-                               char *source, const dl_size_t source_length);
+dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
+                               unsigned char **bytecode,
+                               dl_size_t *bytecode_length,
+                               const char *source,
+                               const dl_size_t source_length);
 
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t is_function);
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
@@ -539,7 +547,10 @@ duckLisp_addGenerator(duckLisp_t *duckLisp,
                       dl_error_t (*callback)(duckLisp_t *, dl_array_t *,
                                              duckLisp_ast_expression_t *),
                       const char *name, const dl_size_t name_length);
-dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp, dl_ptrdiff_t *index, const char *name, const dl_size_t name_length);
+dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp,
+                                           dl_ptrdiff_t *index,
+                                           const char *name,
+                                           const dl_size_t name_length);
 // dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name,
 // const dl_size_t name_length,
 //                                   const dl_error_t(*generator)(duckLisp_t*,

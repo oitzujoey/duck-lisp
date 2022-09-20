@@ -439,9 +439,6 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp, dl_array_t *assem
 		goto l_cFileName_cleanup;
 	}
 
-	e = dl_array_pushElements(&subLisp.source, sourceCode.elements, sourceCode.elements_length);
-	if (e) goto l_cFileName_cleanup;
-	
 	/* Parse script. */
 
 	printf(COLOR_YELLOW);
@@ -449,10 +446,10 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp, dl_array_t *assem
 	printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
 	puts(COLOR_NORMAL);
 
-	e = duckLisp_cst_append(&subLisp, &cst, 0, dl_true);
+	e = duckLisp_cst_append(&subLisp, sourceCode.elements, sourceCode.elements_length, &cst, 0, dl_true);
 	if (e) goto l_cFileName_cleanup;
 
-	e = duckLisp_ast_append(&subLisp, &ast, &cst, 0, dl_true);
+	e = duckLisp_ast_append(&subLisp, sourceCode.elements, &ast, &cst, 0, dl_true);
 	if (e) goto l_cFileName_cleanup;
 	
 	e = cst_compoundExpression_quit(&subLisp, &cst);
@@ -512,7 +509,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp, dl_array_t *assem
 		}
 		
 		puts(COLOR_RED);
-		for (dl_ptrdiff_t i = subLisp.source.elements_length - sourceCode.elements_length; i < error.index; i++) {
+		for (dl_ptrdiff_t i = /* subLisp.source.elements_length - sourceCode.elements_length */0; i < error.index; i++) {
 			putchar(' ');
 		}
 		puts("^");
@@ -534,6 +531,226 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp, dl_array_t *assem
 		e = eError;
 	}
 
+	return e;
+}
+
+int eval(duckLisp_t *duckLisp,
+         duckVM_t *duckVM,
+         const char *source,
+         const dl_size_t source_length) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	char tempChar;
+	/* dl_size_t tempDlSize; */
+
+	dl_array_t sourceCode;
+
+	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	/* Fetch script. */
+
+	// Provide implicit progn.
+	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
+	if (e) {
+		goto l_cleanup;
+	}
+
+	e = dl_array_pushElements(&sourceCode, source, source_length);
+	if (e) goto l_cleanup;
+
+	tempChar = ')';
+	e = dl_array_pushElement(&sourceCode, &tempChar);
+	if (e) {
+		goto l_cleanup;
+	}
+	
+	/* Compile functions. */
+	
+	/* printf(COLOR_CYAN); */
+	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
+	/* puts(COLOR_NORMAL); */
+
+	dl_error_t loadError;
+	unsigned char *bytecode = dl_null;
+	dl_size_t bytecode_length = 0;
+	loadError = duckLisp_loadString(duckLisp,
+	                                &bytecode,
+	                                &bytecode_length,
+	                                &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
+	                                sourceCode.elements_length);
+	
+	e = dl_memory_checkHealth(*duckLisp->memoryAllocation);
+	if (e) {
+		printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
+	}
+
+	printf(COLOR_CYAN);
+	
+	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
+	
+	/* // Note: The memSize/eleSize trick only works with the "fit" strategy. */
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
+	/* 	printf("Scope %lli: locals\n", i); */
+	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].locals_trie); */
+	/* } */
+	/* putchar('\n'); */
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
+	/* 	printf("Scope %lli: statics\n", i); */
+	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].statics_trie); */
+	/* } */
+	/* putchar('\n'); */
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
+	/* 	printf("Scope %lli: generators\n", i); */
+	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].generators_trie); */
+	/* } */
+	/* putchar('\n'); */
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
+	/* 	printf("Scope %lli: functions (1: callback  2: script  3: generator)\n", i); */
+	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].functions_trie); */
+	/* } */
+	/* putchar('\n'); */
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
+	/* 	printf("Scope %lli: labels\n", i); */
+	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].labels_trie); */
+	/* } */
+
+	printf(COLOR_NORMAL);
+	
+	if (loadError) {
+		printf(COLOR_RED "Error loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
+	}
+
+	dl_bool_t firstLoop = dl_true;
+	while (dl_true) {
+		if (!firstLoop) putchar('\n');
+		firstLoop = dl_false;
+		
+		duckLisp_error_t error;  /* Compile errors */
+		e = dl_array_popElement(&duckLisp->errors, (void *) &error);
+		if (e) break;
+
+		printf(COLOR_RED);
+		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
+			putchar(error.message[i]);
+		}
+		printf(COLOR_NORMAL);
+		putchar('\n');
+		
+		if (error.index == -1) {
+			continue;
+		}
+		
+		printf(COLOR_CYAN);
+		for (dl_ptrdiff_t i = 0; (dl_size_t) i < sourceCode.elements_length; i++) {
+			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
+				putchar(' ');
+			else
+				putchar(DL_ARRAY_GETADDRESS(sourceCode, char, i));
+		}
+		
+		puts(COLOR_RED);
+		for (dl_ptrdiff_t i = /* duckLisp->source.elements_length - sourceCode.elements_length */0; i < error.index; i++) {
+			putchar(' ');
+		}
+		puts("^");
+
+		puts(COLOR_NORMAL);
+	}
+
+	/* printf(COLOR_CYAN); */
+	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
+	/* puts(COLOR_NORMAL); */
+
+	if (loadError) {
+		/* putchar('\n'); */
+		printf(COLOR_RED "Failed to compile source.\n" COLOR_NORMAL);
+		e = loadError;
+		goto l_cleanup;
+	}
+
+	/* { */
+	/* 	char *disassembly = duckLisp_disassemble(duckLisp->memoryAllocation, bytecode, bytecode_length); */
+	/* 	printf("%s", disassembly); */
+	/* 	e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly); */
+	/* } */
+	/* putchar('\n'); */
+	
+	// Print bytecode in hex.
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) { */
+	/* 	unsigned char byte = bytecode[i]; */
+	/* 	putchar(dl_nybbleToHexChar(byte >> 4)); */
+	/* 	putchar(dl_nybbleToHexChar(byte)); */
+	/* } */
+	/* putchar('\n'); */
+	
+	/* putchar('\n'); */
+	/* puts(COLOR_CYAN "VM: {" COLOR_NORMAL); */
+	
+	e = duckVM_execute(duckVM, bytecode);
+	if (e) {
+		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
+		goto l_cleanup;
+	}
+
+	e = dl_free(duckLisp->memoryAllocation, &bytecode);
+	if (e) goto l_cleanup;
+	
+	/* puts(COLOR_CYAN "}" COLOR_NORMAL); */
+
+ l_cleanup:
+
+	eError = dl_array_quit(&sourceCode);
+	if (eError) e = eError;
+
+	return e;
+}
+
+int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, const char *filename) {
+	dl_error_t e = dl_error_ok;
+
+	char tempChar;
+	int tempInt;
+
+	dl_array_t sourceCode;
+
+	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	
+	/* Fetch script. */
+
+	// Provide implicit progn.
+	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
+	if (e) {
+		goto l_cleanup;
+	}
+
+	FILE *sourceFile = sourceFile = fopen(filename, "r");
+	if (sourceFile != NULL) {
+		while ((tempInt = fgetc(sourceFile)) != EOF) {
+			tempChar = tempInt & 0xFF;
+			e = dl_array_pushElement(&sourceCode, &tempChar);
+			if (e) {
+				fclose(sourceFile);
+				goto l_cleanup;
+			}
+		}
+		fclose(sourceFile);
+	}
+	else {
+		e = dl_error_invalidValue;
+		goto l_cleanup;
+	}
+
+	tempChar = ')';
+	e = dl_array_pushElement(&sourceCode, &tempChar);
+	if (e) goto l_cleanup;
+
+	e = eval(duckLisp, duckVM, sourceCode.elements, sourceCode.elements_length);
+
+ l_cleanup:
 	return e;
 }
 
@@ -559,16 +776,8 @@ int main(int argc, char *argv[]) {
 	dl_memoryAllocation_t duckVMMemoryAllocation;
 	size_t tempMemory_size;
 	dl_size_t tempDlSize;
-	duckLisp_error_t error; // Compile errors.
-	dl_error_t loadError;
-	
-	FILE *sourceFile = dl_null;
-	dl_array_t sourceCode;
-	int tempInt;
-	char tempChar;
+
 	duckVM_t duckVM;
-	unsigned char *bytecode = dl_null;
-	dl_size_t bytecode_length = 0;
 
 	// All user-defined generators go here.
 	struct {
@@ -594,8 +803,13 @@ int main(int argc, char *argv[]) {
 	
 	/* Initialization. */
 	
-	if (argc != 2) {
-		printf(COLOR_YELLOW "Requires a filename as an argument.\n" COLOR_NORMAL);
+	if ((argc != 1) && (argc != 2)) {
+		printf(COLOR_YELLOW
+		       "Usage:\n"
+		       "./duckLisp-dev filename                                               Run script from file\n"
+		       "./duckLisp-dev \"(func0 arg0 arg1 ...) (func1 arg0 arg1 ...) ...\"      Run script from string\n"
+		       "./duckLisp-dev                                                        Start REPL\n"
+		       COLOR_NORMAL);
 		goto l_cleanup;
 	}
 	
@@ -620,8 +834,6 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	d.duckLisp_init = dl_true;
-
-	/**/ dl_array_init(&sourceCode, duckLisp.memoryAllocation, sizeof(char), dl_array_strategy_double);
 	
 	/* Create generators. */
 	
@@ -641,161 +853,7 @@ int main(int argc, char *argv[]) {
 			goto l_cleanup;
 		}
 	}
-	
-	/* Fetch script. */
 
-	// Provide implicit progn.
-	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	sourceFile = fopen(argv[1], "r");
-	if (sourceFile != NULL) {
-		while ((tempInt = fgetc(sourceFile)) != EOF) {
-			tempChar = tempInt & 0xFF;
-			e = dl_array_pushElement(&sourceCode, &tempChar);
-			if (e) {
-				fclose(sourceFile);
-				goto l_cleanup;
-			}
-		}
-		fclose(sourceFile);
-	}
-	else {
-		for (dl_ptrdiff_t j = 1; j < argc - 1; j++) {
-			e = dl_array_pushElements(&sourceCode, argv[j], strlen(argv[j]));
-			if (e) goto l_cleanup;
-			e = dl_array_pushElements(&sourceCode, DL_STR(" "));
-			if (e) goto l_cleanup;
-		}
-		e = dl_array_pushElements(&sourceCode, argv[argc - 1], strlen(argv[argc - 1]));
-		if (e) goto l_cleanup;
-	}
-	
-	tempChar = ')';
-	e = dl_array_pushElement(&sourceCode, &tempChar);
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	
-	/* Compile functions. */
-	
-	printf(COLOR_CYAN);
-	/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
-	printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp.memoryAllocation->size, 100*tempDlSize/duckLisp.memoryAllocation->size);
-	puts(COLOR_NORMAL);
-
-	// e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, DL_STR(source0));
-	loadError = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
-	                        sourceCode.elements_length);
-	
-	e = dl_memory_checkHealth(*duckLisp.memoryAllocation);
-	if (e) {
-		printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
-	}
-
-	printf(COLOR_CYAN);
-	
-	/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
-	printf("Compiler memory usage: %llu/%llu (%llu%%)\n\n", tempDlSize, duckLisp.memoryAllocation->size, 100*tempDlSize/duckLisp.memoryAllocation->size);
-	
-	// Note: The memSize/eleSize trick only works with the "fit" strategy.
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
-		printf("Scope %lli: locals\n", i);
-		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].locals_trie);
-	}
-	putchar('\n');
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
-		printf("Scope %lli: statics\n", i);
-		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].statics_trie);
-	}
-	putchar('\n');
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
-		printf("Scope %lli: generators\n", i);
-		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].generators_trie);
-	}
-	putchar('\n');
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
-		printf("Scope %lli: functions (1: callback  2: script  3: generator)\n", i);
-		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].functions_trie);
-	}
-	putchar('\n');
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp.scope_stack.elements_memorySize / duckLisp.scope_stack.element_size; i++) {
-		printf("Scope %lli: labels\n", i);
-		/**/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp.scope_stack.elements)[i].labels_trie);
-	}
-
-	printf(COLOR_NORMAL);
-	
-	if (loadError) {
-		printf(COLOR_RED "\nError loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
-	}
-
-	while (dl_true) {
-		putchar('\n');
-		
-		e = dl_array_popElement(&duckLisp.errors, (void *) &error);
-		if (e) {
-			break;
-		}
-
-		printf(COLOR_RED);
-		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
-			putchar(error.message[i]);
-		}
-		printf(COLOR_NORMAL);
-		putchar('\n');
-		
-		if (error.index == -1) {
-			continue;
-		}
-		
-		printf(COLOR_CYAN);
-		for (dl_ptrdiff_t i = 0; (dl_size_t) i < sourceCode.elements_length; i++) {
-			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
-				putchar(' ');
-			else
-				putchar(DL_ARRAY_GETADDRESS(sourceCode, char, i));
-		}
-		
-		puts(COLOR_RED);
-		for (dl_ptrdiff_t i = duckLisp.source.elements_length - sourceCode.elements_length; i < error.index; i++) {
-			putchar(' ');
-		}
-		puts("^");
-
-		puts(COLOR_NORMAL);
-	}
-
-	printf(COLOR_CYAN);
-	/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
-	printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp.memoryAllocation->size, 100*tempDlSize/duckLisp.memoryAllocation->size);
-	puts(COLOR_NORMAL);
-
-	if (loadError) {
-		putchar('\n');
-		printf(COLOR_RED "Failed to compile source.\n" COLOR_NORMAL);
-		e = loadError;
-		goto l_cleanup;
-	}
-
-	{
-		char *disassembly = duckLisp_disassemble(duckLisp.memoryAllocation, bytecode, bytecode_length);
-		printf("%s", disassembly);
-		e = dl_free(duckLisp.memoryAllocation, (void **) &disassembly);
-	}
-	putchar('\n');
-	
-	// Print bytecode in hex.
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) {
-		unsigned char byte = bytecode[i];
-		putchar(dl_nybbleToHexChar(byte >> 4));
-		putchar(dl_nybbleToHexChar(byte));
-	}
-	putchar('\n');
-	
 	tempMemory_size = duckVMMemory_size;
 	duckVMMemory = malloc(tempMemory_size);
 	if (duckVMMemory == NULL) {
@@ -827,18 +885,32 @@ int main(int argc, char *argv[]) {
 			goto l_cleanup;
 		}
 	}
-	
-	putchar('\n');
-	puts(COLOR_CYAN "VM: {" COLOR_NORMAL);
-	
-	e = duckVM_execute(&duckVM, bytecode);
-	if (e) {
-		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
-		goto l_cleanup;
+
+	if (argc == 2) {
+		FILE *sourceFile = fopen(argv[1], "r");
+		if (sourceFile == NULL) e = eval(&duckLisp, &duckVM, argv[1], strlen(argv[1]));
+		else e = evalFile(&duckLisp, &duckVM, argv[1]);
+	}
+	/* REPL */
+	else if (argc == 1) {
+		char *line = NULL;
+		size_t buffer_length = 0;
+		ssize_t length = 0;
+		while (1) {
+			printf("> ");
+			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
+			DL_DOTIMES(i, (size_t)length) { putchar(line[i]);}
+			e = eval(&duckLisp, &duckVM, line, length);
+			free(line); line = NULL;
+			
+			printf(COLOR_CYAN);
+			/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
+			printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp.memoryAllocation->size, 100*tempDlSize/duckLisp.memoryAllocation->size);
+			puts(COLOR_NORMAL);
+
+		}
 	}
 	
-	puts(COLOR_CYAN "}" COLOR_NORMAL);
-
 	l_cleanup:
 	
 	puts(COLOR_CYAN);
@@ -853,6 +925,7 @@ int main(int argc, char *argv[]) {
 			   duckVM.memoryAllocation->size,
 			   100*duckVM.memoryAllocation->max_used/duckVM.memoryAllocation->size);
 		/**/ duckVM_quit(&duckVM);
+		/**/ dl_memory_quit(duckVM.memoryAllocation);
 	}
 	if (d.duckVMMemory) {
 		puts("Freeing VM memory.");
@@ -871,11 +944,8 @@ int main(int argc, char *argv[]) {
 			   duckLisp.memoryAllocation->size,
 			   100*duckLisp.memoryAllocation->max_used/duckLisp.memoryAllocation->size);
 		
-		// Don't bother freeing since we are going to run `dl_memory_quit`.
-		/* No error */ dl_memory_quit(duckLisp.memoryAllocation);
-		// Prevent dangling pointers.
-		/* No error */ dl_memclear(&duckLisp, sizeof(duckLisp_t));
 		/**/ duckLisp_quit(&duckLisp);
+		/**/ dl_memory_quit(duckLisp.memoryAllocation);
 	}
 	if (d.duckLispMemory) {
 		puts("Freeing compiler memory.");
