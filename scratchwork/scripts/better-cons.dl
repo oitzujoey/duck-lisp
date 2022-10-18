@@ -39,6 +39,8 @@
   (cons (lambda (car cdr set-car set-cdr)
 		  (set-cdr v))))
 
+(include "../scripts/library.dl")
+
 (defun print-list (list)
   (print "< ")
   (while (not (null? list))

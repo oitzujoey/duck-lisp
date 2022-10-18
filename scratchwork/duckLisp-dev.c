@@ -155,17 +155,20 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 				e = duckVM_pop(duckVM, dl_null);
 				if (e) goto l_cleanup;
 			}
-		
+
 			printf(")");
 		}
 		break;
 	case duckLisp_object_type_closure:
 		printf("(closure %lli", object.value.closure.name);
-		DL_DOTIMES(k, object.value.closure.upvalues_length) {
-			duckVM_upvalue_t *uv = object.value.closure.upvalues[k];
+		DL_DOTIMES(k, object.value.closure.upvalue_array->length) {
+			duckVM_upvalue_t *uv = object.value.closure.upvalue_array->upvalues[k];
 			putchar(' ');
 			if (uv->type == duckVM_upvalue_type_stack_index) {
-				e = duckVM_push(duckVM, &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
+				duckLisp_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
+				                                               duckLisp_object_t,
+				                                               uv->value.stack_index);
+				e = duckVM_push(duckVM, &object);
 				if (e) goto l_cleanup;
 				e = duckLispDev_callback_print(duckVM);
 				if (e) goto l_cleanup;
@@ -222,13 +225,13 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 
 dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
-	
+
 	duckLisp_object_t tempObject;
-	
-	DL_ARRAY_FOREACH(tempObject, duckVM->stack, {
-		goto l_cleanup;
-	}, {
-		printf("%lli: ", dl_array_i);
+
+	DL_DOTIMES(i, duckVM->stack.elements_length) {
+		dl_error_t e = dl_array_get(&duckVM->stack, &tempObject, i);
+		if (e) goto l_cleanup;
+		printf("%lli: ", i);
 		switch (tempObject.type) {
 		case duckLisp_object_type_bool:
 			puts(tempObject.value.boolean ? "true" : "false");
@@ -303,18 +306,21 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 					e = duckVM_pop(duckVM, dl_null);
 					if (e) goto l_cleanup;
 				}
-		
+
 				printf(")");
 			}
 			putchar('\n');
 			break;
 		case duckLisp_object_type_closure:
 			printf("(closure %lli", tempObject.value.closure.name);
-			DL_DOTIMES(k, tempObject.value.closure.upvalues_length) {
-				duckVM_upvalue_t *uv = tempObject.value.closure.upvalues[k];
+			DL_DOTIMES(k, tempObject.value.closure.upvalue_array->length) {
+				duckVM_upvalue_t *uv = tempObject.value.closure.upvalue_array->upvalues[k];
 				putchar(' ');
 				if (uv->type == duckVM_upvalue_type_stack_index) {
-					e = duckVM_push(duckVM, &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
+					duckLisp_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
+					                                               duckLisp_object_t,
+					                                               uv->value.stack_index);
+					e = duckVM_push(duckVM, &object);
 					if (e) goto l_cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto l_cleanup;
@@ -334,7 +340,8 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 						uv = uv->value.heap_upvalue;
 					}
 					if (uv->type == duckVM_upvalue_type_stack_index) {
-						e = duckVM_push(duckVM, &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
+						e = duckVM_push(duckVM,
+						                &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
 						if (e) goto l_cleanup;
 						e = duckLispDev_callback_print(duckVM);
 						if (e) goto l_cleanup;
@@ -356,19 +363,21 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 		default:
 			printf("Bad object type %u.\n", tempObject.type);
 		}
-	})
-	
+	}
+
 	l_cleanup:
-	
+
 	return e;
 }
 
-dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp, dl_array_t *assembly, duckLisp_ast_expression_t *expression) {
+dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
+                                         dl_array_t *assembly,
+                                         duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
-	
+
 	duckLisp_t subLisp;
 
 	duckLisp_ast_string_t fileName;
@@ -672,13 +681,13 @@ int eval(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
-	/* { */
-	/* 	char *disassembly = duckLisp_disassemble(duckLisp->memoryAllocation, bytecode, bytecode_length); */
-	/* 	printf("%s", disassembly); */
-	/* 	e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly); */
-	/* } */
-	/* putchar('\n'); */
-	
+	{
+		char *disassembly = duckLisp_disassemble(duckLisp->memoryAllocation, bytecode, bytecode_length);
+		printf("%s", disassembly);
+		e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly);
+	}
+	putchar('\n');
+
 	// Print bytecode in hex.
 	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) { */
 	/* 	unsigned char byte = bytecode[i]; */
@@ -686,19 +695,19 @@ int eval(duckLisp_t *duckLisp,
 	/* 	putchar(dl_nybbleToHexChar(byte)); */
 	/* } */
 	/* putchar('\n'); */
-	
+
 	/* putchar('\n'); */
 	/* puts(COLOR_CYAN "VM: {" COLOR_NORMAL); */
-	
+
 	e = duckVM_execute(duckVM, bytecode);
 	if (e) {
 		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		goto l_cleanup;
 	}
 
-	e = dl_free(duckLisp->memoryAllocation, &bytecode);
+	e = dl_free(duckLisp->memoryAllocation, (void **) &bytecode);
 	if (e) goto l_cleanup;
-	
+
 	/* puts(COLOR_CYAN "}" COLOR_NORMAL); */
 
  l_cleanup:
@@ -711,6 +720,7 @@ int eval(duckLisp_t *duckLisp,
 
 int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, const char *filename) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
 	char tempChar;
 	int tempInt;
@@ -718,7 +728,7 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, const char *filename) {
 	dl_array_t sourceCode;
 
 	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
-	
+
 	/* Fetch script. */
 
 	// Provide implicit progn.
@@ -750,7 +760,12 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, const char *filename) {
 
 	e = eval(duckLisp, duckVM, sourceCode.elements, sourceCode.elements_length);
 
+
  l_cleanup:
+
+	eError = dl_array_quit(&sourceCode);
+	if (!e) e = eError;
+
 	return e;
 }
 
@@ -766,6 +781,7 @@ int main(int argc, char *argv[]) {
 	const size_t duckLispMemory_size = 10 * 1024 * 1024;
 	const size_t duckVMMemory_size = 1000 * 64 * 1024;
 	const size_t duckVMMaxUpvalues = 10000;
+	const size_t duckVMMaxUpvalueArrays = 10000;
 	const size_t duckVMMaxConses = 10000;
 	const size_t duckVMMaxObjects = 10000;
 	
@@ -869,9 +885,9 @@ int main(int argc, char *argv[]) {
 	duckVM.memoryAllocation = &duckVMMemoryAllocation;
 
 	d.duckVMMemory = dl_true;
-	
+
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMaxUpvalues, duckVMMaxConses, duckVMMaxObjects);
+	e = duckVM_init(&duckVM, duckVMMaxUpvalues, duckVMMaxUpvalueArrays, duckVMMaxConses, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;

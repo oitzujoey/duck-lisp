@@ -1250,6 +1250,25 @@ First step is to redo how functions are compiled. Currently, when a function def
 Second step is to implement macros, which should be easy once the above is done. A macro will be a normal function with a flag set that says it is a macro. It exists only at compile time. When a macro instance is encountered, just call the compiled functions on the code in the arguments and compile the result. Macros will be able to call existing functions, but only if they are not closures.
 
 
+Every upvalue in the upvalue array call stack should always have an object on the stack associated with it.
+
+Every transfer of a closure must result in an increment of the upvalue array reference count.
+Every deletion of a closure must result in a decrement of the upvalue array reference count.
+On a reference count of 0, the upvalue array must be deleted.
+
+
+Function arity might not actually be that hard. If I do it in the VM, all I need is to add an extra field in the instruction for the number of arguments. It's almost as easy in the compiler. I just copy the length of the bindings expression and pass it to the assembler.
+I already have a partial function signature. It's the one that I'm struggling to GC. Once I solve that, this addition will require little effort.
+Funcall could pose a problem, but I think all I have to do is tell it the expected arity. If the arities match, then there's no problem. If they don't match, then an error is thrown.
+
+
+I could assign every function an index, and then pass the number of functions to the VM. The VM would create an array of function signatures. These would then be used by function declarations without needing to ever free them.
+Another option is to prepend all function signatures to the beginning of the bytecode. When the VM starts up, it creates a static (not C `static`) array of signatures. It then starts executing the bytecode. Function declarations will then point to the function signature instead of directly to the bytecode.
+Arity could also be placed at the beginning of the function definition. A function call would jump to a portion in bytecode and then read the arity. This would not work as well for closures since the signature is also needed for `push-uv` and `set-uv`, so they would also need access to the definition.
+Instead of doing a deep copy or shallow copy of closures, I could just keep references to them on the stack.
+I could add garbage collection for upvalue arrays and ignore all this reference counting junk. It also allows me to limit the number of upvalue arrays that can be created. When I add string GC, I can probably copy most of the upvalue array GC since a string is just an array of chars.
+
+
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:

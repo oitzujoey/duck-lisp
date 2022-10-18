@@ -230,7 +230,7 @@ static dl_error_t cst_expression_quit(duckLisp_t *duckLisp, duckLisp_cst_express
 		e = cst_compoundExpression_quit(duckLisp, &expression->compoundExpressions[i]);
 		if (e) goto cleanup;
 	}
-	e = dl_free(duckLisp->memoryAllocation, &expression->compoundExpressions);
+	e = dl_free(duckLisp->memoryAllocation, (void **) &expression->compoundExpressions);
  cleanup:
 	return e;
 }
@@ -482,7 +482,9 @@ static dl_error_t ast_expression_quit(duckLisp_t *duckLisp, duckLisp_ast_express
 		e = ast_compoundExpression_quit(duckLisp, &expression->compoundExpressions[i]);
 		if (e) goto cleanup;
 	}
-	e = dl_free(duckLisp->memoryAllocation, &expression->compoundExpressions);
+	if (expression->compoundExpressions != dl_null) {
+		e = dl_free(duckLisp->memoryAllocation, (void **) &expression->compoundExpressions);
+	}
  cleanup:
 	return e;
 }
@@ -1714,8 +1716,9 @@ static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t 
 	scope->function_uvs_length = 0;
 }
 
-static dl_error_t scope_quit(duckLisp_scope_t *scope) {
+static dl_error_t scope_quit(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	dl_error_t e = dl_error_ok;
+	(void) duckLisp;  /* For malloc */
 	/**/ dl_trie_quit(&scope->locals_trie);
 	/**/ dl_trie_quit(&scope->statics_trie);
 	/**/ dl_trie_quit(&scope->generators_trie);
@@ -1724,11 +1727,15 @@ static dl_error_t scope_quit(duckLisp_scope_t *scope) {
 	scope->functions_length = 0;
 	/**/ dl_trie_quit(&scope->labels_trie);
 	scope->function_scope = dl_false;
-	e = dl_free(duckLisp->memoryAllocation, &scope->scope_uvs);
-	if (e) goto cleanup;
+	if (scope->scope_uvs != dl_null) {
+		e = dl_free(duckLisp->memoryAllocation, (void **) &scope->scope_uvs);
+		if (e) goto cleanup;
+	}
 	scope->scope_uvs_length = 0;
-	e = dl_free(duckLisp->memoryAllocation, &scope->function_uvs);
-	if (e) goto cleanup;
+	if (scope->function_uvs != dl_null) {
+		e = dl_free(duckLisp->memoryAllocation, (void **) &scope->function_uvs);
+		if (e) goto cleanup;
+	}
 	scope->function_uvs_length = 0;
 
  cleanup:
@@ -1774,7 +1781,7 @@ dl_error_t duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	if (duckLisp->scope_stack.elements_length > 0) {
 		e = scope_getTop(duckLisp, &local_scope);
 		if (e) goto cleanup;
-		e = scope_quit(&local_scope);
+		e = scope_quit(duckLisp, &local_scope);
 		if (e) goto cleanup;
 		e = scope_setTop(duckLisp, &local_scope);
 		if (e) goto cleanup;
@@ -4815,7 +4822,7 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	subVM.memoryAllocation = duckLisp->memoryAllocation;
 
 	// Shouldn't need too much.
-	e = duckVM_init(&subVM, 1000, 1000, 1000);
+	e = duckVM_init(&subVM, 1000, 1000, 1000, 1000);
 	if (e) goto l_cleanupDL;
 
 	e = duckVM_execute(&subVM, bytecodeArray.elements);
@@ -6615,11 +6622,9 @@ dl_error_t duckLisp_generator_comment(duckLisp_t *duckLisp,
                                       dl_array_t *assembly,
                                       duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
+	(void) duckLisp;
 	(void) assembly;
-
-	e = ast_expression_quit(duckLisp, expression);
-
-	expression->compoundExpressions_length = 0;
+	(void) expression;
 
 	return e;
 }
@@ -7550,7 +7555,12 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	/* First stage: Create assembly tree from AST. */
 
+	/* Stack length is zero. */
+
 	e = duckLisp_compile_expression(duckLisp, &assembly, DL_STR("compileAST"), &astCompoundexpression.value.expression);
+	if (e) goto l_cleanup;
+
+	e = duckLisp_emit_return(duckLisp, &assembly, duckLisp->locals_length);
 	if (e) goto l_cleanup;
 
 	// Print list.
@@ -8938,7 +8948,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			}
 		}
 	}
-	e = dl_free(duckLisp->memoryAllocation, &currentArgs);
+	e = dl_array_quit(&currentArgs);
 	if (e) goto l_cleanup;
 	/* } */
 	if (bytecodeList.elements_length > 0) {
@@ -9220,12 +9230,12 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 		}
 	}
 
-	// Push a return instruction.
-	dl_uint8_t tempChar = duckLisp_instruction_return0;
-	e = dl_array_pushElement(bytecode, &tempChar);
-	if (e) {
-		goto l_cleanup;
-	}
+	/* // Push a return instruction. */
+	/* dl_uint8_t tempChar = duckLisp_instruction_return0; */
+	/* e = dl_array_pushElement(bytecode, &tempChar); */
+	/* if (e) { */
+	/* 	goto l_cleanup; */
+	/* } */
 
 	/* { */
 	/* 	dl_size_t tempDlSize; */

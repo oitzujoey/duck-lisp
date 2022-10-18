@@ -1,4 +1,3 @@
-
 #ifndef DUCKVM_H
 #define DUCKVM_H
 
@@ -8,18 +7,23 @@
 
 typedef struct duckVM_gclist_s {
 	struct duckVM_upvalue_s *upvalues;
+	struct duckVM_upvalue_array_s *upvalueArrays;
 	struct duckVM_gclist_cons_s *conses;
 	struct duckLisp_object_s *objects;
 	struct duckVM_upvalue_s **freeUpvalues;
+	struct duckVM_upvalue_array_s **freeUpvalueArrays;
 	struct duckVM_gclist_cons_s **freeConses;
 	struct duckLisp_object_s **freeObjects;
 	dl_bool_t *upvalueInUse;
+	dl_bool_t *upvalueArraysInUse;
 	dl_bool_t *consInUse;
 	dl_bool_t *objectInUse;
 	dl_size_t upvalues_length;
+	dl_size_t upvalueArrays_length;
 	dl_size_t conses_length;
 	dl_size_t objects_length;
 	dl_size_t freeUpvalues_length;
+	dl_size_t freeUpvalueArrays_length;
 	dl_size_t freeConses_length;
 	dl_size_t freeObjects_length;
 	dl_array_strategy_t strategy;
@@ -40,6 +44,12 @@ typedef struct duckVM_upvalue_s {
 		struct duckVM_upvalue_s *heap_upvalue;
 	} value;
 } duckVM_upvalue_t;
+
+typedef struct duckVM_upvalue_array_s {
+	duckVM_upvalue_t **upvalues;
+	dl_size_t length;
+	dl_bool_t initialized;
+} duckVM_upvalue_array_t;
 
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
@@ -86,8 +96,7 @@ typedef struct duckLisp_object_s {
 		} function;
 		struct {
 			dl_ptrdiff_t name;
-			duckVM_upvalue_t **upvalues;
-			dl_size_t upvalues_length;
+			duckVM_upvalue_array_t *upvalue_array;
 		} closure;
 		struct duckVM_gclist_cons_s *list;
 	} value;
@@ -115,7 +124,11 @@ typedef struct duckVM_gclist_cons_s {
 } duckVM_gclist_cons_t;
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxConses, dl_size_t maxObjects);
+dl_error_t duckVM_init(duckVM_t *duckVM,
+                       dl_size_t maxUpvalues,
+                       dl_size_t maxUpvalueArrays,
+                       dl_size_t maxConses,
+                       dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode);
 dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index);

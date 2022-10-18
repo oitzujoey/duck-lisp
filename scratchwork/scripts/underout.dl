@@ -1,4 +1,4 @@
-(include "../scripts/library.dl")
+(include ../scripts/library.dl)
 
 (comment Under-Out
 		 `new-deck' generates a new deck of cards.

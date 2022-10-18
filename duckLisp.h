@@ -168,7 +168,7 @@ typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   // Points to stack objects.
 	dl_trie_t statics_trie;   // Points to static objects.
-	
+
 	dl_trie_t functions_trie;
 	dl_size_t functions_length;
 	dl_trie_t generators_trie;  // Points to generator stack callbacks.
@@ -198,7 +198,7 @@ typedef struct {
 	// dl_ptrdiff_t frame_pointer;
 	dl_size_t locals_length;
 	dl_size_t statics_length;
-	
+
 	/* dl_array_t bytecode;    // dl_array_t:uint8_t */
 	dl_array_t generators_stack; // dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t)
 	dl_array_t labels;  // duckLisp_label_t
@@ -315,19 +315,19 @@ typedef enum {
 	duckLisp_instruction_brnz8,
 	duckLisp_instruction_brnz16,
 	duckLisp_instruction_brnz32,
-	
+
 	duckLisp_instruction_move8,
 	duckLisp_instruction_move16,
 	duckLisp_instruction_move32,
-	
+
 	duckLisp_instruction_not8,
 	duckLisp_instruction_not16,
 	duckLisp_instruction_not32,
-	
+
 	duckLisp_instruction_mul8,
 	duckLisp_instruction_mul16,
 	duckLisp_instruction_mul32,
-	
+
 	duckLisp_instruction_div8,
 	duckLisp_instruction_div16,
 	duckLisp_instruction_div32,
