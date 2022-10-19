@@ -920,7 +920,7 @@ int main(int argc, char *argv[]) {
 		while (1) {
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			DL_DOTIMES(i, (size_t) length) { putchar(line[i]); }
+			/* DL_DOTIMES(i, (size_t) length) { putchar(line[i]); } */
 			e = eval(&duckLisp, &duckVM, dl_null, line, length);
 			free(line); line = NULL;
 
