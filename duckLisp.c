@@ -9526,6 +9526,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	                             sizeof(duckLisp_label_t),
 	                             dl_array_strategy_double);
 
+	duckLisp->locals_length = 0;
 	e = duckLisp_compileAST(duckLisp, &bytecodeArray, ast);
 	if (e) {
 		goto l_cleanup;

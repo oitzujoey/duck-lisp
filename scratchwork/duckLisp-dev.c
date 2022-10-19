@@ -598,17 +598,17 @@ int eval(duckLisp_t *duckLisp,
 	                                &bytecode_length,
 	                                &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
 	                                sourceCode.elements_length);
-	
+
 	e = dl_memory_checkHealth(*duckLisp->memoryAllocation);
 	if (e) {
 		printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 	}
 
 	printf(COLOR_CYAN);
-	
+
 	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
 	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
-	
+
 	/* // Note: The memSize/eleSize trick only works with the "fit" strategy. */
 	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
 	/* 	printf("Scope %lli: locals\n", i); */
@@ -636,7 +636,7 @@ int eval(duckLisp_t *duckLisp,
 	/* } */
 
 	printf(COLOR_NORMAL);
-	
+
 	if (loadError) {
 		printf(COLOR_RED "Error loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
 	}
@@ -645,7 +645,7 @@ int eval(duckLisp_t *duckLisp,
 	while (dl_true) {
 		if (!firstLoop) putchar('\n');
 		firstLoop = dl_false;
-		
+
 		duckLisp_error_t error;  /* Compile errors */
 		e = dl_array_popElement(&duckLisp->errors, (void *) &error);
 		if (e) break;
@@ -656,11 +656,11 @@ int eval(duckLisp_t *duckLisp,
 		}
 		printf(COLOR_NORMAL);
 		putchar('\n');
-		
+
 		if (error.index == -1) {
 			continue;
 		}
-		
+
 		printf(COLOR_CYAN);
 		for (dl_ptrdiff_t i = 0; (dl_size_t) i < sourceCode.elements_length; i++) {
 			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
@@ -697,7 +697,7 @@ int eval(duckLisp_t *duckLisp,
 	/* } */
 	/* putchar('\n'); */
 
-	// Print bytecode in hex.
+	/* /\* Print bytecode in hex. *\/ */
 	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) { */
 	/* 	unsigned char byte = bytecode[i]; */
 	/* 	putchar(dl_nybbleToHexChar(byte >> 4)); */
@@ -920,16 +920,21 @@ int main(int argc, char *argv[]) {
 		while (1) {
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			DL_DOTIMES(i, (size_t)length) { putchar(line[i]);}
+			DL_DOTIMES(i, (size_t) length) { putchar(line[i]); }
 			e = eval(&duckLisp, &duckVM, dl_null, line, length);
 			free(line); line = NULL;
 
-			printf(COLOR_CYAN);
+			puts(COLOR_CYAN);
 			/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
 			printf("Compiler memory usage: %llu/%llu (%llu%%)\n",
 			       tempDlSize,
 			       duckLisp.memoryAllocation->size,
 			       100*tempDlSize/duckLisp.memoryAllocation->size);
+			/**/ dl_memory_usage(&tempDlSize, *duckVM.memoryAllocation);
+			printf("VM memory usage: %llu/%llu (%llu%%)\n",
+			       tempDlSize,
+			       duckVM.memoryAllocation->size,
+			       100*tempDlSize/duckVM.memoryAllocation->size);
 			puts(COLOR_NORMAL);
 
 		}
