@@ -3882,13 +3882,14 @@ dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *iden
 	dl_error_t e = dl_error_ok;
 
 	identifier->value_length = 1 + 8/4*sizeof(dl_size_t);  // This is dependent on the size of the gensym number.
-	e = dl_malloc(duckLisp->memoryAllocation, (void **) &identifier->value, identifier->value_length);
+	e = DL_MALLOC(duckLisp->memoryAllocation, (void **) &identifier->value, identifier->value_length, char);
 	if (e) {
 		identifier->value_length = 0;
-		return dl_error_outOfMemory;}
+		return dl_error_outOfMemory;
+	}
 	identifier->value[0] = '\0';  // Surely not even an idiot would start a string with a null char.
-	for (dl_ptrdiff_t i = 1; (dl_size_t) i <= 8/4*sizeof(dl_size_t); i++) {
-		identifier->value[i] = dl_nybbleToHexChar((duckLisp->gensym_number >> 4*i) & 0xF);
+	DL_DOTIMES(i, 8/4*sizeof(dl_size_t)) {
+		identifier->value[i + 1] = dl_nybbleToHexChar((duckLisp->gensym_number >> 4*i) & 0xF);
 	}
 	duckLisp->gensym_number++;
 	return e;
