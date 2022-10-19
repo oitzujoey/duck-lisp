@@ -392,7 +392,6 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	duckLisp_ast_compoundExpression_t ast;
 	/**/ ast_compoundExpression_init(&ast);
 
-	dl_size_t tempDlSize;
 	duckLisp_error_t error; // Compile errors.
 
 	/* Check arguments for call and type errors. */
@@ -408,6 +407,14 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 
 	fileName.value = expression->compoundExpressions[1].value.string.value;
 	fileName.value_length = expression->compoundExpressions[1].value.string.value_length;
+
+	printf(COLOR_YELLOW);
+	printf("(include ");
+	DL_DOTIMES(i, fileName.value_length) {
+		putchar(fileName.value[i]);
+	}
+	printf(")\n");
+	printf(COLOR_NORMAL);
 
 	e = dl_malloc(duckLisp->memoryAllocation, (void **) &cFileName, (fileName.value_length + 1) * sizeof(char));
 	if (e) goto l_cleanup;
@@ -450,10 +457,10 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 
 	/* Parse script. */
 
-	printf(COLOR_YELLOW);
-	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
-	printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
-	puts(COLOR_NORMAL);
+	/* printf(COLOR_YELLOW); */
+	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
+	/* puts(COLOR_NORMAL); */
 
 	e = duckLisp_cst_append(&subLisp, sourceCode.elements, sourceCode.elements_length, &cst, 0, dl_true);
 	if (e) goto l_cFileName_cleanup;
@@ -473,10 +480,10 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* if (e) goto l_cFileName_cleanup; */
 	/* puts(COLOR_NORMAL); */
 
-	printf(COLOR_YELLOW);
-	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
-	printf("include: Pre compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
-	puts(COLOR_NORMAL);
+	/* printf(COLOR_YELLOW); */
+	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* printf("include: Pre compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
+	/* puts(COLOR_NORMAL); */
 
 	e = duckLisp_generator_noscope(duckLisp, assembly, &ast.value.expression);
 	if (e) goto l_cleanup;
@@ -484,10 +491,10 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	e = ast_compoundExpression_quit(&subLisp, &ast);
 	if (e) goto l_cFileName_cleanup;
 
-	printf(COLOR_YELLOW);
-	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
-	printf("include: Post compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size);
-	puts(COLOR_NORMAL);
+	/* printf(COLOR_YELLOW); */
+	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* printf("include: Post compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
+	/* puts(COLOR_NORMAL); */
 
  l_cFileName_cleanup:
 
@@ -575,9 +582,9 @@ int eval(duckLisp_t *duckLisp,
 	if (e) {
 		goto l_cleanup;
 	}
-	
+
 	/* Compile functions. */
-	
+
 	/* printf(COLOR_CYAN); */
 	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
 	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
@@ -736,12 +743,6 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckLisp_object_t *return_v
 
 	/* Fetch script. */
 
-	// Provide implicit progn.
-	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
-	if (e) {
-		goto l_cleanup;
-	}
-
 	FILE *sourceFile = sourceFile = fopen(filename, "r");
 	if (sourceFile != NULL) {
 		while ((tempInt = fgetc(sourceFile)) != EOF) {
@@ -759,12 +760,7 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckLisp_object_t *return_v
 		goto l_cleanup;
 	}
 
-	tempChar = ')';
-	e = dl_array_pushElement(&sourceCode, &tempChar);
-	if (e) goto l_cleanup;
-
 	e = eval(duckLisp, duckVM, return_value, sourceCode.elements, sourceCode.elements_length);
-
 
  l_cleanup:
 

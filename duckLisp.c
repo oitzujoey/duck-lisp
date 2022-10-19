@@ -1303,9 +1303,12 @@ static dl_error_t ast_generate_string(duckLisp_t *duckLisp,
 
 	string->value_length = 0;
 
-	e = dl_malloc(duckLisp->memoryAllocation, (void **) &string->value, stringCST.token_length * sizeof(char));
-	if (e) {
-		goto l_cleanup;
+	if (stringCST.token_length) {
+		e = DL_MALLOC(duckLisp->memoryAllocation, &string->value, stringCST.token_length, char);
+		if (e) goto l_cleanup;
+	}
+	else {
+		string->value = dl_null;
 	}
 
 	string->value_length = stringCST.token_length;
@@ -1590,7 +1593,6 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
 		compoundExpression->type = duckLisp_ast_type_none;
 		e = dl_error_shouldntHappen;
 	}
-
 	return e;
 }
 
@@ -2982,9 +2984,14 @@ dl_error_t duckLisp_emit_pushString(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
-	e = dl_malloc(duckLisp->memoryAllocation, (void **) &argument.value.string.value, string_length * sizeof(char));
-	if (e) goto l_cleanup;
-	/**/ dl_memcopy_noOverlap(argument.value.string.value, string, string_length);
+	if (string_length) {
+		e = dl_malloc(duckLisp->memoryAllocation, (void **) &argument.value.string.value, string_length * sizeof(char));
+		if (e) goto l_cleanup;
+		/**/ dl_memcopy_noOverlap(argument.value.string.value, string, string_length);
+	}
+	else {
+		argument.value.string.value = dl_null;
+	}
 
 	argument.type = duckLisp_instructionArgClass_type_string;
 	argument.value.string.value_length = string_length;
@@ -7829,8 +7836,10 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			case duckLisp_instructionArgClass_type_string:
 				e = dl_array_pushElements(&currentArgs, args[1].value.string.value, args[1].value.string.value_length);
 				if (e) goto l_cleanup;
-				e = DL_FREE(duckLisp->memoryAllocation, &args[1].value.string.value);
-				if (e) goto l_cleanup;
+				if (args[1].value.string.value) {
+					e = DL_FREE(duckLisp->memoryAllocation, &args[1].value.string.value);
+					if (e) goto l_cleanup;
+				}
 				break;
 			default:
 				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
