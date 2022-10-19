@@ -3053,8 +3053,11 @@ dl_error_t duckLisp_emit_pushSymbol(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
+	e = dl_malloc(duckLisp->memoryAllocation, (void **) &argument.value.string.value, string_length * sizeof(char));
+	if (e) goto l_cleanup;
+	/**/ dl_memcopy_noOverlap(argument.value.string.value, string, string_length);
+
 	argument.type = duckLisp_instructionArgClass_type_string;
-	argument.value.string.value = string;
 	argument.value.string.value_length = string_length;
 	e = dl_array_pushElement(&instruction.args, &argument);
 	if (e) {
@@ -3894,7 +3897,9 @@ dl_error_t duckLisp_register_label(duckLisp_t *duckLisp, char *name, const dl_si
 	}
 
 	// declare the label.
-	label.name = name;
+	e = DL_MALLOC(duckLisp->memoryAllocation, &label.name, name_length, char);
+	if (e) goto l_cleanup;
+	/**/ dl_memcopy_noOverlap(label.name, name, name_length);
 	label.name_length = name_length;
 
 	/**/ dl_array_init(&label.sources,
@@ -5019,26 +5024,26 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 		if (e) goto l_cleanup;
 
 		e = duckLisp_register_label(duckLisp, gensym.value, gensym.value_length);
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 
 		// (goto gensym)
 		e = duckLisp_emit_jump(duckLisp, assembly, gensym.value, gensym.value_length);
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 
 		e = duckLisp_register_label(duckLisp, DL_STR("self"));
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 
 		// (label function_name)
 		e = duckLisp_emit_label(duckLisp, assembly, DL_STR("self"));
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 
 		// `label_index` should never equal -1 after this function exits.
 		e = scope_getLabelFromName(duckLisp, &function_label_index, DL_STR("self"));
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 		if (function_label_index == -1) {
 			// We literally just added the function name to the parent scope.
 			e = dl_error_cantHappen;
-			goto l_cleanup;
+			goto l_cleanup_gensym;
 		}
 
 
@@ -5052,9 +5057,9 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 
 				if (args_list->compoundExpressions[j].type != duckLisp_ast_type_identifier) {
 					e = duckLisp_error_pushRuntime(duckLisp, DL_STR("lambda: All args must be identifiers."));
-					if (e) goto l_cleanup;
+					if (e) goto l_cleanup_gensym;
 					e = dl_error_invalidValue;
-					goto l_cleanup;
+					goto l_cleanup_gensym;
 				}
 
 				/* --duckLisp->locals_length; */
@@ -5062,7 +5067,7 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 				                             args_list->compoundExpressions[j].value.identifier.value,
 				                             args_list->compoundExpressions[j].value.identifier.value_length);
 				if (e) {
-					goto l_cleanup;
+					goto l_cleanup_gensym;
 				}
 				duckLisp->locals_length++;
 			}
@@ -5074,18 +5079,18 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 		progn.compoundExpressions = &expression->compoundExpressions[2];
 		progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
 		e = duckLisp_generator_expression(duckLisp, assembly, &progn);
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 
 		// Footer
 
 		{
 			duckLisp_scope_t scope;
 			e = scope_getTop(duckLisp, &scope);
-			if (e) goto l_cleanup;
+			if (e) goto l_cleanup_gensym;
 
 			if (scope.scope_uvs_length) {
 				e = duckLisp_emit_releaseUpvalues(duckLisp, assembly, scope.scope_uvs, scope.scope_uvs_length);
-				if (e) goto l_cleanup;
+				if (e) goto l_cleanup_gensym;
 			}
 		}
 
@@ -5094,20 +5099,20 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 		                         TIF(expression->compoundExpressions[1].type == duckLisp_ast_type_expression,
 		                             duckLisp->locals_length - startStack_length - 1,
 		                             0));
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 
 		duckLisp->locals_length = startStack_length;
 
 		// (label gensym)
 		e = duckLisp_emit_label(duckLisp, assembly, gensym.value, gensym.value_length);
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 
 		{
 			/* This needs to be in the same scope or outer than the function arguments so that they don't get
 			   captured. It should not need access to the function's local variables, so this scope should be fine. */
 			duckLisp_scope_t scope;
 			e = scope_getTop(duckLisp, &scope);
-			if (e) goto l_cleanup;
+			if (e) goto l_cleanup_gensym;
 			--duckLisp->locals_length;
 			e = duckLisp_emit_pushClosure(duckLisp,
 			                              assembly,
@@ -5115,12 +5120,17 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 			                              function_label_index,
 			                              scope.function_uvs,
 			                              scope.function_uvs_length);
-			if (e) goto l_cleanup;
+			if (e) goto l_cleanup_gensym;
 		}
 
 		e = duckLisp_popScope(duckLisp, dl_null);
-		if (e) goto l_cleanup;
+		if (e) goto l_cleanup_gensym;
 	}
+
+ l_cleanup_gensym:
+
+	eError = DL_FREE(duckLisp->memoryAllocation, &gensym.value);
+	if (eError) { e = eError; };
 
  l_cleanup:
 
@@ -7870,9 +7880,9 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 					                                                                 & 0xFFU);
 				}
 				e = dl_array_pushElements(&currentArgs, args[2].value.string.value, args[2].value.string.value_length);
-				if (e) {
-					goto l_cleanup;
-				}
+				if (e) goto l_cleanup;
+				e = DL_FREE(duckLisp->memoryAllocation, &args[2].value.string.value);
+				if (e) goto l_cleanup;
 				break;
 			}
 			else {

@@ -466,14 +466,12 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 		goto l_cFileName_cleanup;
 	}
 
-	printf(COLOR_YELLOW);
-	printf("Included AST: ");
-	e = ast_print_compoundExpression(subLisp, ast);
-	putchar('\n');
-	if (e) {
-		goto l_cFileName_cleanup;
-	}
-	puts(COLOR_NORMAL);
+	/* printf(COLOR_YELLOW); */
+	/* printf("Included AST: "); */
+	/* e = ast_print_compoundExpression(subLisp, ast); */
+	/* putchar('\n'); */
+	/* if (e) goto l_cFileName_cleanup; */
+	/* puts(COLOR_NORMAL); */
 
 	printf(COLOR_YELLOW);
 	/**/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation);
@@ -685,12 +683,12 @@ int eval(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
-	{
-		char *disassembly = duckLisp_disassemble(duckLisp->memoryAllocation, bytecode, bytecode_length);
-		printf("%s", disassembly);
-		e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly);
-	}
-	putchar('\n');
+	/* { */
+	/* 	char *disassembly = duckLisp_disassemble(duckLisp->memoryAllocation, bytecode, bytecode_length); */
+	/* 	printf("%s", disassembly); */
+	/* 	e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly); */
+	/* } */
+	/* putchar('\n'); */
 
 	// Print bytecode in hex.
 	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) { */
@@ -823,9 +821,9 @@ int main(int argc, char *argv[]) {
 		{0, DL_STR("print-stack"),  duckLispDev_callback_printStack},
 		{0, dl_null, 0,             dl_null}
 	};
-	
+
 	/* Initialization. */
-	
+
 	if ((argc != 1) && (argc != 2)) {
 		printf(COLOR_YELLOW
 		       "Usage:\n"
@@ -835,7 +833,7 @@ int main(int argc, char *argv[]) {
 		       COLOR_NORMAL);
 		goto l_cleanup;
 	}
-	
+
 	tempMemory_size = duckLispMemory_size;
 	duckLispMemory = malloc(tempMemory_size);
 	if (duckLispMemory == NULL) {
@@ -850,25 +848,25 @@ int main(int argc, char *argv[]) {
 		goto l_cleanup;
 	}
 	duckLisp.memoryAllocation = &duckLispMemoryAllocation;
-	
+
 	e = duckLisp_init(&duckLisp);
 	if (e) {
 		printf(COLOR_RED "Could not initialize DuckLisp. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		goto l_cleanup;
 	}
 	d.duckLisp_init = dl_true;
-	
+
 	/* Create generators. */
-	
+
 	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
 		e = duckLisp_addGenerator(&duckLisp, generators[i].callback, generators[i].name, generators[i].name_length);
 		if (e) {
 			printf(COLOR_RED "Could not register generator. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		}
 	}
-	
+
 	/* Add C functions. */
-	
+
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
 		e = duckLisp_linkCFunction(&duckLisp, &callbacks[i].index, callbacks[i].name, callbacks[i].name_length);
 		if (e) {
@@ -911,8 +909,12 @@ int main(int argc, char *argv[]) {
 
 	if (argc == 2) {
 		FILE *sourceFile = fopen(argv[1], "r");
-		if (sourceFile == NULL) e = eval(&duckLisp, &duckVM, dl_null, argv[1], strlen(argv[1]));
-		else e = evalFile(&duckLisp, &duckVM, dl_null, argv[1]);
+		if (sourceFile == NULL) {
+			e = eval(&duckLisp, &duckVM, dl_null, argv[1], strlen(argv[1]));
+		}
+		else {
+			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, argv[1]);
+		}
 	}
 	/* REPL */
 	else if (argc == 1) {
@@ -957,7 +959,7 @@ int main(int argc, char *argv[]) {
 		puts("Freeing VM memory.");
 		/**/ free(duckVMMemory); duckVMMemory = NULL;
 	}
-	
+
 	if (d.duckLisp_init) {
 		puts("");
 		/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);

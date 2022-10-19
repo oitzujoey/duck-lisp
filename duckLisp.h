@@ -423,8 +423,6 @@ typedef struct duckLisp_instructionArgs_s {
 typedef struct duckLisp_instructionObject_s {
 	duckLisp_instructionClass_t instructionClass;
 	dl_array_t args;
-	// struct duckLisp_instructionObject_s *next;
-	// struct duckLisp_instructionObject_s *previous;
 } duckLisp_instructionObject_t;
 
 dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp);
