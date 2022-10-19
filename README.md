@@ -7,7 +7,7 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 ## Features
 
 * Separate compiler and VM
-* Lexical scoping (partially implemented)
+* Lexical scoping
 * User created keywords
 * C FFI
 * Low memory VM
