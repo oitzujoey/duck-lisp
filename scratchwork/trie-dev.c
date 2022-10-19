@@ -8,11 +8,13 @@
 #include "../DuckLib/trie.h"
 #include "../DuckLib/string.h"
 
-int main() {
+int main(int argc, char *argv[]) {
 	dl_error_t e = dl_error_ok;
 	struct {
 		dl_bool_t malloc;
 	} d = {0};
+	(void) argc;
+	(void) argv;
 	
 	dl_memoryAllocation_t memoryAllocation;
 	dl_trie_t trie;

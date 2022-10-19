@@ -173,8 +173,10 @@ void quicksort_hoare(void *array, const dl_size_t length, const dl_size_t size, 
 
 
 
-int main() {
+int main(int argc, char *argv[]) {
 	int e = 0;
+	(void) argc;
+	(void) argv;
 
 	unsigned int seed = time(NULL);
 
