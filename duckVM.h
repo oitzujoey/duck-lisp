@@ -130,12 +130,13 @@ dl_error_t duckVM_init(duckVM_t *duckVM,
                        dl_size_t maxConses,
                        dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
-dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode);
-dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index);
+dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, unsigned char *bytecode);
+dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index);
 // void duckVM_loadBytecode(duckVM_t *duckVM, unsigned char *bytecode, dl_size_t bytecode_length);
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, dl_error_t (*callback)(duckVM_t *));
 
 /* Functions for C callbacks */
+dl_error_t duckVM_garbageCollect(duckVM_t *duckVM);
 /* void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length); */
 /* dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff_t index); */
 dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object);

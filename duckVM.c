@@ -6,9 +6,9 @@
 #include "duckLisp.h"
 #include <stdio.h>
 
-dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons);
-dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue);
-dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalue_array_t *upvalueArray);
+static dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons);
+static dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue);
+static dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalue_array_t *upvalueArray);
 
 dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
                               dl_memoryAllocation_t *memoryAllocation,
@@ -119,7 +119,7 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 	return e;
 }
 
-dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
+static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -168,7 +168,7 @@ dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	return e;
 }
 
-dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
+static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
 	if (object) {
 		gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
 		if (object->type == duckLisp_object_type_list) {
@@ -181,7 +181,7 @@ dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *
 	return dl_error_ok;
 }
 
-dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons) {
+static dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons) {
 	if (cons) {
 		gclist->consInUse[(dl_ptrdiff_t) (cons - gclist->conses)] = dl_true;
 		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
@@ -202,7 +202,7 @@ dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t 
 	return dl_error_ok;
 }
 
-dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue) {
+static dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue) {
 	if (upvalue) {
 		gclist->upvalueInUse[(dl_ptrdiff_t) (upvalue - gclist->upvalues)] = dl_true;
 		if (upvalue->type == duckVM_upvalue_type_heap_object) {
@@ -216,7 +216,7 @@ dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *
 	return dl_error_ok;
 }
 
-dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalue_array_t *upvalueArray) {
+static dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalue_array_t *upvalueArray) {
 	dl_error_t e = dl_error_ok;
 	if (upvalueArray) {
 		gclist->upvalueArraysInUse[(dl_ptrdiff_t) (upvalueArray - gclist->upvalueArrays)] = dl_true;
@@ -230,7 +230,7 @@ dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalu
 	return e;
 }
 
-dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
+static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 
 	/* Clear the in use flags. */
@@ -531,7 +531,7 @@ static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip) {
 	return e;
 }
 
-dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
+dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, unsigned char *bytecode) {
 	dl_error_t e = dl_error_ok;
 
 	dl_uint8_t *ip = bytecode;
@@ -3196,14 +3196,17 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, unsigned char *bytecode) {
 
 	if (e) {
 		puts("VM ERROR");
-		printf("ip 0x%lX\n", ip - bytecode);
+		printf("ip 0x%llX\n", (dl_size_t) (ip - bytecode));
 		printf("*ip 0x%X\n", *ip);
+	}
+	else {
+		e = stack_pop(duckVM, return_value);
 	}
 
 	return e;
 }
 
-dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index) {
+dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_object_t functionObject;
@@ -3228,7 +3231,7 @@ dl_error_t duckVM_callLocal(duckVM_t *duckVM, dl_ptrdiff_t function_index) {
 		e = functionObject.value.function.callback(duckVM);
 	}
 	else if (functionObject.value.function.bytecode != dl_null) {
-		e = duckVM_execute(duckVM, functionObject.value.function.bytecode);
+		e = duckVM_execute(duckVM, return_value, functionObject.value.function.bytecode);
 	}
 	else {
 		e = dl_error_invalidValue;
@@ -3266,6 +3269,10 @@ dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, d
 ///////////////////////////////////////
 // Functions for C callbacks to use. //
 ///////////////////////////////////////
+
+dl_error_t duckVM_garbageCollect(duckVM_t *duckVM) {
+	return duckVM_gclist_garbageCollect(duckVM);
+}
 
 /* void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length) { */
 /* 	*length = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->frame_pointer).value.integer; */

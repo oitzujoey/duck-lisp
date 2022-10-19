@@ -1268,12 +1268,23 @@ Arity could also be placed at the beginning of the function definition. A functi
 Instead of doing a deep copy or shallow copy of closures, I could just keep references to them on the stack.
 I could add garbage collection for upvalue arrays and ignore all this reference counting junk. It also allows me to limit the number of upvalue arrays that can be created. When I add string GC, I can probably copy most of the upvalue array GC since a string is just an array of chars.
 
+GCing the upvalue arrays worked perfectly.
+
+
+Free on compiled:
+	duckLisp_register_label:duckLisp_t.labels
+Free on quit:
+    duckLisp_generator_quote:duckLisp_t.symbols_array
+	duckLisp_generator_quote:duckLisp_t.symbols_trie
+
+
+The slowest part of the language is the memory allocator.
+
+Most memory freed.
 
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:
-    Fix memory ownership in reader.
-	Free unfreed memory.
 
 Todo:
 	macros

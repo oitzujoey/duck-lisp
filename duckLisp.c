@@ -171,8 +171,6 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
                                                   duckLisp_ast_compoundExpression_t *compoundExpression,
                                                   duckLisp_cst_compoundExpression_t compoundExpressionCST,
                                                   dl_bool_t throwErrors);
-static dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp,
-                                              duckLisp_ast_compoundExpression_t *compoundExpression);
 
 static void cst_isIdentifierSymbol(dl_bool_t *result, const char character) {
 	/* switch (character) { */
@@ -961,7 +959,7 @@ static dl_error_t cst_parse_float(duckLisp_t *duckLisp,
 		}
 	}
 
-	// Try .1
+	/* Try .1 */
 	if (source[index] == '.') {
 		index++;
 
@@ -994,7 +992,7 @@ static dl_error_t cst_parse_float(duckLisp_t *duckLisp,
 			index++;
 		}
 	}
-	// Try 1.2, 1., and 1
+	/* Try 1.2, 1., and 1 */
 	else {
 		/* No error */ dl_string_isDigit(&tempBool, source[index]);
 		if (!tempBool) {
@@ -1022,7 +1020,7 @@ static dl_error_t cst_parse_float(duckLisp_t *duckLisp,
 			if (index >= stop_index) {
 				// eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Expected a digit after decimal point."), index);
 				// e = eError ? eError : dl_error_bufferOverflow;
-				// This is expected. 1. 234.e61			 435. for example.
+				/* This is expected. 1. 234.e61 435. for example. */
 				goto l_cleanup;
 			}
 		}
@@ -1040,7 +1038,7 @@ static dl_error_t cst_parse_float(duckLisp_t *duckLisp,
 		}
 	}
 
-	// …e3
+	/* …e3 */
 	if (dl_string_toLower(source[index]) == 'e') {
 		index++;
 
@@ -1183,7 +1181,6 @@ static dl_error_t cst_parse_string(duckLisp_t *duckLisp,
 
 	dl_ptrdiff_t index = start_index;
 	dl_ptrdiff_t stop_index = start_index + length;
-	//	dl_bool_t tempBool;
 
 	if (index >= stop_index) {
 		eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Zero length fragment."), index, throwErrors);
@@ -1213,7 +1210,7 @@ static dl_error_t cst_parse_string(duckLisp_t *duckLisp,
 
 		while (index < stop_index) {
 			if (source[index] == '\\') {
-				// Eat character.
+				/* Eat character. */
 				index++;
 
 				if (index >= stop_index) {
@@ -1438,7 +1435,7 @@ static dl_error_t cst_parse_compoundExpression(duckLisp_t *duckLisp,
 		{.reader = cst_parse_expression, .type = duckLisp_ast_type_expression},
 	};
 
-	// We have a reader! I'll need to make it generate AST though.
+	/* We have a reader! I'll need to make it generate AST though. */
 	for (dl_ptrdiff_t i = 0; (unsigned long) i < sizeof(readerStruct)/sizeof(readerStruct_t); i++) {
 		e = readerStruct[i].reader(duckLisp, source, compoundExpression, start_index, length, dl_false);
 		if (!e) {
@@ -1493,7 +1490,7 @@ void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpr
 	compoundExpression->type = duckLisp_ast_type_none;
 }
 
-static dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression) {
+dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression) {
 	dl_error_t e = dl_error_ok;
 
 	switch (compoundExpression->type) {
@@ -1579,10 +1576,7 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
 		break;
 	case duckLisp_ast_type_expression:
 		compoundExpression->type = duckLisp_ast_type_expression;
-		// // This declares `()` == `0`
 		if (compoundExpressionCST.value.expression.compoundExpressions_length == 0) {
-			/* compoundExpression->type = duckLisp_ast_type_int; */
-			/* compoundExpression->value.integer.value = 0; */
 			compoundExpression->value.expression.compoundExpressions = dl_null;
 			compoundExpression->value.expression.compoundExpressions_length = 0;
 		}
@@ -1596,8 +1590,6 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
 		compoundExpression->type = duckLisp_ast_type_none;
 		e = dl_error_shouldntHappen;
 	}
-
-	//	l_cleanup:
 
 	return e;
 }
@@ -1644,17 +1636,7 @@ dl_error_t duckLisp_cst_append(duckLisp_t *duckLisp,
 
 	dl_bool_t isSpace;
 
-	// e = dl_realloc(&duckLisp->memoryAllocation, (void **) &duckLisp->cst.compoundExpressions,
-	//				  (duckLisp->cst.compoundExpressions_length + 1) * sizeof(duckLisp_cst_compoundExpression_t));
-	// if (e) {
-	//		goto l_cleanup;
-	// }
-	// duckLisp->cst.compoundExpressions_length++;
-
-	// e = cst_parse_compoundExpression(duckLisp, &duckLisp->cst.compoundExpressions[duckLisp->cst.compoundExpressions_length - 1], source, index,
-	//									source_length - index, throwErrors);
-
-	// Trim whitespace off the end.
+	/* Trim whitespace off the end. */
 	dl_size_t sub_source_length = source_length;
 	while (sub_source_length > 0) {
 		/**/ dl_string_isSpace(&isSpace, source[sub_source_length - 1]);
@@ -1758,7 +1740,7 @@ static dl_error_t scope_getTop(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 
 	e = dl_array_getTop(&duckLisp->scope_stack, scope);
 	if (e == dl_error_bufferUnderflow) {
-		// Push a scope if we don't have one yet.
+		/* Push a scope if we don't have one yet. */
 		/**/ scope_init(duckLisp, scope, dl_true);
 		e = dl_array_pushElement(&duckLisp->scope_stack, scope);
 		if (e) {
@@ -3000,8 +2982,11 @@ dl_error_t duckLisp_emit_pushString(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
+	e = dl_malloc(duckLisp->memoryAllocation, (void **) &argument.value.string.value, string_length * sizeof(char));
+	if (e) goto l_cleanup;
+	/**/ dl_memcopy_noOverlap(argument.value.string.value, string, string_length);
+
 	argument.type = duckLisp_instructionArgClass_type_string;
-	argument.value.string.value = string;
 	argument.value.string.value_length = string_length;
 	e = dl_array_pushElement(&instruction.args, &argument);
 	if (e) {
@@ -4220,17 +4205,26 @@ dl_error_t duckLisp_generator_list(duckLisp_t *duckLisp, dl_array_t *assembly, d
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	dl_ptrdiff_t args_index;
+	dl_ptrdiff_t cons_index;
+	e = duckLisp_emit_nil(duckLisp, assembly);
+	if (e) goto l_cleanup;
+	cons_index = duckLisp->locals_length - 1;
 
-	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+	DL_DOTIMES(i, expression->compoundExpressions_length - 1) {
 		e = duckLisp_compile_compoundExpression(duckLisp,
 		                                        assembly,
 		                                        expression->compoundExpressions[0].value.identifier.value,
 		                                        expression->compoundExpressions[0].value.identifier.value_length,
-		                                        &expression->compoundExpressions[i],
+		                                        &expression->compoundExpressions[expression->compoundExpressions_length
+		                                                                         - i
+		                                                                         - 1],
 		                                        &args_index,
 		                                        dl_null,
 		                                        dl_false);
 		if (e) goto l_cleanup;
+		e = duckLisp_emit_cons(duckLisp, assembly, args_index, cons_index);
+		if (e) goto l_cleanup;
+		cons_index = duckLisp->locals_length - 1;
 	}
 
  l_cleanup:
@@ -4380,7 +4374,6 @@ dl_error_t duckLisp_generator_quote(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	dl_ptrdiff_t temp_index = -1;
 	char *functionName = expression->compoundExpressions[0].value.identifier.value;
 	dl_size_t functionName_length = expression->compoundExpressions[0].value.identifier.value_length;
-	duckLisp_ast_identifier_t tempIdentifier;
 
 	/*
 	  Recursively convert to a tree made of lists.
@@ -4426,11 +4419,7 @@ dl_error_t duckLisp_generator_quote(duckLisp_t *duckLisp, dl_array_t *assembly, 
 			                   tree->value.identifier.value_length,
 			                   duckLisp->symbols_array.elements_length);
 			if (e) goto l_cleanup;
-			tempIdentifier.value_length = tree->value.identifier.value_length;
-			e = dl_malloc(duckLisp->memoryAllocation, (void **) &tempIdentifier.value, tempIdentifier.value_length);
-			if (e) goto l_cleanup;
-			/**/ dl_memcopy_noOverlap(tempIdentifier.value, tree->value.identifier.value, tempIdentifier.value_length);
-			e = dl_array_pushElement(&duckLisp->symbols_array, (void *) &tempIdentifier);
+			e = dl_array_pushElement(&duckLisp->symbols_array, (void *) &tree->value.identifier);
 			if (e) goto l_cleanup;
 		}
 		// Push symbol
@@ -4826,7 +4815,8 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	e = duckVM_init(&subVM, 1000, 1000, 1000, 1000);
 	if (e) goto l_cleanupDL;
 
-	e = duckVM_execute(&subVM, bytecodeArray.elements);
+	duckLisp_object_t return_value;
+	e = duckVM_execute(&subVM, &return_value, bytecodeArray.elements);
 	if (e) goto l_cleanupVM;
 	object = DL_ARRAY_GETTOPADDRESS(subVM.stack, duckLisp_object_t);
 
@@ -5939,7 +5929,7 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_then.value, gensym_then.value_length);
 		if (e) goto l_free_gensym_end;
-		e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
+		e = duckLisp_emit_nil(duckLisp, assembly);
 		if (e) goto l_free_gensym_end;
 		// This is to account for the fact that we have two expressions, but only one that is run.
 		--duckLisp->locals_length;
@@ -6100,7 +6090,7 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp, dl_array_t *assembly, d
 
 		e = duckLisp_emit_brnz(duckLisp, assembly, gensym_then.value, gensym_then.value_length, pops);
 		if (e) goto l_free_gensym_end;
-		e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
+		e = duckLisp_emit_nil(duckLisp, assembly);
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_jump(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
@@ -7561,7 +7551,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	e = duckLisp_compile_expression(duckLisp, &assembly, DL_STR("compileAST"), &astCompoundexpression.value.expression);
 	if (e) goto l_cleanup;
 
-	e = duckLisp_emit_return(duckLisp, &assembly, duckLisp->locals_length);
+	e = duckLisp_emit_return(duckLisp, &assembly, duckLisp->locals_length - 1);
 	if (e) goto l_cleanup;
 
 	// Print list.
@@ -7828,9 +7818,9 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			switch (args[1].type) {
 			case duckLisp_instructionArgClass_type_string:
 				e = dl_array_pushElements(&currentArgs, args[1].value.string.value, args[1].value.string.value_length);
-				if (e) {
-					goto l_cleanup;
-				}
+				if (e) goto l_cleanup;
+				e = DL_FREE(duckLisp->memoryAllocation, &args[1].value.string.value);
+				if (e) goto l_cleanup;
 				break;
 			default:
 				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
@@ -8991,6 +8981,8 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				}
 				e = dl_array_quit(&label.sources);
 				if (e) goto l_cleanup;
+				e = DL_FREE(duckLisp->memoryAllocation, &label.name);
+				if (e) goto l_cleanup;
 			}
 		}
 
@@ -9407,6 +9399,8 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 		if (e) break;
 	}
 	e = dl_array_quit(&duckLisp->scope_stack);
+	e = dl_trie_quit(&duckLisp->symbols_trie);
+	e = dl_array_quit(&duckLisp->symbols_array);
 	(void) e;
 }
 
@@ -9508,6 +9502,11 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	/* Compile AST to bytecode. */
 
+	/* No error */ dl_array_init(&duckLisp->labels,
+	                             duckLisp->memoryAllocation,
+	                             sizeof(duckLisp_label_t),
+	                             dl_array_strategy_double);
+
 	e = duckLisp_compileAST(duckLisp, &bytecodeArray, ast);
 	if (e) {
 		goto l_cleanup;
@@ -9517,6 +9516,9 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	if (e) {
 		goto l_cleanup;
 	}
+
+	e = dl_array_quit(&duckLisp->labels);
+	if (e) goto l_cleanup;
 
 	*bytecode = ((unsigned char*) (bytecodeArray).elements);
 	*bytecode_length = bytecodeArray.elements_length;
@@ -9704,7 +9706,6 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 				break;
 			default:
 				if (tempSize > 0) {
-
 					if (bytecode[i] == '\n') {
 						e = dl_array_pushElements(&disassembly, DL_STR("\\n"));
 						if (e) return dl_null;
@@ -9726,8 +9727,15 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 					}
 					break;
 				}
-				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				--i;
+				tempChar = '"';
+				e = dl_array_pushElement(&disassembly, &tempChar);
 				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
 			}
 			break;
 

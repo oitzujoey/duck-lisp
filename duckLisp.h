@@ -173,14 +173,14 @@ typedef struct {
 	dl_size_t functions_length;
 	dl_trie_t generators_trie;  // Points to generator stack callbacks.
 	dl_size_t generators_length;
-	
+
 	dl_trie_t labels_trie;
 
 	dl_bool_t function_scope;
 
 	dl_ptrdiff_t *scope_uvs;
 	dl_size_t scope_uvs_length;
-	
+
 	dl_ptrdiff_t *function_uvs;
 	dl_size_t function_uvs_length;
 } duckLisp_scope_t;
@@ -452,13 +452,10 @@ dl_error_t duckLisp_ast_append(duckLisp_t *duckLisp,
 dl_error_t DECLSPEC duckLisp_cst_print(duckLisp_t *duckLisp,
                                        const char *source,
                                        duckLisp_cst_compoundExpression_t cst);
-dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp,
-                                       duckLisp_ast_compoundExpression_t ast);
-dl_error_t cst_compoundExpression_quit(
-    duckLisp_t *duckLisp,
-    duckLisp_cst_compoundExpression_t *compoundExpression);
-dl_error_t ast_print_compoundExpression(
-    duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
+dl_error_t DECLSPEC duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t ast);
+dl_error_t cst_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_cst_compoundExpression_t *compoundExpression);
+dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression);
+dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 
 dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_t *duckLisp,
                                                 dl_ptrdiff_t *index,
