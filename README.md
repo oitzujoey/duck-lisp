@@ -12,6 +12,7 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 * C FFI
 * Low memory VM
 * UTF-8 compatible
+* Tested on x64 and ARM
 
 ### Planned features
 
