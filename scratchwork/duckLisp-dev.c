@@ -938,6 +938,7 @@ int main(int argc, char *argv[]) {
 		ssize_t length = 0;
 		printf("(disassemble)  Toggle disassembly of forms.\n");
 		while (1) {
+			duckLisp_object_t return_value;
 			if (duckVM.stack.elements_length > 0) {
 				printf(COLOR_YELLOW
 				       "A runtime error has occured. Use (print-stack) to inspect the stack, or press\n"
@@ -947,9 +948,11 @@ int main(int argc, char *argv[]) {
 			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			/* DL_DOTIMES(i, (size_t) length) { putchar(line[i]); } */
-			e = eval(&duckLisp, &duckVM, dl_null, line, length);
+			e = eval(&duckLisp, &duckVM, &return_value, line, length);
 			free(line); line = NULL;
+			e = duckVM_push(&duckVM, &return_value);
+			e = duckLispDev_callback_print(&duckVM);
+			e = duckVM_pop(&duckVM, dl_null);
 
 			puts(COLOR_CYAN);
 			/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
