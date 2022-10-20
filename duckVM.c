@@ -3200,6 +3200,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 		printf("*ip 0x%X\n", *ip);
 	}
 	else {
+		if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
 		e = stack_pop(duckVM, return_value);
 	}
 
@@ -3294,6 +3295,13 @@ dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object) {
 
 dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object) {
 	return stack_push(duckVM, object);
+}
+
+dl_error_t duckVM_pushNil(duckVM_t *duckVM) {
+	duckLisp_object_t object;
+	object.type = duckLisp_object_type_list;
+	object.value.list = dl_null;
+	return stack_push(duckVM, &object);
 }
 
 /* dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object) { */

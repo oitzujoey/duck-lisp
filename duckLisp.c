@@ -5820,6 +5820,7 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 	}
 
 	// Condition
+	startStack_length = duckLisp->locals_length;
 
 	switch (expression->compoundExpressions[1].type) {
 	case duckLisp_ast_type_bool:
@@ -5880,19 +5881,21 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		if (e) goto l_cleanup;
 		break;
 	case duckLisp_ast_type_expression:
-		startStack_length = duckLisp->locals_length;
-		e = duckLisp_compile_expression(duckLisp,
-		                                assembly,
-		                                expression->compoundExpressions[0].value.identifier.value,
-		                                expression->compoundExpressions[0].value.identifier.value_length,
-		                                &expression->compoundExpressions[1].value.expression);
+		e = duckLisp_compile_compoundExpression(duckLisp,
+		                                        assembly,
+		                                        expression->compoundExpressions[0].value.identifier.value,
+		                                        expression->compoundExpressions[0].value.identifier.value_length,
+		                                        &expression->compoundExpressions[1],
+		                                        dl_null,
+		                                        dl_null,
+		                                        dl_true);
 		if (e) goto l_cleanup;
 		pops = duckLisp->locals_length - startStack_length;
 
 		args_index[0] = duckLisp->locals_length - 1;
 		break;
 	default:
-		e = dl_array_pushElements(&eString, DL_STR("unless: Unsupported data type."));
+		e = dl_array_pushElements(&eString, DL_STR("until: Unsupported data type."));
 		if (e) {
 			goto l_cleanup;
 		}
@@ -5922,34 +5925,26 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 
 		e = duckLisp_register_label(duckLisp, gensym_then.value, gensym_then.value_length);
 		if (e) goto l_free_gensym_end;
-
 		e = duckLisp_register_label(duckLisp, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 
 		e = duckLisp_emit_brnz(duckLisp, assembly, gensym_then.value, gensym_then.value_length, pops);
 		if (e) goto l_free_gensym_end;
 		startStack_length = duckLisp->locals_length;
-		e = duckLisp_compile_compoundExpression(duckLisp,
-		                                        assembly,
-		                                        expression->compoundExpressions[0].value.identifier.value,
-		                                        expression->compoundExpressions[0].value.identifier.value_length,
-		                                        &expression->compoundExpressions[2],
-		                                        dl_null,
-		                                        dl_null,
-		                                        dl_true);
-		if (e) goto l_free_gensym_end;
-		pops = duckLisp->locals_length - startStack_length - 1;
-		if (pops < 0) e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
-		else e = duckLisp_emit_pop(duckLisp, assembly, pops);
-		if (e) goto l_free_gensym_end;
+		{
+			duckLisp_ast_expression_t progn;
+			progn.compoundExpressions = &expression->compoundExpressions[2];
+			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+			e = duckLisp_generator_expression(duckLisp, assembly, &progn);
+			if (e) goto l_free_gensym_end;
+		}
+		duckLisp->locals_length = startStack_length;
 		e = duckLisp_emit_jump(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_then.value, gensym_then.value_length);
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_nil(duckLisp, assembly);
 		if (e) goto l_free_gensym_end;
-		// This is to account for the fact that we have two expressions, but only one that is run.
-		--duckLisp->locals_length;
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 
@@ -5958,18 +5953,18 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 	/* Flow does not reach here. */
 
  l_free_gensym_end:
-	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
-	if (eError) e = eError;
+	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
 	gensym_end.value_length = 0;
  l_free_gensym_then:
-	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
-	if (eError) e = eError;
+	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
 	gensym_then.value_length = 0;
 
  l_cleanup:
 
 	eError = dl_array_quit(&eString);
-	if (eError) e = eError;
+	if (eError) {
+		e = eError;
+	}
 
 	return e;
 }
@@ -6000,6 +5995,7 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp, dl_array_t *assembly, d
 	}
 
 	// Condition
+	startStack_length = duckLisp->locals_length;
 
 	switch (expression->compoundExpressions[1].type) {
 	case duckLisp_ast_type_bool:
@@ -6060,19 +6056,21 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp, dl_array_t *assembly, d
 		if (e) goto l_cleanup;
 		break;
 	case duckLisp_ast_type_expression:
-		startStack_length = duckLisp->locals_length;
-		e = duckLisp_compile_expression(duckLisp,
-		                                assembly,
-		                                expression->compoundExpressions[0].value.identifier.value,
-		                                expression->compoundExpressions[0].value.identifier.value_length,
-		                                &expression->compoundExpressions[1].value.expression);
+		e = duckLisp_compile_compoundExpression(duckLisp,
+		                                        assembly,
+		                                        expression->compoundExpressions[0].value.identifier.value,
+		                                        expression->compoundExpressions[0].value.identifier.value_length,
+		                                        &expression->compoundExpressions[1],
+		                                        dl_null,
+		                                        dl_null,
+		                                        dl_true);
 		if (e) goto l_cleanup;
 		pops = duckLisp->locals_length - startStack_length;
 
 		args_index[0] = duckLisp->locals_length - 1;
 		break;
 	default:
-		e = dl_array_pushElements(&eString, DL_STR("if: Unsupported data type."));
+		e = dl_array_pushElements(&eString, DL_STR("when: Unsupported data type."));
 		if (e) {
 			goto l_cleanup;
 		}
@@ -6107,26 +6105,21 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp, dl_array_t *assembly, d
 
 		e = duckLisp_emit_brnz(duckLisp, assembly, gensym_then.value, gensym_then.value_length, pops);
 		if (e) goto l_free_gensym_end;
+		startStack_length = duckLisp->locals_length;
 		e = duckLisp_emit_nil(duckLisp, assembly);
 		if (e) goto l_free_gensym_end;
+		duckLisp->locals_length = startStack_length;
 		e = duckLisp_emit_jump(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_then.value, gensym_then.value_length);
 		if (e) goto l_free_gensym_end;
-		startStack_length = duckLisp->locals_length;
-		e = duckLisp_compile_compoundExpression(duckLisp,
-		                                        assembly,
-		                                        expression->compoundExpressions[0].value.identifier.value,
-		                                        expression->compoundExpressions[0].value.identifier.value_length,
-		                                        &expression->compoundExpressions[2],
-		                                        dl_null,
-		                                        dl_null,
-		                                        dl_true);
-		if (e) goto l_free_gensym_end;
-		pops = duckLisp->locals_length - startStack_length - 1;
-		if (pops < 0) e = duckLisp_emit_pushInteger(duckLisp, assembly, dl_null, 0);
-		else e = duckLisp_emit_pop(duckLisp, assembly, pops);
-		if (e) goto l_free_gensym_end;
+		{
+			duckLisp_ast_expression_t progn;
+			progn.compoundExpressions = &expression->compoundExpressions[2];
+			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+			e = duckLisp_generator_expression(duckLisp, assembly, &progn);
+			if (e) goto l_free_gensym_end;
+		}
 		e = duckLisp_emit_label(duckLisp, assembly, gensym_end.value, gensym_end.value_length);
 		if (e) goto l_free_gensym_end;
 
@@ -7091,6 +7084,8 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	dl_ptrdiff_t callback_index = -1;
+	dl_ptrdiff_t innerStartStack_length;
+	dl_ptrdiff_t outerStartStack_length;
 
 	e = duckLisp_scope_getStaticIndexFromName(duckLisp, &callback_index,
 	                                          expression->compoundExpressions[0].value.string.value,
@@ -7103,8 +7098,11 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
+	outerStartStack_length = duckLisp->locals_length;
+
 	// Push all arguments onto the stack.
 	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		innerStartStack_length = duckLisp->locals_length;
 		e = duckLisp_compile_compoundExpression(duckLisp,
 		                                        assembly,
 		                                        expression->compoundExpressions[0].value.identifier.value,
@@ -7114,13 +7112,18 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp,
 		                                        dl_null,
 		                                        dl_true);
 		if (e) goto l_cleanup;
+
+		e = duckLisp_emit_move(duckLisp, assembly, innerStartStack_length, duckLisp->locals_length - 1);
+		if (e) goto l_cleanup;
+		e = duckLisp_emit_pop(duckLisp, assembly, duckLisp->locals_length - innerStartStack_length - 1);
+		if (e) goto l_cleanup;
 	}
 
 	// Create the string variable.
 	e = duckLisp_emit_ccall(duckLisp, assembly, callback_index);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
+
+	duckLisp->locals_length = outerStartStack_length + 1;
 
  l_cleanup:
 
@@ -7568,7 +7571,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	e = duckLisp_compile_expression(duckLisp, &assembly, DL_STR("compileAST"), &astCompoundexpression.value.expression);
 	if (e) goto l_cleanup;
 
-	e = duckLisp_emit_return(duckLisp, &assembly, duckLisp->locals_length - 1);
+	e = duckLisp_emit_return(duckLisp, &assembly, ((duckLisp->locals_length == 0) ? 0 : duckLisp->locals_length - 1));
 	if (e) goto l_cleanup;
 
 	// Print list.

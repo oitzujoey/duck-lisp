@@ -30,6 +30,7 @@
 #define B_COLOR_CYAN      "\x1B[46m"
 #define B_COLOR_WHITE     "\x1B[47m"
 
+dl_bool_t g_disassemble = dl_false;
 
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM);
 
@@ -210,16 +211,16 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	default:
 		printf("print: Unsupported type. [%u]\n", object.type);
 	}
-	
+
 	e = duckVM_push(duckVM, &object);
 	if (e) {
 		goto l_cleanup;
 	}
-	
+
 	l_cleanup:
 
 	fflush(stdout);
-	
+
 	return e;
 }
 
@@ -365,9 +366,28 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 		}
 	}
 
+	e = duckVM_pushNil(duckVM);
+
 	l_cleanup:
 
 	return e;
+}
+
+dl_error_t duckLispDev_callback_garbageCollect(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = duckVM_garbageCollect(duckVM);
+	if (e) goto cleanup;
+	e = duckVM_pushNil(duckVM);
+
+ cleanup:
+
+	return e;
+}
+
+dl_error_t duckLispDev_callback_toggleAssembly(duckVM_t *duckVM) {
+	g_disassemble = !g_disassemble;
+	return duckVM_pushNil(duckVM);
 }
 
 dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
@@ -690,12 +710,12 @@ int eval(duckLisp_t *duckLisp,
 		goto l_cleanup;
 	}
 
-	/* { */
-	/* 	char *disassembly = duckLisp_disassemble(duckLisp->memoryAllocation, bytecode, bytecode_length); */
-	/* 	printf("%s", disassembly); */
-	/* 	e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly); */
-	/* } */
-	/* putchar('\n'); */
+	if (g_disassemble) {
+		char *disassembly = duckLisp_disassemble(duckLisp->memoryAllocation, bytecode, bytecode_length);
+		printf("%s", disassembly);
+		e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly);
+		putchar('\n');
+	}
 
 	/* /\* Print bytecode in hex. *\/ */
 	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) { */
@@ -713,9 +733,6 @@ int eval(duckLisp_t *duckLisp,
 		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		goto l_cleanup;
 	}
-
-	e = duckVM_garbageCollect(duckVM);
-	if (e) goto l_cleanup;
 
 	e = dl_free(duckLisp->memoryAllocation, (void **) &bytecode);
 	if (e) goto l_cleanup;
@@ -813,9 +830,11 @@ int main(int argc, char *argv[]) {
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
-		{0, DL_STR("print"),        duckLispDev_callback_print},
-		{0, DL_STR("print-stack"),  duckLispDev_callback_printStack},
-		{0, dl_null, 0,             dl_null}
+		{0, DL_STR("print"),           duckLispDev_callback_print},
+		{0, DL_STR("print-stack"),     duckLispDev_callback_printStack},
+		{0, DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect},
+		{0, DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
+		{0, dl_null, 0,                dl_null}
 	};
 
 	/* Initialization. */
@@ -917,7 +936,15 @@ int main(int argc, char *argv[]) {
 		char *line = NULL;
 		size_t buffer_length = 0;
 		ssize_t length = 0;
+		printf("(disassemble)  Toggle disassembly of forms.\n");
 		while (1) {
+			if (duckVM.stack.elements_length > 0) {
+				printf(COLOR_YELLOW
+				       "A runtime error has occured. Use (print-stack) to inspect the stack, or press\n"
+				       "RET to pop a stack frame."
+				       COLOR_NORMAL);
+				printf("\n%llu", duckVM.stack.elements_length);
+			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
 			/* DL_DOTIMES(i, (size_t) length) { putchar(line[i]); } */
