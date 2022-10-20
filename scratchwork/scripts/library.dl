@@ -22,6 +22,9 @@
 (defun >= (x y)
   (not (< x y)))
 
+(defun <= (x y)
+  (not (> x y)))
+
 (defun evenp (value)
   (= 0 (- value (* (/ value 2) 2))))
 (defun oddp (value)
@@ -36,6 +39,18 @@
 
 (defun lcm (a b)
   (* a (/ b (gcd a b))))
+
+(comment (defun type-to-string (type)
+		   (switch type
+				   duckLisp-object-type-none "none"
+				   duckLisp-object-type-bool "bool"
+				   duckLisp-object-type-int "int"
+				   duckLisp-object-type-float "float"
+				   duckLisp-object-type-str "str"
+				   duckLisp-object-type-list "list"
+				   duckLisp-object-type-symbol "sym"
+				   duckLisp-object-type-function "func"
+				   duckLisp-object-type-closure "clos")))
 
 (defun type-to-string (type)
   (if (= type duckLisp-object-type-none)
@@ -163,96 +178,85 @@
 	(setq list (cdr list)))
   found)
 
-
-(defun first (x)
-  (car x))
-
-(defun rest (x)
-  (cdr x))
-
-
 (comment " Copied straight out of CLHS B）")
 
 (defun caar (x)
   (car (car x)))
-
 (defun cadr (x)
   (car (cdr x)))
-
 (defun cdar (x)
   (cdr (car x)))
-
 (defun cddr (x)
   (cdr (cdr x)))
-
 (defun caaar (x)
   (car (car (car x))))
-
 (defun caadr (x)
   (car (car (cdr x))))
-
 (defun cadar (x)
   (car (cdr (car x))))
-
 (defun caddr (x)
   (car (cdr (cdr x))))
-
 (defun cdaar (x)
   (cdr (car (car x))))
-
 (defun cdadr (x)
   (cdr (car (cdr x))))
-
 (defun cddar (x)
   (cdr (cdr (car x))))
-
 (defun cdddr (x)
   (cdr (cdr (cdr x))))
-
 (defun caaaar (x)
   (car (car (car (car x)))))
-
 (defun caaadr (x)
   (car (car (car (cdr x)))))
-
 (defun caadar (x)
   (car (car (cdr (car x)))))
-
 (defun caaddr (x)
   (car (car (cdr (cdr x)))))
-
 (defun cadaar (x)
   (car (cdr (car (car x)))))
-
 (defun cadadr (x)
   (car (cdr (car (cdr x)))))
-
 (defun caddar (x)
   (car (cdr (cdr (car x)))))
-
 (defun cadddr (x)
   (car (cdr (cdr (cdr x)))))
-
 (defun cdaaar (x)
   (cdr (car (car (car x)))))
-
 (defun cdaadr (x)
   (cdr (car (car (cdr x)))))
-
 (defun cdadar (x)
   (cdr (car (cdr (car x)))))
-
 (defun cdaddr (x)
   (cdr (car (cdr (cdr x)))))
-
 (defun cddaar (x)
   (cdr (cdr (car (car x)))))
-
 (defun cddadr (x)
   (cdr (cdr (car (cdr x)))))
-
 (defun cdddar (x)
   (cdr (cdr (cdr (car x)))))
-
 (defun cddddr (x)
   (cdr (cdr (cdr (cdr x)))))
+
+(defun first (list)
+  (car list))
+(defun second (list)
+  (car (cdr list)))
+(defun third (list)
+  (car (cddr list)))
+(defun fourth (list)
+  (car (cdddr list)))
+(defun fifth (list)
+  (car (cddddr list)))
+(defun sixth (list)
+  (car (cdr (cddddr list))))
+(defun seventh (list)
+  (car (cddr (cddddr list))))
+(defun eighth (list)
+  (car (cdddr (cddddr list))))
+(defun ninth (list)
+  (car (cddddr (cddddr list))))
+(defun tenth (list)
+  (car (cdr (cddddr (cddddr list)))))
+
+(defun rest (x)
+  (cdr x))
