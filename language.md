@@ -81,33 +81,34 @@ Variables are created as in C, but the value argument is required.
 (fact 5)  (; ⇒ 120)
 
 (; Mutual recursion)
-(defun f1 () (f2))  (; Error: `f2' is undefined.)
-(defun f2 () (f1))
+(; `f2' must be declared first, and then set.)
+(var f2 ())
+(defun f1 () (f2))
+(setq f2 (lambda () (f1)))
+(f1)  (; Does not return)
 
 (; Higher-order functions)
 (defun apply1 (f n) (f n))
 (apply1 fact 5)  (; ⇒ 120)
 ```
 
-Lambdas are not currently implemented, but they can be simulated.
+Anonymous functions are created with lambdas.
 
 ```lisp
-(var f ((defun dummy () 5)))
+(var f (lambda () 5))
 (f)  (; ⇒ 5)
 ```
-
-The reason for the extra set of parentheses around the definition is because `defun` may only be used as a top-level form in a scope.
 
 Expressions are never treated as functions. Attempting to call them will wrap another scope around them, which does nothing.
 
 ```lisp
-(((defun dummy () 5)))  (; ⇒ (closure 2))
+((lambda () 5))  (; ⇒ (closure 2))
 ```
 
 The above merely returns the function. It is not called. `funcall` is used to call an expression as a function.
 
 ```lisp
-(funcall ((defun dummy () 5)))  (; ⇒ 5)
+(funcall (lambda () 5))  (; ⇒ 5)
 ```
 
 ### Assignment
@@ -177,7 +178,7 @@ If nil is added to the end of a chain of conses, it becomes a list.
 (list 1 2 3 4)  (; ⇒ (1 2 3 4))
 ```
 
-A list without a nil on the end is called a dotted list.
+A list without a nil on the end is called a dotted list. In general, dotted lists are less useful than normal lists since it's not as simple to tell where the end is.
 
 ```lisp
 (cons 1 (cons 2 (cons 3 (cons 4 5))))  (; ⇒ (1 2 3 4 . 5))
@@ -233,4 +234,4 @@ Only support at the moment for metaprogramming is `quote` and the symbol data ty
 (print (quote (+ 4 17)))  (; ⇒ (+→0 4 17))
 ```
 
-Still, it should be possible to implement `eval` in duck-lisp.
+Still, it is possible to implement `eval` in duck-lisp.

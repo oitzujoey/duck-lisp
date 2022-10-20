@@ -28,7 +28,7 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 
 ### Misfeatures
 
-* Functions do not have signatures. i.e. `(funcall ((defun mod (a b) (- a (* (/ a b) b)))) 5)` will compile but crash the VM.
+* Functions do not have signatures. i.e. `(funcall (lambda (a b) (+ a b)) 5)` will compile but crash the VM.
 * Error reporting is horrible. It will likely stay this way.
 * There are no debug features other than a disassembler.
 
