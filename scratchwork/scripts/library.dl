@@ -260,3 +260,25 @@
 
 (defun rest (x)
   (cdr x))
+
+(defun remove-if (fun list)
+  (unless (null? list)
+	  (if (fun (car list))
+		  (self fun (cdr list))
+		  (cons (car list)
+				(self fun (cdr list))))))
+
+(defun remove-if-not (fun list)
+  (unless (null? list)
+	  (if (not (fun (car list)))
+		  (self fun (cdr list))
+		  (cons (car list)
+				(self fun (cdr list))))))
+
+(defun maplist (fun list)
+  (unless (null? list)
+	  (cons (fun list) (self fun (cdr list)))))
+
+(defun mapcar (fun list)
+  (unless (null? list)
+	(cons (fun (car list)) (self fun (cdr list)))))
