@@ -181,10 +181,9 @@ static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_obj
 	return dl_error_ok;
 }
 
-// @TODO: Check for cycles.
 static dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons) {
 	dl_error_t e = dl_error_ok;
-	if (cons) {
+	if (cons && !gclist->consInUse[(dl_ptrdiff_t) (cons - gclist->conses)]) {
 		gclist->consInUse[(dl_ptrdiff_t) (cons - gclist->conses)] = dl_true;
 		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
 			(cons->type == duckVM_gclist_cons_type_addrObject)) {
@@ -223,7 +222,7 @@ static dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upva
 // @TODO: Check for cycles.
 static dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalue_array_t *upvalueArray) {
 	dl_error_t e = dl_error_ok;
-	if (upvalueArray) {
+	if (upvalueArray && !gclist->upvalueArraysInUse[(dl_ptrdiff_t) (upvalueArray - gclist->upvalueArrays)]) {
 		gclist->upvalueArraysInUse[(dl_ptrdiff_t) (upvalueArray - gclist->upvalueArrays)] = dl_true;
 		if (upvalueArray->initialized) {
 			DL_DOTIMES(k, upvalueArray->length) {
