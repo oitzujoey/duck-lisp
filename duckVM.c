@@ -543,6 +543,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 	dl_ptrdiff_t ptrdiff1;
 	dl_ptrdiff_t ptrdiff2;
 	dl_size_t size1;
+	dl_uint8_t uint8;
 	duckLisp_object_t object1 = {0};
 	duckLisp_object_t object2 = {0};
 	duckLisp_object_t object3 = {0};
@@ -713,6 +714,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 			object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
 			object1.type = duckLisp_object_type_closure;
 
+			object1.value.closure.arity = *(ip++);
+
 			size1 = *(ip++);
 			size1 = *(ip++) + (size1 << 8);
 			size1 = *(ip++) + (size1 << 8);
@@ -878,9 +881,14 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 
 		case duckLisp_instruction_funcall8:
 			ptrdiff1 = *(ip++);
+			uint8 = *(ip++);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			if (object1.type != duckLisp_object_type_closure) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			if (object1.value.closure.arity != uint8) {
 				e = dl_error_invalidValue;
 				break;
 			}

@@ -97,6 +97,7 @@ typedef struct duckLisp_object_s {
 		struct {
 			dl_ptrdiff_t name;
 			duckVM_upvalue_array_t *upvalue_array;
+			dl_uint8_t arity;
 		} closure;
 		struct duckVM_gclist_cons_s *list;
 	} value;

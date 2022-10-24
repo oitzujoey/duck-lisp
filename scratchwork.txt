@@ -1280,9 +1280,21 @@ Free on quit:
 
 The slowest part of the language is the memory allocator.
 
-Most memory freed.
+Most memory freed. Some is still lost when the compiler throws an error.
 
-Next step: Do some cleanup, fix bugs, and round out the keywords.
+Simple pattern matching macros shouldn't be too hard to add. Hygienic is not practical though.
+
+(setq list (cdr list))
+
+(defpmacro to (var op &rest args)
+  (setq var (apply op var args)))
+
+Need runtime arity for &rest to be practical.
+Need a trie local to pmacros for variable expansion? Could do simple search-and-replace instead.
+
+Unfortunately, this requires the same exact machinery as normal macros since the expansion happens apart from the definition.
+
+Next step: Add variable arity checks, do some cleanup, fix bugs, and round out the keywords.
 
 Defer:
 
