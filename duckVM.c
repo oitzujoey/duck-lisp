@@ -957,7 +957,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 				break;
 			}
 			while ((uint8 < object1.value.closure.arity) && (rest.value.list != dl_null)) {
-				puts("pushing");
 				if ((rest.value.list->type == duckVM_gclist_cons_type_objectObject)
 				    || rest.value.list->type == duckVM_gclist_cons_type_addrObject) {
 					e = dl_error_invalidValue;
@@ -976,6 +975,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 				if (e) break;
 				/* (setf rest (cdr rest)) */
 				rest.value.list = rest.value.list->cdr.addr;
+				uint8++;
 			}
 			if (e) break;
 			if (object1.value.closure.variadic) {
@@ -986,7 +986,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 				/* Create list. */
 				duckVM_gclist_cons_t *lastConsPtr = rest.value.list;
 				DL_DOTIMES(k, (dl_size_t) (uint8 - object1.value.closure.arity)) {
-					puts("popping");
 					duckVM_gclist_cons_t cons;
 					duckVM_gclist_cons_t *consPtr = dl_null;
 					duckLisp_object_t object;
