@@ -940,6 +940,92 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 			ip = &bytecode[object1.value.closure.name];
 			break;
 
+		case duckLisp_instruction_apply8:
+			ptrdiff1 = *(ip++);
+			uint8 = *(ip++);
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_closure) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			duckLisp_object_t rest;
+			e = stack_pop(duckVM, &rest);
+			if (e) break;
+			if (rest.type != duckLisp_object_type_list) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			while ((uint8 < object1.value.closure.arity) && (rest.value.list != dl_null)) {
+				puts("pushing");
+				if ((rest.value.list->type == duckVM_gclist_cons_type_objectObject)
+				    || rest.value.list->type == duckVM_gclist_cons_type_addrObject) {
+					e = dl_error_invalidValue;
+					break;
+				}
+				/* (push (car rest) stack) */
+				if (rest.value.list->type == duckVM_gclist_cons_type_addrAddr) {
+					duckLisp_object_t object;
+					object.type = duckLisp_object_type_list;
+					object.value.list = rest.value.list->car.addr;
+					e = stack_push(duckVM, &object);
+				}
+				else {
+					e = stack_push(duckVM, rest.value.list->car.data);
+				}
+				if (e) break;
+				/* (setf rest (cdr rest)) */
+				rest.value.list = rest.value.list->cdr.addr;
+			}
+			if (e) break;
+			if (object1.value.closure.variadic) {
+				if (uint8 < object1.value.closure.arity) {
+					e = dl_error_invalidValue;
+					break;
+				}
+				/* Create list. */
+				duckVM_gclist_cons_t *lastConsPtr = rest.value.list;
+				DL_DOTIMES(k, (dl_size_t) (uint8 - object1.value.closure.arity)) {
+					puts("popping");
+					duckVM_gclist_cons_t cons;
+					duckVM_gclist_cons_t *consPtr = dl_null;
+					duckLisp_object_t object;
+					duckLisp_object_t *objectPtr = dl_null;
+					e = stack_pop(duckVM, &object);
+					if (e) break;
+					/* object = DL_ARRAY_GETADDRESS(duckVM->stack, */
+					/*                              duckLisp_object_t, */
+					/*                              ((duckVM->stack.elements_length - 1) - k)); */
+					e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
+					cons.car.data = objectPtr;
+					cons.cdr.addr = lastConsPtr;
+					cons.type = duckVM_gclist_cons_type_objectAddr;
+					e = duckVM_gclist_pushCons(duckVM, &consPtr, cons);
+					if (e) break;
+					lastConsPtr = consPtr;
+				}
+				if (e) break;
+				/* Push list. */
+				object2.value.list = lastConsPtr;
+				object2.type = duckLisp_object_type_list;
+				e = stack_push(duckVM, &object2);
+				if (e) break;
+			}
+			else {
+				if (object1.value.closure.arity != uint8) {
+					e = dl_error_invalidValue;
+					break;
+				}
+			}
+			/* Call. */
+			e = call_stack_push(duckVM,
+			                    ip,
+			                    object1.value.closure.upvalue_array->upvalues,
+			                    object1.value.closure.upvalue_array->length);
+			if (e) break;
+			ip = &bytecode[object1.value.closure.name];
+			break;
+
 		/* I probably don't need an `if` if I research the standard a bit. */
 		case duckLisp_instruction_call32:
 			ptrdiff1 = *(ip++);
