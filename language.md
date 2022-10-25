@@ -65,13 +65,21 @@ Variables are created as in C, but the value argument is required.
 
 ### Functions
 
-`defun` generates lexically scoped functions. Functions are first class. It is not currently possible to declare functions with a variable number of arguments. A workaround is to pass a list to one of the arguments. Recursion is possible (using `self`), but mutual recursion between two functions requires a third function to do the setup.
+`defun` generates lexically scoped functions. Functions are first class. Variadic functions are created like in Common Lisp, using the `&rest` keyword. They can be called using `funcall` and `apply`, which also come from Common Lisp. Recursion is possible (using `self`), but mutual recursion between two functions requires a third function to do the setup.
 
 ```lisp
 (; Basic usage)
 (defun mod (a b)
   (- a (* (/ a b) b)))
 (mod 47 12)  (; ⇒ 11)
+
+(; Variadic functions)
+(include "../scripts/library.dl")  (; Import `println')
+(defun print-args (&rest args)
+  (print (length args))
+  (println args)
+  args)
+(print-args 1 2 3 4 5)  (; Prints 5(1 2 3 4 5))
 
 (; Recursion)
 (defun fact (n)
@@ -109,6 +117,18 @@ The above merely returns the function. It is not called. `funcall` is used to ca
 
 ```lisp
 (funcall (lambda () 5))  (; ⇒ 5)
+```
+
+If you need to destructure a list to use the elements as arguments, use `apply`.
+
+```lisp
+(apply >= (list 2 2))  (; ⇒ true)
+```
+
+`funcall` and `apply` do not work on function-like keywords.
+
+```lisp
+(apply + (list 2 2))  (; compoundExpression: Could not find variable "+".)
 ```
 
 ### Assignment
@@ -186,7 +206,7 @@ A list without a nil on the end is called a dotted list. In general, dotted list
 
 ## Flow control
 
-`if`, `when`, and `unless` should act the same as in Common Lisp. And if you're feeling clever, you can use functions instead.
+`if`, `when`, and `unless` should act the same as in Common Lisp. And if you're feeling clever, you can use functions instead (untyped lambda calculus).
 
 ```lisp
 (if (> x 10)  (; condition)
@@ -234,4 +254,4 @@ Only support at the moment for metaprogramming is `quote` and the symbol data ty
 (print (quote (+ 4 17)))  (; ⇒ (+→0 4 17))
 ```
 
-Still, it is possible to implement `eval` in duck-lisp.
+Still, it is possible to implement the metacircular evaluator in duck-lisp.
