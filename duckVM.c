@@ -553,12 +553,14 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 	duckVM_gclist_cons_t cons1;
 	dl_bool_t bool1;
 	dl_bool_t parsedBytecode;
+	dl_uint8_t opcode;
 
 	do {
 		ptrdiff1 = 0;
 		parsedBytecode = dl_false;
 		/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
-		switch (*(ip++)) {
+		opcode = *(ip++);
+		switch (opcode) {
 		case duckLisp_instruction_nop:
 			break;
 
@@ -708,6 +710,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 			}
 
 		case duckLisp_instruction_pushClosure32:
+			/* Fall through */
+		case duckLisp_instruction_pushVaClosure32:
+			object1.value.closure.variadic = (opcode == duckLisp_instruction_pushVaClosure32);
 			object1.value.closure.name = *(ip++);
 			object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
 			object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
@@ -888,10 +893,45 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, uns
 				e = dl_error_invalidValue;
 				break;
 			}
-			if (object1.value.closure.arity != uint8) {
-				e = dl_error_invalidValue;
-				break;
+			if (object1.value.closure.variadic) {
+				if (uint8 < object1.value.closure.arity) {
+					e = dl_error_invalidValue;
+					break;
+				}
+				/* Create list. */
+				duckVM_gclist_cons_t *lastConsPtr = dl_null;
+				DL_DOTIMES(k, (dl_size_t) (uint8 - object1.value.closure.arity)) {
+					duckVM_gclist_cons_t cons;
+					duckVM_gclist_cons_t *consPtr = dl_null;
+					duckLisp_object_t object;
+					duckLisp_object_t *objectPtr = dl_null;
+					e = stack_pop(duckVM, &object);
+					if (e) break;
+					/* object = DL_ARRAY_GETADDRESS(duckVM->stack, */
+					/*                              duckLisp_object_t, */
+					/*                              ((duckVM->stack.elements_length - 1) - k)); */
+					e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
+					cons.car.data = objectPtr;
+					cons.cdr.addr = lastConsPtr;
+					cons.type = duckVM_gclist_cons_type_objectAddr;
+					e = duckVM_gclist_pushCons(duckVM, &consPtr, cons);
+					if (e) break;
+					lastConsPtr = consPtr;
+				}
+				if (e) break;
+				/* Push list. */
+				object2.value.list = lastConsPtr;
+				object2.type = duckLisp_object_type_list;
+				e = stack_push(duckVM, &object2);
+				if (e) break;
 			}
+			else {
+				if (object1.value.closure.arity != uint8) {
+					e = dl_error_invalidValue;
+					break;
+				}
+			}
+			/* Call. */
 			e = call_stack_push(duckVM,
 			                    ip,
 			                    object1.value.closure.upvalue_array->upvalues,

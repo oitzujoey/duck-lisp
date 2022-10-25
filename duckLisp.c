@@ -3088,6 +3088,7 @@ dl_error_t duckLisp_emit_pushSymbol(duckLisp_t *duckLisp,
 dl_error_t duckLisp_emit_pushClosure(duckLisp_t *duckLisp,
                                      dl_array_t *assembly,
                                      dl_ptrdiff_t *stackIndex,
+                                     const dl_bool_t variadic,
                                      const dl_ptrdiff_t function_label_index,
                                      const dl_size_t arity,
                                      const dl_ptrdiff_t *captures,
@@ -3105,7 +3106,9 @@ dl_error_t duckLisp_emit_pushClosure(duckLisp_t *duckLisp,
 	                   dl_array_strategy_double);
 
 	// Write instruction.
-	instruction.instructionClass = duckLisp_instructionClass_pushClosure;
+	instruction.instructionClass = (variadic
+	                                ? duckLisp_instructionClass_pushVaClosure
+	                                : duckLisp_instructionClass_pushClosure);
 
 	// Push arguments into instruction.
 
@@ -5011,6 +5014,7 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 	}
 
 	duckLisp_ast_expression_t *args_list = &expression->compoundExpressions[1].value.expression;
+	dl_bool_t variadic = dl_false;
 
 	/* Register function. */
 	/* This is not actually where stack functions are allocated. The magic happens in
@@ -5067,6 +5071,7 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 		startStack_length = duckLisp->locals_length;
 
 		if (expression->compoundExpressions[1].type != duckLisp_ast_type_int) {
+			dl_bool_t foundRest = dl_false;
 			for (dl_ptrdiff_t j = 0; (dl_size_t) j < args_list->compoundExpressions_length; j++) {
 				if (args_list->compoundExpressions[j].type != duckLisp_ast_type_identifier) {
 					e = duckLisp_error_pushRuntime(duckLisp, DL_STR("lambda: All args must be identifiers."));
@@ -5075,13 +5080,30 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 					goto l_cleanup_gensym;
 				}
 
+				dl_string_compare(&foundRest,
+				                  args_list->compoundExpressions[j].value.identifier.value,
+				                  args_list->compoundExpressions[j].value.identifier.value_length,
+				                  DL_STR("&rest"));
+				if (foundRest) {
+					if (args_list->compoundExpressions_length != ((dl_size_t) j + 2)) {
+						e = duckLisp_error_pushRuntime(duckLisp,
+						                               DL_STR("lambda: "
+						                                      "\"&rest\" must be the second to last parameter."));
+						if (e) goto l_cleanup;
+						e = dl_error_invalidValue;
+						goto l_cleanup;
+						e = dl_error_invalidValue;
+						goto l_cleanup_gensym;
+					}
+					variadic = dl_true;
+					continue;
+				}
+
 				/* --duckLisp->locals_length; */
 				e = duckLisp_scope_addObject(duckLisp,
 				                             args_list->compoundExpressions[j].value.identifier.value,
 				                             args_list->compoundExpressions[j].value.identifier.value_length);
-				if (e) {
-					goto l_cleanup_gensym;
-				}
+				if (e) goto l_cleanup_gensym;
 				duckLisp->locals_length++;
 			}
 		}
@@ -5130,8 +5152,11 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
 			e = duckLisp_emit_pushClosure(duckLisp,
 			                              assembly,
 			                              dl_null,
+			                              variadic,
 			                              function_label_index,
-			                              args_list->compoundExpressions_length,
+			                              (variadic
+			                               ? (args_list->compoundExpressions_length - 2)
+			                               : args_list->compoundExpressions_length),
 			                              scope.function_uvs,
 			                              scope.function_uvs_length);
 			if (e) goto l_cleanup_gensym;
@@ -7064,9 +7089,7 @@ dl_error_t duckLisp_generator_funcall2(duckLisp_t *duckLisp,
 
 	// The zeroth argument is the function name, which also happens to be a label.
 	e = duckLisp_emit_funcall(duckLisp, assembly, identifier_index, expression->compoundExpressions_length - 2);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
 
 	duckLisp->locals_length = outerStartStack_length + 1;
 
@@ -8794,6 +8817,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 		case duckLisp_instructionClass_pseudo_label:
 		case duckLisp_instructionClass_pushLabel:
 		case duckLisp_instructionClass_pushClosure:
+		case duckLisp_instructionClass_pushVaClosure:
 			/* Branches */
 		case duckLisp_instructionClass_call:
 		case duckLisp_instructionClass_jump:
@@ -8822,7 +8846,8 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				}
 			}
 			else if ((instruction.instructionClass == duckLisp_instructionClass_pushLabel)
-			         || (instruction.instructionClass == duckLisp_instructionClass_pushClosure)) {
+			         || (instruction.instructionClass == duckLisp_instructionClass_pushClosure)
+			         || (instruction.instructionClass == duckLisp_instructionClass_pushVaClosure)) {
 				tempPtrdiff++;	// `++` for opcode. This is so the optimizer can be used with generic address links.
 				labelSource.source = tempPtrdiff;
 				// Don't optimize for size; force 32-bit address.
@@ -8852,6 +8877,9 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			case duckLisp_instructionClass_pushLabel:
 				currentInstruction.byte = duckLisp_instruction_pushInteger32;
 				break;
+			case duckLisp_instructionClass_pushVaClosure:
+				currentInstruction.byte = duckLisp_instruction_pushVaClosure32;
+				break;
 			case duckLisp_instructionClass_pushClosure:
 				currentInstruction.byte = duckLisp_instruction_pushClosure32;
 				break;
@@ -8880,7 +8908,8 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = args[1].value.integer & 0xFFU;
 				}
 			}
-			else if (instruction.instructionClass == duckLisp_instructionClass_pushClosure) {
+			else if ((instruction.instructionClass == duckLisp_instructionClass_pushClosure)
+			         || (instruction.instructionClass == duckLisp_instructionClass_pushVaClosure)) {
 				// Arity
 				byte_length = 1;
 				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
@@ -10129,10 +10158,17 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 			}
 			break;
 
+		case duckLisp_instruction_pushVaClosure32:
+			/* Fall through */
 		case duckLisp_instruction_pushClosure32:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("push-closure.32 "));
+				if (opcode == duckLisp_instruction_pushClosure32) {
+					e = dl_array_pushElements(&disassembly, DL_STR("push-closure.32    "));
+				}
+				else {
+					e = dl_array_pushElements(&disassembly, DL_STR("push-va-closure.32 "));
+				}
 				if (e) return dl_null;
 				break;
 			case 1:

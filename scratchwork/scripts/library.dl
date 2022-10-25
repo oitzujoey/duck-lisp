@@ -9,10 +9,18 @@
 (var duckLisp-object-type-function 7)
 (var duckLisp-object-type-closure 8)
 
-(defun println (v)
-  (print v)
+(comment (defun print (&rest vs)
+		   (while (not (null? vs))
+			 (print (car vs))
+			 (setq vs (cdr vs)))
+		   vs))
+
+(defun println (&rest vs)
+  (while (not (null? vs))
+	(print (car vs))
+	(setq vs (cdr vs)))
   (print "\n")
-  v)
+  vs)
 
 (defun identity (x) x)
 
