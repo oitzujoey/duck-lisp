@@ -1294,7 +1294,7 @@ Need a trie local to pmacros for variable expansion? Could do simple search-and-
 
 Unfortunately, this requires the same exact machinery as normal macros since the expansion happens apart from the definition.
 
-Next step: Add variable arity checks, do some cleanup, fix bugs, and round out the keywords.
+Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:
 

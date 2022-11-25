@@ -416,7 +416,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 
 	/* Check arguments for call and type errors. */
 
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2);
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2, dl_false);
 	if (e) {
 		goto l_cleanup;
 	}

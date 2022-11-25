@@ -13,6 +13,7 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 * Low memory VM
 * UTF-8 compatible
 * Tested on x64 (Linux) and ARM (Linux)
+* A simplified VM has been used on an ATmega328P.
 
 ### Planned features
 
