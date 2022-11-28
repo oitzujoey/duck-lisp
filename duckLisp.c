@@ -5169,28 +5169,28 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&macroBytecode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 4, dl_true);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 	e = duckLisp_checkTypeAndReportError(duckLisp,
 	                                     expression->compoundExpressions[0].value.identifier,
 	                                     expression->compoundExpressions[0],
 	                                     duckLisp_ast_type_identifier);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 	e = duckLisp_checkTypeAndReportError(duckLisp,
 	                                     expression->compoundExpressions[0].value.identifier,
 	                                     expression->compoundExpressions[1],
 	                                     duckLisp_ast_type_identifier);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 	e = duckLisp_checkTypeAndReportError(duckLisp,
 	                                     expression->compoundExpressions[0].value.identifier,
 	                                     expression->compoundExpressions[2],
 	                                     duckLisp_ast_type_expression);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 
 	/* Create clean environment. */
 
 	subLisp.memoryAllocation = duckLisp->memoryAllocation;
 	e = duckLisp_init(&subLisp);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 
 	/* Compile */
 
@@ -5200,7 +5200,7 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	              (void **) &lambda.value.expression.compoundExpressions,
 	              expression->compoundExpressions_length - 1,
 	              duckLisp_ast_compoundExpression_t);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupCompiler;
 	lambda.value.expression.compoundExpressions_length = expression->compoundExpressions_length - 1;
 	lambda.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
 	lambda.value.expression.compoundExpressions[0].value.identifier.value = "\0defmacro:lambda";
@@ -5211,23 +5211,23 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	e = duckLisp_compileAST(&subLisp, &macroBytecode, lambda);
 	eError = dl_array_pushElements(&duckLisp->errors, subLisp.errors.elements, subLisp.errors.elements_length);
 	if (!e) e = eError;
-	if (e) goto l_cleanup;
-
-	e = dl_array_quit(&subLisp.labels);
-	if (e) goto l_cleanup;
-
-	e = DL_FREE(subLisp.memoryAllocation, (void **) &lambda.value.expression.compoundExpressions);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupLabels;
 
 	/* Save macro program. */
 	/* duckLisp sic. */
 	e = duckLisp_addInterpretedGenerator(duckLisp, expression->compoundExpressions[1].value.identifier, macroBytecode);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupLabels;
 
- l_cleanup:
+ cleanupLabels:
+	eError = dl_array_quit(&subLisp.labels);
+	if (!e) e = eError;
+	eError = DL_FREE(subLisp.memoryAllocation, (void **) &lambda.value.expression.compoundExpressions);
+	if (!e) e = eError;
+ cleanupCompiler:
 	/**/ duckLisp_quit(&subLisp);
+ cleanupArrays:
 	eError = dl_array_quit(&eString);
-	if (eError) e = eError;
+	if (!e) e = eError;
 
 	return e;
 }
