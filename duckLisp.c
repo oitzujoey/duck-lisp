@@ -1762,6 +1762,7 @@ static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t 
 
 static dl_error_t scope_quit(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	dl_error_t e = dl_error_ok;
+	(void) duckLisp;
 	/**/ dl_trie_quit(&scope->locals_trie);
 	/**/ dl_trie_quit(&scope->statics_trie);
 	/**/ dl_trie_quit(&scope->generators_trie);
@@ -4860,19 +4861,16 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 		ast->value.expression.compoundExpressions_length = length;
 		ast->type = duckLisp_ast_type_expression;
-		printf("LENGTH %llu\n", length);
 		dl_ptrdiff_t j = 0;
 		while (cons != dl_null) {
 
 			switch (cons->type) {
 			case duckVM_gclist_cons_type_addrAddr:
-				puts("addr-addr");
 				duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->car.addr);
 				cons = cons->cdr.addr;
 				j++;
 				break;
 			case duckVM_gclist_cons_type_addrObject:
-				puts("addr-object");
 				duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->car.addr);
 				if (cons->cdr.data->type == duckLisp_object_type_list) {
 					cons = cons->cdr.data->value.list;
@@ -4887,7 +4885,6 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 				}
 				break;
 			case duckVM_gclist_cons_type_objectAddr:
-				puts("object-addr");
 				duckLisp_objectToAST(duckLisp,
 				                     &ast->value.expression.compoundExpressions[j],
 				                     cons->car.data,
@@ -4896,7 +4893,6 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 				j++;
 				break;
 			case duckVM_gclist_cons_type_objectObject:
-				puts("object-object");
 				duckLisp_objectToAST(duckLisp,
 				                     &ast->value.expression.compoundExpressions[j],
 				                     cons->car.data,
@@ -4919,7 +4915,6 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 		}
 	}
 	else {
-		puts("null");
 		ast->value.expression.compoundExpressions = dl_null;
 		ast->value.expression.compoundExpressions_length = 0;
 		ast->type = duckLisp_ast_type_expression;
@@ -4959,22 +4954,18 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 
 		switch (cons->type) {
 		case duckVM_gclist_cons_type_addrAddr:
-			puts("addr-addr");
 			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
 			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
 			break;
 		case duckVM_gclist_cons_type_addrObject:
-			puts("addr-object");
 			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data, dl_false);
 			break;
 		case duckVM_gclist_cons_type_objectAddr:
-			puts("object-addr");
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data, dl_false);
 			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
 			break;
 		case duckVM_gclist_cons_type_objectObject:
-			puts("object-object");
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data, dl_false);
 			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data, dl_false);
 			break;
@@ -5002,22 +4993,18 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 
 	switch (object->type) {
 	case duckLisp_object_type_bool:
-		puts("boolean");
 		ast->value.boolean.value = object->value.boolean;
 		ast->type = duckLisp_ast_type_bool;
 		break;
 	case duckLisp_object_type_integer:
-		printf("integer %lli\n", object->value.integer);
 		ast->value.integer.value = object->value.integer;
 		ast->type = duckLisp_ast_type_int;
 		break;
 	case duckLisp_object_type_float:
-		puts("float");
 		ast->value.floatingPoint.value = object->value.floatingPoint;
 		ast->type = duckLisp_ast_type_float;
 		break;
 	case duckLisp_object_type_string:
-		puts("string");
 		// @TODO: This (and case symbol below) is a problem since it will never be freed.
 		ast->value.string.value_length = object->value.string.value_length;
 		e = dl_malloc(duckLisp->memoryAllocation,
@@ -5030,7 +5017,6 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		ast->type = duckLisp_ast_type_string;
 		break;
 	case duckLisp_object_type_list:
-		puts("list");
 		if (useExprs) {
 			e = duckLisp_consToExprAST(duckLisp, ast, object->value.list);
 		}
@@ -5039,7 +5025,6 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		}
 		break;
 	case duckLisp_object_type_symbol:
-		puts("symbol");
 		ast->value.identifier.value_length = object->value.symbol.value_length;
 		e = dl_malloc(duckLisp->memoryAllocation,
 		              (void **) &ast->value.identifier.value,
@@ -5051,11 +5036,9 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		ast->type = duckLisp_ast_type_identifier;
 		break;
 	case duckLisp_object_type_function:
-		puts("function");
 		e = dl_error_invalidValue;
 		break;
 	case duckLisp_object_type_closure:
-		puts("closure");
 		e = dl_error_invalidValue;
 		break;
 	default:
@@ -5225,7 +5208,10 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	if (!e) e = eError;
 	if (e) goto l_cleanup;
 
-	e = DL_FREE(duckLisp->memoryAllocation, (void **) &lambda.value.expression.compoundExpressions);
+	e = dl_array_quit(&subLisp.labels);
+	if (e) goto l_cleanup;
+
+	e = DL_FREE(subLisp.memoryAllocation, (void **) &lambda.value.expression.compoundExpressions);
 	if (e) goto l_cleanup;
 
 	/* Save macro program. */
@@ -7370,9 +7356,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 		quote.value.expression.compoundExpressions[1] = expression->compoundExpressions[i];
 		call.value.expression.compoundExpressions[i] = quote;
 	}
-	e = ast_print_compoundExpression(*duckLisp, call);
-	puts("");
-	if (e) goto l_cleanupCompiler;
 
 	e = duckLisp_addInterpretedFunction(&subLisp, call.value.expression.compoundExpressions[0].value.identifier);
 	if (e) goto l_cleanupCompiler;
@@ -7384,11 +7367,26 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	e = duckLisp_compileAST(&subLisp, &subBytecode, call);
 	if (e) goto l_cleanupCompiler;
 
+	e = dl_array_quit(&subLisp.labels);
+	if (e) goto l_cleanup;
+
+	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		duckLisp_ast_compoundExpression_t quote;
+		quote = call.value.expression.compoundExpressions[i];
+		e = DL_FREE(subLisp.memoryAllocation, &quote.value.expression.compoundExpressions);
+		if (e) goto l_cleanupCompiler;
+		call.value.expression.compoundExpressions[i] = quote;
+	}
+	e = DL_FREE(subLisp.memoryAllocation, &call.value.expression.compoundExpressions);
+	if (e) goto l_cleanupCompiler;
+
+	/* Merge the two bytecode programs into one. */
+
+	/* HACK The return is not guaranteed to be one byte long. */
 	e = dl_array_pushElements(&completeBytecode, bytecode.elements, bytecode.elements_length - 1);
 	if (e) goto l_cleanupCompiler;
 	e = dl_array_pushElements(&completeBytecode, subBytecode.elements, subBytecode.elements_length);
 	if (e) goto l_cleanupCompiler;
-	puts(duckLisp_disassemble(duckLisp->memoryAllocation, completeBytecode.elements, completeBytecode.elements_length));
 
 	/* Execute macro. */
 
@@ -7400,8 +7398,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements);
 	if (e) goto l_cleanupVM;
-	printf("stack length %llu\n", subVM.stack.elements_length);
-	printf("return value type %i\n", return_value.type);
 
 	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
 	/* printf("constexpr: Post execution memory usage: %llu/%llu (%llu%%)\n", */
@@ -7414,10 +7410,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	e = duckLisp_objectToAST(duckLisp, &ast, &return_value, dl_true);
 	if (e) goto l_cleanupVM;
 
-	e = ast_print_compoundExpression(*duckLisp, ast);
-	if (e) goto l_cleanupVM;
-	putchar('\n');
-
 	e = duckLisp_compile_compoundExpression(duckLisp,
 	                                        assembly,
 	                                        expression->compoundExpressions[0].value.identifier.value,
@@ -7428,7 +7420,8 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	                                        dl_false);
 	if (e) goto l_cleanupVM;
 
-	/* puts("done"); */
+	e = ast_compoundExpression_quit(duckLisp, &ast);
+	if (e) goto l_cleanupVM;
 
  l_cleanupVM:
 	/**/ duckVM_quit(&subVM);
@@ -7439,6 +7432,10 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
  l_cleanup:
 
+	eError = dl_array_quit(&subBytecode);
+	if (!e) e = eError;
+	eError = dl_array_quit(&completeBytecode);
+	if (!e) e = eError;
 	eError = dl_array_quit(&subAssembly);
 	if (!e) e = eError;
 	eError = dl_array_quit(&eString);

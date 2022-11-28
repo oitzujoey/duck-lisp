@@ -1,26 +1,3 @@
-(defun + (a b)
-  (+ a b))
-
-(defun nreverse (list)
-  (var reversed-list ())
-  (while (not (null? list))
-	(setq reversed-list (cons (car list)
-							  reversed-list))
-	(setq list (cdr list)))
-  reversed-list)
-
-(defun append (list1 list2)
-  (var appended-list ())
-  (while (not (null? list1))
-	(setq appended-list (cons (car list1)
-							  appended-list))
-	(setq list1 (cdr list1)))
-  (while (not (null? list2))
-	(setq appended-list (cons (car list2)
-							  appended-list))
-	(setq list2 (cdr list2)))
-  (nreverse appended-list))
-
 (defmacro to (variable form)
   (var function (car form))
   (var args (cdr form))
@@ -30,5 +7,5 @@
 
 (var x 5)
 (print x)
-(to x (+ 1))
+(to x (+ 1))  (comment Expands to (setq x (+ x 1)))
 (print x)
