@@ -150,6 +150,7 @@ typedef enum {
 	duckLisp_functionType_c,
 	duckLisp_functionType_ducklisp,
 	duckLisp_functionType_generator,
+	duckLisp_functionType_macro
 } duckLisp_functionType_t;
 
 typedef struct {
@@ -166,17 +167,20 @@ typedef struct {
 
 typedef struct {
 	// All variable names in the current scope are stored here.
-	dl_trie_t locals_trie;   // Points to stack objects.
-	dl_trie_t statics_trie;   // Points to static objects.
+	dl_trie_t locals_trie;   /* Points to stack objects. */
+	dl_trie_t statics_trie;   /* Points to static objects. */
 
-	dl_trie_t functions_trie;
+	dl_trie_t functions_trie;  /* Records all the function types in this scope. */
 	dl_size_t functions_length;
-	dl_trie_t generators_trie;  // Points to generator stack callbacks.
+	dl_trie_t generators_trie;  /* Points to generator stack callbacks. */
 	dl_size_t generators_length;
+	dl_trie_t macros_trie;  /* Index of macro in `macros`. */
+	dl_size_t macros_length;
+	dl_array_t macros;  /* dl_uint8_t * */
 
 	dl_trie_t labels_trie;
 
-	dl_bool_t function_scope;
+	dl_bool_t function_scope;  /* Used to determine when to create a deep upvalue. */
 
 	dl_ptrdiff_t *scope_uvs;
 	dl_size_t scope_uvs_length;
@@ -188,25 +192,20 @@ typedef struct {
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
 
-	dl_array_t errors;
+	dl_array_t errors;  /* duckLisp_error_t */
 
-	// This is where we keep all of our variables.
-	// dl_array_t stack;  // dl_array_t:duckLisp_object_t
-	// This is where we keep everything that needs to be scoped.
-	dl_array_t scope_stack;  // dl_array_t:duckLisp_scope_t:{dl_trie_t}
-	// Points to the start of the local variables on the stack for this scope.
-	// dl_ptrdiff_t frame_pointer;
+	/* This is where we keep everything that needs to be scoped. */
+	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
 	dl_size_t statics_length;
 
-	/* dl_array_t bytecode;    // dl_array_t:uint8_t */
-	dl_array_t generators_stack; // dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t)
-	dl_array_t labels;  // duckLisp_label_t
+	dl_array_t generators_stack; /* dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t) */
+	dl_array_t labels;  /* duckLisp_label_t */
 
 	dl_size_t gensym_number;
 
-	dl_trie_t symbols_trie;    // Index points to the string in `symbols_array`
-	dl_array_t symbols_array;  // duckLisp_ast_identifier_t
+	dl_trie_t symbols_trie;  /* Index points to the string in `symbols_array` */
+	dl_array_t symbols_array;  /* duckLisp_ast_identifier_t */
 } duckLisp_t;
 
 typedef enum {
@@ -500,12 +499,16 @@ dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp, dl_array_t *assembly,
 dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp, dl_array_t *assembly,
                               char *label, dl_size_t label_length);
 
-dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp,
-                              duckLisp_ast_compoundExpression_t *ast,
-                              duckVM_gclist_cons_t *cons);
+dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
+                                  duckLisp_ast_compoundExpression_t *ast,
+                                  duckVM_gclist_cons_t *cons);
+dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
+                                  duckLisp_ast_compoundExpression_t *ast,
+                                  duckVM_gclist_cons_t *cons);
 dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
                                 duckLisp_ast_compoundExpression_t *ast,
-                                duckLisp_object_t *object);
+                                duckLisp_object_t *object,
+                                dl_bool_t useExprs);
 
 
 dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
@@ -514,6 +517,12 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
                                          dl_array_t *assembly,
                                          duckLisp_ast_expression_t *expression);
+dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
+                                        dl_array_t *assembly,
+                                        duckLisp_ast_expression_t *expression);
+dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
+                                     dl_array_t *assembly,
+                                     duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
                                                dl_array_t *assembly,
@@ -542,9 +551,10 @@ dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *sc
 dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 // dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const
 // dl_size_t name_length, const duckLisp_object_t object);
-dl_error_t
-duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
-                                const duckLisp_ast_identifier_t name);
+dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,  const duckLisp_ast_identifier_t name);
+dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
+                                            const duckLisp_ast_identifier_t name,
+                                            dl_array_t bytecode);
 dl_error_t DECLSPEC
 duckLisp_addGenerator(duckLisp_t *duckLisp,
                       dl_error_t (*callback)(duckLisp_t *, dl_array_t *,

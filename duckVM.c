@@ -536,7 +536,7 @@ static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip) {
 	return e;
 }
 
-dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, unsigned char *bytecode) {
+dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_uint8_t *bytecode) {
 	dl_error_t e = dl_error_ok;
 
 	dl_uint8_t *ip = bytecode;

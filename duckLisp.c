@@ -153,6 +153,61 @@ dl_error_t duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
+                                            duckLisp_ast_identifier_t functionName,
+                                            duckLisp_ast_compoundExpression_t astCompoundExpression,
+                                            const duckLisp_ast_type_t type) {
+	dl_error_t e = dl_error_ok;
+
+	dl_array_t string;
+	/**/ dl_array_init(&string, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	const duckLisp_ast_identifier_t typeString[] = {
+#define X(s) s, sizeof(s) - 1
+		{X("dl_error_ok")},
+		{X("dl_error_invalidValue")},
+		{X("dl_error_bufferUnderflow")},
+		{X("dl_error_bufferOverflow")},
+		{X("dl_error_nullPointer")},
+		{X("dl_error_danglingPointer")},
+		{X("dl_error_outOfMemory")},
+		{X("dl_error_shouldntHappen")},
+		{X("dl_error_cantHappen")}
+#undef X
+	};
+
+
+	if (astCompoundExpression.type != type) {
+		e = dl_array_pushElements(&string, DL_STR("Expected type \""));
+		if (e) goto l_cleanup;
+
+		e = dl_array_pushElements(&string, typeString[type].value, typeString[type].value_length);
+		if (e) goto l_cleanup;
+
+		e = dl_array_pushElements(&string, DL_STR("\" for argument "));
+		if (e) goto l_cleanup;
+
+		e = dl_array_pushElements(&string, DL_STR(" of function \""));
+		if (e) goto l_cleanup;
+
+		e = dl_array_pushElements(&string, functionName.value, functionName.value_length);
+		if (e) goto l_cleanup;
+
+		e = dl_array_pushElements(&string, DL_STR("\". Was passed type \""));
+		if (e) goto l_cleanup;
+
+		e = duckLisp_error_pushRuntime(duckLisp,
+		                               (char *) string.elements,
+		                               string.elements_length * string.element_size);
+		if (e) goto l_cleanup;
+
+		e = dl_error_invalidValue;
+	}
+
+ l_cleanup:
+
+	return e;
+}
+
 /*
   ======
   Parser
@@ -1694,6 +1749,9 @@ static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t 
 	scope->generators_length = 0;
 	/**/ dl_trie_init(&scope->functions_trie, duckLisp->memoryAllocation, -1);
 	scope->functions_length = 0;
+	/**/ dl_trie_init(&scope->macros_trie, duckLisp->memoryAllocation, -1);
+	scope->macros_length = 0;
+	/**/ dl_array_init(&scope->macros, duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double);
 	/**/ dl_trie_init(&scope->labels_trie, duckLisp->memoryAllocation, -1);
 	scope->function_scope = is_function;
 	scope->scope_uvs = dl_null;
@@ -1704,13 +1762,18 @@ static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t 
 
 static dl_error_t scope_quit(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	dl_error_t e = dl_error_ok;
-	(void) duckLisp;  /* For malloc */
 	/**/ dl_trie_quit(&scope->locals_trie);
 	/**/ dl_trie_quit(&scope->statics_trie);
 	/**/ dl_trie_quit(&scope->generators_trie);
 	scope->generators_length = 0;
 	/**/ dl_trie_quit(&scope->functions_trie);
 	scope->functions_length = 0;
+	/**/ dl_trie_quit(&scope->macros_trie);
+	scope->macros_length = 0;
+	DL_DOTIMES(i, scope->macros.elements_length) {
+		/**/ dl_array_quit(&DL_ARRAY_GETADDRESS(scope->macros, dl_array_t, i));
+	}
+	/**/ dl_array_quit(&scope->macros);
 	/**/ dl_trie_quit(&scope->labels_trie);
 	scope->function_scope = dl_false;
 	if (scope->scope_uvs != dl_null) {
@@ -1959,6 +2022,41 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
 	                                                    function_scope,
 	                                                    function_scope_index);
  cleanup:
+	return e;
+}
+
+static dl_error_t scope_getMacroFromName(duckLisp_t *duckLisp,
+                                         dl_bool_t *found,
+                                         dl_array_t *bytecode,
+                                         const char *name,
+                                         const dl_size_t name_length) {
+	dl_error_t e = dl_error_ok;
+
+	duckLisp_scope_t scope;
+	dl_ptrdiff_t scope_index = duckLisp->scope_stack.elements_length;
+	dl_ptrdiff_t index = -1;
+
+	*found = dl_false;
+
+	while (dl_true) {
+		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
+		if (e) {
+			if (e == dl_error_invalidValue) {
+				// We've gone though all the scopes.
+				e = dl_error_ok;
+			}
+			break;
+		}
+
+		/**/ dl_trie_find(scope.macros_trie, &index, name, name_length);
+		// Return the function in the nearest scope.
+		if (index != -1) break;
+	}
+	if (index != -1) {
+		*bytecode = DL_ARRAY_GETADDRESS(scope.macros, dl_array_t, index);
+		*found = dl_true;
+	}
+
 	return e;
 }
 
@@ -4718,7 +4816,121 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp,
+dl_size_t duckLisp_consList_length(duckVM_gclist_cons_t *list) {
+	dl_size_t length = 0;
+	while (list != dl_null) {
+		switch (list->type) {
+		case duckVM_gclist_cons_type_addrAddr:
+			/* Fall through */
+		case duckVM_gclist_cons_type_objectAddr:
+			list = list->cdr.addr;
+			length++;
+			break;
+		case duckVM_gclist_cons_type_addrObject:
+			/* Fall through */
+		case duckVM_gclist_cons_type_objectObject:
+			if (list->cdr.data->type == duckLisp_object_type_list) {
+				list = list->cdr.data->value.list;
+				length++;
+			}
+			else {
+				list = dl_null;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+	return length;
+}
+
+dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
+                                  duckLisp_ast_compoundExpression_t *ast,
+                                  duckVM_gclist_cons_t *cons) {
+	dl_error_t e = dl_error_ok;
+
+	/* (cons a b) */
+
+	if (cons != dl_null) {
+		const dl_size_t length = duckLisp_consList_length(cons);
+		e = DL_MALLOC(duckLisp->memoryAllocation,
+		              (void **) &ast->value.expression.compoundExpressions,
+		              length,
+		              duckLisp_ast_compoundExpression_t);
+		if (e) goto cleanup;
+		ast->value.expression.compoundExpressions_length = length;
+		ast->type = duckLisp_ast_type_expression;
+		printf("LENGTH %llu\n", length);
+		dl_ptrdiff_t j = 0;
+		while (cons != dl_null) {
+
+			switch (cons->type) {
+			case duckVM_gclist_cons_type_addrAddr:
+				puts("addr-addr");
+				duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->car.addr);
+				cons = cons->cdr.addr;
+				j++;
+				break;
+			case duckVM_gclist_cons_type_addrObject:
+				puts("addr-object");
+				duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->car.addr);
+				if (cons->cdr.data->type == duckLisp_object_type_list) {
+					cons = cons->cdr.data->value.list;
+					j++;
+				}
+				else {
+					duckLisp_objectToAST(duckLisp,
+					                     &ast->value.expression.compoundExpressions[j],
+					                     cons->cdr.data,
+					                     dl_true);
+					cons = dl_null;
+				}
+				break;
+			case duckVM_gclist_cons_type_objectAddr:
+				puts("object-addr");
+				duckLisp_objectToAST(duckLisp,
+				                     &ast->value.expression.compoundExpressions[j],
+				                     cons->car.data,
+				                     dl_true);
+				cons = cons->cdr.addr;
+				j++;
+				break;
+			case duckVM_gclist_cons_type_objectObject:
+				puts("object-object");
+				duckLisp_objectToAST(duckLisp,
+				                     &ast->value.expression.compoundExpressions[j],
+				                     cons->car.data,
+				                     dl_true);
+				if (cons->cdr.data->type == duckLisp_object_type_list) {
+					cons = cons->cdr.data->value.list;
+					j++;
+				}
+				else {
+					duckLisp_objectToAST(duckLisp,
+					                     &ast->value.expression.compoundExpressions[j],
+					                     cons->cdr.data,
+					                     dl_true);
+					cons = dl_null;
+				}
+				break;
+			default:
+				e = dl_error_invalidValue;
+			}
+		}
+	}
+	else {
+		puts("null");
+		ast->value.expression.compoundExpressions = dl_null;
+		ast->value.expression.compoundExpressions_length = 0;
+		ast->type = duckLisp_ast_type_expression;
+	}
+
+ cleanup:
+
+	return e;
+}
+
+dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
                               duckLisp_ast_compoundExpression_t *ast,
                               duckVM_gclist_cons_t *cons) {
 	dl_error_t e = dl_error_ok;
@@ -4748,23 +4960,23 @@ dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp,
 		switch (cons->type) {
 		case duckVM_gclist_cons_type_addrAddr:
 			puts("addr-addr");
-			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
-			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
+			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
+			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
 			break;
 		case duckVM_gclist_cons_type_addrObject:
 			puts("addr-object");
-			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data);
+			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data, dl_false);
 			break;
 		case duckVM_gclist_cons_type_objectAddr:
 			puts("object-addr");
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data);
-			duckLisp_consToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data, dl_false);
+			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
 			break;
 		case duckVM_gclist_cons_type_objectObject:
 			puts("object-object");
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data);
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data);
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data, dl_false);
+			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data, dl_false);
 			break;
 		default:
 			e = dl_error_invalidValue;
@@ -4784,7 +4996,8 @@ dl_error_t duckLisp_consToAST(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
                                 duckLisp_ast_compoundExpression_t *ast,
-                                duckLisp_object_t *object) {
+                                duckLisp_object_t *object,
+                                dl_bool_t useExprs) {
 	dl_error_t e = dl_error_ok;
 
 	switch (object->type) {
@@ -4816,6 +5029,15 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		                          object->value.string.value_length);
 		ast->type = duckLisp_ast_type_string;
 		break;
+	case duckLisp_object_type_list:
+		puts("list");
+		if (useExprs) {
+			e = duckLisp_consToExprAST(duckLisp, ast, object->value.list);
+		}
+		else {
+			e = duckLisp_consToConsAST(duckLisp, ast, object->value.list);
+		}
+		break;
 	case duckLisp_object_type_symbol:
 		puts("symbol");
 		ast->value.identifier.value_length = object->value.symbol.value_length;
@@ -4832,9 +5054,9 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		puts("function");
 		e = dl_error_invalidValue;
 		break;
-	case duckLisp_object_type_list:
-		puts("list");
-		e = duckLisp_consToAST(duckLisp, ast, object->value.list);
+	case duckLisp_object_type_closure:
+		puts("closure");
+		e = dl_error_invalidValue;
 		break;
 	default:
 		e = dl_error_invalidValue;
@@ -4904,7 +5126,7 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 
 	// Compile result.
 
-	e = duckLisp_objectToAST(duckLisp, &ast, &object);
+	e = duckLisp_objectToAST(duckLisp, &ast, &object, dl_false);
 	if (e) goto l_cleanupVM;
 
 	e = ast_print_compoundExpression(*duckLisp, ast);
@@ -4940,6 +5162,81 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	if (eError) {
 		e = eError;
 	}
+
+	return e;
+}
+
+dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
+                                       dl_array_t *assembly,
+                                       duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	(void) assembly;
+
+	duckLisp_t subLisp;
+	dl_array_t macroBytecode;
+	/**/ dl_array_init(&macroBytecode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 4, dl_true);
+	if (e) goto l_cleanup;
+	e = duckLisp_checkTypeAndReportError(duckLisp,
+	                                     expression->compoundExpressions[0].value.identifier,
+	                                     expression->compoundExpressions[0],
+	                                     duckLisp_ast_type_identifier);
+	if (e) goto l_cleanup;
+	e = duckLisp_checkTypeAndReportError(duckLisp,
+	                                     expression->compoundExpressions[0].value.identifier,
+	                                     expression->compoundExpressions[1],
+	                                     duckLisp_ast_type_identifier);
+	if (e) goto l_cleanup;
+	e = duckLisp_checkTypeAndReportError(duckLisp,
+	                                     expression->compoundExpressions[0].value.identifier,
+	                                     expression->compoundExpressions[2],
+	                                     duckLisp_ast_type_expression);
+	if (e) goto l_cleanup;
+
+	/* Create clean environment. */
+
+	subLisp.memoryAllocation = duckLisp->memoryAllocation;
+	e = duckLisp_init(&subLisp);
+	if (e) goto l_cleanup;
+
+	/* Compile */
+
+	duckLisp_ast_compoundExpression_t lambda;
+	lambda.type = duckLisp_ast_type_expression;
+	e = DL_MALLOC(subLisp.memoryAllocation,
+	              (void **) &lambda.value.expression.compoundExpressions,
+	              expression->compoundExpressions_length - 1,
+	              duckLisp_ast_compoundExpression_t);
+	if (e) goto l_cleanup;
+	lambda.value.expression.compoundExpressions_length = expression->compoundExpressions_length - 1;
+	lambda.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
+	lambda.value.expression.compoundExpressions[0].value.identifier.value = "\0defmacro:lambda";
+	lambda.value.expression.compoundExpressions[0].value.identifier.value_length = sizeof("\0defmacro:lambda") - 1;
+	for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		lambda.value.expression.compoundExpressions[i - 1] = expression->compoundExpressions[i];
+	};
+	e = duckLisp_compileAST(&subLisp, &macroBytecode, lambda);
+	eError = dl_array_pushElements(&duckLisp->errors, subLisp.errors.elements, subLisp.errors.elements_length);
+	if (!e) e = eError;
+	if (e) goto l_cleanup;
+
+	e = DL_FREE(duckLisp->memoryAllocation, (void **) &lambda.value.expression.compoundExpressions);
+	if (e) goto l_cleanup;
+
+	/* Save macro program. */
+	/* duckLisp sic. */
+	e = duckLisp_addInterpretedGenerator(duckLisp, expression->compoundExpressions[1].value.identifier, macroBytecode);
+	if (e) goto l_cleanup;
+
+ l_cleanup:
+	/**/ duckLisp_quit(&subLisp);
+	eError = dl_array_quit(&eString);
+	if (eError) e = eError;
 
 	return e;
 }
@@ -6985,6 +7282,173 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
+                                    dl_array_t *assembly,
+                                    duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	dl_array_t bytecode;
+	duckVM_t subVM;
+	duckLisp_object_t return_value;
+	duckLisp_ast_compoundExpression_t ast;
+	dl_bool_t found;
+	duckLisp_t subLisp;
+	dl_array_t subAssembly;
+	dl_array_t subBytecode;
+	dl_array_t completeBytecode;
+	/**/ dl_array_init(&subAssembly,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionObject_t),
+	                   dl_array_strategy_fit);
+	/**/ dl_array_init(&subBytecode, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+	/**/ dl_array_init(&completeBytecode, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1, dl_true);
+	if (e) goto l_cleanup;
+	e = duckLisp_checkTypeAndReportError(duckLisp,
+	                                     expression->compoundExpressions[0].value.identifier,
+	                                     expression->compoundExpressions[0],
+	                                     duckLisp_ast_type_identifier);
+	if (e) goto l_cleanup;
+
+	/* Get macro bytecode. */
+
+	e = scope_getMacroFromName(duckLisp,
+	                           &found,
+	                           &bytecode,
+	                           expression->compoundExpressions[0].value.identifier.value,
+	                           expression->compoundExpressions[0].value.identifier.value_length);
+	if (e) goto l_cleanup;
+	if (!found) {
+		e = dl_array_pushElements(&eString,
+		                          expression->compoundExpressions[0].value.identifier.value,
+		                          expression->compoundExpressions[0].value.identifier.value_length);
+		if (e) goto l_cleanup;
+		e = dl_array_pushElements(&eString, DL_STR(": Could not find macro bytecode."));
+		if (e) goto l_cleanup;
+		e = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length);
+		if (e) goto l_cleanup;
+		e = dl_error_invalidValue;
+		goto l_cleanup;
+	}
+
+	/* Generate bytecode for arguments. */
+
+	subLisp.memoryAllocation = duckLisp->memoryAllocation;
+	e = duckLisp_init(&subLisp);
+	if (e) goto l_cleanup;
+
+	duckLisp_ast_compoundExpression_t call;
+	call.type = duckLisp_ast_type_expression;
+	e = DL_MALLOC(subLisp.memoryAllocation,
+	              &call.value.expression.compoundExpressions,
+	              expression->compoundExpressions_length,
+	              duckLisp_ast_compoundExpression_t);
+	if (e) goto l_cleanupCompiler;
+	call.value.expression.compoundExpressions_length = expression->compoundExpressions_length;
+	call.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
+	/* The function name is empty. This is an actual function that will be added to the environment that represents the
+	   macro. */
+	call.value.expression.compoundExpressions[0].value.identifier.value = dl_null;
+	call.value.expression.compoundExpressions[0].value.identifier.value_length = 0;
+	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		duckLisp_ast_compoundExpression_t quote;
+		quote = call.value.expression.compoundExpressions[i];
+		quote.type = duckLisp_ast_type_expression;
+		quote.value.expression.compoundExpressions_length = 2;
+		e = DL_MALLOC(subLisp.memoryAllocation,
+		              &quote.value.expression.compoundExpressions,
+		              2,
+		              duckLisp_ast_compoundExpression_t);
+		if (e) goto l_cleanupCompiler;
+		quote.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
+		quote.value.expression.compoundExpressions[0].value.identifier.value = "quote";
+		quote.value.expression.compoundExpressions[0].value.identifier.value_length = sizeof("quote") - 1;
+		quote.value.expression.compoundExpressions[1] = expression->compoundExpressions[i];
+		call.value.expression.compoundExpressions[i] = quote;
+	}
+	e = ast_print_compoundExpression(*duckLisp, call);
+	puts("");
+	if (e) goto l_cleanupCompiler;
+
+	e = duckLisp_addInterpretedFunction(&subLisp, call.value.expression.compoundExpressions[0].value.identifier);
+	if (e) goto l_cleanupCompiler;
+	e = duckLisp_scope_addObject(&subLisp,
+	                             call.value.expression.compoundExpressions[0].value.identifier.value,
+	                             call.value.expression.compoundExpressions[0].value.identifier.value_length);
+	subLisp.locals_length++;
+	if (e) goto l_cleanupCompiler;
+	e = duckLisp_compileAST(&subLisp, &subBytecode, call);
+	if (e) goto l_cleanupCompiler;
+
+	e = dl_array_pushElements(&completeBytecode, bytecode.elements, bytecode.elements_length - 1);
+	if (e) goto l_cleanupCompiler;
+	e = dl_array_pushElements(&completeBytecode, subBytecode.elements, subBytecode.elements_length);
+	if (e) goto l_cleanupCompiler;
+	puts(duckLisp_disassemble(duckLisp->memoryAllocation, completeBytecode.elements, completeBytecode.elements_length));
+
+	/* Execute macro. */
+
+	subVM.memoryAllocation = duckLisp->memoryAllocation;
+
+	/* Shouldn't need too many resources. */
+	e = duckVM_init(&subVM, 1000, 1000, 1000, 1000);
+	if (e) goto l_cleanupCompiler;
+
+	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements);
+	if (e) goto l_cleanupVM;
+	printf("stack length %llu\n", subVM.stack.elements_length);
+	printf("return value type %i\n", return_value.type);
+
+	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* printf("constexpr: Post execution memory usage: %llu/%llu (%llu%%)\n", */
+	/*        tempDlSize, */
+	/*        duckLisp->memoryAllocation->size, */
+	/*        100*tempDlSize/duckLisp->memoryAllocation->size); */
+
+	/* Compile macro expansion. */
+
+	e = duckLisp_objectToAST(duckLisp, &ast, &return_value, dl_true);
+	if (e) goto l_cleanupVM;
+
+	e = ast_print_compoundExpression(*duckLisp, ast);
+	if (e) goto l_cleanupVM;
+	putchar('\n');
+
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &ast,
+	                                        dl_null,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto l_cleanupVM;
+
+	/* puts("done"); */
+
+ l_cleanupVM:
+	/**/ duckVM_quit(&subVM);
+
+ l_cleanupCompiler:
+
+	/**/ duckLisp_quit(&subLisp);
+
+ l_cleanup:
+
+	eError = dl_array_quit(&subAssembly);
+	if (!e) e = eError;
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
 dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
                                          dl_array_t *assembly,
                                          duckLisp_ast_expression_t *expression) {
@@ -7265,7 +7729,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		}
 		break;
 	case duckLisp_ast_type_identifier:
-		// Run function generator.
+		/* Determine function type. */
 		functionType = duckLisp_functionType_none;
 		{
 			dl_ptrdiff_t index = -1;
@@ -7283,7 +7747,9 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 				if (e) goto l_cleanup;
 				if (found) functionType = duckLisp_functionType_ducklisp;
 			}
-			else functionType = duckLisp_functionType_ducklisp;
+			else {
+				functionType = duckLisp_functionType_ducklisp;
+			}
 		}
 		if (functionType != duckLisp_functionType_ducklisp) {
 			name = expression->compoundExpressions[0].value.identifier;
@@ -7312,6 +7778,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 				goto l_cleanup;
 			}
 		}
+		/* Compile function. */
 		switch (functionType) {
 		case duckLisp_functionType_ducklisp:
 			/* What's nice is we only need the label to generate the required code. No tries required. ^‿^ */
@@ -7327,6 +7794,9 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 			if (e) goto l_cleanup;
 			e = generatorCallback(duckLisp, assembly, expression);
 			if (e) goto l_cleanup;
+			break;
+		case duckLisp_functionType_macro:
+			e = duckLisp_generator_macro(duckLisp, assembly, expression);
 			break;
 		default:
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid function type. Can't happen."));
@@ -9246,42 +9716,44 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 		const char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
-	} generators[] = {{DL_STR("comment"),        duckLisp_generator_comment},
-	                  {DL_STR(";"),              duckLisp_generator_comment},
-	                  {DL_STR("nop"),            duckLisp_generator_nop},
-	                  {DL_STR("funcall"),        duckLisp_generator_funcall2},
-	                  {DL_STR("apply"),          duckLisp_generator_apply},
-	                  {DL_STR("label"),          duckLisp_generator_label},
-	                  {DL_STR("var"),            duckLisp_generator_createVar},
-	                  {DL_STR("setq"),           duckLisp_generator_setq},
-	                  {DL_STR("\xE2\x86\x90"),   duckLisp_generator_setq},
-	                  {DL_STR("not"),            duckLisp_generator_not},
-	                  {DL_STR("*"),              duckLisp_generator_multiply},
-	                  {DL_STR("/"),              duckLisp_generator_divide},
-	                  {DL_STR("+"),              duckLisp_generator_add},
-	                  {DL_STR("-"),              duckLisp_generator_sub},
-	                  {DL_STR("while"),          duckLisp_generator_while},
-	                  {DL_STR("if"),             duckLisp_generator_if},
-	                  {DL_STR("when"),           duckLisp_generator_when},
-	                  {DL_STR("unless"),         duckLisp_generator_unless},
-	                  {DL_STR("="),              duckLisp_generator_equal},
-	                  {DL_STR("<"),              duckLisp_generator_less},
-	                  {DL_STR(">"),              duckLisp_generator_greater},
-	                  {DL_STR("defun"),          duckLisp_generator_defun},
-	                  {DL_STR("\0defun:lambda"), duckLisp_generator_lambda},
-	                  {DL_STR("lambda"),         duckLisp_generator_lambda},
-	                  {DL_STR("constexpr"),      duckLisp_generator_constexpr},
-	                  {DL_STR("noscope"),        duckLisp_generator_noscope},
-	                  {DL_STR("quote"),          duckLisp_generator_quote},
-	                  {DL_STR("list"),           duckLisp_generator_list},
-	                  {DL_STR("cons"),           duckLisp_generator_cons},
-	                  {DL_STR("car"),            duckLisp_generator_car},
-	                  {DL_STR("cdr"),            duckLisp_generator_cdr},
-	                  {DL_STR("set-car"),        duckLisp_generator_setCar},
-	                  {DL_STR("set-cdr"),        duckLisp_generator_setCdr},
-	                  {DL_STR("null?"),          duckLisp_generator_nullp},
-	                  {DL_STR("type-of"),        duckLisp_generator_typeof},
-	                  {dl_null, 0,               dl_null}};
+	} generators[] = {{DL_STR("comment"),           duckLisp_generator_comment},
+	                  {DL_STR(";"),                 duckLisp_generator_comment},
+	                  {DL_STR("nop"),               duckLisp_generator_nop},
+	                  {DL_STR("funcall"),           duckLisp_generator_funcall2},
+	                  {DL_STR("apply"),             duckLisp_generator_apply},
+	                  {DL_STR("label"),             duckLisp_generator_label},
+	                  {DL_STR("var"),               duckLisp_generator_createVar},
+	                  {DL_STR("setq"),              duckLisp_generator_setq},
+	                  {DL_STR("\xE2\x86\x90"),      duckLisp_generator_setq},
+	                  {DL_STR("not"),               duckLisp_generator_not},
+	                  {DL_STR("*"),                 duckLisp_generator_multiply},
+	                  {DL_STR("/"),                 duckLisp_generator_divide},
+	                  {DL_STR("+"),                 duckLisp_generator_add},
+	                  {DL_STR("-"),                 duckLisp_generator_sub},
+	                  {DL_STR("while"),             duckLisp_generator_while},
+	                  {DL_STR("if"),                duckLisp_generator_if},
+	                  {DL_STR("when"),              duckLisp_generator_when},
+	                  {DL_STR("unless"),            duckLisp_generator_unless},
+	                  {DL_STR("="),                 duckLisp_generator_equal},
+	                  {DL_STR("<"),                 duckLisp_generator_less},
+	                  {DL_STR(">"),                 duckLisp_generator_greater},
+	                  {DL_STR("defun"),             duckLisp_generator_defun},
+	                  {DL_STR("\0defun:lambda"),    duckLisp_generator_lambda},
+	                  {DL_STR("\0defmacro:lambda"), duckLisp_generator_lambda},
+	                  {DL_STR("lambda"),            duckLisp_generator_lambda},
+	                  {DL_STR("constexpr"),         duckLisp_generator_constexpr},
+	                  {DL_STR("defmacro"),          duckLisp_generator_defmacro},
+	                  {DL_STR("noscope"),           duckLisp_generator_noscope},
+	                  {DL_STR("quote"),             duckLisp_generator_quote},
+	                  {DL_STR("list"),              duckLisp_generator_list},
+	                  {DL_STR("cons"),              duckLisp_generator_cons},
+	                  {DL_STR("car"),               duckLisp_generator_car},
+	                  {DL_STR("cdr"),               duckLisp_generator_cdr},
+	                  {DL_STR("set-car"),           duckLisp_generator_setCar},
+	                  {DL_STR("set-cdr"),           duckLisp_generator_setCdr},
+	                  {DL_STR("null?"),             duckLisp_generator_nullp},
+	                  {DL_STR("type-of"),           duckLisp_generator_typeof},
+	                  {dl_null, 0,                  dl_null}};
 
 	// /* No error */ cst_expression_init(&duckLisp->cst);
 	// /* No error */ ast_expression_init(&duckLisp->ast);
@@ -9456,14 +9928,10 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	duckLisp->locals_length = 0;
 	e = duckLisp_compileAST(duckLisp, &bytecodeArray, ast);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
 
 	e = ast_compoundExpression_quit(duckLisp, &ast);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
 
 	e = dl_array_quit(&duckLisp->labels);
 	if (e) goto l_cleanup;
@@ -9525,6 +9993,34 @@ dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp, const duckLisp_
 	if (e) {
 		goto l_cleanup;
 	}
+
+ l_cleanup:
+
+	return e;
+}
+
+/* Interpreted generator, i.e. a macro. */
+dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
+                                            const duckLisp_ast_identifier_t name,
+                                            dl_array_t bytecode) {
+	dl_error_t e = dl_error_ok;
+
+	duckLisp_scope_t scope;
+
+	// Stick name and index in the current scope's trie.
+	e = scope_getTop(duckLisp, &scope);
+	if (e) goto l_cleanup;
+
+	// Record function type in function trie.
+	e = dl_trie_insert(&scope.functions_trie, name.value, name.value_length, duckLisp_functionType_macro);
+	if (e) goto l_cleanup;
+	e = dl_trie_insert(&scope.macros_trie, name.value, name.value_length, scope.macros_length++);
+	if (e) goto l_cleanup;
+	e = dl_array_pushElement(&scope.macros, &bytecode);
+	if (e) goto l_cleanup;
+
+	e = scope_setTop(duckLisp, &scope);
+	if (e) goto l_cleanup;
 
  l_cleanup:
 

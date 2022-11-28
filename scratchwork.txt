@@ -1294,6 +1294,21 @@ Need a trie local to pmacros for variable expansion? Could do simple search-and-
 
 Unfortunately, this requires the same exact machinery as normal macros since the expansion happens apart from the definition.
 
+If a function is pure (meaning it doesn't use any free variables and doesn't call any impure functions), then it could be compiled and saved for use by macros.
+
+These can all fully define a bytecode stream:
+source code
+CST
+AST
+assembly + labels — This one is annoying. Maybe I can merge these two? Labels are currently global, but could easily be generator and emitter parameters.
+bytecode
+
+These fully defined forms are useful to store and manipulate:
+source code — User input
+AST — True form of the language
+assembly + labels — Optional, but can be useful to interact with.
+bytecode — Executable code
+
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:
