@@ -162,7 +162,7 @@ The only other sequence type is the cons cell. A cons cell is a pair of values.
 (cons 4 2)  (; ⇒ (4 . 2))
 ```
 
-The dot notation above is how a cons cell is printed. duck-lisp cannot parse that syntax.
+The dot notation above is how a cons cell is printed. Duck-lisp cannot parse that syntax.
 
 To access the first value, use `car`.
 
@@ -248,10 +248,59 @@ A list without a nil on the end is called a dotted list. In general, dotted list
 
 ## Metaprogramming
 
-Only support at the moment for metaprogramming is `quote` and the symbol data type.
+Duck-lisp supports `quote` and the symbol data type. This is enough to implement the metacircular evaluator.
 
 ```lisp
 (print (quote (+ 4 17)))  (; ⇒ (+→0 4 17))
 ```
 
-Still, it is possible to implement the metacircular evaluator in duck-lisp.
+Simple macros are also supported.
+
+```lisp
+(defmacro to (variable form)
+  (var function (car form))
+  (var args (cdr form))
+  (var subform (list function variable))
+  (set-cdr (cdr subform) args)
+  (list (quote setq) variable subform))
+```
+
+```lisp
+(defun nthcdr (n list)
+  (var i 0)
+  (while (< i n)
+	(to list (cdr))
+	(to i (1+)))
+  list)
+```
+
+Macros, like functions, can also be variadic.
+
+```lisp
+(defmacro to (variable function &rest args)
+  (var subform (list function variable))
+  (set-cdr (cdr subform) args)
+  (list (quote setq) variable subform))
+```
+
+```lisp
+(defun nthcdr (n list)
+  (var i 0)
+  (while (< i n)
+	(to list cdr)
+	(to i 1+))
+  list)
+```
+
+or alternatively,
+
+```lisp
+(defun nthcdr (n list)
+  (var i 0)
+  (while (< i n)
+	(to list cdr)
+	(to i + 1))
+  list)
+```
+
+The most significant limitation is that free variables, functions, and macros cannot be accessed in the macro definition, so any external functions the macro uses must be redefined in the body of `defmacro`.

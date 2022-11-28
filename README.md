@@ -6,12 +6,12 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 
 ## Features
 
-* Separate compiler and VM
-* Lexical scoping
+* Lexical scope
+* Simple macros
+* UTF-8 compatible
 * User created keywords
 * C FFI
-* Low memory VM
-* UTF-8 compatible
+* Separate compiler and VM
 * Tested on x64 (Linux) and ARM (Linux)
 * A simplified VM has been used on an ATmega328P.
 
