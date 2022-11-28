@@ -1,11 +1,13 @@
-(defmacro to (variable form)
-  (var function (car form))
-  (var args (cdr form))
+(defmacro to (variable function &rest args)
   (var subform (list function variable))
   (set-cdr (cdr subform) args)
   (list (quote setq) variable subform))
 
+(defun 1+ (x)
+  (+ 1 x))
+
 (var x 5)
 (print x)
-(to x (+ 1))  (comment Expands to (setq x (+ x 1)))
+(to x + 1)  (comment Expands to (setq x (+ x 1)))
+(to x 1+)
 (print x)
