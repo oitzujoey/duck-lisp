@@ -7298,12 +7298,12 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&completeBytecode, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1, dl_true);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 	e = duckLisp_checkTypeAndReportError(duckLisp,
 	                                     expression->compoundExpressions[0].value.identifier,
 	                                     expression->compoundExpressions[0],
 	                                     duckLisp_ast_type_identifier);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 
 	/* Get macro bytecode. */
 
@@ -7312,25 +7312,25 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	                           &bytecode,
 	                           expression->compoundExpressions[0].value.identifier.value,
 	                           expression->compoundExpressions[0].value.identifier.value_length);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 	if (!found) {
 		e = dl_array_pushElements(&eString,
 		                          expression->compoundExpressions[0].value.identifier.value,
 		                          expression->compoundExpressions[0].value.identifier.value_length);
-		if (e) goto l_cleanup;
+		if (e) goto cleanupArrays;
 		e = dl_array_pushElements(&eString, DL_STR(": Could not find macro bytecode."));
-		if (e) goto l_cleanup;
+		if (e) goto cleanupArrays;
 		e = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length);
-		if (e) goto l_cleanup;
+		if (e) goto cleanupArrays;
 		e = dl_error_invalidValue;
-		goto l_cleanup;
+		goto cleanupArrays;
 	}
 
 	/* Generate bytecode for arguments. */
 
 	subLisp.memoryAllocation = duckLisp->memoryAllocation;
 	e = duckLisp_init(&subLisp);
-	if (e) goto l_cleanup;
+	if (e) goto cleanupArrays;
 
 	duckLisp_ast_compoundExpression_t call;
 	call.type = duckLisp_ast_type_expression;
@@ -7338,7 +7338,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	              &call.value.expression.compoundExpressions,
 	              expression->compoundExpressions_length,
 	              duckLisp_ast_compoundExpression_t);
-	if (e) goto l_cleanupCompiler;
+	if (e) goto cleanupCompiler;
 	call.value.expression.compoundExpressions_length = expression->compoundExpressions_length;
 	call.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
 	/* The function name is empty. This is an actual function that will be added to the environment that represents the
@@ -7354,7 +7354,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 		              &quote.value.expression.compoundExpressions,
 		              2,
 		              duckLisp_ast_compoundExpression_t);
-		if (e) goto l_cleanupCompiler;
+		if (e) goto cleanupCall;
 		quote.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
 		quote.value.expression.compoundExpressions[0].value.identifier.value = "quote";
 		quote.value.expression.compoundExpressions[0].value.identifier.value_length = sizeof("quote") - 1;
@@ -7363,35 +7363,22 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	}
 
 	e = duckLisp_addInterpretedFunction(&subLisp, call.value.expression.compoundExpressions[0].value.identifier);
-	if (e) goto l_cleanupCompiler;
+	if (e) goto cleanupQuotes;
 	e = duckLisp_scope_addObject(&subLisp,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value_length);
 	subLisp.locals_length++;
-	if (e) goto l_cleanupCompiler;
+	if (e) goto cleanupQuotes;
 	e = duckLisp_compileAST(&subLisp, &subBytecode, call);
-	if (e) goto l_cleanupCompiler;
-
-	e = dl_array_quit(&subLisp.labels);
-	if (e) goto l_cleanup;
-
-	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
-		duckLisp_ast_compoundExpression_t quote;
-		quote = call.value.expression.compoundExpressions[i];
-		e = DL_FREE(subLisp.memoryAllocation, &quote.value.expression.compoundExpressions);
-		if (e) goto l_cleanupCompiler;
-		call.value.expression.compoundExpressions[i] = quote;
-	}
-	e = DL_FREE(subLisp.memoryAllocation, &call.value.expression.compoundExpressions);
-	if (e) goto l_cleanupCompiler;
+	if (e) goto cleanupLabels;
 
 	/* Merge the two bytecode programs into one. */
 
 	/* HACK The return is not guaranteed to be one byte long. */
 	e = dl_array_pushElements(&completeBytecode, bytecode.elements, bytecode.elements_length - 1);
-	if (e) goto l_cleanupCompiler;
+	if (e) goto cleanupLabels;
 	e = dl_array_pushElements(&completeBytecode, subBytecode.elements, subBytecode.elements_length);
-	if (e) goto l_cleanupCompiler;
+	if (e) goto cleanupLabels;
 
 	/* Execute macro. */
 
@@ -7399,21 +7386,15 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Shouldn't need too many resources. */
 	e = duckVM_init(&subVM, 1000, 1000, 1000, 1000);
-	if (e) goto l_cleanupCompiler;
+	if (e) goto cleanupLabels;
 
 	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements);
-	if (e) goto l_cleanupVM;
-
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("constexpr: Post execution memory usage: %llu/%llu (%llu%%)\n", */
-	/*        tempDlSize, */
-	/*        duckLisp->memoryAllocation->size, */
-	/*        100*tempDlSize/duckLisp->memoryAllocation->size); */
+	if (e) goto cleanupVM;
 
 	/* Compile macro expansion. */
 
 	e = duckLisp_objectToAST(duckLisp, &ast, &return_value, dl_true);
-	if (e) goto l_cleanupVM;
+	if (e) goto cleanupVM;
 
 	e = duckLisp_compile_compoundExpression(duckLisp,
 	                                        assembly,
@@ -7423,19 +7404,42 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	                                        dl_null,
 	                                        dl_null,
 	                                        dl_false);
-	if (e) goto l_cleanupVM;
+	if (e) goto cleanupAST;
 
-	e = ast_compoundExpression_quit(duckLisp, &ast);
-	if (e) goto l_cleanupVM;
+	/* I. WANT. DEFER. */
+ cleanupAST:
 
- l_cleanupVM:
+	eError = ast_compoundExpression_quit(duckLisp, &ast);
+	if (!e) e = eError;
+
+ cleanupVM:
 	/**/ duckVM_quit(&subVM);
 
- l_cleanupCompiler:
+ cleanupLabels:
+	/* I hate this. `labels` shouldn't be global. */
+	eError = dl_array_quit(&subLisp.labels);
+	if (!e) e = eError;
 
+ cleanupQuotes:
+	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+		duckLisp_ast_compoundExpression_t quote;
+		quote = call.value.expression.compoundExpressions[i];
+		eError = DL_FREE(subLisp.memoryAllocation, &quote.value.expression.compoundExpressions);
+		if (!e) {
+			e = eError;
+			if (e) break;
+		};
+		call.value.expression.compoundExpressions[i] = quote;
+	}
+
+ cleanupCall:
+	eError = DL_FREE(subLisp.memoryAllocation, &call.value.expression.compoundExpressions);
+	if (!e) e = eError;
+
+ cleanupCompiler:
 	/**/ duckLisp_quit(&subLisp);
 
- l_cleanup:
+ cleanupArrays:
 
 	eError = dl_array_quit(&subBytecode);
 	if (!e) e = eError;
@@ -7444,9 +7448,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	eError = dl_array_quit(&subAssembly);
 	if (!e) e = eError;
 	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
+	if (!e) e = eError;
 
 	return e;
 }
