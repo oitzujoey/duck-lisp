@@ -12,12 +12,14 @@ Every function and keyword follows the form `(verb noun noun …)`.
 
 ```lisp
 (comment This is a comment.)
-(; This is also a comment, though may mess with your parenthesis completion.)
+(; This is also a comment, though it may mess with your parenthesis completion.)
 ```
 
 ## Data types
 
 Integers, floats, booleans, strings, cons, symbols, closures
+
+Floats are not yet supported by all keywords. There are no built-in string keywords.
 
 The type of a value can be converted to an integer corresponding to its type using the `type-of` keyword.
 
