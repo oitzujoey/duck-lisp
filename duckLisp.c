@@ -4548,6 +4548,7 @@ dl_error_t duckLisp_generator_quote(duckLisp_t *duckLisp, dl_array_t *assembly, 
 	dl_ptrdiff_t temp_index = -1;
 	char *functionName = expression->compoundExpressions[0].value.identifier.value;
 	dl_size_t functionName_length = expression->compoundExpressions[0].value.identifier.value_length;
+	duckLisp_ast_identifier_t tempIdentifier;
 
 	/*
 	  Recursively convert to a tree made of lists.
@@ -4593,7 +4594,11 @@ dl_error_t duckLisp_generator_quote(duckLisp_t *duckLisp, dl_array_t *assembly, 
 			                   tree->value.identifier.value_length,
 			                   duckLisp->symbols_array.elements_length);
 			if (e) goto l_cleanup;
-			e = dl_array_pushElement(&duckLisp->symbols_array, (void *) &tree->value.identifier);
+			tempIdentifier.value_length = tree->value.identifier.value_length;
+			e = dl_malloc(duckLisp->memoryAllocation, (void **) &tempIdentifier.value, tempIdentifier.value_length);
+			if (e) goto l_cleanup;
+			/**/ dl_memcopy_noOverlap(tempIdentifier.value, tree->value.identifier.value, tempIdentifier.value_length);
+			e = dl_array_pushElement(&duckLisp->symbols_array, (void *) &tempIdentifier);
 			if (e) goto l_cleanup;
 		}
 		// Push symbol
@@ -9816,6 +9821,10 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 	}
 	e = dl_array_quit(&duckLisp->scope_stack);
 	e = dl_trie_quit(&duckLisp->symbols_trie);
+	DL_DOTIMES(i, duckLisp->symbols_array.elements_length) {
+		e = DL_FREE(duckLisp->memoryAllocation,
+		            &DL_ARRAY_GETADDRESS(duckLisp->symbols_array, duckLisp_ast_identifier_t, i).value);
+	}
 	e = dl_array_quit(&duckLisp->symbols_array);
 	(void) e;
 }
