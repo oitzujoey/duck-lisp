@@ -1250,9 +1250,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			parsedBytecode = dl_true;
 			// Fall through
 		case duckLisp_instruction_move16:
@@ -1260,7 +1260,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				ptrdiff1 = *(ip++);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff2 = *(ip++);
-				ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 				parsedBytecode = dl_true;
 			}
 			// Fall through
