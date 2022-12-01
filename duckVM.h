@@ -137,6 +137,7 @@ dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, d
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, dl_error_t (*callback)(duckVM_t *));
 
 /* Functions for C callbacks */
+dl_error_t duckVM_gclist_pushCons(duckVM_t *duckVM, duckVM_gclist_cons_t **consOut, duckVM_gclist_cons_t consIn);
 dl_error_t duckVM_garbageCollect(duckVM_t *duckVM);
 /* void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length); */
 /* dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff_t index); */
