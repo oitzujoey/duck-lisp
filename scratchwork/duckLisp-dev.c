@@ -6,9 +6,7 @@
 #include "../DuckLib/core.h"
 #include "../duckLisp.h"
 #include "../duckVM.h"
-#include "DuckLib/memory.h"
-#include "DuckLib/array.h"
-#include "DuckLib/trie.h"
+#include "../DuckLib/sort.h"
 
 
 #define COLOR_NORMAL    "\x1B[0m"
@@ -388,6 +386,78 @@ dl_error_t duckLispDev_callback_garbageCollect(duckVM_t *duckVM) {
 dl_error_t duckLispDev_callback_toggleAssembly(duckVM_t *duckVM) {
 	g_disassemble = !g_disassemble;
 	return duckVM_pushNil(duckVM);
+}
+
+int duckLispDev_callback_quicksort_hoare_less(const void *l, const void *r, const void *context) {
+	(void) context;
+	duckLisp_object_t **left_object_ptr = (duckLisp_object_t **) l;
+	duckLisp_object_t **right_object_ptr = (duckLisp_object_t **) r;
+	const dl_ptrdiff_t left = (*left_object_ptr)->value.integer;
+	const dl_ptrdiff_t right = (*right_object_ptr)->value.integer;
+	return left - right;
+}
+
+/* This is very unsafe.
+   (defun list list-length) */
+dl_error_t duckLispDev_callback_quicksort_hoare(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_object_t list = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, duckVM->stack.elements_length - 2);
+	duckLisp_object_t list_length = DL_ARRAY_GETADDRESS(duckVM->stack,
+	                                                    duckLisp_object_t,
+	                                                    duckVM->stack.elements_length - 1);
+	duckLisp_object_t **array = dl_null;
+	dl_size_t array_length = list_length.value.integer;
+
+	e = DL_MALLOC(duckVM->memoryAllocation, &array, array_length, duckLisp_object_t *);
+	if (e) goto cleanup;
+
+	DL_DOTIMES(i, array_length) {
+		array[i] = list.value.list->car.data;
+		if (list.value.list != dl_null) {
+			if ((list.value.list->type == duckVM_gclist_cons_type_objectAddr)
+			    || (list.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+				list.value.list = list.value.list->cdr.addr;
+			}
+			else {
+				list = *list.value.list->cdr.data;
+			}
+		}
+	}
+
+	/**/ quicksort_hoare(array,
+	                     array_length,
+	                     sizeof(duckLisp_object_t *),
+	                     0,
+	                     array_length - 1,
+	                     duckLispDev_callback_quicksort_hoare_less,
+	                     dl_null);
+
+	duckVM_gclist_cons_t *cons = dl_null;
+	DL_DOTIMES(i, array_length) {
+		duckVM_gclist_cons_t tempCons;
+		tempCons.car.data = array[i];
+		tempCons.cdr.addr = cons;
+		tempCons.type = duckVM_gclist_cons_type_objectAddr;
+		e = duckVM_gclist_pushCons(duckVM, &cons, tempCons);
+		if (e) goto cleanupMalloc;
+	}
+
+	list.value.list = cons;
+	e = duckVM_pop(duckVM, dl_null);
+	if (e) goto cleanup;
+	e = duckVM_pop(duckVM, dl_null);
+	if (e) goto cleanup;
+	e = duckVM_push(duckVM, &list);
+	if (e) goto cleanupMalloc;
+	
+ cleanupMalloc:
+	eError = DL_FREE(duckVM->memoryAllocation, &array);
+	if (!e) e = eError;
+ cleanup:
+
+	return e;
 }
 
 dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
@@ -834,6 +904,7 @@ int main(int argc, char *argv[]) {
 		{0, DL_STR("print-stack"),     duckLispDev_callback_printStack},
 		{0, DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect},
 		{0, DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
+		{0, DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare},
 		{0, dl_null, 0,                dl_null}
 	};
 
