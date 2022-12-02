@@ -546,7 +546,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 	dl_uint8_t uint8;
 	duckLisp_object_t object1 = {0};
 	duckLisp_object_t object2 = {0};
-	duckLisp_object_t object3 = {0};
 	duckLisp_object_t *objectPtr1;
 	duckLisp_object_t *objectPtr2;
 	/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
@@ -911,6 +910,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					/*                              duckLisp_object_t, */
 					/*                              ((duckVM->stack.elements_length - 1) - k)); */
 					e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
+					if (e) break;
 					cons.car.data = objectPtr;
 					cons.cdr.addr = lastConsPtr;
 					cons.type = duckVM_gclist_cons_type_objectAddr;
@@ -996,6 +996,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					/*                              duckLisp_object_t, */
 					/*                              ((duckVM->stack.elements_length - 1) - k)); */
 					e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
+					if (e) break;
 					cons.car.data = objectPtr;
 					cons.cdr.addr = lastConsPtr;
 					cons.type = duckVM_gclist_cons_type_objectAddr;
@@ -1341,9 +1342,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -1415,7 +1416,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -1559,9 +1560,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -1633,7 +1634,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -1777,9 +1778,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -1851,7 +1852,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -1995,9 +1996,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -2069,7 +2070,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -2213,9 +2214,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -2281,7 +2282,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -2413,9 +2414,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			parsedBytecode = dl_true;
 			// Fall through
 		case duckLisp_instruction_equal16:
@@ -2423,7 +2424,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				ptrdiff1 = *(ip++);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff2 = *(ip++);
-				ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			}
 			// Fall through
 		case duckLisp_instruction_equal8:
@@ -2510,9 +2511,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -2578,7 +2579,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -2710,89 +2711,25 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
-			if (e) break;
-			if (object1.type == duckLisp_object_type_list) {
-				cons1.car.addr = object1.value.list;
-			}
-			else {
-				object3 = object1;
-				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object3);
-				if (e) break;
-				cons1.car.data = objectPtr1;
-			}
-			if (object2.type == duckLisp_object_type_list) {
-				cons1.car.addr = object2.value.list;
-			}
-			else {
-				object3 = object2;
-				e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object3);
-				if (e) break;
-				cons1.cdr.data = objectPtr2;
-			}
-			// This is stupid.
-			if (object1.type == duckLisp_object_type_list) {
-				if (object2.type == duckLisp_object_type_list) cons1.type = duckVM_gclist_cons_type_addrAddr;
-				else cons1.type = duckVM_gclist_cons_type_addrObject;
-			}
-			else {
-				if (object2.type == duckLisp_object_type_list) cons1.type = duckVM_gclist_cons_type_objectAddr;
-				else cons1.type = duckVM_gclist_cons_type_objectObject;
-			}
-			e = duckVM_gclist_pushCons(duckVM, &object1.value.list, cons1);
-			if (e) break;
-			object1.type = duckLisp_object_type_list;
-			e = stack_push(duckVM, &object1);
-			if (e) break;
-			break;
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			parsedBytecode = dl_true;
+			/* Fall through */
 		case duckLisp_instruction_cons16:
-			ptrdiff1 = *(ip++);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
-			if (e) break;
-			if (object1.type == duckLisp_object_type_list) {
-				cons1.car.addr = object1.value.list;
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				parsedBytecode = dl_true;
 			}
-			else {
-				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
-				if (e) break;
-				cons1.car.data = objectPtr1;
-			}
-			if (object2.type == duckLisp_object_type_list) {
-				cons1.car.addr = object2.value.list;
-			}
-			else {
-				e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object2);
-				if (e) break;
-				cons1.cdr.data = objectPtr2;
-			}
-			// This is stupid.
-			if (object1.type == duckLisp_object_type_list) {
-				if (object2.type == duckLisp_object_type_list) cons1.type = duckVM_gclist_cons_type_addrAddr;
-				else cons1.type = duckVM_gclist_cons_type_addrObject;
-			}
-			else {
-				if (object2.type == duckLisp_object_type_list) cons1.type = duckVM_gclist_cons_type_objectAddr;
-				else cons1.type = duckVM_gclist_cons_type_objectObject;
-			}
-			e = duckVM_gclist_pushCons(duckVM, &object1.value.list, cons1);
-			if (e) break;
-			object1.type = duckLisp_object_type_list;
-			e = stack_push(duckVM, &object1);
-			if (e) break;
-			break;
+			/* Fall through */
 		case duckLisp_instruction_cons8:
-			ptrdiff1 = *(ip++);
-			ptrdiff2 = *(ip++);
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff2 = *(ip++);
+			}
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
@@ -3047,9 +2984,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			parsedBytecode = dl_true;
 			// Fall through
 		case duckLisp_instruction_setCar16:
@@ -3057,7 +2994,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				ptrdiff1 = *(ip++);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff2 = *(ip++);
-				ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 				parsedBytecode = dl_true;
 			}
 			// Fall through
@@ -3124,9 +3061,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff2 = *(ip++);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 			parsedBytecode = dl_true;
 			// Fall through
 		case duckLisp_instruction_setCdr16:
@@ -3134,7 +3071,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				ptrdiff1 = *(ip++);
 				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 				ptrdiff2 = *(ip++);
-				ptrdiff2 = *(ip++) + (ptrdiff1 << 8);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
 				parsedBytecode = dl_true;
 			}
 			// Fall through
