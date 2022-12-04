@@ -1,0 +1,14 @@
+(defun length (list)
+  (var i 0)
+  (while (not (null? list))
+	(setq list (cdr list))
+    (setq i (+ i 1)))
+  i)
+
+(var l (list 3 7 2 8 2))
+
+(print l)
+(print "\n")
+(print (length l))
+(print "\n")
+(print (quicksort-hoare l (length l)))
