@@ -1,7 +1,24 @@
+(defmacro identity (x)
+  x)
+
 (defmacro to (variable function &rest args)
   (var subform (list function variable))
   (set-cdr (cdr subform) args)
   (list (quote setq) variable subform))
+
+(defmacro and (&rest args)
+  (if args
+	  (list (quote if) (car args)
+			(apply self (cdr args))
+			false)
+	  true))
+
+(defmacro or (&rest args)
+  (if args
+	  (list (quote if) (car args)
+			true
+			(apply self (cdr args)))
+	  false))
 
 (defun 1+ (x)
   (+ 1 x))
@@ -10,4 +27,19 @@
 (print x)
 (to x + 1)  (comment Expands to (setq x (+ x 1)))
 (to x 1+)
-(print x)
+(print x) (print "\n")
+
+(print (identity (quote variable))) (print "\n")
+
+(print (or 18)) (print "\n\n")
+
+(print (and (
+			 (print "First") (print "\n")
+			 true)
+			(
+			 (print "Second") (print "\n")
+			 false)
+			(
+			 (print "Third") (print "\n")
+			 true)))
+(print "\n")

@@ -166,6 +166,11 @@ typedef struct {
 } duckLisp_label_t;
 
 typedef struct {
+	dl_array_t bytecode;  /* dl_uint8_t */
+	duckLisp_ast_identifier_t name;
+} duckLisp_macro_t;
+
+typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   /* Points to stack objects. */
 	dl_trie_t statics_trie;   /* Points to static objects. */
@@ -176,7 +181,7 @@ typedef struct {
 	dl_size_t generators_length;
 	dl_trie_t macros_trie;  /* Index of macro in `macros`. */
 	dl_size_t macros_length;
-	dl_array_t macros;  /* dl_uint8_t * */
+	dl_array_t macros;  /* dl_array_t:duckLisp_macro_t * */
 
 	dl_trie_t labels_trie;
 
@@ -536,7 +541,8 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        dl_array_t *assembly,
                                        char *functionName,
                                        const dl_size_t functionName_length,
-                                       duckLisp_ast_expression_t *expression);
+                                       duckLisp_ast_expression_t *expression,
+                                       dl_ptrdiff_t *index);
 
 dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp, dl_array_t *bytecode,
 							   duckLisp_ast_compoundExpression_t astCompoundexpression);

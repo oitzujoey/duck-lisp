@@ -1309,6 +1309,11 @@ AST — True form of the language
 assembly + labels — Optional, but can be useful to interact with.
 bytecode — Executable code
 
+
+Macros are easy to call in other macros because macros are defined in their own environment. Functions are not easy to call in macros because they are defined in a messy environment that doesn't actually exist at compile time.
+Recursion in macros is easy because they are normal lambdas.
+
+
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:
