@@ -16,7 +16,7 @@
   deck)
 
 (defun last (list)
-  (while (not (null? (cdr list)))
+  (while (cdr list)
 	(to list (cdr)))
   list)
 
@@ -48,12 +48,12 @@
   (var cycle-number 0)
   (var deck-length (length deck))
   (var search-area scratch-shuffled-deck)
-  (while (not (null? search-area))
+  (while search-area
 	(comment " Find the next element that has not been touched. This is the start of the next loop. ")
-	(while (and (not (null? search-area))
+	(while (and search-area
 				(null? (car search-area)))
 	  (to search-area (cdr)))
-	(if (not (null? search-area))
+	(if search-area
 		(
 		 (println "  Found cycle.")
 		 (setq cycles (cons () cycles))
@@ -85,7 +85,7 @@
   (println "Collecting cycle lengths…")
   (var lengths ())
   (var cycle ())
-  (while (not (null? cycles))
+  (while cycles
 	(setq cycle (car cycles))
 	(setq lengths (cons (length cycle) lengths))
 	(to cycles (cdr)))
@@ -93,7 +93,7 @@
   (comment " Initialize `total` with a safe value that will not effect the rest of the calculation. ")
   (println "Calculating LCM…")
   (var total (car lengths))
-  (while (not (null? lengths))
+  (while lengths
 	(setq len (car lengths))
 	(setq total (lcm len total))
 	(to lengths (cdr)))

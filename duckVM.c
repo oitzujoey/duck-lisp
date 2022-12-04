@@ -1168,66 +1168,65 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
-			if (e) break;
-			ptrdiff2 = *(ip++);
-			e = stack_pop_multiple(duckVM, ptrdiff2);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_bool) {
-				e = dl_error_invalidValue;
-				break;
-			}
-			if (object1.value.boolean) {
-				if (ptrdiff1 & 0x80000000ULL) {
-					ip -= ((~ptrdiff1 + 1) & 0xFFFFFFFFULL);
-				}
-				else {
-					ip += ptrdiff1;
-				}
-				--ip; // This accounts for the pop argument.
-			}
-			break;
+			parsedBytecode = dl_true;
+			/* Fall through */
 		case duckLisp_instruction_brnz16:
-			ptrdiff1 = *(ip++);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
-			if (e) break;
-			ptrdiff2 = *(ip++);
-			e = stack_pop_multiple(duckVM, ptrdiff2);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_bool) {
-				e = dl_error_invalidValue;
-				break;
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+				ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+				parsedBytecode = dl_true;
 			}
-			if (object1.value.boolean) {
-				if (ptrdiff1 & 0x8000ULL) {
-					ip -= ((~ptrdiff1 + 1) & 0xFFFFULL);
-				}
-				else {
-					ip += ptrdiff1;
-				}
-				--ip; // This accounts for the pop argument.
-			}
-			break;
+			/* Fall through */
 		case duckLisp_instruction_brnz8:
-			ptrdiff1 = *(ip++);
+			if (!parsedBytecode) {
+				ptrdiff1 = *(ip++);
+			}
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - 1);
 			if (e) break;
 			ptrdiff2 = *(ip++);
 			e = stack_pop_multiple(duckVM, ptrdiff2);
 			if (e) break;
-			if (object1.type != duckLisp_object_type_bool) {
-				e = dl_error_invalidValue;
-				break;
-			}
-			if (object1.value.boolean) {
-				if (ptrdiff1 & 0x80ULL) {
-					ip -= ((~ptrdiff1 + 1) & 0xFFULL);
+			{
+				dl_bool_t truthy = dl_false;
+				if (object1.type == duckLisp_object_type_bool) {
+					truthy = object1.value.boolean;
 				}
-				else {
-					ip += ptrdiff1;
+				else if (object1.type == duckLisp_object_type_integer) {
+					truthy = object1.value.integer != 0;
 				}
-				--ip; // This accounts for the pop argument.
+				else if (object1.type == duckLisp_object_type_float) {
+					truthy = object1.value.floatingPoint != 0.0;
+				}
+				else if (object1.type == duckLisp_object_type_symbol) {
+					truthy = dl_true;
+				}
+				else if (object1.type == duckLisp_object_type_list) {
+					truthy = object1.value.list != dl_null;
+				}
+				else if (object1.type == duckLisp_object_type_closure) {
+					truthy = dl_true;
+				}
+				else if (object1.type == duckLisp_object_type_function) {
+					truthy = dl_true;
+				}
+				else if (object1.type == duckLisp_object_type_string) {
+					truthy = dl_true;
+				}
+				if (truthy) {
+					if ((opcode == duckLisp_instruction_brnz8) && (ptrdiff1 & 0x80ULL)) {
+						ip -= ((~ptrdiff1 + 1) & 0xFFULL);
+					}
+					else if ((opcode == duckLisp_instruction_brnz16) && (ptrdiff1 & 0x8000ULL)) {
+						ip -= ((~ptrdiff1 + 1) & 0xFFFFULL);
+					}
+					else if ((opcode == duckLisp_instruction_brnz32) && (ptrdiff1 & 0x80000000ULL)) {
+						ip -= ((~ptrdiff1 + 1) & 0xFFFFFFFFULL);
+					}
+					else {
+						ip += ptrdiff1;
+					}
+					--ip; // This accounts for the pop argument.
+				}
 			}
 			break;
 
@@ -3008,7 +3007,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 
-			if (object2.type == duckLisp_object_type_list) {
+			if ((object2.type == duckLisp_object_type_list) && (object2.value.list != dl_null)) {
 				if (object1.type == duckLisp_object_type_list) {
 					if (object1.value.list == dl_null) object2.value.list->car.addr = dl_null;
 					else object2.value.list->car.addr = object1.value.list;
