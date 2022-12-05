@@ -597,7 +597,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			break;
 
 		case duckLisp_instruction_pushString32:
-			object1.value.string.value_length = *(ip)++;
+			object1.value.string.value_length = *(ip++);
 			object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
 			// Fall through
 		case duckLisp_instruction_pushString16:
