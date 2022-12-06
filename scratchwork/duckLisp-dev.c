@@ -33,22 +33,22 @@ dl_bool_t g_disassemble = dl_false;
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM);
 
 
-dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckVM_gclist_cons_t *cons) {
+dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckLisp_object_t *cons) {
 	dl_error_t e = dl_error_ok;
 
 	if (cons == dl_null) {
 		printf("nil");
 	}
 	else {
-		if ((cons->type == duckVM_gclist_cons_type_addrObject) ||
-			(cons->type == duckVM_gclist_cons_type_addrAddr)) {
+		if ((cons->value.cons.car == dl_null)
+		    || (cons->value.cons.car->type == duckLisp_object_type_cons)) {
 			printf("(");
-			e = duckLispDev_callback_printCons(duckVM, cons->car.addr);
+			e = duckLispDev_callback_printCons(duckVM, cons->value.cons.car);
 			if (e) goto l_cleanup;
 			printf(")");
 		}
 		else {
-			e = duckVM_push(duckVM, cons->car.data);
+			e = duckVM_push(duckVM, cons->value.cons.car);
 			if (e) goto l_cleanup;
 			e = duckLispDev_callback_print(duckVM);
 			if (e) goto l_cleanup;
@@ -57,17 +57,17 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckVM_gclist_cons_t
 		}
 		
 		
-		if ((cons->type == duckVM_gclist_cons_type_objectAddr) ||
-			(cons->type == duckVM_gclist_cons_type_addrAddr)) {
-			if (cons->cdr.data != dl_null) {
+		if ((cons->value.cons.cdr == dl_null)
+		    || (cons->value.cons.cdr->type == duckLisp_object_type_cons)) {
+			if (cons->value.cons.cdr != dl_null) {
 				printf(" ");
-				e = duckLispDev_callback_printCons(duckVM, cons->cdr.addr);
+				e = duckLispDev_callback_printCons(duckVM, cons->value.cons.cdr);
 				if (e) goto l_cleanup;
 			}
 		}
 		else {
 			printf(" . ");
-			e = duckVM_push(duckVM, cons->cdr.data);
+			e = duckVM_push(duckVM, cons->value.cons.cdr);
 			if (e) goto l_cleanup;
 			e = duckLispDev_callback_print(duckVM);
 			if (e) goto l_cleanup;
@@ -88,9 +88,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	
 	// e = duckVM_getArg(duckVM, &string, 0);
 	e = duckVM_pop(duckVM, &object);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
 	
 	switch (object.type) {
 	case duckLisp_object_type_symbol:
@@ -121,15 +119,17 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			/* printf("(%i: ", object.value.list->type); */
 			printf("(");
 
-			if ((object.value.list->type == duckVM_gclist_cons_type_addrObject) ||
-				(object.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+			if (object.value.list->value.cons.car == dl_null) {
+				printf("(nil)");
+			}
+			else if (object.value.list->value.cons.car->type == duckLisp_object_type_cons) {
 				printf("(");
-				e = duckLispDev_callback_printCons(duckVM, object.value.list->car.addr);
+				e = duckLispDev_callback_printCons(duckVM, object.value.list->value.cons.car);
 				if (e) goto l_cleanup;
 				printf(")");
 			}
 			else {
-				e = duckVM_push(duckVM, object.value.list->car.data);
+				e = duckVM_push(duckVM, object.value.list->value.cons.car);
 				if (e) goto l_cleanup;
 				e = duckLispDev_callback_print(duckVM);
 				if (e) goto l_cleanup;
@@ -137,17 +137,19 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 				if (e) goto l_cleanup;
 			}
 
-			if ((object.value.list->type == duckVM_gclist_cons_type_objectAddr) ||
-				(object.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
-				if (object.value.list->cdr.data != dl_null) {
+			if (object.value.list->value.cons.cdr == dl_null) {
+				printf("(nil)");
+			}
+			else if (object.value.list->value.cons.cdr->type == duckLisp_object_type_cons) {
+				if (object.value.list->value.cons.cdr != dl_null) {
 					printf(" ");
-					e = duckLispDev_callback_printCons(duckVM, object.value.list->cdr.addr);
+					e = duckLispDev_callback_printCons(duckVM, object.value.list->value.cons.cdr);
 					if (e) goto l_cleanup;
 				}
 			}
 			else {
 				printf(" . ");
-				e = duckVM_push(duckVM, object.value.list->cdr.data);
+				e = duckVM_push(duckVM, object.value.list->value.cons.cdr);
 				if (e) goto l_cleanup;
 				e = duckLispDev_callback_print(duckVM);
 				if (e) goto l_cleanup;
@@ -272,15 +274,14 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 				/* printf("(%i: ", tempObject.value.list->type); */
 				printf("(");
 
-				if ((tempObject.value.list->type == duckVM_gclist_cons_type_addrObject) ||
-					(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
+				if (tempObject.value.list->value.cons.car->type == duckLisp_object_type_cons) {
 					printf("(");
-					e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->car.addr);
+					e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->value.cons.car);
 					if (e) goto l_cleanup;
 					printf(")");
 				}
 				else {
-					e = duckVM_push(duckVM, tempObject.value.list->car.data);
+					e = duckVM_push(duckVM, tempObject.value.list->value.cons.car);
 					if (e) goto l_cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto l_cleanup;
@@ -288,17 +289,16 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 					if (e) goto l_cleanup;
 				}
 
-				if ((tempObject.value.list->type == duckVM_gclist_cons_type_objectAddr) ||
-					(tempObject.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
-					if (tempObject.value.list->cdr.data != dl_null) {
+				if (tempObject.value.list->value.cons.cdr->type == duckLisp_object_type_cons) {
+					if (tempObject.value.list->value.cons.cdr != dl_null) {
 						printf(" ");
-						e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->cdr.addr);
+						e = duckLispDev_callback_printCons(duckVM, tempObject.value.list->value.cons.cdr);
 						if (e) goto l_cleanup;
 					}
 				}
 				else {
 					printf(" . ");
-					e = duckVM_push(duckVM, tempObject.value.list->cdr.data);
+					e = duckVM_push(duckVM, tempObject.value.list->value.cons.cdr);
 					if (e) goto l_cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto l_cleanup;
@@ -414,14 +414,13 @@ dl_error_t duckLispDev_callback_quicksort_hoare(duckVM_t *duckVM) {
 	if (e) goto cleanup;
 
 	DL_DOTIMES(i, array_length) {
-		array[i] = list.value.list->car.data;
+		array[i] = list.value.list->value.cons.car;
 		if (list.value.list != dl_null) {
-			if ((list.value.list->type == duckVM_gclist_cons_type_objectAddr)
-			    || (list.value.list->type == duckVM_gclist_cons_type_addrAddr)) {
-				list.value.list = list.value.list->cdr.addr;
+			if (list.value.list->value.cons.cdr->type == duckLisp_object_type_cons) {
+				list.value.list = list.value.list->value.cons.cdr;
 			}
 			else {
-				list = *list.value.list->cdr.data;
+				list = *list.value.list->value.cons.cdr;
 			}
 		}
 	}
@@ -434,13 +433,13 @@ dl_error_t duckLispDev_callback_quicksort_hoare(duckVM_t *duckVM) {
 	                     duckLispDev_callback_quicksort_hoare_less,
 	                     dl_null);
 
-	duckVM_gclist_cons_t *cons = dl_null;
+	duckLisp_object_t *cons = dl_null;
 	DL_DOTIMES(i, array_length) {
-		duckVM_gclist_cons_t tempCons;
-		tempCons.car.data = array[i];
-		tempCons.cdr.addr = cons;
-		tempCons.type = duckVM_gclist_cons_type_objectAddr;
-		e = duckVM_gclist_pushCons(duckVM, &cons, tempCons);
+		duckLisp_object_t tempCons;
+		tempCons.value.cons.car = array[i];
+		tempCons.value.cons.cdr = cons;
+		tempCons.type = duckLisp_object_type_cons;
+		e = duckVM_gclist_pushObject(duckVM, &cons, tempCons);
 		if (e) goto cleanupMalloc;
 	}
 
@@ -576,7 +575,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* puts(COLOR_NORMAL); */
 
 	e = duckLisp_generator_noscope(duckLisp, assembly, &ast.value.expression);
-	if (e) goto l_cleanup;
+	if (e) goto l_cFileName_cleanup;
 
 	e = ast_compoundExpression_quit(&subLisp, &ast);
 	if (e) goto l_cFileName_cleanup;
@@ -801,18 +800,19 @@ int eval(duckLisp_t *duckLisp,
 	e = duckVM_execute(duckVM, return_value, bytecode);
 	if (e) {
 		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
-		goto l_cleanup;
+		goto cleanupBytecode;
 	}
 
-	e = dl_free(duckLisp->memoryAllocation, (void **) &bytecode);
-	if (e) goto l_cleanup;
+ cleanupBytecode:
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &bytecode);
+	if (!e) e = eError;
 
 	/* puts(COLOR_CYAN "}" COLOR_NORMAL); */
 
  l_cleanup:
 
 	eError = dl_array_quit(&sourceCode);
-	if (eError) e = eError;
+	if (!e) e = eError;
 
 	return e;
 }
@@ -870,8 +870,7 @@ int main(int argc, char *argv[]) {
 	const size_t duckVMMemory_size = 1000 * 64 * 1024;
 	const size_t duckVMMaxUpvalues = 10000;
 	const size_t duckVMMaxUpvalueArrays = 10000;
-	const size_t duckVMMaxConses = 10000;
-	const size_t duckVMMaxObjects = 10000;
+	const size_t duckVMMaxObjects = 20000;
 
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
@@ -978,7 +977,7 @@ int main(int argc, char *argv[]) {
 	d.duckVMMemory = dl_true;
 
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMaxUpvalues, duckVMMaxUpvalueArrays, duckVMMaxConses, duckVMMaxObjects);
+	e = duckVM_init(&duckVM, duckVMMaxUpvalues, duckVMMaxUpvalueArrays, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;

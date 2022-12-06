@@ -8,23 +8,18 @@
 typedef struct duckVM_gclist_s {
 	struct duckVM_upvalue_s *upvalues;
 	struct duckVM_upvalue_array_s *upvalueArrays;
-	struct duckVM_gclist_cons_s *conses;
 	struct duckLisp_object_s *objects;
 	struct duckVM_upvalue_s **freeUpvalues;
 	struct duckVM_upvalue_array_s **freeUpvalueArrays;
-	struct duckVM_gclist_cons_s **freeConses;
 	struct duckLisp_object_s **freeObjects;
 	dl_bool_t *upvalueInUse;
 	dl_bool_t *upvalueArraysInUse;
-	dl_bool_t *consInUse;
 	dl_bool_t *objectInUse;
 	dl_size_t upvalues_length;
 	dl_size_t upvalueArrays_length;
-	dl_size_t conses_length;
 	dl_size_t objects_length;
 	dl_size_t freeUpvalues_length;
 	dl_size_t freeUpvalueArrays_length;
-	dl_size_t freeConses_length;
 	dl_size_t freeObjects_length;
 	dl_array_strategy_t strategy;
 	dl_memoryAllocation_t *memoryAllocation;
@@ -72,7 +67,8 @@ typedef enum {
   duckLisp_object_type_list,
   duckLisp_object_type_symbol,
   duckLisp_object_type_function,
-  duckLisp_object_type_closure
+  duckLisp_object_type_closure,
+  duckLisp_object_type_cons
 } duckLisp_object_type_t;
 
 typedef struct duckLisp_object_s {
@@ -100,36 +96,19 @@ typedef struct duckLisp_object_s {
 			dl_uint8_t arity;
 			dl_bool_t variadic;
 		} closure;
-		struct duckVM_gclist_cons_s *list;
+		struct duckLisp_object_s *list;
+		struct {
+			struct duckLisp_object_s *car;
+			struct duckLisp_object_s *cdr;
+		} cons;
 	} value;
 	duckLisp_object_type_t type;
 	dl_bool_t inUse;
 } duckLisp_object_t;
 
-typedef enum {
-	duckVM_gclist_cons_type_addrAddr,
-	duckVM_gclist_cons_type_addrObject,
-	duckVM_gclist_cons_type_objectAddr,
-	duckVM_gclist_cons_type_objectObject,
-} duckVM_gclist_cons_type_t;
-
-typedef struct duckVM_gclist_cons_s {
-	union {
-		struct duckVM_gclist_cons_s *addr;
-		duckLisp_object_t *data;
-	} car;
-	union {
-		struct duckVM_gclist_cons_s *addr;
-		duckLisp_object_t *data;
-	} cdr;
-	duckVM_gclist_cons_type_t type;
-} duckVM_gclist_cons_t;
-
-
 dl_error_t duckVM_init(duckVM_t *duckVM,
                        dl_size_t maxUpvalues,
                        dl_size_t maxUpvalueArrays,
-                       dl_size_t maxConses,
                        dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_uint8_t *bytecode);
@@ -137,7 +116,7 @@ dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, d
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, dl_error_t (*callback)(duckVM_t *));
 
 /* Functions for C callbacks */
-dl_error_t duckVM_gclist_pushCons(duckVM_t *duckVM, duckVM_gclist_cons_t **consOut, duckVM_gclist_cons_t consIn);
+dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **objectOut, duckLisp_object_t objectIn);
 dl_error_t duckVM_garbageCollect(duckVM_t *duckVM);
 /* void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length); */
 /* dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff_t index); */

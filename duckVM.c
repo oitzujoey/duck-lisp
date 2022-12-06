@@ -6,7 +6,6 @@
 #include "duckLisp.h"
 #include <stdio.h>
 
-static dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons);
 static dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue);
 static dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalue_array_t *upvalueArray);
 
@@ -14,7 +13,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
                               dl_memoryAllocation_t *memoryAllocation,
                               const dl_size_t maxUpvalues,
                               const dl_size_t maxUpvalueArrays,
-                              const dl_size_t maxConses,
                               const dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
@@ -32,12 +30,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 				  maxUpvalues * sizeof(duckVM_upvalue_array_t));
 	if (e) goto cleanup;
 	gclist->upvalueArrays_length = maxUpvalueArrays;
-
-	e = dl_malloc(gclist->memoryAllocation,
-				  (void **) &gclist->conses,
-				  maxConses * sizeof(duckVM_gclist_cons_t));
-	if (e) goto cleanup;
-	gclist->conses_length = maxConses;
 
 	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->objects,
@@ -59,12 +51,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 	gclist->freeUpvalueArrays_length = maxUpvalueArrays;
 
 	e = dl_malloc(gclist->memoryAllocation,
-				  (void **) &gclist->freeConses,
-				  maxConses * sizeof(duckVM_gclist_cons_t *));
-	if (e) goto cleanup;
-	gclist->freeConses_length = maxConses;
-
-	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->freeObjects,
 				  maxObjects * sizeof(duckLisp_object_t *));
 	if (e) goto cleanup;
@@ -82,11 +68,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 	if (e) goto cleanup;
 
 	e = dl_malloc(gclist->memoryAllocation,
-				  (void **) &gclist->consInUse,
-				  maxConses * sizeof(dl_bool_t));
-	if (e) goto cleanup;
-
-	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->objectInUse,
 				  maxObjects * sizeof(dl_bool_t));
 	if (e) goto cleanup;
@@ -94,7 +75,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 
 	/**/ dl_memclear(gclist->upvalues, gclist->upvalues_length * sizeof(duckVM_upvalue_t));
 	/**/ dl_memclear(gclist->upvalueArrays, gclist->upvalueArrays_length * sizeof(duckVM_upvalue_array_t));
-	/**/ dl_memclear(gclist->conses, gclist->conses_length * sizeof(duckVM_gclist_cons_t));
 	/**/ dl_memclear(gclist->objects, gclist->objects_length * sizeof(duckLisp_object_t));
 
 
@@ -104,10 +84,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxUpvalueArrays; i++) {
 		gclist->freeUpvalueArrays[i] = &gclist->upvalueArrays[i];
-	}
-
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxConses; i++) {
-		gclist->freeConses[i] = &gclist->conses[i];
 	}
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxObjects; i++) {
@@ -129,9 +105,6 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeUpvalueArrays);
 	gclist->freeUpvalueArrays_length = 0;
 
-	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeConses);
-	gclist->freeConses_length = 0;
-
 	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeObjects);
 	gclist->freeObjects_length = 0;
 
@@ -144,10 +117,6 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	e = eError ? eError : e;
 	gclist->upvalueArrays_length = 0;
 
-	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->conses);
-	e = eError ? eError : e;
-	gclist->conses_length = 0;
-
 	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->objects);
 	e = eError ? eError : e;
 	gclist->objects_length = 0;
@@ -159,9 +128,6 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->upvalueArraysInUse);
 	e = eError ? eError : e;
 
-	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->consInUse);
-	e = eError ? eError : e;
-
 	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->objectInUse);
 	e = eError ? eError : e;
 
@@ -169,36 +135,19 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 }
 
 static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
+	dl_error_t e = dl_error_ok;
 	if (object) {
 		gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
 		if (object->type == duckLisp_object_type_list) {
-			return duckVM_gclist_markCons(gclist, object->value.list);
+			e = duckVM_gclist_markObject(gclist, object->value.list);
+		}
+		else if (object->type == duckLisp_object_type_cons) {
+			e = duckVM_gclist_markObject(gclist, object->value.cons.car);
+			if (e) goto cleanup;
+			e = duckVM_gclist_markObject(gclist, object->value.cons.cdr);
 		}
 		else if (object->type == duckLisp_object_type_closure) {
-			return duckVM_gclist_markUpvalueArray(gclist, object->value.closure.upvalue_array);
-		}
-	}
-	return dl_error_ok;
-}
-
-static dl_error_t duckVM_gclist_markCons(duckVM_gclist_t *gclist, duckVM_gclist_cons_t *cons) {
-	dl_error_t e = dl_error_ok;
-	if (cons && !gclist->consInUse[(dl_ptrdiff_t) (cons - gclist->conses)]) {
-		gclist->consInUse[(dl_ptrdiff_t) (cons - gclist->conses)] = dl_true;
-		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
-			(cons->type == duckVM_gclist_cons_type_addrObject)) {
-			e = duckVM_gclist_markCons(gclist, cons->car.addr);
-		}
-		else {
-			e = duckVM_gclist_markObject(gclist, cons->car.data);
-		}
-		if (e) goto cleanup;
-		if ((cons->type == duckVM_gclist_cons_type_addrAddr) ||
-			(cons->type == duckVM_gclist_cons_type_objectAddr)) {
-			e = duckVM_gclist_markCons(gclist, cons->cdr.addr);
-		}
-		else {
-			e = duckVM_gclist_markObject(gclist, cons->cdr.data);
+			e = duckVM_gclist_markUpvalueArray(gclist, object->value.closure.upvalue_array);
 		}
 	}
  cleanup:
@@ -248,10 +197,6 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		duckVM->gclist.upvalueArraysInUse[i] = dl_false;
 	}
 
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.conses_length; i++) {
-		duckVM->gclist.consInUse[i] = dl_false;
-	}
-
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.objects_length; i++) {
 		duckVM->gclist.objectInUse[i] = dl_false;
 	}
@@ -262,13 +207,14 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		duckLisp_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, i);
 		// Will need to check for closures now too. Can probably call markObject here instead of using this `if`.
 		if (object->type == duckLisp_object_type_list) {
-			e = duckVM_gclist_markCons(&duckVM->gclist, object->value.list);
+			e = duckVM_gclist_markObject(&duckVM->gclist, object->value.list);
 			if (e) goto cleanup;
 		}
 		else if (object->type == duckLisp_object_type_closure) {
 			e = duckVM_gclist_markUpvalueArray(&duckVM->gclist, object->value.closure.upvalue_array);
 			if (e) break;
 		}
+		/* Don't check for cons since it should never be on the stack. */
 	}
 
 	/* Free cells if not marked. */
@@ -288,13 +234,6 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 				e = dl_free(duckVM->memoryAllocation, (void **) &duckVM->gclist.upvalueArrays[i].upvalues);
 				if (e) goto cleanup;
 			}
-		}
-	}
-
-	duckVM->gclist.freeConses_length = 0;  // This feels horribly inefficient.
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.conses_length; i++) {
-		if (!duckVM->gclist.consInUse[i]) {
-			duckVM->gclist.freeConses[duckVM->gclist.freeConses_length++] = &duckVM->gclist.conses[i];
 		}
 	}
 
@@ -378,30 +317,6 @@ dl_error_t duckVM_gclist_pushUpvalueArray(duckVM_t *duckVM,
 	return e;
 }
 
-dl_error_t duckVM_gclist_pushCons(duckVM_t *duckVM, duckVM_gclist_cons_t **consOut, duckVM_gclist_cons_t consIn) {
-	dl_error_t e = dl_error_ok;
-
-	duckVM_gclist_t *gclist = &duckVM->gclist;
-
-	// Try once
-	if (gclist->freeConses_length == 0) {
-		// STOP THE WORLD
-		puts("pushCons : Collect");
-		e = duckVM_gclist_garbageCollect(duckVM);
-		if (e) return e;
-
-		// Try twice
-		if (gclist->freeConses_length == 0) {
-			return dl_error_outOfMemory;
-		}
-	}
-
-	*gclist->freeConses[--gclist->freeConses_length] = consIn;
-	*consOut = gclist->freeConses[gclist->freeConses_length];
-
-	return e;
-}
-
 dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **objectOut, duckLisp_object_t objectIn) {
 	dl_error_t e = dl_error_ok;
 
@@ -427,7 +342,7 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 }
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxUpvalueArrays, dl_size_t maxConses, dl_size_t maxObjects) {
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxUpvalueArrays, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
 	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
@@ -448,7 +363,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxUpv
 	                   sizeof(dl_size_t),
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->statics, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
-	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxUpvalues, maxUpvalueArrays, maxConses, maxObjects);
+	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxUpvalues, maxUpvalueArrays, maxObjects);
 	if (e) goto l_cleanup;
 
 	l_cleanup:
@@ -549,7 +464,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 	duckLisp_object_t *objectPtr1;
 	duckLisp_object_t *objectPtr2;
 	/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
-	duckVM_gclist_cons_t cons1;
+	duckLisp_object_t cons1;
 	dl_bool_t bool1;
 	dl_bool_t parsedBytecode;
 	dl_uint8_t opcode;
@@ -898,10 +813,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					break;
 				}
 				/* Create list. */
-				duckVM_gclist_cons_t *lastConsPtr = dl_null;
+				duckLisp_object_t *lastConsPtr = dl_null;
 				DL_DOTIMES(k, (dl_size_t) (uint8 - object1.value.closure.arity)) {
-					duckVM_gclist_cons_t cons;
-					duckVM_gclist_cons_t *consPtr = dl_null;
+					duckLisp_object_t cons;
+					duckLisp_object_t *consPtr = dl_null;
 					duckLisp_object_t object;
 					duckLisp_object_t *objectPtr = dl_null;
 					e = stack_pop(duckVM, &object);
@@ -911,10 +826,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					/*                              ((duckVM->stack.elements_length - 1) - k)); */
 					e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
 					if (e) break;
-					cons.car.data = objectPtr;
-					cons.cdr.addr = lastConsPtr;
-					cons.type = duckVM_gclist_cons_type_objectAddr;
-					e = duckVM_gclist_pushCons(duckVM, &consPtr, cons);
+					cons.type = duckLisp_object_type_cons;
+					cons.value.cons.car = objectPtr;
+					cons.value.cons.cdr = lastConsPtr;
+					e = duckVM_gclist_pushObject(duckVM, &consPtr, cons);
 					if (e) break;
 					lastConsPtr = consPtr;
 				}
@@ -957,24 +872,16 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				break;
 			}
 			while ((uint8 < object1.value.closure.arity) && (rest.value.list != dl_null)) {
-				if ((rest.value.list->type == duckVM_gclist_cons_type_objectObject)
-				    || rest.value.list->type == duckVM_gclist_cons_type_addrObject) {
+				if ((rest.value.list->type != duckLisp_object_type_cons)
+				    || rest.value.list->type != duckLisp_object_type_cons) {
 					e = dl_error_invalidValue;
 					break;
 				}
 				/* (push (car rest) stack) */
-				if (rest.value.list->type == duckVM_gclist_cons_type_addrAddr) {
-					duckLisp_object_t object;
-					object.type = duckLisp_object_type_list;
-					object.value.list = rest.value.list->car.addr;
-					e = stack_push(duckVM, &object);
-				}
-				else {
-					e = stack_push(duckVM, rest.value.list->car.data);
-				}
+				e = stack_push(duckVM, rest.value.list->value.cons.car);
 				if (e) break;
 				/* (setf rest (cdr rest)) */
-				rest.value.list = rest.value.list->cdr.addr;
+				rest.value.list = rest.value.list->value.cons.cdr;
 				uint8++;
 			}
 			if (e) break;
@@ -984,10 +891,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					break;
 				}
 				/* Create list. */
-				duckVM_gclist_cons_t *lastConsPtr = rest.value.list;
+				duckLisp_object_t *lastConsPtr = rest.value.list;
 				DL_DOTIMES(k, (dl_size_t) (uint8 - object1.value.closure.arity)) {
-					duckVM_gclist_cons_t cons;
-					duckVM_gclist_cons_t *consPtr = dl_null;
+					duckLisp_object_t cons;
+					duckLisp_object_t *consPtr = dl_null;
 					duckLisp_object_t object;
 					duckLisp_object_t *objectPtr = dl_null;
 					e = stack_pop(duckVM, &object);
@@ -997,10 +904,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					/*                              ((duckVM->stack.elements_length - 1) - k)); */
 					e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
 					if (e) break;
-					cons.car.data = objectPtr;
-					cons.cdr.addr = lastConsPtr;
-					cons.type = duckVM_gclist_cons_type_objectAddr;
-					e = duckVM_gclist_pushCons(duckVM, &consPtr, cons);
+					cons.value.cons.car = objectPtr;
+					cons.value.cons.cdr = lastConsPtr;
+					cons.type = duckLisp_object_type_cons;
+					e = duckVM_gclist_pushObject(duckVM, &consPtr, cons);
 					if (e) break;
 					lastConsPtr = consPtr;
 				}
@@ -2734,31 +2641,23 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			if (object1.type == duckLisp_object_type_list) {
-				cons1.car.addr = object1.value.list;
+				cons1.value.cons.car = object1.value.list;
 			}
 			else {
 				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 				if (e) break;
-				cons1.car.data = objectPtr1;
+				cons1.value.cons.car = objectPtr1;
 			}
 			if (object2.type == duckLisp_object_type_list) {
-				cons1.cdr.addr = object2.value.list;
+				cons1.value.cons.cdr = object2.value.list;
 			}
 			else {
 				e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object2);
 				if (e) break;
-				cons1.cdr.data = objectPtr2;
+				cons1.value.cons.cdr = objectPtr2;
 			}
-			// This is stupid.
-			if (object1.type == duckLisp_object_type_list) {
-				if (object2.type == duckLisp_object_type_list) cons1.type = duckVM_gclist_cons_type_addrAddr;
-				else cons1.type = duckVM_gclist_cons_type_addrObject;
-			}
-			else {
-				if (object2.type == duckLisp_object_type_list) cons1.type = duckVM_gclist_cons_type_objectAddr;
-				else cons1.type = duckVM_gclist_cons_type_objectObject;
-			}
-			e = duckVM_gclist_pushCons(duckVM, &object1.value.list, cons1);
+			cons1.type = duckLisp_object_type_cons;
+			e = duckVM_gclist_pushObject(duckVM, &object1.value.list, cons1);
 			if (e) break;
 
 			object1.type = duckLisp_object_type_list;
@@ -2770,41 +2669,11 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 		case duckLisp_instruction_cdr32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_list) {
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			if (object1.value.list == dl_null) {
-				object2.type = duckLisp_object_type_list;
-				object2.value.list = dl_null;
-			}
-			else {
-				switch (object1.value.list->type) {
-				case duckVM_gclist_cons_type_addrAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_objectAddr:
-					object2.type = duckLisp_object_type_list;
-					object2.value.list = object1.value.list->cdr.addr;
-					break;
-				case duckVM_gclist_cons_type_addrObject:
-					// Fall through
-				case duckVM_gclist_cons_type_objectObject:
-					object2 = *(object1.value.list->cdr.data);
-					break;
-				default:
-					e = dl_error_invalidValue;
-					goto l_cleanup;
-				}
-			}
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			break;
+			/* Fall through */
 		case duckLisp_instruction_cdr16:
-			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_cdr8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
@@ -2817,52 +2686,21 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				object2.value.list = dl_null;
 			}
 			else {
-				switch (object1.value.list->type) {
-				case duckVM_gclist_cons_type_addrAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_objectAddr:
-					object2.type = duckLisp_object_type_list;
-					object2.value.list = object1.value.list->cdr.addr;
-					break;
-				case duckVM_gclist_cons_type_addrObject:
-					// Fall through
-				case duckVM_gclist_cons_type_objectObject:
-					object2 = *(object1.value.list->cdr.data);
-					break;
-				default:
-					e = dl_error_invalidValue;
-					goto l_cleanup;
+				if (object1.value.list->type == duckLisp_object_type_cons) {
+					duckLisp_object_t *cdr = object1.value.list->value.cons.cdr;
+					if (cdr == dl_null) {
+						object2.type = duckLisp_object_type_list;
+						object2.value.list = dl_null;
+					}
+					else if (cdr->type == duckLisp_object_type_cons) {
+						object2.type = duckLisp_object_type_list;
+						object2.value.list = cdr;
+					}
+					else {
+						object2 = *cdr;
+					}
 				}
-			}
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			break;
-		case duckLisp_instruction_cdr8:
-			ptrdiff1 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_list) {
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			if (object1.value.list == dl_null) {
-				object2.type = duckLisp_object_type_list;
-				object2.value.list = dl_null;
-			}
-			else {
-				switch (object1.value.list->type) {
-				case duckVM_gclist_cons_type_addrAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_objectAddr:
-					object2.type = duckLisp_object_type_list;
-					object2.value.list = object1.value.list->cdr.addr;
-					break;
-				case duckVM_gclist_cons_type_addrObject:
-					// Fall through
-				case duckVM_gclist_cons_type_objectObject:
-					object2 = *(object1.value.list->cdr.data);
-					break;
-				default:
+				else {
 					e = dl_error_invalidValue;
 					goto l_cleanup;
 				}
@@ -2875,41 +2713,11 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 		case duckLisp_instruction_car32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_list) {
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			if (object1.value.list == dl_null) {
-				object2.type = duckLisp_object_type_list;
-				object2.value.list = dl_null;
-			}
-			else {
-				switch (object1.value.list->type) {
-				case duckVM_gclist_cons_type_addrAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_addrObject:
-					object2.type = duckLisp_object_type_list;
-					object2.value.list = object1.value.list->car.addr;
-					break;
-				case duckVM_gclist_cons_type_objectAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_objectObject:
-					object2 = *(object1.value.list->car.data);
-					break;
-				default:
-					e = dl_error_invalidValue;
-					goto l_cleanup;
-				}
-			}
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			break;
+			/* Fall through */
 		case duckLisp_instruction_car16:
-			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_car8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
@@ -2922,52 +2730,21 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				object2.value.list = dl_null;
 			}
 			else {
-				switch (object1.value.list->type) {
-				case duckVM_gclist_cons_type_addrAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_addrObject:
-					object2.type = duckLisp_object_type_list;
-					object2.value.list = object1.value.list->car.addr;
-					break;
-				case duckVM_gclist_cons_type_objectAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_objectObject:
-					object2 = *(object1.value.list->car.data);
-					break;
-				default:
-					e = dl_error_invalidValue;
-					goto l_cleanup;
+				if (object1.value.list->type == duckLisp_object_type_cons) {
+					duckLisp_object_t *car = object1.value.list->value.cons.car;
+					if (car == dl_null) {
+						object2.type = duckLisp_object_type_list;
+						object2.value.list = dl_null;
+					}
+					else if (car->type == duckLisp_object_type_cons) {
+						object2.type = duckLisp_object_type_list;
+						object2.value.list = car;
+					}
+					else {
+						object2 = *car;
+					}
 				}
-			}
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			break;
-		case duckLisp_instruction_car8:
-			ptrdiff1 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_list) {
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			if (object1.value.list == dl_null) {
-				object2.type = duckLisp_object_type_list;
-				object2.value.list = dl_null;
-			}
-			else {
-				switch (object1.value.list->type) {
-				case duckVM_gclist_cons_type_addrAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_addrObject:
-					object2.type = duckLisp_object_type_list;
-					object2.value.list = object1.value.list->car.addr;
-					break;
-				case duckVM_gclist_cons_type_objectAddr:
-					// Fall through
-				case duckVM_gclist_cons_type_objectObject:
-					object2 = *(object1.value.list->car.data);
-					break;
-				default:
+				else {
 					e = dl_error_invalidValue;
 					goto l_cleanup;
 				}
@@ -3009,45 +2786,13 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 
 			if ((object2.type == duckLisp_object_type_list) && (object2.value.list != dl_null)) {
 				if (object1.type == duckLisp_object_type_list) {
-					if (object1.value.list == dl_null) object2.value.list->car.addr = dl_null;
-					else object2.value.list->car.addr = object1.value.list;
-					switch (object2.value.list->type) {
-					case duckVM_gclist_cons_type_objectAddr:
-						object2.value.list->type = duckVM_gclist_cons_type_addrAddr;
-						break;
-					case duckVM_gclist_cons_type_objectObject:
-						object2.value.list->type = duckVM_gclist_cons_type_addrObject;
-						break;
-						/* Already correct. */
-					case duckVM_gclist_cons_type_addrAddr:
-						break;
-					case duckVM_gclist_cons_type_addrObject:
-						break;
-					default:
-						e = dl_error_invalidValue;
-						goto l_cleanup;
-					}
+					if (object1.value.list == dl_null) object2.value.list->value.cons.car = dl_null;
+					else object2.value.list->value.cons.car = object1.value.list;
 				}
 				else {
 					e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 					if (e) break;
-					object2.value.list->car.data = objectPtr1;
-					switch (object2.value.list->type) {
-					case duckVM_gclist_cons_type_addrAddr:
-						object2.value.list->type = duckVM_gclist_cons_type_objectAddr;
-						break;
-					case duckVM_gclist_cons_type_addrObject:
-						object2.value.list->type = duckVM_gclist_cons_type_objectObject;
-						break;
-						/* Already correct. */
-					case duckVM_gclist_cons_type_objectAddr:
-						break;
-					case duckVM_gclist_cons_type_objectObject:
-						break;
-					default:
-						e = dl_error_invalidValue;
-						goto l_cleanup;
-					}
+					object2.value.list->value.cons.car = objectPtr1;
 				}
 			}
 			else e = dl_error_invalidValue;
@@ -3086,45 +2831,13 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 
 			if (object2.type == duckLisp_object_type_list) {
 				if (object1.type == duckLisp_object_type_list) {
-					if (object1.value.list == dl_null) object2.value.list->cdr.addr = dl_null;
-					else object2.value.list->cdr.addr = object1.value.list;
-					switch (object2.value.list->type) {
-					case duckVM_gclist_cons_type_addrObject:
-						object2.value.list->type = duckVM_gclist_cons_type_addrAddr;
-						break;
-					case duckVM_gclist_cons_type_objectObject:
-						object2.value.list->type = duckVM_gclist_cons_type_objectAddr;
-						break;
-						/* Already correct. */
-					case duckVM_gclist_cons_type_addrAddr:
-						break;
-					case duckVM_gclist_cons_type_objectAddr:
-						break;
-					default:
-						e = dl_error_invalidValue;
-						goto l_cleanup;
-					}
+					if (object1.value.list == dl_null) object2.value.list->value.cons.cdr = dl_null;
+					else object2.value.list->value.cons.cdr = object1.value.list;
 				}
 				else {
 					e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 					if (e) break;
-					object2.value.list->cdr.data = objectPtr1;
-					switch (object2.value.list->type) {
-					case duckVM_gclist_cons_type_addrAddr:
-						object2.value.list->type = duckVM_gclist_cons_type_addrObject;
-						break;
-					case duckVM_gclist_cons_type_objectAddr:
-						object2.value.list->type = duckVM_gclist_cons_type_objectObject;
-						break;
-						/* Already correct. */
-					case duckVM_gclist_cons_type_addrObject:
-						break;
-					case duckVM_gclist_cons_type_objectObject:
-						break;
-					default:
-						e = dl_error_invalidValue;
-						goto l_cleanup;
-					}
+					object2.value.list->value.cons.cdr = objectPtr1;
 				}
 			}
 			else e = dl_error_invalidValue;
@@ -3134,35 +2847,12 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 		case duckLisp_instruction_nullp32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_list) {
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			object2.type = duckLisp_object_type_bool;
-			object2.value.boolean = (object1.value.list == dl_null);
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			break;
+			/* Fall through */
 		case duckLisp_instruction_nullp16:
-			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			if (object1.type != duckLisp_object_type_list) {
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			object2.type = duckLisp_object_type_bool;
-			object2.value.boolean = (object1.value.list == dl_null);
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			break;
+			/* Fall through */
 		case duckLisp_instruction_nullp8:
-			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 				object2.type = duckLisp_object_type_bool;

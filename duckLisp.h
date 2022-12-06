@@ -506,10 +506,10 @@ dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp, dl_array_t *assembly,
 
 dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
-                                  duckVM_gclist_cons_t *cons);
+                                  duckLisp_object_t *cons);
 dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
-                                  duckVM_gclist_cons_t *cons);
+                                  duckLisp_object_t *cons);
 dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
                                 duckLisp_ast_compoundExpression_t *ast,
                                 duckLisp_object_t *object,

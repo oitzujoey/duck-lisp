@@ -1314,6 +1314,10 @@ Macros are easy to call in other macros because macros are defined in their own 
 Recursion in macros is easy because they are normal lambdas.
 
 
+List types offer a layer of indirection between objects on the stack and conses on the heap. A cons should never appear on the stack, even though it is an object.
+A non-null list should always point to a cons. It should never point to any other type.
+
+
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:

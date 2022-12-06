@@ -551,7 +551,8 @@ static dl_error_t ast_generate_expression(duckLisp_t *duckLisp,
                                           dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 
-	e = dl_malloc(duckLisp->memoryAllocation, (void **) &expression->compoundExpressions,
+	e = dl_malloc(duckLisp->memoryAllocation,
+	              (void **) &expression->compoundExpressions,
 	              expressionCST.compoundExpressions_length * sizeof(duckLisp_ast_compoundExpression_t));
 	if (e) {
 		goto l_cleanup;
@@ -4829,29 +4830,23 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_size_t duckLisp_consList_length(duckVM_gclist_cons_t *list) {
+dl_size_t duckLisp_consList_length(duckLisp_object_t *cons) {
 	dl_size_t length = 0;
-	while (list != dl_null) {
-		switch (list->type) {
-		case duckVM_gclist_cons_type_addrAddr:
-			/* Fall through */
-		case duckVM_gclist_cons_type_objectAddr:
-			list = list->cdr.addr;
+	while (cons != dl_null) {
+		if (cons->value.cons.cdr == dl_null) {
+			cons = dl_null;
 			length++;
-			break;
-		case duckVM_gclist_cons_type_addrObject:
-			/* Fall through */
-		case duckVM_gclist_cons_type_objectObject:
-			if (list->cdr.data->type == duckLisp_object_type_list) {
-				list = list->cdr.data->value.list;
-				length++;
-			}
-			else {
-				list = dl_null;
-			}
-			break;
-		default:
-			break;
+		}
+		else if (cons->value.cons.cdr->type == duckLisp_object_type_list) {
+			cons = cons->value.cons.cdr->value.list;
+			length++;
+		}
+		else if (cons->value.cons.cdr->type == duckLisp_object_type_cons) {
+			cons = cons->value.cons.cdr;
+			length++;
+		}
+		else {
+			cons = dl_null;
 		}
 	}
 	return length;
@@ -4859,7 +4854,7 @@ dl_size_t duckLisp_consList_length(duckVM_gclist_cons_t *list) {
 
 dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
-                                  duckVM_gclist_cons_t *cons) {
+                                  duckLisp_object_t *cons) {
 	dl_error_t e = dl_error_ok;
 
 	/* (cons a b) */
@@ -4875,54 +4870,39 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 		ast->type = duckLisp_ast_type_expression;
 		dl_ptrdiff_t j = 0;
 		while (cons != dl_null) {
-
-			switch (cons->type) {
-			case duckVM_gclist_cons_type_addrAddr:
-				duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->car.addr);
-				cons = cons->cdr.addr;
+			if (cons->value.cons.car == dl_null) {
+				e = duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->value.cons.car);
+				if (e) goto cleanup;
+			}
+			else if (cons->value.cons.car->type == duckLisp_object_type_cons) {
+				e = duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->value.cons.car);
+				if (e) goto cleanup;
+			}
+			else {
+				e = duckLisp_objectToAST(duckLisp,
+				                         &ast->value.expression.compoundExpressions[j],
+				                         cons->value.cons.car,
+				                         dl_true);
+				if (e) goto cleanup;
+			}
+			if (cons->value.cons.cdr == dl_null) {
+				cons = cons->value.cons.cdr;
 				j++;
-				break;
-			case duckVM_gclist_cons_type_addrObject:
-				duckLisp_consToExprAST(duckLisp, &ast->value.expression.compoundExpressions[j], cons->car.addr);
-				if (cons->cdr.data->type == duckLisp_object_type_list) {
-					cons = cons->cdr.data->value.list;
-					j++;
-				}
-				else {
-					duckLisp_objectToAST(duckLisp,
-					                     &ast->value.expression.compoundExpressions[j],
-					                     cons->cdr.data,
-					                     dl_true);
-					cons = dl_null;
-				}
-				break;
-			case duckVM_gclist_cons_type_objectAddr:
+			}
+			else if (cons->value.cons.cdr->type == duckLisp_object_type_cons) {
+				cons = cons->value.cons.cdr;
+				j++;
+			}
+			else if (cons->value.cons.cdr->type == duckLisp_object_type_list) {
+				cons = cons->value.cons.cdr->value.list;
+				j++;
+			}
+			else {
 				duckLisp_objectToAST(duckLisp,
 				                     &ast->value.expression.compoundExpressions[j],
-				                     cons->car.data,
+				                     cons->value.cons.cdr,
 				                     dl_true);
-				cons = cons->cdr.addr;
-				j++;
-				break;
-			case duckVM_gclist_cons_type_objectObject:
-				duckLisp_objectToAST(duckLisp,
-				                     &ast->value.expression.compoundExpressions[j],
-				                     cons->car.data,
-				                     dl_true);
-				if (cons->cdr.data->type == duckLisp_object_type_list) {
-					cons = cons->cdr.data->value.list;
-					j++;
-				}
-				else {
-					duckLisp_objectToAST(duckLisp,
-					                     &ast->value.expression.compoundExpressions[j],
-					                     cons->cdr.data,
-					                     dl_true);
-					cons = dl_null;
-				}
-				break;
-			default:
-				e = dl_error_invalidValue;
+				cons = dl_null;
 			}
 		}
 	}
@@ -4938,8 +4918,8 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 }
 
 dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
-                              duckLisp_ast_compoundExpression_t *ast,
-                              duckVM_gclist_cons_t *cons) {
+                                  duckLisp_ast_compoundExpression_t *ast,
+                                  duckLisp_object_t *cons) {
 	dl_error_t e = dl_error_ok;
 
 	/* (cons a b) */
@@ -4964,25 +4944,27 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 		ast->value.expression.compoundExpressions[op].value.identifier.value_length = sizeof("cons") - 1;
 		ast->value.expression.compoundExpressions[op].type = duckLisp_ast_type_identifier;
 
-		switch (cons->type) {
-		case duckVM_gclist_cons_type_addrAddr:
-			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
-			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
-			break;
-		case duckVM_gclist_cons_type_addrObject:
-			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.addr);
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data, dl_false);
-			break;
-		case duckVM_gclist_cons_type_objectAddr:
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data, dl_false);
-			duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.addr);
-			break;
-		case duckVM_gclist_cons_type_objectObject:
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->car.data, dl_false);
-			duckLisp_objectToAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->cdr.data, dl_false);
-			break;
-		default:
-			e = dl_error_invalidValue;
+		if (cons->value.cons.car->type == duckLisp_object_type_cons) {
+			e = duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->value.cons.car);
+			if (e) goto cleanup;
+		}
+		else {
+			e = duckLisp_objectToAST(duckLisp,
+			                         &ast->value.expression.compoundExpressions[car],
+			                         cons->value.cons.car,
+			                         dl_false);
+			if (e) goto cleanup;
+		}
+		if (cons->value.cons.cdr->type == duckLisp_object_type_cons) {
+			e = duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->value.cons.cdr);
+			if (e) goto cleanup;
+		}
+		else {
+			e = duckLisp_objectToAST(duckLisp,
+			                         &ast->value.expression.compoundExpressions[cdr],
+			                         cons->value.cons.cdr,
+			                         dl_false);
+			if (e) goto cleanup;
 		}
 	}
 	else {
@@ -5105,7 +5087,7 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	subVM.memoryAllocation = duckLisp->memoryAllocation;
 
 	// Shouldn't need too much.
-	e = duckVM_init(&subVM, 1000, 1000, 1000, 1000);
+	e = duckVM_init(&subVM, 1000, 1000, 1000);
 	if (e) goto l_cleanupDL;
 
 	duckLisp_object_t return_value;
@@ -7412,7 +7394,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	subVM.memoryAllocation = duckLisp->memoryAllocation;
 
 	/* Shouldn't need too many resources. */
-	e = duckVM_init(&subVM, 1000, 1000, 1000, 1000);
+	e = duckVM_init(&subVM, 1000, 1000, 1000);
 	if (e) goto cleanupLabels;
 
 	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements);

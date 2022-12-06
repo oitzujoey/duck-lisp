@@ -1,4 +1,11 @@
-(include ../scripts/library.dl)
+
+(defun 1+ (value)
+  (+ value 1))
+
+(defun println (value)
+  (print value)
+  (print "\n")
+  value)
 
 (defun number-sequence (from to)
   (cons from (if (= from to)
@@ -68,4 +75,5 @@
 							(lambda (y)
 							  (* x y)))
 						  seq))))
+(print-stack)
 (times-table 20)
