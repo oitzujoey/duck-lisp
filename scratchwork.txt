@@ -1318,6 +1318,9 @@ List types offer a layer of indirection between objects on the stack and conses 
 A non-null list should always point to a cons. It should never point to any other type.
 
 
+Once everything is using one single heap, it should be a lot easier to make improvements, such as switching to a copying collector.
+
+
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:

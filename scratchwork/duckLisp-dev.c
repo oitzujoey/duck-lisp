@@ -416,7 +416,8 @@ dl_error_t duckLispDev_callback_quicksort_hoare(duckVM_t *duckVM) {
 	DL_DOTIMES(i, array_length) {
 		array[i] = list.value.list->value.cons.car;
 		if (list.value.list != dl_null) {
-			if (list.value.list->value.cons.cdr->type == duckLisp_object_type_cons) {
+			if ((list.value.list->value.cons.cdr == dl_null)
+			    || (list.value.list->value.cons.cdr->type == duckLisp_object_type_cons)) {
 				list.value.list = list.value.list->value.cons.cdr;
 			}
 			else {
@@ -870,7 +871,7 @@ int main(int argc, char *argv[]) {
 	const size_t duckVMMemory_size = 1000 * 64 * 1024;
 	const size_t duckVMMaxUpvalues = 10000;
 	const size_t duckVMMaxUpvalueArrays = 10000;
-	const size_t duckVMMaxObjects = 20000;
+	const size_t duckVMMaxObjects = 40000;
 
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
