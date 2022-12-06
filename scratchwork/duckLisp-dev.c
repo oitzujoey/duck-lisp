@@ -163,12 +163,12 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	case duckLisp_object_type_closure:
 		printf("(closure %lli", object.value.closure.name);
 		DL_DOTIMES(k, object.value.closure.upvalue_array->length) {
-			duckVM_upvalue_t *uv = object.value.closure.upvalue_array->upvalues[k];
+			duckLisp_object_t *uv = object.value.closure.upvalue_array->upvalues[k];
 			putchar(' ');
-			if (uv->type == duckVM_upvalue_type_stack_index) {
+			if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 				duckLisp_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
 				                                               duckLisp_object_t,
-				                                               uv->value.stack_index);
+				                                               uv->value.upvalue.value.stack_index);
 				e = duckVM_push(duckVM, &object);
 				if (e) goto l_cleanup;
 				e = duckLispDev_callback_print(duckVM);
@@ -176,8 +176,8 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 				e = duckVM_pop(duckVM, dl_null);
 				if (e) goto l_cleanup;
 			}
-			else if (uv->type == duckVM_upvalue_type_heap_object) {
-				e = duckVM_push(duckVM, uv->value.heap_object);
+			else if (uv->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+				e = duckVM_push(duckVM, uv->value.upvalue.value.heap_object);
 				if (e) goto l_cleanup;
 				e = duckLispDev_callback_print(duckVM);
 				if (e) goto l_cleanup;
@@ -185,19 +185,22 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 				if (e) goto l_cleanup;
 			}
 			else {
-				while (uv->type == duckVM_upvalue_type_heap_upvalue) {
-					uv = uv->value.heap_upvalue;
+				while (uv->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+					uv = uv->value.upvalue.value.heap_upvalue;
 				}
-				if (uv->type == duckVM_upvalue_type_stack_index) {
-					e = duckVM_push(duckVM, &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
+				if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
+					e = duckVM_push(duckVM,
+					                &DL_ARRAY_GETADDRESS(duckVM->stack,
+					                                     duckLisp_object_t,
+					                                     uv->value.upvalue.value.stack_index));
 					if (e) goto l_cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto l_cleanup;
 					e = duckVM_pop(duckVM, dl_null);
 					if (e) goto l_cleanup;
 				}
-				else if (uv->type == duckVM_upvalue_type_heap_object) {
-					e = duckVM_push(duckVM, uv->value.heap_object);
+				else if (uv->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+					e = duckVM_push(duckVM, uv->value.upvalue.value.heap_object);
 					if (e) goto l_cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto l_cleanup;
@@ -313,12 +316,12 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 		case duckLisp_object_type_closure:
 			printf("(closure %lli", tempObject.value.closure.name);
 			DL_DOTIMES(k, tempObject.value.closure.upvalue_array->length) {
-				duckVM_upvalue_t *uv = tempObject.value.closure.upvalue_array->upvalues[k];
+				duckLisp_object_t *uv = tempObject.value.closure.upvalue_array->upvalues[k];
 				putchar(' ');
-				if (uv->type == duckVM_upvalue_type_stack_index) {
+				if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 					duckLisp_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
 					                                               duckLisp_object_t,
-					                                               uv->value.stack_index);
+					                                               uv->value.upvalue.value.stack_index);
 					e = duckVM_push(duckVM, &object);
 					if (e) goto l_cleanup;
 					e = duckLispDev_callback_print(duckVM);
@@ -326,8 +329,8 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 					e = duckVM_pop(duckVM, dl_null);
 					if (e) goto l_cleanup;
 				}
-				else if (uv->type == duckVM_upvalue_type_heap_object) {
-					e = duckVM_push(duckVM, uv->value.heap_object);
+				else if (uv->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+					e = duckVM_push(duckVM, uv->value.upvalue.value.heap_object);
 					if (e) goto l_cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto l_cleanup;
@@ -335,20 +338,20 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 					if (e) goto l_cleanup;
 				}
 				else {
-					while (uv->type == duckVM_upvalue_type_heap_upvalue) {
-						uv = uv->value.heap_upvalue;
+					while (uv->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+						uv = uv->value.upvalue.value.heap_upvalue;
 					}
-					if (uv->type == duckVM_upvalue_type_stack_index) {
+					if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 						e = duckVM_push(duckVM,
-						                &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.stack_index));
+						                &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, uv->value.upvalue.value.stack_index));
 						if (e) goto l_cleanup;
 						e = duckLispDev_callback_print(duckVM);
 						if (e) goto l_cleanup;
 						e = duckVM_pop(duckVM, dl_null);
 						if (e) goto l_cleanup;
 					}
-					else if (uv->type == duckVM_upvalue_type_heap_object) {
-						e = duckVM_push(duckVM, uv->value.heap_object);
+					else if (uv->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+						e = duckVM_push(duckVM, uv->value.upvalue.value.heap_object);
 						if (e) goto l_cleanup;
 						e = duckLispDev_callback_print(duckVM);
 						if (e) goto l_cleanup;

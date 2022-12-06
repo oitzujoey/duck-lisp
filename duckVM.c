@@ -6,7 +6,6 @@
 #include "duckLisp.h"
 #include <stdio.h>
 
-static dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue);
 static dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM_upvalue_array_t *upvalueArray);
 
 dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
@@ -20,12 +19,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 
 
 	e = dl_malloc(gclist->memoryAllocation,
-				  (void **) &gclist->upvalues,
-				  maxUpvalues * sizeof(duckVM_upvalue_t));
-	if (e) goto cleanup;
-	gclist->upvalues_length = maxUpvalues;
-
-	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->upvalueArrays,
 				  maxUpvalues * sizeof(duckVM_upvalue_array_t));
 	if (e) goto cleanup;
@@ -36,13 +29,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 				  maxObjects * sizeof(duckLisp_object_t));
 	if (e) goto cleanup;
 	gclist->objects_length = maxObjects;
-
-
-	e = dl_malloc(gclist->memoryAllocation,
-				  (void **) &gclist->freeUpvalues,
-				  maxUpvalues * sizeof(duckVM_upvalue_t *));
-	if (e) goto cleanup;
-	gclist->freeUpvalues_length = maxUpvalues;
 
 	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->freeUpvalueArrays,
@@ -58,11 +44,6 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 
 
 	e = dl_malloc(gclist->memoryAllocation,
-				  (void **) &gclist->upvalueInUse,
-				  maxUpvalues * sizeof(dl_bool_t));
-	if (e) goto cleanup;
-
-	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->upvalueArraysInUse,
 				  maxUpvalueArrays * sizeof(dl_bool_t));
 	if (e) goto cleanup;
@@ -73,14 +54,9 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 	if (e) goto cleanup;
 
 
-	/**/ dl_memclear(gclist->upvalues, gclist->upvalues_length * sizeof(duckVM_upvalue_t));
 	/**/ dl_memclear(gclist->upvalueArrays, gclist->upvalueArrays_length * sizeof(duckVM_upvalue_array_t));
 	/**/ dl_memclear(gclist->objects, gclist->objects_length * sizeof(duckLisp_object_t));
 
-
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxUpvalues; i++) {
-		gclist->freeUpvalues[i] = &gclist->upvalues[i];
-	}
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxUpvalueArrays; i++) {
 		gclist->freeUpvalueArrays[i] = &gclist->upvalueArrays[i];
@@ -99,19 +75,12 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
-	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeUpvalues);
-	gclist->freeUpvalues_length = 0;
-
 	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeUpvalueArrays);
 	gclist->freeUpvalueArrays_length = 0;
 
 	e = dl_free(gclist->memoryAllocation, (void **) &gclist->freeObjects);
 	gclist->freeObjects_length = 0;
 
-
-	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->upvalues);
-	e = eError ? eError : e;
-	gclist->upvalues_length = 0;
 
 	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->upvalueArrays);
 	e = eError ? eError : e;
@@ -121,9 +90,6 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	e = eError ? eError : e;
 	gclist->objects_length = 0;
 
-
-	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->upvalueInUse);
-	e = eError ? eError : e;
 
 	eError = dl_free(gclist->memoryAllocation, (void **) &gclist->upvalueArraysInUse);
 	e = eError ? eError : e;
@@ -149,23 +115,18 @@ static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_obj
 		else if (object->type == duckLisp_object_type_closure) {
 			e = duckVM_gclist_markUpvalueArray(gclist, object->value.closure.upvalue_array);
 		}
-	}
- cleanup:
-	return e;
-}
-
-static dl_error_t duckVM_gclist_markUpvalue(duckVM_gclist_t *gclist, duckVM_upvalue_t *upvalue) {
-	if (upvalue) {
-		gclist->upvalueInUse[(dl_ptrdiff_t) (upvalue - gclist->upvalues)] = dl_true;
-		if (upvalue->type == duckVM_upvalue_type_heap_object) {
-			return duckVM_gclist_markObject(gclist, upvalue->value.heap_object);
-		}
-		else if (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
-			return duckVM_gclist_markUpvalue(gclist, upvalue->value.heap_upvalue);
+		else if (object->type == duckLisp_object_type_upvalue) {
+			if (object->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+				return duckVM_gclist_markObject(gclist, object->value.upvalue.value.heap_object);
+			}
+			else if (object->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+				return duckVM_gclist_markObject(gclist, object->value.upvalue.value.heap_upvalue);
+			}
 		}
 		/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 	}
-	return dl_error_ok;
+ cleanup:
+	return e;
 }
 
 // @TODO: Check for cycles.
@@ -175,7 +136,7 @@ static dl_error_t duckVM_gclist_markUpvalueArray(duckVM_gclist_t *gclist, duckVM
 		gclist->upvalueArraysInUse[(dl_ptrdiff_t) (upvalueArray - gclist->upvalueArrays)] = dl_true;
 		if (upvalueArray->initialized) {
 			DL_DOTIMES(k, upvalueArray->length) {
-				e = duckVM_gclist_markUpvalue(gclist, upvalueArray->upvalues[k]);
+				e = duckVM_gclist_markObject(gclist, upvalueArray->upvalues[k]);
 				if (e) break;
 			}
 		}
@@ -188,10 +149,6 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 
 	/* Clear the in use flags. */
-
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.upvalues_length; i++) {
-		duckVM->gclist.upvalueInUse[i] = dl_false;
-	}
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.upvalueArrays_length; i++) {
 		duckVM->gclist.upvalueArraysInUse[i] = dl_false;
@@ -219,13 +176,6 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	/* Free cells if not marked. */
 
-	duckVM->gclist.freeUpvalues_length = 0;  // This feels horribly inefficient. -- because it is. Google "fast garbage collector".
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.upvalues_length; i++) {
-		if (!duckVM->gclist.upvalueInUse[i]) {
-			duckVM->gclist.freeUpvalues[duckVM->gclist.freeUpvalues_length++] = &duckVM->gclist.upvalues[i];
-		}
-	}
-
 	duckVM->gclist.freeUpvalueArrays_length = 0;  // This feels horribly inefficient.
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.upvalueArrays_length; i++) {
 		if (!duckVM->gclist.upvalueArraysInUse[i]) {
@@ -245,34 +195,6 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	}
 
  cleanup:
-	return e;
-}
-
-/* These could have been macros in lisp. D: */
-dl_error_t duckVM_gclist_pushUpvalue(duckVM_t *duckVM,
-                                     duckVM_upvalue_t **upvalueOut,
-                                     duckVM_upvalue_t upvalueIn) {
-	dl_error_t e = dl_error_ok;
-
-	duckVM_gclist_t *gclist = &duckVM->gclist;
-
-	// Try once
-	if (gclist->freeUpvalues_length == 0) {
-		// STOP THE WORLD
-		puts("pushUpvalue : Collect");
-		e = duckVM_gclist_garbageCollect(duckVM);
-		if (e) return e;
-
-		// Try twice
-		if (gclist->freeUpvalues_length == 0) {
-			return dl_error_outOfMemory;
-		}
-	}
-
-	duckVM_upvalue_t *upvalue = gclist->freeUpvalues[--gclist->freeUpvalues_length];
-	*upvalue = upvalueIn;
-	*upvalueOut = upvalue;
-
 	return e;
 }
 
@@ -302,7 +224,7 @@ dl_error_t duckVM_gclist_pushUpvalueArray(duckVM_t *duckVM,
 		e = DL_MALLOC(duckVM->memoryAllocation,
 		              (void **) &upvalueArray->upvalues,
 		              upvalues_length,
-		              sizeof(duckVM_upvalue_t **));
+		              sizeof(duckLisp_object_t **));
 		if (e) goto cleanup;
 	}
 	else {
@@ -350,11 +272,11 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxUpvalues, dl_size_t maxUpv
 	/**/ dl_array_init(&duckVM->call_stack, duckVM->memoryAllocation, sizeof(unsigned char *), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->upvalue_stack,
 	                   duckVM->memoryAllocation,
-	                   sizeof(duckVM_upvalue_t *),
+	                   sizeof(duckLisp_object_t *),
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->upvalue_array_call_stack,
 	                   duckVM->memoryAllocation,
-	                   sizeof(duckVM_upvalue_t **),
+	                   sizeof(duckLisp_object_t **),
 	                   dl_array_strategy_fit);
 	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, dl_null);
 	if (e) goto l_cleanup;
@@ -428,7 +350,7 @@ static dl_error_t stack_pop_multiple(duckVM_t *duckVM, dl_size_t pops) {
 
 static dl_error_t call_stack_push(duckVM_t *duckVM,
                                   dl_uint8_t *ip,
-                                  duckVM_upvalue_t **upvalues,
+                                  duckLisp_object_t **upvalues,
                                   dl_size_t upvalues_length) {
 	dl_error_t e = dl_error_ok;
 	e = dl_array_pushElement(&duckVM->call_stack, &ip);
@@ -597,25 +519,25 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					e = dl_error_invalidValue;
 					break;
 				}
-				duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-				                                                   duckVM_upvalue_t **)[ptrdiff1];
-				if (upvalue->type == duckVM_upvalue_type_stack_index) {
-					e = dl_array_get(&duckVM->stack, &object1, upvalue->value.stack_index);
+				duckLisp_object_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+				                                                    duckLisp_object_t **)[ptrdiff1];
+				if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
+					e = dl_array_get(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
 					if (e) break;
 				}
-				else if (upvalue->type == duckVM_upvalue_type_heap_object) {
-					object1 = *upvalue->value.heap_object;
+				else if (upvalue->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+					object1 = *upvalue->value.upvalue.value.heap_object;
 				}
 				else {
-					while (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
-						upvalue = upvalue->value.heap_upvalue;
+					while (upvalue->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+						upvalue = upvalue->value.upvalue.value.heap_upvalue;
 					}
-					if (upvalue->type == duckVM_upvalue_type_stack_index) {
-						e = dl_array_get(&duckVM->stack, &object1, upvalue->value.stack_index);
+					if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
+						e = dl_array_get(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
 						if (e) break;
 					}
 					else {
-						object1 = *upvalue->value.heap_object;
+						object1 = *upvalue->value.upvalue.value.heap_object;
 					}
 				}
 				// We are eventually going to have *major* problems with strings.
@@ -669,44 +591,44 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 						break;
 					}
 				}
-				duckVM_upvalue_t *upvalue_pointer = dl_null;
+				duckLisp_object_t *upvalue_pointer = dl_null;
 				if ((dl_size_t) ptrdiff1 == (duckVM->upvalue_stack.elements_length - 1)) {
 					/* *Recursion* Capture upvalue we are about to push. */
 					recursive = dl_true;
 					/* Our upvalue definitely doesn't exist yet. */
-					duckVM_upvalue_t upvalue;
-					upvalue.type = duckVM_upvalue_type_stack_index;  /* Lie for now. */
-					upvalue.value.stack_index = ptrdiff1;
-					e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
+					duckLisp_object_t upvalue;
+					upvalue.value.upvalue.type = duckVM_upvalue_type_stack_index;  /* Lie for now. */
+					upvalue.value.upvalue.value.stack_index = ptrdiff1;
+					e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 					if (e) break;
 					/* Break push_scope abstraction. */
 					e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
 					/* Upvalue stack slot exists now, so insert the new UV. */
-					DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1) = upvalue_pointer;
+					DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1) = upvalue_pointer;
 				}
 				else if (ptrdiff1 < 0) {
 					/* Capture upvalue in currently executing function. */
 					ptrdiff1 = -(ptrdiff1 + 1);
-					duckVM_upvalue_t upvalue;
-					upvalue.type = duckVM_upvalue_type_heap_upvalue;
+					duckLisp_object_t upvalue;
+					upvalue.value.upvalue.type = duckVM_upvalue_type_heap_upvalue;
 					/* Link new upvalue to upvalue from current context. */
-					upvalue.value.heap_upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-					                                                    duckVM_upvalue_t **)[ptrdiff1];
-					e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
+					upvalue.value.upvalue.value.heap_upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+					                                                                  duckLisp_object_t **)[ptrdiff1];
+					e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 					if (e) break;
 				}
 				else {
 					/* Capture upvalue on stack. */
-					upvalue_pointer = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1);
+					upvalue_pointer = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1);
 					if (upvalue_pointer == dl_null) {
-						duckVM_upvalue_t upvalue;
-						upvalue.type = duckVM_upvalue_type_stack_index;
-						upvalue.value.stack_index = ptrdiff1;
-						e = duckVM_gclist_pushUpvalue(duckVM, &upvalue_pointer, upvalue);
+						duckLisp_object_t upvalue;
+						upvalue.value.upvalue.type = duckVM_upvalue_type_stack_index;
+						upvalue.value.upvalue.value.stack_index = ptrdiff1;
+						e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 						if (e) break;
 						// Is this a bug? I'm not confident that this element exists.
 						/* Keep reference to upvalue on stack so that we know where to release the object to. */
-						DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1) = upvalue_pointer;
+						DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1) = upvalue_pointer;
 					}
 				}
 				object1.value.closure.upvalue_array->upvalues[k] = upvalue_pointer;
@@ -731,12 +653,12 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					e = dl_error_invalidValue;
 					break;
 				}
-				duckVM_upvalue_t *upvalue = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_upvalue_t *, ptrdiff1);
+				duckLisp_object_t *upvalue = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1);
 				if (upvalue != dl_null) {
 					duckLisp_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, ptrdiff1);
-					e = duckVM_gclist_pushObject(duckVM, &upvalue->value.heap_object, *object);
+					e = duckVM_gclist_pushObject(duckVM, &upvalue->value.upvalue.value.heap_object, *object);
 					if (e) break;
-					upvalue->type = duckVM_upvalue_type_heap_object;
+					upvalue->value.upvalue.type = duckVM_upvalue_type_heap_object;
 					/* Render the original object unusable. */
 					object->type = duckLisp_object_type_list;
 					object->value.list = dl_null;
@@ -774,25 +696,25 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				}
 				e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff2);
 				if (e) break;
-				duckVM_upvalue_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-				                                                   duckVM_upvalue_t **)[ptrdiff1];
-				if (upvalue->type == duckVM_upvalue_type_stack_index) {
-					e = dl_array_set(&duckVM->stack, &object1, upvalue->value.stack_index);
+				duckLisp_object_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+				                                                    duckLisp_object_t **)[ptrdiff1];
+				if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
+					e = dl_array_set(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
 					if (e) break;
 				}
-				else if (upvalue->type == duckVM_upvalue_type_heap_object) {
-					*upvalue->value.heap_object = object1;
+				else if (upvalue->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+					*upvalue->value.upvalue.value.heap_object = object1;
 				}
 				else {
-					while (upvalue->type == duckVM_upvalue_type_heap_upvalue) {
-						upvalue = upvalue->value.heap_upvalue;
+					while (upvalue->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+						upvalue = upvalue->value.upvalue.value.heap_upvalue;
 					}
-					if (upvalue->type == duckVM_upvalue_type_stack_index) {
-						e = dl_array_set(&duckVM->stack, &object1, upvalue->value.stack_index);
+					if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
+						e = dl_array_set(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
 						if (e) break;
 					}
 					else {
-						*upvalue->value.heap_object = object1;
+						*upvalue->value.upvalue.value.heap_object = object1;
 					}
 				}
 			}
