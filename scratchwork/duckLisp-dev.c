@@ -162,8 +162,8 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		break;
 	case duckLisp_object_type_closure:
 		printf("(closure %lli", object.value.closure.name);
-		DL_DOTIMES(k, object.value.closure.upvalue_array->length) {
-			duckLisp_object_t *uv = object.value.closure.upvalue_array->upvalues[k];
+		DL_DOTIMES(k, object.value.closure.upvalue_array->value.upvalue_array.length) {
+			duckLisp_object_t *uv = object.value.closure.upvalue_array->value.upvalue_array.upvalues[k];
 			putchar(' ');
 			if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 				duckLisp_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
@@ -315,8 +315,8 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			break;
 		case duckLisp_object_type_closure:
 			printf("(closure %lli", tempObject.value.closure.name);
-			DL_DOTIMES(k, tempObject.value.closure.upvalue_array->length) {
-				duckLisp_object_t *uv = tempObject.value.closure.upvalue_array->upvalues[k];
+			DL_DOTIMES(k, tempObject.value.closure.upvalue_array->value.upvalue_array.length) {
+				duckLisp_object_t *uv = tempObject.value.closure.upvalue_array->value.upvalue_array.upvalues[k];
 				putchar(' ');
 				if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 					duckLisp_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
@@ -872,9 +872,7 @@ int main(int argc, char *argv[]) {
 
 	const size_t duckLispMemory_size = 10 * 1024 * 1024;
 	const size_t duckVMMemory_size = 1000 * 64 * 1024;
-	const size_t duckVMMaxUpvalues = 10000;
-	const size_t duckVMMaxUpvalueArrays = 10000;
-	const size_t duckVMMaxObjects = 40000;
+	const size_t duckVMMaxObjects = 60000;
 
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
@@ -981,7 +979,7 @@ int main(int argc, char *argv[]) {
 	d.duckVMMemory = dl_true;
 
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMaxUpvalues, duckVMMaxUpvalueArrays, duckVMMaxObjects);
+	e = duckVM_init(&duckVM, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto l_cleanup;

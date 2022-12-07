@@ -5087,7 +5087,7 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	subVM.memoryAllocation = duckLisp->memoryAllocation;
 
 	// Shouldn't need too much.
-	e = duckVM_init(&subVM, 1000, 1000, 1000);
+	e = duckVM_init(&subVM, 1000);
 	if (e) goto l_cleanupDL;
 
 	duckLisp_object_t return_value;
@@ -7394,7 +7394,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	subVM.memoryAllocation = duckLisp->memoryAllocation;
 
 	/* Shouldn't need too many resources. */
-	e = duckVM_init(&subVM, 1000, 1000, 1000);
+	e = duckVM_init(&subVM, 1000);
 	if (e) goto cleanupLabels;
 
 	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements);

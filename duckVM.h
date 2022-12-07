@@ -6,15 +6,10 @@
 #include "DuckLib/array.h"
 
 typedef struct duckVM_gclist_s {
-	struct duckVM_upvalue_array_s *upvalueArrays;
 	struct duckLisp_object_s *objects;
-	struct duckVM_upvalue_array_s **freeUpvalueArrays;
 	struct duckLisp_object_s **freeObjects;
-	dl_bool_t *upvalueArraysInUse;
 	dl_bool_t *objectInUse;
-	dl_size_t upvalueArrays_length;
 	dl_size_t objects_length;
-	dl_size_t freeUpvalueArrays_length;
 	dl_size_t freeObjects_length;
 	dl_array_strategy_t strategy;
 	dl_memoryAllocation_t *memoryAllocation;
@@ -25,12 +20,6 @@ typedef enum {
 	duckVM_upvalue_type_heap_object,
 	duckVM_upvalue_type_heap_upvalue
 } duckVM_upvalue_type_t;
-
-typedef struct duckVM_upvalue_array_s {
-	struct duckLisp_object_s **upvalues;
-	dl_size_t length;
-	dl_bool_t initialized;
-} duckVM_upvalue_array_t;
 
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
@@ -61,6 +50,7 @@ typedef enum {
   /* These types should never appear on the stack. */
   duckLisp_object_type_cons,
   duckLisp_object_type_upvalue,
+  duckLisp_object_type_upvalueArray,
 } duckLisp_object_type_t;
 
 typedef struct duckLisp_object_s {
@@ -84,7 +74,7 @@ typedef struct duckLisp_object_s {
 		} function;
 		struct {
 			dl_ptrdiff_t name;
-			duckVM_upvalue_array_t *upvalue_array;
+			struct duckLisp_object_s *upvalue_array;
 			dl_uint8_t arity;
 			dl_bool_t variadic;
 		} closure;
@@ -101,15 +91,17 @@ typedef struct duckLisp_object_s {
 				struct duckLisp_object_s *heap_upvalue;
 			} value;
 		} upvalue;
+		struct {
+			struct duckLisp_object_s **upvalues;
+			dl_size_t length;
+			dl_bool_t initialized;
+		} upvalue_array;
 	} value;
 	duckLisp_object_type_t type;
 	dl_bool_t inUse;
 } duckLisp_object_t;
 
-dl_error_t duckVM_init(duckVM_t *duckVM,
-                       dl_size_t maxUpvalues,
-                       dl_size_t maxUpvalueArrays,
-                       dl_size_t maxObjects);
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_uint8_t *bytecode);
 dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index);
