@@ -153,7 +153,7 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 	// Try once
 	if (gclist->freeObjects_length == 0) {
 		// STOP THE WORLD
-		puts("pushObject: Collect");
+		puts("Collect");
 		e = duckVM_gclist_garbageCollect(duckVM);
 		if (e) goto cleanup;;
 
