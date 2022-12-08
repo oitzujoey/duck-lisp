@@ -138,7 +138,6 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			}
 
 			if (object.value.list->value.cons.cdr == dl_null) {
-				printf("(nil)");
 			}
 			else if (object.value.list->value.cons.cdr->type == duckLisp_object_type_cons) {
 				if (object.value.list->value.cons.cdr != dl_null) {
@@ -210,6 +209,22 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			}
 		}
 		printf(")");
+		break;
+	case duckLisp_object_type_vector:
+		printf("[");
+		for (dl_ptrdiff_t k = object.value.vector.offset;
+		     (dl_size_t) k < object.value.vector.internal_vector->value.internal_vector.length;
+		     k++) {
+			duckLisp_object_t *value = object.value.vector.internal_vector->value.internal_vector.values[k];
+			if (k != object.value.vector.offset) putchar(' ');
+			e = duckVM_push(duckVM, value);
+			if (e) goto l_cleanup;
+			e = duckLispDev_callback_print(duckVM);
+			if (e) goto l_cleanup;
+			e = duckVM_pop(duckVM, dl_null);
+			if (e) goto l_cleanup;
+		}
+		printf("]");
 		break;
 	default:
 		printf("print: Unsupported type. [%u]\n", object.type);
@@ -361,6 +376,24 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 				}
 			}
 			puts(")");
+			break;
+		case duckLisp_object_type_vector:
+		printf("[");
+		if (tempObject.value.vector.internal_vector != dl_null) {
+			for (dl_ptrdiff_t k = tempObject.value.vector.offset;
+			     (dl_size_t) k < tempObject.value.vector.internal_vector->value.internal_vector.length;
+			     k++) {
+				duckLisp_object_t *value = tempObject.value.vector.internal_vector->value.internal_vector.values[k];
+				if (k != tempObject.value.vector.offset) putchar(' ');
+				e = duckVM_push(duckVM, value);
+				if (e) goto l_cleanup;
+				e = duckLispDev_callback_print(duckVM);
+				if (e) goto l_cleanup;
+				e = duckVM_pop(duckVM, dl_null);
+				if (e) goto l_cleanup;
+			}
+		}
+		printf("]\n");
 			break;
 		default:
 			printf("Bad object type %u.\n", tempObject.type);

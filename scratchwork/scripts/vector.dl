@@ -1,0 +1,45 @@
+(include "../scripts/library.dl")
+
+(var シ (vector "I'm" "a" "vector!"))
+(println シ)
+(var x シ)
+(println x)
+
+(var a (vector (vector 1 2 3) シ))
+(println a)
+
+(while (not (null? x))
+       (println (car x))
+       (setq x (cdr x)))
+
+(print "\n")
+
+(println シ)
+
+(print "\n")
+
+(println (car (nthcdr 1 シ)))
+((print "シ has a length of "))
+(println (length シ))
+(println (nreverse シ))
+(println (append シ シ))
+(println (caddr シ))
+(println (last シ))
+(print "シ is a ") (println (type-to-string (type-of シ)))
+
+(comment "Pair and assoc")
+
+(print "\n")
+(setq x (pair (vector "x" "y" "z") (vector "a" "b" "c")))
+(println x)
+
+(println (assoc "x" x))
+(println (assoc "y" x))
+(println (assoc "z" x))
+(println (assoc "7" x))
+
+
+(comment "Stack balance test")
+
+(print "\n")
+(println シ)

@@ -46,11 +46,13 @@ typedef enum {
   duckLisp_object_type_symbol,
   duckLisp_object_type_function,
   duckLisp_object_type_closure,
+  duckLisp_object_type_vector,
 
   /* These types should never appear on the stack. */
   duckLisp_object_type_cons,
   duckLisp_object_type_upvalue,
   duckLisp_object_type_upvalueArray,
+  duckLisp_object_type_internalVector,
 } duckLisp_object_type_t;
 
 typedef struct duckLisp_object_s {
@@ -96,6 +98,15 @@ typedef struct duckLisp_object_s {
 			dl_size_t length;
 			dl_bool_t initialized;
 		} upvalue_array;
+		struct {
+			struct duckLisp_object_s **values;
+			dl_size_t length;
+			dl_bool_t initialized;
+		} internal_vector;
+		struct {
+			struct duckLisp_object_s *internal_vector;
+			dl_ptrdiff_t offset;
+		} vector;
 	} value;
 	duckLisp_object_type_t type;
 	dl_bool_t inUse;
