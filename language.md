@@ -17,7 +17,7 @@ Every function and keyword follows the form `(verb noun noun …)`.
 
 ## Data types
 
-Integers, floats, booleans, strings, cons, symbols, closures
+Integers, floats, booleans, strings, cons, symbols, closures, vectors
 
 Floats are not yet supported by all keywords. There are no built-in string keywords.
 
@@ -156,9 +156,13 @@ x  (; ⇒ 5)
 
 ## Sequences
 
+### Strings
+
 The only support for strings is `print`. The only sort of string is a string literal.
 
-The only other sequence type is the cons cell. A cons cell is a pair of values.
+### Conses and lists
+
+The most common sequence type is the cons cell. A cons cell is a pair of values.
 
 ```lisp
 (cons 4 2)  (; ⇒ (4 . 2))
@@ -205,6 +209,53 @@ A list without a nil on the end is called a dotted list. In general, dotted list
 ```lisp
 (cons 1 (cons 2 (cons 3 (cons 4 5))))  (; ⇒ (1 2 3 4 . 5))
 ```
+
+### Vectors
+
+Vectors are designed for O(1) element access, as opposed to lists which have O(n) element access.
+
+Most list operations work the same on vectors as on lists. Currently, the only major difference is that `set-cdr` works on vectors only if the "cdr" is being set to `()` or `[]`.
+
+My guess is that the speed of `cdr`ing down a vector is similar to that of a list.
+
+Both `()` and `[]` are null values, but vectors do not have a quoted read syntax, so the only way to create `[]` is to do `(vector)`.
+
+Vectors are created using the `vector` keyword.
+
+```lisp
+(print (vector 1 2 3 4 5))  (; ⇒ [1 2 3 4 5])
+```
+
+To create an array of arbitrary size at runtime, use `make-vector`. The first argument is the length, and the second argument is the object to initialize each element with.
+
+```lisp
+(make-vector 5 3)  (; ⇒ [3 3 3 3 3])
+(make-vector 4 (vector 1 2 3))  (; ⇒ [[1 2 3] [1 2 3] [1 2 3] [1 2 3]])
+```
+
+Instead of using `car` and `cdr` to access elements, `get-vector-element` can be used instead. The first argument is the vector, and the second element is the index.
+
+```lisp
+(get-vector-element (vector 5 4 3 2 1) 3)  (; ⇒ 2)
+```
+
+To set an element, use `set-vector-element`. Its usage is the same as `get-vector-element`, but its third argument is the value to set the element to.
+
+```lisp
+(var x (vector 1 2 3))  (; ⇒ [1 2 3])
+(set-vector-element x 1 0)  (; ⇒ 0)
+(print x)  (; ⇒ [1 0 3])
+```
+
+Like `car`, `cdr`, `set-car`, and `set-cdr`, these two operations can be used together on trees.
+
+```lisp
+(var x (make-vector 4 (vector 1 2 3)))  (; ⇒ [[1 2 3] [1 2 3] [1 2 3] [1 2 3]])
+(get-vector-element x 3)  (; ⇒ [1 2 3])
+(set-vector-element (get-vector-element x 3) 2 10)  (; ⇒ 10)
+(print x)  (; ⇒ [[1 2 10] [1 2 10] [1 2 10] [1 2 10]])
+```
+
 
 ## Flow control
 
