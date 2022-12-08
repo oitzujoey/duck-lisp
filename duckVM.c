@@ -331,6 +331,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 	dl_uint8_t *ip = bytecode;
 	dl_ptrdiff_t ptrdiff1;
 	dl_ptrdiff_t ptrdiff2;
+	dl_ptrdiff_t ptrdiff3;
 	dl_size_t size1;
 	dl_uint8_t uint8;
 	duckLisp_object_t object1 = {0};
@@ -2561,7 +2562,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			/* Fall through */
 		case duckLisp_instruction_vector8:
 			size1 = *(ip++) + (size1 << 8);
-			/* Fall through */
 
 			object1.type = duckLisp_object_type_vector;
 			object1.value.vector.offset = 0;
@@ -2610,6 +2610,85 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				                             object2);
 				if (e) break;
 			}
+			if (e) break;
+
+			/* Break push_scope abstraction. */
+			e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
+			if (e) break;
+			object1.value.vector.internal_vector->value.internal_vector.initialized = dl_true;
+			DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object1;
+			break;
+
+		case duckLisp_instruction_makeVector32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_makeVector16:
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_makeVector8:
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+			ptrdiff2 = *(ip++);
+			switch (opcode) {
+			case duckLisp_instruction_makeVector32:
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				/* Fall through */
+			case duckLisp_instruction_makeVector16:
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				/* Fall through */
+			case duckLisp_instruction_makeVector8:
+				break;
+			default:
+				e = dl_error_invalidValue;
+				break;
+			}
+			if (e) break;
+
+			ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
+			if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_integer) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			size1 = object1.value.integer;
+
+			ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
+			if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			if (e) break;
+
+			object1.type = duckLisp_object_type_vector;
+			object1.value.vector.offset = 0;
+			object1.value.vector.internal_vector = dl_null;
+
+			{
+				duckLisp_object_t internal_vector;
+				internal_vector.type = duckLisp_object_type_internalVector;
+				internal_vector.value.internal_vector.initialized = dl_false;
+				internal_vector.value.internal_vector.length = size1;
+				e = duckVM_gclist_pushObject(duckVM, &object1.value.vector.internal_vector, internal_vector);
+				if (e) break;
+			}
+			/* Immediately push on stack so that the GC can see it. Allocating elements could trigger a GC. */
+			e = dl_array_pushElement(&duckVM->stack, &object1);
+			if (e) break;
+			e = duckVM_gclist_pushObject(duckVM,
+			                             &objectPtr1,
+			                             object2);
+			if (e) break;
+			DL_DOTIMES(k, object1.value.vector.internal_vector->value.internal_vector.length) {
+				object1.value.vector.internal_vector->value.internal_vector.values[k] = objectPtr1;
+			}
 
 			if (e) break;
 
@@ -2618,6 +2697,163 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			if (e) break;
 			object1.value.vector.internal_vector->value.internal_vector.initialized = dl_true;
 			DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object1;
+			break;
+
+		case duckLisp_instruction_getVecElt32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_getVecElt16:
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_getVecElt8:
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+			ptrdiff2 = *(ip++);
+			switch (opcode) {
+			case duckLisp_instruction_getVecElt32:
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				/* Fall through */
+			case duckLisp_instruction_getVecElt16:
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				/* Fall through */
+			case duckLisp_instruction_getVecElt8:
+				break;
+			default:
+				e = dl_error_invalidValue;
+				break;
+			}
+			if (e) break;
+
+			ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
+			if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_vector) {
+				e = dl_error_invalidValue;
+				break;
+			}
+
+			ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
+			if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			if (e) break;
+			if (object2.type != duckLisp_object_type_integer) {
+				e = dl_error_invalidValue;
+				break;
+			}
+
+			ptrdiff1 = object2.value.integer;
+			if ((dl_size_t) (ptrdiff1 + object1.value.vector.offset)
+			    >= object1.value.vector.internal_vector->value.internal_vector.length) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			object2 = *object1.value.vector.internal_vector->value.internal_vector.values[object1.value.vector.offset
+			                                                                              + ptrdiff1];
+			e = stack_push(duckVM, &object2);
+			if (e) break;
+			break;
+
+		case duckLisp_instruction_setVecElt32:
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_setVecElt16:
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_setVecElt8:
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+			ptrdiff2 = *(ip++);
+			switch (opcode) {
+			case duckLisp_instruction_setVecElt32:
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				/* Fall through */
+			case duckLisp_instruction_setVecElt16:
+				ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+				/* Fall through */
+			case duckLisp_instruction_setVecElt8:
+				break;
+			default:
+				e = dl_error_invalidValue;
+				break;
+			}
+			if (e) break;
+
+			ptrdiff3 = *(ip++);
+			switch (opcode) {
+			case duckLisp_instruction_setVecElt32:
+				ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+				ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+				/* Fall through */
+			case duckLisp_instruction_setVecElt16:
+				ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+				/* Fall through */
+			case duckLisp_instruction_setVecElt8:
+				break;
+			default:
+				e = dl_error_invalidValue;
+				break;
+			}
+			if (e) break;
+
+			ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
+			if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+			if (e) break;
+			if (object1.type != duckLisp_object_type_vector) {
+				e = dl_error_invalidValue;
+				break;
+			}
+
+			ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
+			if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+			if (e) break;
+			if (object2.type != duckLisp_object_type_integer) {
+				e = dl_error_invalidValue;
+				break;
+			}
+
+			ptrdiff3 = duckVM->stack.elements_length - ptrdiff3;
+			if ((ptrdiff3 < 0) || ((dl_size_t) ptrdiff3 > duckVM->stack.elements_length)) {
+				e = dl_error_invalidValue;
+				break;
+			}
+			e = dl_array_get(&duckVM->stack, &object3, ptrdiff3);
+			if (e) break;
+
+			/* Vector bounds check. */
+			ptrdiff2 = object2.value.integer;
+			if ((dl_size_t) (ptrdiff2 + object1.value.vector.offset)
+			    >= object1.value.vector.internal_vector->value.internal_vector.length) {
+				e = dl_error_invalidValue;
+				break;
+			}
+
+			e = duckVM_gclist_pushObject(duckVM,
+			                             &(object1.value.vector.internal_vector
+			                               ->value.internal_vector.values[object1.value.vector.offset
+			                                                              + ptrdiff2]),
+			                             object3);
+
+			e = stack_push(duckVM, &object3);
+			if (e) break;
 			break;
 
 		// I probably don't need an `if` if I research the standard a bit.

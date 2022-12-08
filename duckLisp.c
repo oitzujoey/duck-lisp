@@ -2510,6 +2510,133 @@ dl_error_t duckLisp_emit_vector(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_emit_makeVector(duckLisp_t *duckLisp,
+                                    dl_array_t *assembly,
+                                    const dl_ptrdiff_t length_index,
+                                    const dl_ptrdiff_t fill_index) {
+	dl_error_t e = dl_error_ok;
+
+	duckLisp_instructionObject_t instruction = {0};
+	duckLisp_instructionArgClass_t argument = {0};
+	/**/ dl_array_init(&instruction.args,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionArgClass_t),
+	                   dl_array_strategy_double);
+
+	/* Write instruction. */
+	instruction.instructionClass = duckLisp_instructionClass_makeVector;
+
+	/* Push arguments into instruction. */
+	/* Length */
+	argument.type = duckLisp_instructionArgClass_type_index;
+	argument.value.index = duckLisp->locals_length - length_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	/* Fill */
+	argument.type = duckLisp_instructionArgClass_type_index;
+	argument.value.index = duckLisp->locals_length - fill_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	// Push instruction into list.
+	e = dl_array_pushElement(assembly, &instruction);
+	if (e) goto l_cleanup;
+
+	duckLisp->locals_length++;
+
+ l_cleanup:
+
+	return e;
+}
+
+dl_error_t duckLisp_emit_getVecElt(duckLisp_t *duckLisp,
+                                   dl_array_t *assembly,
+                                   const dl_ptrdiff_t vec_index,
+                                   const dl_ptrdiff_t index_index) {
+	dl_error_t e = dl_error_ok;
+
+	duckLisp_instructionObject_t instruction = {0};
+	duckLisp_instructionArgClass_t argument = {0};
+	/**/ dl_array_init(&instruction.args,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionArgClass_t),
+	                   dl_array_strategy_double);
+
+	/* Write instruction. */
+	instruction.instructionClass = duckLisp_instructionClass_getVecElt;
+
+	/* Push arguments into instruction. */
+	/* Vector */
+	argument.type = duckLisp_instructionArgClass_type_index;
+	argument.value.index = duckLisp->locals_length - vec_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	/* Index */
+	argument.type = duckLisp_instructionArgClass_type_index;
+	argument.value.index = duckLisp->locals_length - index_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	// Push instruction into list.
+	e = dl_array_pushElement(assembly, &instruction);
+	if (e) goto l_cleanup;
+
+	duckLisp->locals_length++;
+
+ l_cleanup:
+
+	return e;
+}
+
+dl_error_t duckLisp_emit_setVecElt(duckLisp_t *duckLisp,
+                                   dl_array_t *assembly,
+                                   const dl_ptrdiff_t vec_index,
+                                   const dl_ptrdiff_t index_index,
+                                   const dl_ptrdiff_t value_index) {
+	dl_error_t e = dl_error_ok;
+
+	duckLisp_instructionObject_t instruction = {0};
+	duckLisp_instructionArgClass_t argument = {0};
+	/**/ dl_array_init(&instruction.args,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionArgClass_t),
+	                   dl_array_strategy_double);
+
+	/* Write instruction. */
+	instruction.instructionClass = duckLisp_instructionClass_setVecElt;
+
+	/* Push arguments into instruction. */
+	/* Vector */
+	argument.type = duckLisp_instructionArgClass_type_index;
+	argument.value.index = duckLisp->locals_length - vec_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	/* Index */
+	argument.type = duckLisp_instructionArgClass_type_index;
+	argument.value.index = duckLisp->locals_length - index_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	/* Value */
+	argument.type = duckLisp_instructionArgClass_type_index;
+	argument.value.index = duckLisp->locals_length - value_index;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	// Push instruction into list.
+	e = dl_array_pushElement(assembly, &instruction);
+	if (e) goto l_cleanup;
+
+	duckLisp->locals_length++;
+
+ l_cleanup:
+
+	return e;
+}
+
 dl_error_t duckLisp_emit_return(duckLisp_t *duckLisp, dl_array_t *assembly, const dl_size_t count) {
 	dl_error_t e = dl_error_ok;
 
@@ -4494,6 +4621,151 @@ dl_error_t duckLisp_generator_vector(duckLisp_t *duckLisp, dl_array_t *assembly,
  cleanupIndices:
 	eError = DL_FREE(duckLisp->memoryAllocation, &args_indexes);
 	if (!e) e = eError;
+
+ cleanup:
+
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
+dl_error_t duckLisp_generator_makeVector(duckLisp_t *duckLisp,
+                                         dl_array_t *assembly,
+                                         duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	dl_ptrdiff_t length_index;
+	dl_ptrdiff_t fill_index;
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3, dl_false);
+	if (e) goto cleanup;
+
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[1],
+	                                        &length_index,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[2],
+	                                        &fill_index,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_emit_makeVector(duckLisp, assembly, length_index, fill_index);
+	if (e) goto cleanup;
+
+ cleanup:
+
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
+dl_error_t duckLisp_generator_getVecElt(duckLisp_t *duckLisp,
+                                        dl_array_t *assembly,
+                                        duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	dl_ptrdiff_t vec_index;
+	dl_ptrdiff_t index_index;
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3, dl_false);
+	if (e) goto cleanup;
+
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[1],
+	                                        &vec_index,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[2],
+	                                        &index_index,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_emit_getVecElt(duckLisp, assembly, vec_index, index_index);
+	if (e) goto cleanup;
+
+ cleanup:
+
+	eError = dl_array_quit(&eString);
+	if (eError) {
+		e = eError;
+	}
+
+	return e;
+}
+
+dl_error_t duckLisp_generator_setVecElt(duckLisp_t *duckLisp,
+                                        dl_array_t *assembly,
+                                        duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	dl_ptrdiff_t vec_index;
+	dl_ptrdiff_t index_index;
+	dl_ptrdiff_t value_index;
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 4, dl_false);
+	if (e) goto cleanup;
+
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[1],
+	                                        &vec_index,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[2],
+	                                        &index_index,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[3],
+	                                        &value_index,
+	                                        dl_null,
+	                                        dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_emit_setVecElt(duckLisp, assembly, vec_index, index_index, value_index);
+	if (e) goto cleanup;
 
  cleanup:
 
@@ -8889,6 +9161,142 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			}
 			break;
 		}
+		case duckLisp_instructionClass_makeVector: {
+			if (args[0].type == duckLisp_instructionArgClass_type_index) {
+				dl_ptrdiff_t index = 0;
+				if (((unsigned long) args[0].value.index < 0x100UL)
+				    && ((unsigned long) args[1].value.index < 0x100UL)) {
+					currentInstruction.byte = duckLisp_instruction_makeVector8;
+					byte_length = 1;
+				}
+				else if (((unsigned int) args[0].value.index < 0x10000UL)
+				         && ((unsigned int) args[1].value.index < 0x10000UL)) {
+					currentInstruction.byte = duckLisp_instruction_makeVector16;
+					byte_length = 2;
+				}
+				else {
+					currentInstruction.byte = duckLisp_instruction_makeVector32;
+					byte_length = 4;
+				}
+				e = dl_array_pushElements(&currentArgs, dl_null, byte_length * instruction.args.elements_length);
+				if (e) goto l_cleanup;
+				DL_DOTIMES(n, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = ((args[0].value.index
+					                                                            >> 8*(byte_length - n - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+
+				DL_DOTIMES(n, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = ((args[1].value.index
+					                                                            >> 8*(byte_length - n - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+				break;
+			}
+			else {
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			break;
+		}
+		case duckLisp_instructionClass_getVecElt: {
+			if (args[0].type == duckLisp_instructionArgClass_type_index) {
+				dl_ptrdiff_t index = 0;
+				if (((unsigned long) args[0].value.index < 0x100UL)
+				    && ((unsigned long) args[1].value.index < 0x100UL)) {
+					currentInstruction.byte = duckLisp_instruction_getVecElt8;
+					byte_length = 1;
+				}
+				else if (((unsigned int) args[0].value.index < 0x10000UL)
+				         && ((unsigned int) args[1].value.index < 0x10000UL)) {
+					currentInstruction.byte = duckLisp_instruction_getVecElt16;
+					byte_length = 2;
+				}
+				else {
+					currentInstruction.byte = duckLisp_instruction_getVecElt32;
+					byte_length = 4;
+				}
+				e = dl_array_pushElements(&currentArgs, dl_null, byte_length * instruction.args.elements_length);
+				if (e) goto l_cleanup;
+				DL_DOTIMES(n, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = ((args[0].value.index
+					                                                            >> 8*(byte_length - n - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+
+				DL_DOTIMES(n, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = ((args[1].value.index
+					                                                            >> 8*(byte_length - n - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+				break;
+			}
+			else {
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			break;
+		}
+		case duckLisp_instructionClass_setVecElt: {
+			if (args[0].type == duckLisp_instructionArgClass_type_index) {
+				dl_ptrdiff_t index = 0;
+				if (((unsigned long) args[0].value.index < 0x100UL)
+				    && ((unsigned long) args[1].value.index < 0x100UL)) {
+					currentInstruction.byte = duckLisp_instruction_setVecElt8;
+					byte_length = 1;
+				}
+				else if (((unsigned int) args[0].value.index < 0x10000UL)
+				         && ((unsigned int) args[1].value.index < 0x10000UL)) {
+					currentInstruction.byte = duckLisp_instruction_setVecElt16;
+					byte_length = 2;
+				}
+				else {
+					currentInstruction.byte = duckLisp_instruction_setVecElt32;
+					byte_length = 4;
+				}
+				e = dl_array_pushElements(&currentArgs, dl_null, byte_length * instruction.args.elements_length);
+				if (e) goto l_cleanup;
+				DL_DOTIMES(n, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = ((args[0].value.index
+					                                                            >> 8*(byte_length - n - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+
+				DL_DOTIMES(n, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = ((args[1].value.index
+					                                                            >> 8*(byte_length - n - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+
+				DL_DOTIMES(n, byte_length) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = ((args[2].value.index
+					                                                            >> 8*(byte_length - n - 1))
+					                                                           & 0xFFU);
+				}
+				index += byte_length;
+				break;
+			}
+			else {
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			break;
+		}
 		case duckLisp_instructionClass_car: {
 			if (args[0].type == duckLisp_instructionArgClass_type_index) {
 				if ((unsigned long) args[0].value.index < 0x100UL) {
@@ -9865,45 +10273,48 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 		const char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
-	} generators[] = {{DL_STR("comment"),           duckLisp_generator_comment},
-	                  {DL_STR(";"),                 duckLisp_generator_comment},
-	                  {DL_STR("nop"),               duckLisp_generator_nop},
-	                  {DL_STR("funcall"),           duckLisp_generator_funcall2},
-	                  {DL_STR("apply"),             duckLisp_generator_apply},
-	                  {DL_STR("label"),             duckLisp_generator_label},
-	                  {DL_STR("var"),               duckLisp_generator_createVar},
-	                  {DL_STR("setq"),              duckLisp_generator_setq},
-	                  {DL_STR("\xE2\x86\x90"),      duckLisp_generator_setq},
-	                  {DL_STR("not"),               duckLisp_generator_not},
-	                  {DL_STR("*"),                 duckLisp_generator_multiply},
-	                  {DL_STR("/"),                 duckLisp_generator_divide},
-	                  {DL_STR("+"),                 duckLisp_generator_add},
-	                  {DL_STR("-"),                 duckLisp_generator_sub},
-	                  {DL_STR("while"),             duckLisp_generator_while},
-	                  {DL_STR("if"),                duckLisp_generator_if},
-	                  {DL_STR("when"),              duckLisp_generator_when},
-	                  {DL_STR("unless"),            duckLisp_generator_unless},
-	                  {DL_STR("="),                 duckLisp_generator_equal},
-	                  {DL_STR("<"),                 duckLisp_generator_less},
-	                  {DL_STR(">"),                 duckLisp_generator_greater},
-	                  {DL_STR("defun"),             duckLisp_generator_defun},
-	                  {DL_STR("\0defun:lambda"),    duckLisp_generator_lambda},
-	                  {DL_STR("\0defmacro:lambda"), duckLisp_generator_lambda},
-	                  {DL_STR("lambda"),            duckLisp_generator_lambda},
-	                  {DL_STR("constexpr"),         duckLisp_generator_constexpr},
-	                  {DL_STR("defmacro"),          duckLisp_generator_defmacro},
-	                  {DL_STR("noscope"),           duckLisp_generator_noscope},
-	                  {DL_STR("quote"),             duckLisp_generator_quote},
-	                  {DL_STR("list"),              duckLisp_generator_list},
-	                  {DL_STR("vector"),            duckLisp_generator_vector},
-	                  {DL_STR("cons"),              duckLisp_generator_cons},
-	                  {DL_STR("car"),               duckLisp_generator_car},
-	                  {DL_STR("cdr"),               duckLisp_generator_cdr},
-	                  {DL_STR("set-car"),           duckLisp_generator_setCar},
-	                  {DL_STR("set-cdr"),           duckLisp_generator_setCdr},
-	                  {DL_STR("null?"),             duckLisp_generator_nullp},
-	                  {DL_STR("type-of"),           duckLisp_generator_typeof},
-	                  {dl_null, 0,                  dl_null}};
+	} generators[] = {{DL_STR("comment"),            duckLisp_generator_comment},
+	                  {DL_STR(";"),                  duckLisp_generator_comment},
+	                  {DL_STR("nop"),                duckLisp_generator_nop},
+	                  {DL_STR("funcall"),            duckLisp_generator_funcall2},
+	                  {DL_STR("apply"),              duckLisp_generator_apply},
+	                  {DL_STR("label"),              duckLisp_generator_label},
+	                  {DL_STR("var"),                duckLisp_generator_createVar},
+	                  {DL_STR("setq"),               duckLisp_generator_setq},
+	                  {DL_STR("\xE2\x86\x90"),       duckLisp_generator_setq},
+	                  {DL_STR("not"),                duckLisp_generator_not},
+	                  {DL_STR("*"),                  duckLisp_generator_multiply},
+	                  {DL_STR("/"),                  duckLisp_generator_divide},
+	                  {DL_STR("+"),                  duckLisp_generator_add},
+	                  {DL_STR("-"),                  duckLisp_generator_sub},
+	                  {DL_STR("while"),              duckLisp_generator_while},
+	                  {DL_STR("if"),                 duckLisp_generator_if},
+	                  {DL_STR("when"),               duckLisp_generator_when},
+	                  {DL_STR("unless"),             duckLisp_generator_unless},
+	                  {DL_STR("="),                  duckLisp_generator_equal},
+	                  {DL_STR("<"),                  duckLisp_generator_less},
+	                  {DL_STR(">"),                  duckLisp_generator_greater},
+	                  {DL_STR("defun"),              duckLisp_generator_defun},
+	                  {DL_STR("\0defun:lambda"),     duckLisp_generator_lambda},
+	                  {DL_STR("\0defmacro:lambda"),  duckLisp_generator_lambda},
+	                  {DL_STR("lambda"),             duckLisp_generator_lambda},
+	                  {DL_STR("constexpr"),          duckLisp_generator_constexpr},
+	                  {DL_STR("defmacro"),           duckLisp_generator_defmacro},
+	                  {DL_STR("noscope"),            duckLisp_generator_noscope},
+	                  {DL_STR("quote"),              duckLisp_generator_quote},
+	                  {DL_STR("list"),               duckLisp_generator_list},
+	                  {DL_STR("vector"),             duckLisp_generator_vector},
+	                  {DL_STR("make-vector"),        duckLisp_generator_makeVector},
+	                  {DL_STR("get-vector-element"), duckLisp_generator_getVecElt},
+	                  {DL_STR("set-vector-element"), duckLisp_generator_setVecElt},
+	                  {DL_STR("cons"),               duckLisp_generator_cons},
+	                  {DL_STR("car"),                duckLisp_generator_car},
+	                  {DL_STR("cdr"),                duckLisp_generator_cdr},
+	                  {DL_STR("set-car"),            duckLisp_generator_setCar},
+	                  {DL_STR("set-cdr"),            duckLisp_generator_setCdr},
+	                  {DL_STR("null?"),              duckLisp_generator_nullp},
+	                  {DL_STR("type-of"),            duckLisp_generator_typeof},
+	                  {dl_null, 0,                   dl_null}};
 
 	// /* No error */ cst_expression_init(&duckLisp->cst);
 	// /* No error */ ast_expression_init(&duckLisp->ast);
@@ -13742,6 +14153,625 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 				if (e) return dl_null;
 				arg = 0;
 				continue;
+			}
+			break;
+
+		case duckLisp_instruction_makeVector8:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("make-vector.8      "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+		case duckLisp_instruction_makeVector16:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("make-vector.16     "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 3:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 4:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+		case duckLisp_instruction_makeVector32:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("make-vector.32     "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 3:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 4:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 5:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 6:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 7:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 8:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+
+		case duckLisp_instruction_getVecElt8:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("get-vector-element.8  "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+		case duckLisp_instruction_getVecElt16:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("get-vector-element.16 "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 3:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 4:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+		case duckLisp_instruction_getVecElt32:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("get-vector-element.32 "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 3:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 4:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 5:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 6:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 7:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 8:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+
+		case duckLisp_instruction_setVecElt8:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("set-vector-element.8  "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 3:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+		case duckLisp_instruction_setVecElt16:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("set-vector-element.16 "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 3:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 4:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 5:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 6:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+		case duckLisp_instruction_setVecElt32:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("set-vector-element.16 "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 3:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 4:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 5:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 6:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 7:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 8:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 9:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 10:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 11:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 12:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
 			}
 			break;
 

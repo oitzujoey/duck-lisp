@@ -44,3 +44,22 @@
 
 (print "\n")
 (println シ)
+
+(comment The vector is filled with references to the single vector object.)
+(println "Vectors:")
+(var y (make-vector 5 (vector 1 2 3 4 5)))
+(println y)
+(set-car (cdaddr y) ())
+(println y)
+(println (get-vector-element (get-vector-element y 2) 2))
+(set-vector-element (get-vector-element y 0) 3 (quote *))
+(println y)
+
+(comment Same here, but it doesn't look any different for numbers.)
+(println "Integers:")
+(setq y (make-vector 5 5))
+(println y)
+(set-car (cddr y) ())
+(println y)
+(println (set-vector-element y 4 (quote +)))
+(println y)

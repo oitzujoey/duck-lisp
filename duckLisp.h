@@ -244,6 +244,9 @@ typedef enum {
 	duckLisp_instructionClass_greater,
 	duckLisp_instructionClass_cons,
 	duckLisp_instructionClass_vector,
+	duckLisp_instructionClass_makeVector,
+	duckLisp_instructionClass_getVecElt,
+	duckLisp_instructionClass_setVecElt,
 	duckLisp_instructionClass_car,
 	duckLisp_instructionClass_cdr,
 	duckLisp_instructionClass_setCar,
@@ -372,6 +375,18 @@ typedef enum {
 	duckLisp_instruction_vector8,
 	duckLisp_instruction_vector16,
 	duckLisp_instruction_vector32,
+
+	duckLisp_instruction_makeVector8,
+	duckLisp_instruction_makeVector16,
+	duckLisp_instruction_makeVector32,
+
+	duckLisp_instruction_getVecElt8,
+	duckLisp_instruction_getVecElt16,
+	duckLisp_instruction_getVecElt32,
+
+	duckLisp_instruction_setVecElt8,
+	duckLisp_instruction_setVecElt16,
+	duckLisp_instruction_setVecElt32,
 
 	duckLisp_instruction_car8,
 	duckLisp_instruction_car16,
