@@ -38,8 +38,9 @@
 (println (assoc "z" x))
 (println (assoc "7" x))
 
-
-(comment "Stack balance test")
+(setq x シ)
+(set-car (cdr x) "a modified vector.")
+(set-cdr (cddr x) ())
 
 (print "\n")
 (println シ)

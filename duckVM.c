@@ -2806,6 +2806,13 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					object2.value.list->value.cons.car = objectPtr1;
 				}
 			}
+			else if ((object2.type == duckLisp_object_type_vector)
+			         && (object2.value.vector.internal_vector != dl_null)) {
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+				if (e) break;
+				(object2.value.vector.internal_vector
+				 ->value.internal_vector.values[object2.value.vector.offset]) = objectPtr1;
+			}
 			else e = dl_error_invalidValue;
 			break;
 
@@ -2850,6 +2857,14 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					if (e) break;
 					object2.value.list->value.cons.cdr = objectPtr1;
 				}
+			}
+			else if ((object2.type == duckLisp_object_type_vector)
+			         && (object2.value.vector.internal_vector != dl_null)
+			         && (((object1.type == duckLisp_object_type_vector)
+			              && (object1.value.vector.internal_vector == dl_null))
+			             || ((object1.type == duckLisp_object_type_list)
+			                 && (object1.value.list == dl_null)))) {
+				object2.value.vector.internal_vector->value.internal_vector.length = object2.value.vector.offset;
 			}
 			else e = dl_error_invalidValue;
 			break;
