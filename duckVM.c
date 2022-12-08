@@ -335,6 +335,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 	dl_uint8_t uint8;
 	duckLisp_object_t object1 = {0};
 	duckLisp_object_t object2 = {0};
+	duckLisp_object_t object3 = {0};
 	duckLisp_object_t *objectPtr1;
 	duckLisp_object_t *objectPtr2;
 	/**/ dl_memclear(&object1, sizeof(duckLisp_object_t));
@@ -2522,29 +2523,33 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			if (e) break;
 			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
+			/* Push dummy cons first so that it can't get collected. */
+			cons1.type = duckLisp_object_type_cons;
+			cons1.value.cons.car = dl_null;
+			cons1.value.cons.cdr = dl_null;
+			object3.type = duckLisp_object_type_list;
+			e = duckVM_gclist_pushObject(duckVM, &object3.value.list, cons1);
+			if (e) break;
+			e = stack_push(duckVM, &object3);
+			if (e) break;
+			/* Create the elements of the cons. */
 			if (object1.type == duckLisp_object_type_list) {
-				cons1.value.cons.car = object1.value.list;
+				object3.value.list->value.cons.car = object1.value.list;
 			}
 			else {
 				e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 				if (e) break;
-				cons1.value.cons.car = objectPtr1;
+				object3.value.list->value.cons.car = objectPtr1;
 			}
 			if (object2.type == duckLisp_object_type_list) {
-				cons1.value.cons.cdr = object2.value.list;
+				object3.value.list->value.cons.cdr = object2.value.list;
 			}
 			else {
 				e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object2);
 				if (e) break;
-				cons1.value.cons.cdr = objectPtr2;
+				object3.value.list->value.cons.cdr = objectPtr2;
 			}
-			cons1.type = duckLisp_object_type_cons;
-			e = duckVM_gclist_pushObject(duckVM, &object1.value.list, cons1);
-			if (e) break;
-
-			object1.type = duckLisp_object_type_list;
-			e = stack_push(duckVM, &object1);
-			if (e) break;
+			DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object3;
 			break;
 
 		case duckLisp_instruction_vector32:
