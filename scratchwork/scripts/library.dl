@@ -8,6 +8,7 @@
 (var duckLisp-object-type-symbol 6)
 (var duckLisp-object-type-function 7)
 (var duckLisp-object-type-closure 8)
+(var duckLisp-object-type-vector 9)
 
 (comment " Copied straight out of CLHS B）")
 
@@ -95,8 +96,8 @@
 (defun print (&rest vs)
   (var vs2 vs)
   (while (not (null? vs2))
-	(print (car vs2))
-	(setq vs2 (cdr vs2)))
+    (print (car vs2))
+    (setq vs2 (cdr vs2)))
   vs)
 
 (defun println (&rest vs)
@@ -116,22 +117,31 @@
 (defun 1+ (x)
   (+ x 1))
 
+(defun 1- (x)
+  (- x 1))
+
 (defun >= (x y)
   (not (< x y)))
 
 (defun <= (x y)
   (not (> x y)))
 
-(defun evenp (value)
+(defun != (x y)
+  (not (= x y)))
+
+(defun even? (value)
   (= 0 (- value (* (/ value 2) 2))))
-(defun oddp (value)
-  (not (evenp value)))
+(defun odd? (value)
+  (not (even? value)))
+
+(defun mod (a b)
+  (- a (* (/ a b) b)))
 
 (defun gcd (a b)
   (while (not (= a b))
-	(if (> a b)
-		(to a (- b))
-		(to b (- a))))
+    (if (> a b)
+        (to a (- b))
+        (to b (- a))))
   a)
 
 (defun lcm (a b)
@@ -141,31 +151,44 @@
   (list (quote setq) variable (list (quote cons) value variable)))
 
 (defmacro pop (variable)
-  (list (quote setq) variable (list (quote cdr) variable)))
+  (list
+   (list (quote var) (quote pop-temp) (list (quote car) variable))
+   (list (quote setq) variable (list (quote cdr) variable))
+   (quote pop-temp)))
 
 (defun length (list)
   (var i 0)
   (while (not (null? list))
-	(to list (cdr))
+    (to list (cdr))
     (to i (1+)))
   i)
 
 (defun nreverse (list)
   (var reversed-list ())
   (while (not (null? list))
-	(setq reversed-list (cons (car list)
-							  reversed-list))
-	(to list (cdr)))
+    (setq reversed-list (cons (car list)
+                              reversed-list))
+    (to list (cdr)))
   reversed-list)
+
+(defun min (&rest values)
+  (var min-value (first values))
+  (pop values)
+  (while (not (null? values))
+         (var value (first values))
+         (when (< value min-value)
+           (setq min-value value))
+         (pop values))
+  min-value)
 
 (defun max (&rest values)
   (var max-value (first values))
   (pop values)
   (while (not (null? values))
-		 (var value (first values))
-		 (when (> value max-value)
-		   (setq max-value value))
-		 (pop values))
+         (var value (first values))
+         (when (> value max-value)
+           (setq max-value value))
+         (pop values))
   max-value)
 
 (defun sort-descending (list)
@@ -177,93 +200,97 @@
 (defun integer? (value)
   (= (type-of value) duckLisp-object-type-int))
 
+(defun list? (value)
+  (= (type-of value) duckLisp-object-type-list))
+
 (comment (defun type-to-string (type)
-		   (switch type
-				   duckLisp-object-type-none "none"
-				   duckLisp-object-type-bool "bool"
-				   duckLisp-object-type-int "int"
-				   duckLisp-object-type-float "float"
-				   duckLisp-object-type-str "str"
-				   duckLisp-object-type-list "list"
-				   duckLisp-object-type-symbol "sym"
-				   duckLisp-object-type-function "func"
-				   duckLisp-object-type-closure "clos")))
+           (switch type
+                   duckLisp-object-type-none "none"
+                   duckLisp-object-type-bool "bool"
+                   duckLisp-object-type-int "int"
+                   duckLisp-object-type-float "float"
+                   duckLisp-object-type-str "str"
+                   duckLisp-object-type-list "list"
+                   duckLisp-object-type-symbol "sym"
+                   duckLisp-object-type-function "func"
+                   duckLisp-object-type-closure "clos")))
 
 (defun type-to-string (type)
   (if (= type duckLisp-object-type-none)
-	  "none"
-	  (if (= type duckLisp-object-type-bool)
-		  "bool"
-		  (if (= type duckLisp-object-type-int)
-			  "int"
-			  (if (= type duckLisp-object-type-float)
-				  "float"
-				  (if (= type duckLisp-object-type-str)
-					  "str"
-					  (if (= type duckLisp-object-type-list)
-						  "list"
-						  (if (= type duckLisp-object-type-symbol)
-							  "sym"
-							  (if (= type duckLisp-object-type-function)
-								  "func"
-								  (if (= type duckLisp-object-type-closure)
-									  "clos"
-									  "Invalid type"))))))))))
+      "none"
+      (if (= type duckLisp-object-type-bool)
+          "bool"
+          (if (= type duckLisp-object-type-int)
+              "integer"
+              (if (= type duckLisp-object-type-float)
+                  "float"
+                  (if (= type duckLisp-object-type-str)
+                      "string"
+                      (if (= type duckLisp-object-type-list)
+                          "list"
+                          (if (= type duckLisp-object-type-symbol)
+                              "symbol"
+                              (if (= type duckLisp-object-type-function)
+                                  "function"
+                                  (if (= type duckLisp-object-type-closure)
+                                      "closure"
+                                      (if (= type duckLisp-object-type-vector)
+                                          "vector"
+                                          "Invalid type")))))))))))
 
-(defun and (a b)
-  (if a
-	  (if b
-		  true
-		  false)
+(defmacro and (&rest args)
+  (if args
+	  (list (quote if) (car args)
+			(apply self (cdr args))
+			false)
+	  true))
+
+(defmacro or (&rest args)
+  (if args
+	  (list (quote if) (car args)
+			true
+			(apply self (cdr args)))
 	  false))
 
-(defun or (a b)
-  (if a
-	  true
-	  (if b
-		  true
-		  false)))
-
 (defun atom? (v)
-  (or (not (= (type-of v) duckLisp-object-type-list))
-	  (null? v)))
+  (or (not (or (= (type-of v) duckLisp-object-type-list) (= (type-of v) duckLisp-object-type-vector)))
+      (null? v)))
 
 (defun subst (x y z)
   (if (atom? z)
-	  (if (= z y)
-		  x
-		  z)
-	  (cons (self x y (car z))
-			(self x y (cdr z)))))
+      (if (= z y)
+          x
+          z)
+      (cons (self x y (car z))
+            (self x y (cdr z)))))
 
 (defun pair (x y)
   (if (and (null? x) (null? y))
-	  ()
-	  (if (and (not (atom? x)) (not (atom? y)))
-		  (cons (cons (car x) (cons (car y) ()))
-				(self (cdr x) (cdr y)))
-		  ())))
+      ()
+      (if (and (not (atom? x)) (not (atom? y)))
+          (cons (cons (car x) (cons (car y) ()))
+                (self (cdr x) (cdr y)))
+          ())))
 
-(defun assoc (x y)
-  (var duckLisp-object-type-list 5)
-  (if (not (null? y))
-	  (if (= (car (car y)) x)
-		  (car (cdr (car y)))
-		  (self x (cdr y)))
-	  ()))
+(defun assoc (item alist)
+  (if (not (null? alist))
+      (if (= (car (car alist)) item)
+          (car alist)
+          (self item (cdr alist)))
+      ()))
 
 (defun nthcdr (n list)
   (var i 0)
   (while (< i n)
-	(to list (cdr))
-	(to i (1+)))
+    (to list (cdr))
+    (to i (1+)))
   list)
 
 (defun nth (n list)
   (var i 0)
   (while (< i n)
-	(to list (cdr))
-	(to i (1+)))
+    (to list (cdr))
+    (to i (1+)))
   (car list))
 
 (defun elt (list n)
@@ -275,49 +302,112 @@
 (defun append (list1 list2)
   (var appended-list ())
   (while (not (null? list1))
-	(setq appended-list (cons (car list1)
-							  appended-list))
-	(to list1 (cdr)))
+    (setq appended-list (cons (car list1)
+                              appended-list))
+    (to list1 (cdr)))
   (while (not (null? list2))
-	(setq appended-list (cons (car list2)
-							  appended-list))
-	(to list2 (cdr)))
+    (setq appended-list (cons (car list2)
+                              appended-list))
+    (to list2 (cdr)))
   (nreverse appended-list))
 
 (defun copy-list (list)
   (var new-list ())
   (while (not (null? list))
-		 (setq new-list (cons (car list) new-list))
-		 (to list (cdr)))
+         (setq new-list (cons (car list) new-list))
+         (to list (cdr)))
   (nreverse new-list))
 
 (defun member (element list)
   (var found false)
   (while (and (not (null? list)) (not found))
-	(if (= element (car list))
-		(setq found true)
-	    ())
-	(to list (cdr)))
+    (if (= element (car list))
+        (setq found true)
+        ())
+    (to list (cdr)))
   found)
 
 (defun remove-if (fun list)
   (unless (null? list)
-	  (if (fun (car list))
-		  (self fun (cdr list))
-		  (cons (car list)
-				(self fun (cdr list))))))
+      (if (fun (car list))
+          (self fun (cdr list))
+          (cons (car list)
+                (self fun (cdr list))))))
 
 (defun remove-if-not (fun list)
   (unless (null? list)
-	  (if (not (fun (car list)))
-		  (self fun (cdr list))
-		  (cons (car list)
-				(self fun (cdr list))))))
+      (if (not (fun (car list)))
+          (self fun (cdr list))
+          (cons (car list)
+                (self fun (cdr list))))))
 
 (defun maplist (fun list)
   (unless (null? list)
-	  (cons (fun list) (self fun (cdr list)))))
+      (cons (fun list) (self fun (cdr list)))))
 
-(defun mapcar (fun list)
+(defun mapcar* (fun list)
   (unless (null? list)
-	(cons (fun (car list)) (self fun (cdr list)))))
+    (cons (fun (car list)) (self fun (cdr list)))))
+
+(defun filter* (fun list)
+  (unless (null? list)
+    (if (fun (car list))
+        (cons (car list) (self fun (cdr list)))
+        (self fun (cdr list)))))
+
+(defun transpose (lists)
+  (comment The operation I've feared doing to linked lists.)
+  (comment Create the frame of the transposed matrix.)
+  (var new-lists (mapcar* (lambda (element)
+							(mapcar* (lambda (element) ()) lists))
+						  (first lists)))
+  (comment Populate the matrix.)
+  (var x 0)
+  (while lists
+		 (var list (first lists))
+		 (var y 0)
+		 (while list
+				(var element (first list))
+				(set-car (nthcdr x (nth y new-lists)) element)
+				(pop list)
+				(to y (1+)))
+		 (pop lists)
+		 (to x (1+)))
+  new-lists)
+
+(defmacro inc (variable)
+  (list (quote to) variable (list (quote 1+))))
+(defmacro dec (variable)
+  (list (quote to) variable (list (quote 1-))))
+
+(defmacro dolist (bind &rest body)
+  (defun nreverse (list)
+	(var reversed-list ())
+	(while (not (null? list))
+		   (setq reversed-list (cons (car list)
+									 reversed-list))
+		   (to list (cdr)))
+	reversed-list)
+  (var variable (car bind))
+  (var l (car (cdr bind)))
+  (var return (car (cdr (cdr bind))))
+  (setq body (nreverse (cons (list (quote pop) (quote dolist-temp))
+							 (nreverse body))))
+  (list
+   (list (quote var) (quote dolist-temp) l)
+   (list (quote var) variable ())
+   (cons (quote while) (cons (quote dolist-temp)
+							 (cons (list (quote setq) variable (list (quote first) (quote dolist-temp)))
+								   
+								   body)))
+   return))
+
+(defun subseq (sequence start &rest end)
+  (setq sequence (nthcdr start sequence))
+  (when end
+	(setq end (- (car end) start)))
+  (if (and sequence (if end (!= end 0) true))
+	  (cons (car sequence) (if end
+							   (self (cdr sequence) 0 (1- end))
+							   (self (cdr sequence) 0)))
+	  ()))
