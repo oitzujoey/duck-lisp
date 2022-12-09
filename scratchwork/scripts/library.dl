@@ -327,21 +327,21 @@
     (to list (cdr)))
   found)
 
-(defun remove-if (fun list)
+(defun remove-if* (fun list)
   (unless (null? list)
       (if (fun (car list))
           (self fun (cdr list))
           (cons (car list)
                 (self fun (cdr list))))))
 
-(defun remove-if-not (fun list)
+(defun remove-if-not* (fun list)
   (unless (null? list)
       (if (not (fun (car list)))
           (self fun (cdr list))
           (cons (car list)
                 (self fun (cdr list))))))
 
-(defun maplist (fun list)
+(defun maplist* (fun list)
   (unless (null? list)
       (cons (fun list) (self fun (cdr list)))))
 
@@ -397,7 +397,7 @@
    (list (quote var) (quote dolist-temp) l)
    (list (quote var) variable ())
    (cons (quote while) (cons (quote dolist-temp)
-							 (cons (list (quote setq) variable (list (quote first) (quote dolist-temp)))
+							 (cons (list (quote setq) variable (list (quote car) (quote dolist-temp)))
 								   
 								   body)))
    return))
@@ -411,3 +411,54 @@
 							   (self (cdr sequence) 0 (1- end))
 							   (self (cdr sequence) 0)))
 	  ()))
+
+(comment Usage:
+         (var ht (make-hash-table (lambda (key) (* 2 key)) (lambda (left right) (= left right))))
+         (ht (quote set) 5 10)
+         (ht (quote get) 5)  ; ⇒ 10
+         (ht (quote get-table))  ; ⇒ The internal representation of the hash table.
+         )
+(defun make-hash-table (size hash-function equal?)
+  (var hash-table (make-vector size ()))
+
+  (lambda (message &rest args)
+    (defun hash (key)
+      (mod (hash-function key) size))
+
+    (defun get-hash (key)
+      (var entries (get-vector-element hash-table (hash key)))
+      (var found ())
+      (while (and entries (not found))
+             (var entry (first entries))
+             (when (equal? (car entry) key)
+               (setq found (car entry)))
+             (pop entries))
+      found)
+    (defun set-hash (key value)
+      (var index (hash key))
+      (var entries (get-vector-element hash-table index))
+      (var found ())
+      (
+       (var entries entries)
+       (while (and entries (not found))
+              (var entry (first entries))
+              (when (equal? (car entry) key)
+                (setq found entries))
+              (pop entries)))
+      (if found
+          (
+           (set-cdr (car found) value)
+           ())
+          (push (cons key value) entries))
+      (set-vector-element hash-table index entries)
+      value)
+    (defun get-table ()
+      hash-table)
+
+    (if (= message (quote get))
+        (get-hash (first args))
+        (if (= message (quote set))
+            (set-hash (first args) (second args))
+            (if (= message (quote get-table))
+                (get-table)
+                (println "((make-hash-table)): Unrecognized message " message " with args " args))))))
