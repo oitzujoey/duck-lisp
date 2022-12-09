@@ -1071,47 +1071,19 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 		case duckLisp_instruction_not32:
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			switch (object1.type) {
-			case duckLisp_object_type_integer:
-				object1.value.integer = !object1.value.integer;
-				break;
-			case duckLisp_object_type_bool:
-				object1.value.boolean = !object1.value.boolean;
-				break;
-			default:
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			e = stack_push(duckVM, &object1);
-			if (e) break;
-			break;
+			/* Fall through */
 		case duckLisp_instruction_not16:
-			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			/* Fall through */
+		case duckLisp_instruction_not8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			switch (object1.type) {
-			case duckLisp_object_type_integer:
-				object1.value.integer = !object1.value.integer;
+			case duckLisp_object_type_list:
+				object1.type = duckLisp_object_type_bool;
+				object1.value.boolean = object1.value.list == dl_null;
 				break;
-			case duckLisp_object_type_bool:
-				object1.value.boolean = !object1.value.boolean;
-				break;
-			default:
-				e = dl_error_invalidValue;
-				goto l_cleanup;
-			}
-			e = stack_push(duckVM, &object1);
-			break;
-		case duckLisp_instruction_not8:
-			ptrdiff1 = *(ip++);
-			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-			if (e) break;
-			switch (object1.type) {
 			case duckLisp_object_type_integer:
 				object1.value.integer = !object1.value.integer;
 				break;
