@@ -2629,6 +2629,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				e = dl_error_invalidValue;
 				break;
 			}
+			if (object1.value.integer < 0) {
+				e = dl_error_invalidValue;
+				break;
+			}
 			size1 = object1.value.integer;
 
 			ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
