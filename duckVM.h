@@ -96,7 +96,6 @@ typedef struct duckLisp_object_s {
 		struct {
 			struct duckLisp_object_s **upvalues;
 			dl_size_t length;
-			dl_bool_t initialized;
 		} upvalue_array;
 		struct {
 			struct duckLisp_object_s **values;

@@ -1320,6 +1320,61 @@ A non-null list should always point to a cons. It should never point to any othe
 
 Once everything is using one single heap, it should be a lot easier to make improvements, such as switching to a copying collector.
 
+I spent a day debugging the VM and compiler since I thought there was a bug in it. I think I did fix a few potential bugs, some of which may have caused my original problems, but I think the final bug was forcing a garage collection from a running script. So that makes me think that there is a problem with the FFI.
+
+Scratch that. Problem still remains. I'm guessing it's still GC related, and that maybe it has to do with the upvalues or upvalues array stack not being traced?
+
+The bug disappeared when I went from this
+
+(
+ (defun 1 …)
+ (defun 2 …)
+ (defun 3 …))
+
+(
+ (defun 1 …)
+ (defun 2 …)
+ (defun 3 …))
+
+to
+
+(defun 1 …)
+(defun 2 …)
+(defun 3 …)
+
+(
+ (defun 1 …)
+ (defun 2 …)
+ (defun 3 …))
+
+
+These problem numbers are buggy when done how I want to: 9 11
+
+
+Definition: Pure functions are functions who's only free variables are C callbacks and pure functions. Recursion is permitted.
+
+
+The bug is caused by creation of a corrupt upvalue array.
+An object is created and collected multiple times. The first time it was allocated as an upvalue in "9.dl".
+A closure is created who's upvalue array points to that upvalue, even though it was supposed to point to another upvalue.
+
+I should try single-stepping when that closure is created.
+
+Upvalue stack is corrupted.
+
+Upvalue stack element 91 is a corrupted upvalue.
+
+Watchpoint did not notice any change to `duckVM->upvalue_stack.elements[91]`. This makes me think that the element it's pointing to is what is getting corrupted, not the pointer itself.
+
+Just to make sure, I checked the pointer value before and after the corruption, and the pointer didn't change.
+
+The upvalue ended up on the free list.
+
+An upvalue on the upvalue stack may not have any reference to it other than the upvalue stack itself.
+On the other hand, the arrays on the upvalue array stack already have closures referencing them on the stack.
+
+Bug is fixed. "9.dl" runs smoothly.
+
 
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 

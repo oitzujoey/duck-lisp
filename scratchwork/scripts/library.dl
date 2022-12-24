@@ -462,3 +462,28 @@
             (if (= message (quote get-table))
                 (get-table)
                 (println "((make-hash-table)): Unrecognized message " message " with args " args))))))
+
+(comment Pretty continuation passing style, using pointer notation.
+         (
+          (var place 5)
+          (var reference (ref place))
+          (print place)             ; ⇒ 5
+          (print (dref reference))  ; ⇒ 5
+          (setf place 6)
+          (print place)             ; ⇒ 6
+          (print (dref reference))  ; ⇒ 6
+          (setf (dref reference) 7)
+          (print (dref reference))  ; ⇒ 7
+          (print place))            ; ⇒ 7
+         )
+(defmacro ref (place)
+  (list (quote cons)
+        (list (quote lambda) (list) place)
+        (list (quote lambda) (list (quote __ref-value))
+              (list (quote setq) place (quote __ref-value)))))
+
+(defun deref (reference)
+  (funcall (car reference)))
+
+(defun set-deref (reference value)
+  (funcall (cdr reference) value))
