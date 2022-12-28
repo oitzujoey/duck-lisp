@@ -11,7 +11,7 @@ dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const
 
 	duckLisp_error_t error;
 
-	e = dl_malloc(duckLisp->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
+	e = dl_malloc(duckVM->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
 	if (e) {
 		goto l_cleanup;
 	}
