@@ -5356,13 +5356,18 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 	case duckLisp_object_type_string:
 		// @TODO: This (and case symbol below) is a problem since it will never be freed.
 		ast->value.string.value_length = object->value.string.value_length;
-		e = dl_malloc(duckLisp->memoryAllocation,
-		              (void **) &ast->value.string.value,
-		              object->value.string.value_length);
-		if (e) break;
-		/**/ dl_memcopy_noOverlap(ast->value.string.value,
-		                          object->value.string.value,
-		                          object->value.string.value_length);
+		if (object->value.string.value_length) {
+			e = dl_malloc(duckLisp->memoryAllocation,
+			              (void **) &ast->value.string.value,
+			              object->value.string.value_length);
+			if (e) break;
+			/**/ dl_memcopy_noOverlap(ast->value.string.value,
+			                          object->value.string.value,
+			                          object->value.string.value_length);
+		}
+		else {
+			ast->value.string.value = dl_null;
+		}
 		ast->type = duckLisp_ast_type_string;
 		break;
 	case duckLisp_object_type_list:
