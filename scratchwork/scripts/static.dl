@@ -1,0 +1,11 @@
+
+(static x 5)
+(print x)
+(print x)
+(static y 4)
+(print x)
+(print y)
+(print x)
+(print y)
+(print y)
+(print "\n")

@@ -167,6 +167,14 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		}
 	}
 
+	/* Lexical statics */
+	DL_DOTIMES(i, duckVM->lexicalStatics.elements_length) {
+		duckLisp_object_t *object = DL_ARRAY_GETADDRESS(duckVM->lexicalStatics, duckLisp_object_t *, i);
+		if (object != dl_null) {
+			duckVM_gclist_markObject(&duckVM->gclist, object);
+		}
+	}
+
 	/* Free cells if not marked. */
 
 	duckVM->gclist.freeObjects_length = 0;  // This feels horribly inefficient. (That's 'cause it is.)
@@ -284,7 +292,14 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	                   duckVM->memoryAllocation,
 	                   sizeof(dl_size_t),
 	                   dl_array_strategy_fit);
-	/**/ dl_array_init(&duckVM->statics, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->dynamicStatics,
+	                   duckVM->memoryAllocation,
+	                   sizeof(duckVM_static_t),
+	                   dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->lexicalStatics,
+	                   duckVM->memoryAllocation,
+	                   sizeof(duckLisp_object_t *),
+	                   dl_array_strategy_fit);
 	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxObjects);
 	if (e) goto l_cleanup;
 
@@ -301,7 +316,12 @@ void duckVM_quit(duckVM_t *duckVM) {
 	/**/ dl_array_quit(&duckVM->upvalue_array_length_call_stack);
 	/**/ duckVM_gclist_quit(&duckVM->gclist);
 	/**/ dl_memclear(&duckVM->errors, sizeof(dl_array_t));
-	e = dl_array_quit(&duckVM->statics);
+	DL_DOTIMES(i, duckVM->dynamicStatics.elements_length) {
+		e = DL_FREE(duckVM->memoryAllocation,
+		            &DL_ARRAY_GETADDRESS(duckVM->dynamicStatics, duckVM_static_t, i).name.value);
+	}
+	e = dl_array_quit(&duckVM->dynamicStatics);
+	e = dl_array_quit(&duckVM->lexicalStatics);
 	e = dl_array_quit(&duckVM->call_stack);
 	e = dl_array_quit(&duckVM->upvalue_stack);
 	(void) e;
@@ -470,7 +490,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			object1.value.integer = dl_false;
 			e = stack_push(duckVM, &object1);
 			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-boolean-false: stack_push failed."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->push-boolean-false: stack_push failed."));
 				if (!e) e = eError;
 			}
 			break;
@@ -479,7 +500,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			object1.value.integer = dl_true;
 			e = stack_push(duckVM, &object1);
 			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-boolean-true: stack_push failed."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->push-boolean-true: stack_push failed."));
 				if (!e) e = eError;
 			}
 			break;
@@ -562,7 +584,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				// Like to live dangerously?
 				if (ptrdiff1 < 0) {
 					e = dl_error_invalidValue;
-					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-upvalue: Index pointing to upvalue is negative."));
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->push-upvalue: Index pointing to upvalue is negative."));
 					if (!e) e = eError;
 					break;
 				}
@@ -572,7 +595,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 					e = dl_array_get(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
 					if (e) {
-						eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-upvalue: dl_array_get failed."));
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->push-upvalue: dl_array_get failed."));
 						if (!e) e = eError;
 						break;
 					}
@@ -598,7 +622,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					}
 				}
 				else {
-					printf("heap index: %lli    upvalue array call stack length: %llu\n", (dl_ptrdiff_t) (upvalue - duckVM->gclist.objects), duckVM->upvalue_array_call_stack.elements_length);
 					e = dl_error_invalidValue;
 					eError = duckVM_error_pushRuntime(duckVM,
 					                                  DL_STR("duckVM_execute->push-upvalue: Upvalue type is corrupted."));
@@ -643,7 +666,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				upvalue_array.value.upvalue_array.length = size1;
 				e = duckVM_gclist_pushObject(duckVM, &object1.value.closure.upvalue_array, upvalue_array);
 				if (e) {
-					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
 					if (!e) e = eError;
 					break;
 				}
@@ -654,7 +678,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			/* Immediately push on stack so that the GC can see it. Allocating upvalues could trigger a GC. */
 			e = dl_array_pushElement(&duckVM->stack, &object1);
 			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: dl_array_pushElement failed."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->push-closure: dl_array_pushElement failed."));
 				if (!e) e = eError;
 				break;
 			}
@@ -676,7 +701,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					ptrdiff1 = (duckVM->stack.elements_length - 1) - ptrdiff1;
 					if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > (duckVM->upvalue_stack.elements_length - 1))) {
 						e = dl_error_invalidValue;
-						eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: Stack index out of bounds."));
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->push-closure: Stack index out of bounds."));
 						if (!e) e = eError;
 						break;
 					}
@@ -693,7 +719,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 					if (e) {
 						e = dl_error_shouldntHappen;
-						eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
 						if (!e) e = eError;
 						break;
 					}
@@ -713,7 +740,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					                                                                  duckLisp_object_t **)[ptrdiff1];
 					e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 					if (e) {
-						eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
 						if (!e) e = eError;
 						break;
 					}
@@ -728,7 +756,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 						upvalue.value.upvalue.value.stack_index = ptrdiff1;
 						e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 						if (e) {
-							eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+							eError = duckVM_error_pushRuntime(duckVM,
+							                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
 							if (!e) e = eError;
 							break;
 						}
@@ -738,7 +767,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 					}
 					if (upvalue_pointer->type != duckLisp_object_type_upvalue) {
 						e = dl_error_shouldntHappen;
-						eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: Captured object is not an upvalue."));
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->push-closure: Captured object is not an upvalue."));
 						if (!e) e = eError;
 						break;
 					}
@@ -751,7 +781,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				/* Break push_scope abstraction. */
 				e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
 				if (e) {
-					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: dl_array_pushElement failed."));
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->push-closure: dl_array_pushElement failed."));
 					if (!e) e = eError;
 					break;
 				}
@@ -759,6 +790,15 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			/* e = stack_push(duckVM, &object1); */
 			DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object1;
 
+			break;
+
+		case duckLisp_instruction_pushStatic8:
+			ptrdiff1 = *(ip++);
+			e = stack_push(duckVM, DL_ARRAY_GETADDRESS(duckVM->lexicalStatics, duckLisp_object_t *, ptrdiff1));
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-static: stack_push failed."));
+				if (!e) e = eError;
+			}
 			break;
 
 		case duckLisp_instruction_releaseUpvalues32:
@@ -790,7 +830,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 				duckLisp_object_t *upvalue = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1);
 				if (upvalue != dl_null) {
 					if (upvalue->type != duckLisp_object_type_upvalue) {
-						eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->release-upvalues: Captured object is not an upvalue."));
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->release-upvalues: Captured object is not an upvalue."));
 						if (!e) e = eError;
 						break;
 					}
@@ -857,6 +898,28 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 						*upvalue->value.upvalue.value.heap_object = object1;
 					}
 				}
+			}
+			break;
+
+		case duckLisp_instruction_setStatic8:
+			{
+				/* type: duckLisp_object_t * */
+				dl_array_t *lexicalStatics = &duckVM->lexicalStatics;
+				dl_ptrdiff_t topIndex = lexicalStatics->elements_length - 1;
+
+				ptrdiff1 = *(ip++);
+				ptrdiff2 = *(ip++);
+
+				if (ptrdiff2 > topIndex) {
+					e = dl_array_pushElements(lexicalStatics, dl_null, ptrdiff2 - topIndex);
+					if (e) break;
+				}
+				e = duckVM_gclist_pushObject(duckVM,
+				                             &objectPtr1,
+				                             DL_ARRAY_GETADDRESS(duckVM->stack,
+				                                                 duckLisp_object_t,
+				                                                 duckVM->stack.elements_length - ptrdiff1));
+				DL_ARRAY_GETADDRESS(*lexicalStatics, duckLisp_object_t *, ptrdiff2) = objectPtr1;
 			}
 			break;
 
@@ -1150,7 +1213,9 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 			// Fall through
 		case duckLisp_instruction_ccall8:
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-			e = DL_ARRAY_GETADDRESS(duckVM->statics, duckLisp_object_t, ptrdiff1).value.function.callback(duckVM);
+			e = DL_ARRAY_GETADDRESS(duckVM->lexicalStatics,
+			                        duckLisp_object_t *,
+			                        ptrdiff1)->value.function.callback(duckVM);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->c-call: C callback returned error."));
 				if (!e) e = eError;
@@ -3530,7 +3595,11 @@ dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, d
 	return e;
 }
 
-dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, dl_error_t (*callback)(duckVM_t *)) {
+dl_error_t duckVM_linkCFunction(duckVM_t *duckVM,
+                                dl_ptrdiff_t callback_index,
+                                const char *name,
+                                const dl_size_t name_length,
+                                dl_error_t (*callback)(duckVM_t *)) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_object_t object;
@@ -3539,15 +3608,32 @@ dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t callback_index, d
 	object.value.function.callback = callback;
 
 	// Make room for the object if the index reaches beyond the end.
-	if ((dl_size_t) callback_index >= duckVM->statics.elements_length) {
-		e = dl_array_pushElements(&duckVM->statics, dl_null, 1 + callback_index - duckVM->statics.elements_length);
-		if (e) {
-			goto l_cleanup;
-		}
+	if ((dl_size_t) callback_index >= duckVM->lexicalStatics.elements_length) {
+		e = dl_array_pushElements(&duckVM->lexicalStatics,
+		                          dl_null,
+		                          1 + callback_index - duckVM->lexicalStatics.elements_length);
+		if (e) goto l_cleanup;
 	}
 
 	// Insert the callback.
-	DL_ARRAY_GETADDRESS(duckVM->statics, duckLisp_object_t, callback_index) = object;
+	{
+		duckLisp_object_t *objectPointer = dl_null;
+		e = duckVM_gclist_pushObject(duckVM, &objectPointer, object);
+		if (e) goto l_cleanup;
+		DL_ARRAY_GETADDRESS(duckVM->lexicalStatics, duckLisp_object_t *, callback_index) = objectPointer;
+
+		{
+			duckVM_static_t dynamicStatic;
+			e = DL_MALLOC(duckVM->memoryAllocation, &dynamicStatic.name.value, name_length, char);
+			if (e) goto l_cleanup;
+			/**/ dl_memcopy_noOverlap(dynamicStatic.name.value, name, name_length);
+			dynamicStatic.name.value_length = name_length;
+			dynamicStatic.lexicalStatic_index = callback_index;
+			dynamicStatic.object = objectPointer;
+			e = dl_array_pushElement(&duckVM->dynamicStatics, &dynamicStatic);
+			if (e) goto l_cleanup;
+		}
+	}
 
 	l_cleanup:
 

@@ -1376,6 +1376,44 @@ On the other hand, the arrays on the upvalue array stack already have closures r
 Bug is fixed. "9.dl" runs smoothly.
 
 
+When the VM exits, the stack should be cleared, but all objects on the heap should remain until the next `_pushObject`.
+
+
+Allowing pure function calls in macros is the final major feature I want in DL.
+
+
+Using an arena allocator may have been a much better choice than the style of allocation I'm using now.
+
+
+Each scope has a field that indicates if the first function encountered in a lower scope is pure (meaning it does not capture free variables). The only function that needs to set that field to a useful value is `defun`. The problem is by the time the generator for `defun` is called, the scope containing the "pure" annotation is gone. Somehow I need to thread that information from `lambda` through `var` to `defun`. One solution is to take the bodies of `var` and `lambda` out of their functions and turn them into new functions with an extra `*pure` argument. It doesn't feel right, but I suppose it doesn't *really* break the "generator-emitter" model.
+
+We leave `defun` alone, except we call a different function for `var`.
+We relocate the entire body of `var` to another function that has `*pure`.
+We relocate the entire body of `lambda` to another function that has `*pure`.
+
+And it turns out that I didn't need another field in `duckLisp_scope_t`. All I needed to do was check if the current closure captured anything, though I should somehow check to see if it captured itself.
+
+Compilation of locals is greater than O(n). Every time a pure function is called, the body would have to be included in the binary, resulting in a ton of duplication. An alternative that is O(n) is to use static variables. All pure functions will have to be compiled twice, once for the final binary and once for use in macros.
+
+
+Statics can be changed to be addressed either by name or by index. Any variable that has no definition will be treated as a named static variable. The compiler will issue a warning if this happens. If a static variable is registered with the compiler or declared beforehand the warning will not be issued and the static will be addressed by index instead of by name.
+
+Statics may be created and destroyed at any time. Statics deleted during execution are simply marked deleted without freeing any memory.
+
+Named and unnamed statics are almost one and the same. All unnamed statics must have a name.
+Statics are objects that are pointed to by the statics array. Each entry has a string associated with it that acts as the name.
+"Unnamed static" refers only to how the static is addressed. If the static is registered during compilation, it gets an entry in the unnamed statics array. References to statics that the compiler is explicitly told about are treated as unnamed.
+When a static is deleted, it is only deleted from the statics array. Statics are never deleted from the unnamed statics array.
+
+The statics array is traced by the garbage collector.
+The unnamed statics array is traced by the garbage collector.
+
+Unnamed references to statics are statically scoped. Named references to statics are dynamically scoped.
+
+
+Macros use named references to statics for pure function calls.
+
+
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:

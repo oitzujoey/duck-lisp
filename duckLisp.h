@@ -149,6 +149,8 @@ typedef enum {
 	duckLisp_functionType_none = 0,
 	duckLisp_functionType_c,
 	duckLisp_functionType_ducklisp,
+	/* Indicates that this procedure captures no upvalues. */
+	duckLisp_functionType_ducklisp_pure,
 	duckLisp_functionType_generator,
 	duckLisp_functionType_macro
 } duckLisp_functionType_t;
@@ -168,23 +170,29 @@ typedef struct {
 typedef struct {
 	dl_array_t bytecode;  /* dl_uint8_t */
 	duckLisp_ast_identifier_t name;
+} duckLisp_function_t;
+
+typedef struct {
+	dl_array_t bytecode;  /* dl_uint8_t */
+	duckLisp_ast_identifier_t name;
 } duckLisp_macro_t;
 
 typedef struct {
 	// All variable names in the current scope are stored here.
 	dl_trie_t locals_trie;   /* Points to stack objects. */
-	dl_trie_t statics_trie;   /* Points to static objects. */
 
 	dl_trie_t functions_trie;  /* Records all the function types in this scope. */
 	dl_size_t functions_length;
+	dl_array_t pure_functions;  /* dl_array_t:duckLisp_function_t * */
+
 	dl_trie_t generators_trie;  /* Points to generator stack callbacks. */
 	dl_size_t generators_length;
+
 	dl_trie_t macros_trie;  /* Index of macro in `macros`. */
 	dl_size_t macros_length;
 	dl_array_t macros;  /* dl_array_t:duckLisp_macro_t * */
 
 	dl_trie_t labels_trie;
-
 	dl_bool_t function_scope;  /* Used to determine when to create a deep upvalue. */
 
 	dl_ptrdiff_t *scope_uvs;
@@ -202,6 +210,7 @@ typedef struct {
 	/* This is where we keep everything that needs to be scoped. */
 	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
+	dl_trie_t statics_trie;  /* Points to static objects. */
 	dl_size_t statics_length;
 
 	dl_array_t generators_stack; /* dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t) */
@@ -223,7 +232,9 @@ typedef enum {
 	duckLisp_instructionClass_pushUpvalue,
 	duckLisp_instructionClass_pushClosure,
 	duckLisp_instructionClass_pushVaClosure,
+	duckLisp_instructionClass_pushStatic,
 	duckLisp_instructionClass_setUpvalue,
+	duckLisp_instructionClass_setStatic,
 	duckLisp_instructionClass_releaseUpvalues,
 	duckLisp_instructionClass_funcall,
 	duckLisp_instructionClass_apply,
@@ -292,9 +303,13 @@ typedef enum {
 
 	duckLisp_instruction_pushVaClosure32,
 
+	duckLisp_instruction_pushStatic8,
+
 	duckLisp_instruction_setUpvalue8,
 	duckLisp_instruction_setUpvalue16,
 	duckLisp_instruction_setUpvalue32,
+
+	duckLisp_instruction_setStatic8,
 
 	duckLisp_instruction_releaseUpvalues8,
 	duckLisp_instruction_releaseUpvalues16,
@@ -574,10 +589,16 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t is_function);
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp, duckLisp_scope_t *scope);
+dl_error_t DECLSPEC duckLisp_addStatic(duckLisp_t *duckLisp,
+                                       const char *name,
+                                       const dl_size_t name_length,
+                                       dl_ptrdiff_t *index);
 dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 // dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const
 // dl_size_t name_length, const duckLisp_object_t object);
-dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,  const duckLisp_ast_identifier_t name);
+dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
+                                           const duckLisp_ast_identifier_t name,
+                                           const dl_bool_t pure);
 dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
                                             const duckLisp_ast_identifier_t name,
                                             dl_array_t bytecode);

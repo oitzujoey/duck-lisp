@@ -1123,7 +1123,11 @@ int main(int argc, char *argv[]) {
 	d.duckVM_init = dl_true;
 
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
-		e = duckVM_linkCFunction(&duckVM, callbacks[i].index, callbacks[i].callback);
+		e = duckVM_linkCFunction(&duckVM,
+		                         callbacks[i].index,
+		                         callbacks[i].name,
+		                         callbacks[i].name_length,
+		                         callbacks[i].callback);
 		if (e) {
 			printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);
 			goto l_cleanup;
