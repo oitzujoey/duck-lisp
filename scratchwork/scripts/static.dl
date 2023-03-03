@@ -8,4 +8,6 @@
 (print x)
 (print y)
 (print y)
+(setq x 2)
+(print x)
 (print "\n")

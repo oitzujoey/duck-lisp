@@ -7330,28 +7330,38 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly, d
 		                                             expression->compoundExpressions[1].value.identifier.value_length);
 		if (e) goto l_cleanup;
 		if (!found) {
-			e = dl_array_pushElements(&eString, DL_STR("setq: Could not find variable \""));
-			if (e) {
+			/**/ duckLisp_scope_getStaticIndexFromName(duckLisp,
+			                                           &identifier_index,
+			                                           expression->compoundExpressions[1].value.identifier.value,
+			                                           expression->compoundExpressions[1].value.identifier.value_length);
+			if (identifier_index == -1) {
+				e = dl_array_pushElements(&eString, DL_STR("setq: Could not find variable \""));
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString,
+				                          expression->compoundExpressions[1].value.identifier.value,
+				                          expression->compoundExpressions[1].value.identifier.value_length);
+				if (e) {
+					goto l_cleanup;
+				}
+				e = dl_array_pushElements(&eString, DL_STR("\"."));
+				if (e) {
+					goto l_cleanup;
+				}
+				eError = duckLisp_error_pushRuntime(duckLisp,
+				                                    eString.elements,
+				                                    eString.elements_length * eString.element_size);
+				if (eError) {
+					e = eError;
+				}
+				e = dl_error_invalidValue;
 				goto l_cleanup;
 			}
-			e = dl_array_pushElements(&eString,
-			                          expression->compoundExpressions[1].value.identifier.value,
-			                          expression->compoundExpressions[1].value.identifier.value_length);
-			if (e) {
-				goto l_cleanup;
+			else {
+				e = duckLisp_emit_setStatic(duckLisp, assembly, identifier_index, duckLisp->locals_length - 1);
+				if (e) goto l_cleanup;
 			}
-			e = dl_array_pushElements(&eString, DL_STR("\"."));
-			if (e) {
-				goto l_cleanup;
-			}
-			eError = duckLisp_error_pushRuntime(duckLisp,
-			                                    eString.elements,
-			                                    eString.elements_length * eString.element_size);
-			if (eError) {
-				e = eError;
-			}
-			e = dl_error_invalidValue;
-			goto l_cleanup;
 		}
 		else {
 			/* Now the trick here is that we need to mirror the free variable as a local variable.
