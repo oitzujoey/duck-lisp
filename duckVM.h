@@ -126,6 +126,10 @@ typedef struct duckLisp_object_s {
 dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_uint8_t *bytecode);
+dl_error_t duckVM_funcall(duckVM_t *duckVM,
+                          duckLisp_object_t *return_value,
+                          dl_uint8_t *bytecode,
+                          duckLisp_object_t *closure);
 dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index);
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM,
                                 dl_ptrdiff_t callback_index,
