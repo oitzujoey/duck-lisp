@@ -3098,6 +3098,66 @@ dl_error_t duckLisp_emit_setStatic(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_emit_pushDynamic(duckLisp_t *duckLisp,
+                                    dl_array_t *assembly,
+                                    char *string,
+                                    dl_size_t string_length) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_instructionObject_t instruction = {0};
+	duckLisp_instructionArgClass_t argument = {0};
+	/**/ dl_array_init(&instruction.args,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionArgClass_t),
+	                   dl_array_strategy_double);
+
+	// Write instruction.
+	instruction.instructionClass = duckLisp_instructionClass_pushDynamic;
+
+	// Write string length.
+
+	if (string_length > DL_UINT16_MAX) {
+		eError = duckLisp_error_pushRuntime(duckLisp,
+		                                    DL_STR("Identifier name longer than DL_UINT_MAX. Truncating string to fit."));
+		if (eError) {
+			e = eError;
+			goto l_cleanup;
+		}
+		string_length = DL_UINT16_MAX;
+	}
+
+	// Push arguments into instruction.
+	argument.type = duckLisp_instructionArgClass_type_integer;
+	argument.value.integer = string_length;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	if (string_length) {
+		e = dl_malloc(duckLisp->memoryAllocation, (void **) &argument.value.string.value, string_length * sizeof(char));
+		if (e) goto l_cleanup;
+		/**/ dl_memcopy_noOverlap(argument.value.string.value, string, string_length);
+	}
+	else {
+		argument.value.string.value = dl_null;
+	}
+
+	argument.type = duckLisp_instructionArgClass_type_string;
+	argument.value.string.value_length = string_length;
+	e = dl_array_pushElement(&instruction.args, &argument);
+	if (e) goto l_cleanup;
+
+	// Push instruction into list.
+	e = dl_array_pushElement(assembly, &instruction);
+	if (e) goto l_cleanup;
+
+	duckLisp->locals_length++;
+
+ l_cleanup:
+
+	return e;
+}
+
 dl_error_t duckLisp_emit_pushStatic(duckLisp_t *duckLisp,
                                    dl_array_t *assembly,
                                    const dl_ptrdiff_t static_index) {
@@ -8290,25 +8350,22 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 					if (e) goto l_cleanup;
 					if (temp_index == -1) {
 						e = dl_array_pushElements(&eString, DL_STR("compoundExpression: Could not find variable \""));
-						if (e) {
-							goto l_cleanup;
-						}
+						if (e) goto l_cleanup;
 						e = dl_array_pushElements(&eString,
 						                          compoundExpression->value.identifier.value,
 						                          compoundExpression->value.identifier.value_length);
 						if (e) goto l_cleanup;
-						e = dl_array_pushElements(&eString, DL_STR("\"."));
-						if (e) {
-							goto l_cleanup;
-						}
-						eError = duckLisp_error_pushRuntime(duckLisp,
+						e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming dynamic scope."));
+						if (e) goto l_cleanup;
+						e = duckLisp_error_pushRuntime(duckLisp,
 						                                    eString.elements,
 						                                    eString.elements_length * eString.element_size);
-						if (eError) {
-							e = eError;
-						}
-						e = dl_error_invalidValue;
-						goto l_cleanup;
+						if (e) goto l_cleanup;
+						e = duckLisp_emit_pushDynamic(duckLisp,
+						                              assembly,
+						                              compoundExpression->value.identifier.value,
+						                              compoundExpression->value.identifier.value_length);
+						if (e) goto l_cleanup;
 					}
 					else {
 						e = duckLisp_emit_pushLabel(duckLisp, assembly, dl_null, temp_index);
@@ -8968,6 +9025,46 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.integer
 					                                                    >> 8*(byte_length - n - 1))
 					                                                   & 0xFFU);
+				}
+				break;
+			default:
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			break;
+		}
+		case duckLisp_instructionClass_pushDynamic: {
+			switch (args[0].type) {
+			case duckLisp_instructionArgClass_type_integer:
+				currentInstruction.byte = duckLisp_instruction_pushDynamic8;
+				byte_length = 1;
+				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+				if (e) {
+					goto l_cleanup;
+				}
+				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.integer
+					                                                    >> 8*(byte_length - n - 1))
+					                                                   & 0xFFU);
+				}
+				break;
+			default:
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
+				if (eError) {
+					e = eError;
+				}
+				goto l_cleanup;
+			}
+			switch (args[1].type) {
+			case duckLisp_instructionArgClass_type_string:
+				e = dl_array_pushElements(&currentArgs, args[1].value.string.value, args[1].value.string.value_length);
+				if (e) goto l_cleanup;
+				if (args[1].value.string.value) {
+					e = DL_FREE(duckLisp->memoryAllocation, &args[1].value.string.value);
+					if (e) goto l_cleanup;
 				}
 				break;
 			default:
@@ -11653,6 +11750,62 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 			default:
 				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
 				if (e) return dl_null;
+			}
+			break;
+
+		case duckLisp_instruction_pushDynamic8:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("push-dynamic.8  "));
+				if (e) return dl_null;
+				break;
+			case 1:
+				tempSize = bytecode[i];
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '"';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			default:
+				if (tempSize > 0) {
+					if (bytecode[i] == '\n') {
+						e = dl_array_pushElements(&disassembly, DL_STR("\\n"));
+						if (e) return dl_null;
+					}
+					else {
+						e = dl_array_pushElement(&disassembly, (dl_uint8_t *) &bytecode[i]);
+						if (e) return dl_null;
+					}
+					--tempSize;
+					if (!tempSize) {
+						tempChar = '"';
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						tempChar = '\n';
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						arg = 0;
+						continue;
+					}
+					break;
+				}
+				--i;
+				tempChar = '"';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
 			}
 			break;
 

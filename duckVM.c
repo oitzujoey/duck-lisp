@@ -783,6 +783,38 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 		}
 		break;
 
+	case duckLisp_instruction_pushDynamic8:
+		{
+			size1 = *(ip++);
+			dl_bool_t pushed = dl_false;
+			DL_DOTIMES(j, duckVM->dynamicStatics.elements_length) {
+				dl_bool_t equal;
+				duckVM_static_t dynamic = DL_ARRAY_GETADDRESS(duckVM->dynamicStatics, duckVM_static_t, j);
+				/**/ dl_string_compare(&equal, (char *) ip, size1, dynamic.name.value, dynamic.name.value_length);
+				if (equal) {
+					e = stack_push(duckVM, dynamic.object);
+					if (e) {
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->push-dynamic: stack_push failed."));
+						if (!e) e = eError;
+						break;
+					}
+					pushed = dl_true;
+					break;
+				}
+			}
+			if (e) break;
+			if (!pushed) {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->push-dynamic: Could not find dynamic variable."));
+				if (!e) e = eError;
+				break;
+			}
+			ip += size1;
+		}
+		break;
+
 	case duckLisp_instruction_releaseUpvalues32:
 	case duckLisp_instruction_releaseUpvalues16:
 	case duckLisp_instruction_releaseUpvalues8:
@@ -3737,3 +3769,26 @@ dl_error_t duckVM_pushNil(duckVM_t *duckVM) {
 /* 	return e; */
 /* } */
 
+dl_error_t duckVM_makeGlobal(duckVM_t *duckVM,
+                             const char *name,
+                             const dl_size_t name_length,
+                             duckLisp_object_t *object) {
+	dl_error_t e = dl_error_ok;
+	duckVM_static_t dynamicStatic;
+
+	e = DL_MALLOC(duckVM->memoryAllocation, &dynamicStatic.name.value, name_length, char);
+	if (e) goto l_cleanup;
+	/**/ dl_memcopy_noOverlap(dynamicStatic.name.value, name, name_length);
+	dynamicStatic.name.value_length = name_length;
+	dynamicStatic.lexicalStatic_index = duckVM->lexicalStatics.elements_length;
+	dynamicStatic.object = object;
+	e = dl_array_pushElement(&duckVM->dynamicStatics, &dynamicStatic);
+	if (e) goto l_cleanup;
+
+	e = dl_array_pushElement(&duckVM->lexicalStatics, object);
+	if (e) goto l_cleanup;
+
+	l_cleanup:
+
+	return e;
+}

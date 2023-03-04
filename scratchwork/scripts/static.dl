@@ -10,4 +10,5 @@
 (print y)
 (setq x 2)
 (print x)
+(print z)
 (print "\n")

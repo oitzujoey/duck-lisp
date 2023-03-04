@@ -233,6 +233,7 @@ typedef enum {
 	duckLisp_instructionClass_pushClosure,
 	duckLisp_instructionClass_pushVaClosure,
 	duckLisp_instructionClass_pushStatic,
+	duckLisp_instructionClass_pushDynamic,
 	duckLisp_instructionClass_setUpvalue,
 	duckLisp_instructionClass_setStatic,
 	duckLisp_instructionClass_releaseUpvalues,
@@ -304,6 +305,8 @@ typedef enum {
 	duckLisp_instruction_pushVaClosure32,
 
 	duckLisp_instruction_pushStatic8,
+
+	duckLisp_instruction_pushDynamic8,
 
 	duckLisp_instruction_setUpvalue8,
 	duckLisp_instruction_setUpvalue16,

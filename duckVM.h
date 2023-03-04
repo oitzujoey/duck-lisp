@@ -39,7 +39,7 @@ typedef struct {
 	dl_array_t upvalue_array_call_stack;  /* duckVM_upvalue_t ** */
 	dl_array_t upvalue_array_length_call_stack;  /* dl_size_t */
 	/* Static variables */
-	dl_array_t dynamicStatics;  /* duckVM_static_t * */
+	dl_array_t dynamicStatics;  /* duckVM_static_t */
 	/* Static variables that the compiler was told about. Addressed by index. Never destroyed during execution. */
 	dl_array_t lexicalStatics;  /* duckLisp_object_t * */
 	duckVM_gclist_t gclist;
@@ -147,5 +147,9 @@ dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object);
 dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object);
 dl_error_t duckVM_pushNil(duckVM_t *duckVM);
 /* dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object); */
+dl_error_t duckVM_makeGlobal(duckVM_t *duckVM,
+                             const char *name,
+                             const dl_size_t name_length,
+                             duckLisp_object_t *object);
 
 #endif /* DUCKVM_H */
