@@ -10690,7 +10690,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                  {DL_STR("apply"),              duckLisp_generator_apply},
 	                  {DL_STR("label"),              duckLisp_generator_label},
 	                  {DL_STR("var"),                duckLisp_generator_createVar},
-	                  {DL_STR("static"),             duckLisp_generator_static},
+	                  {DL_STR("global"),             duckLisp_generator_static},
 	                  {DL_STR("setq"),               duckLisp_generator_setq},
 	                  {DL_STR("\xE2\x86\x90"),       duckLisp_generator_setq},
 	                  {DL_STR("not"),                duckLisp_generator_not},
