@@ -22,15 +22,6 @@ typedef enum {
 } duckVM_upvalue_type_t;
 
 typedef struct {
-	struct duckLisp_object_s *object;
-	dl_ptrdiff_t lexicalStatic_index;
-	struct {
-		char *value;
-		dl_size_t value_length;
-	} name;
-} duckVM_static_t;
-
-typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
 	dl_array_t errors;  /* Runtime errors. */
 	dl_array_t stack;  /* duckLisp_object_t For data. */
@@ -38,10 +29,9 @@ typedef struct {
 	dl_array_t upvalue_stack;  /* duckVM_upvalue_t * */
 	dl_array_t upvalue_array_call_stack;  /* duckVM_upvalue_t ** */
 	dl_array_t upvalue_array_length_call_stack;  /* dl_size_t */
-	/* Static variables */
-	dl_array_t dynamicStatics;  /* duckVM_static_t */
-	/* Static variables that the compiler was told about. Addressed by index. Never destroyed during execution. */
-	dl_array_t lexicalStatics;  /* duckLisp_object_t * */
+	/* Addressed by symbol number. */
+	dl_array_t globals;  /* duckVM_object_t * */
+	dl_array_t globals_map;  /* dl_ptrdiff_t */
 	duckVM_gclist_t gclist;
 } duckVM_t;
 
@@ -131,11 +121,7 @@ dl_error_t duckVM_funcall(duckVM_t *duckVM,
                           dl_uint8_t *bytecode,
                           duckLisp_object_t *closure);
 dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index);
-dl_error_t duckVM_linkCFunction(duckVM_t *duckVM,
-                                dl_ptrdiff_t callback_index,
-                                const char *name,
-                                const dl_size_t name_length,
-                                dl_error_t (*callback)(duckVM_t *));
+dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (*callback)(duckVM_t *));
 
 /* Functions for C callbacks */
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const dl_size_t message_length);
@@ -147,9 +133,6 @@ dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object);
 dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object);
 dl_error_t duckVM_pushNil(duckVM_t *duckVM);
 /* dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object); */
-dl_error_t duckVM_makeGlobal(duckVM_t *duckVM,
-                             const char *name,
-                             const dl_size_t name_length,
-                             duckLisp_object_t *object);
+dl_error_t duckVM_makeGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckLisp_object_t *object);
 
 #endif /* DUCKVM_H */

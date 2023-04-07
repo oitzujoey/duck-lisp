@@ -1031,18 +1031,17 @@ int main(int argc, char *argv[]) {
 
 	// All user-defined callbacks go here.
 	struct {
-		dl_ptrdiff_t index;
 		const char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
-		{0, DL_STR("print"),           duckLispDev_callback_print},
-		{0, DL_STR("print-stack"),     duckLispDev_callback_printStack},
-		{0, DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect},
-		{0, DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
-		{0, DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare},
-		{0, DL_STR("print-uv-stack"),  duckLispDev_callback_printUpvalueStack},
-		{0, dl_null, 0,                dl_null}
+		{DL_STR("print"),           duckLispDev_callback_print},
+		{DL_STR("print-stack"),     duckLispDev_callback_printStack},
+		{DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect},
+		{DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
+		{DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare},
+		{DL_STR("print-uv-stack"),  duckLispDev_callback_printUpvalueStack},
+		{dl_null, 0,                dl_null}
 	};
 
 	/* Initialization. */
@@ -1091,7 +1090,7 @@ int main(int argc, char *argv[]) {
 	/* Add C functions. */
 
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
-		e = duckLisp_linkCFunction(&duckLisp, &callbacks[i].index, callbacks[i].name, callbacks[i].name_length);
+		e = duckLisp_linkCFunction(&duckLisp, callbacks[i].name, callbacks[i].name_length);
 		if (e) {
 			printf(COLOR_RED "Could not create function. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 			goto l_cleanup;
@@ -1124,9 +1123,7 @@ int main(int argc, char *argv[]) {
 
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
 		e = duckVM_linkCFunction(&duckVM,
-		                         callbacks[i].index,
-		                         callbacks[i].name,
-		                         callbacks[i].name_length,
+		                         duckLisp_symbol_nameToValue(&duckLisp, callbacks[i].name, callbacks[i].name_length),
 		                         callbacks[i].callback);
 		if (e) {
 			printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);

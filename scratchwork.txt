@@ -1414,6 +1414,60 @@ Unnamed references to statics are statically scoped. Named references to statics
 Macros use named references to statics for pure function calls.
 
 
+Macros & pure functions and lexical scope are annoying.
+
+Create a single VM instance to be used for all macro calls.
+Pass a vector to the VM to trace for GC.
+For each pure function:
+    Compile each pure function to bytecode.
+    Attach the bytecode to the associated symbol in the current scope.
+    Execute the bytecode and store the result as a global variable.
+    Put the result on the GC-traced vector.
+For each macro call:
+    If worried about memory: Delete all named global variables.
+    For each pure function in the current scope:
+        Add the closure object as a global variable.
+    Call the macro function.
+
+
+Lambdas stored in dynamic variables crash when called by bytecode they did not originate from.
+
+1. A copy of the entire bytecode can be copied onto the heap.
+2. A copy of the small pieces of bytecode that the function uses can be copied to the heap.
+
+The former is probably better since function definitions may contain other function definitions, so the former reduces bytecode duplication.
+
+
+Perhaps I should remove static access and only keep dynamic access? Deleting statics doesn't really work well with global closures. Global closures don't work well with dynamics either, but at least I can delete a dynamic and not have the closure address the wrong global. The VM halts if the requested global doesn't exist instead of silently using it as it would if the addressed global was a deleted static.
+
+Final decision: Statics are fast, but must go.
+
+How to improve space efficiency of dynamic variables? Maybe use symbols? Symbols mappings are never deleted, so I think this would actually work. I would just do it with an associative array.
+
+
+Macros & pure functions should be a little less annoying.
+
+Create a single VM instance to be used for all macro calls.
+Pass a vector to the VM to trace for GC.
+For each pure function:
+    Compile each pure function to bytecode.
+    Execute the bytecode.
+    Put the result on the GC-traced vector.
+    Attach the returned closure to the associated symbol in the current scope.
+    Free the bytecode since the VM holds a copy.
+For each macro call:
+    For each pure function in the current scope from the root to the leaf:
+        Add the closure object as a dynamic variable, overwriting any dynamics with the same name.
+    Call the macro function.
+
+
+New features:
+    No more static variables
+    Dynamic variables
+    Garbage collected bytecode
+    Tracing of user-added objects.
+
+
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
 Defer:

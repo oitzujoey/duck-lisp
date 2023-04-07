@@ -210,8 +210,6 @@ typedef struct {
 	/* This is where we keep everything that needs to be scoped. */
 	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
-	dl_trie_t statics_trie;  /* Points to static objects. */
-	dl_size_t statics_length;
 
 	dl_array_t generators_stack; /* dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t) */
 	dl_array_t labels;  /* duckLisp_label_t */
@@ -232,8 +230,7 @@ typedef enum {
 	duckLisp_instructionClass_pushUpvalue,
 	duckLisp_instructionClass_pushClosure,
 	duckLisp_instructionClass_pushVaClosure,
-	duckLisp_instructionClass_pushStatic,
-	duckLisp_instructionClass_pushDynamic,
+	duckLisp_instructionClass_pushGlobal,
 	duckLisp_instructionClass_setUpvalue,
 	duckLisp_instructionClass_setStatic,
 	duckLisp_instructionClass_releaseUpvalues,
@@ -304,9 +301,7 @@ typedef enum {
 
 	duckLisp_instruction_pushVaClosure32,
 
-	duckLisp_instruction_pushStatic8,
-
-	duckLisp_instruction_pushDynamic8,
+	duckLisp_instruction_pushGlobal8,
 
 	duckLisp_instruction_setUpvalue8,
 	duckLisp_instruction_setUpvalue16,
@@ -582,8 +577,11 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        duckLisp_ast_expression_t *expression,
                                        dl_ptrdiff_t *index);
 
-dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp, dl_array_t *bytecode,
+dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
+                               dl_array_t *bytecode,
 							   duckLisp_ast_compoundExpression_t astCompoundexpression);
+dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
+dl_ptrdiff_t duckLisp_symbol_nameToValue(const duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
                                unsigned char **bytecode,
                                dl_size_t *bytecode_length,
@@ -610,10 +608,7 @@ duckLisp_addGenerator(duckLisp_t *duckLisp,
                       dl_error_t (*callback)(duckLisp_t *, dl_array_t *,
                                              duckLisp_ast_expression_t *),
                       const char *name, const dl_size_t name_length);
-dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp,
-                                           dl_ptrdiff_t *index,
-                                           const char *name,
-                                           const dl_size_t name_length);
+dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 // dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name,
 // const dl_size_t name_length,
 //                                   const dl_error_t(*generator)(duckLisp_t*,
