@@ -22,10 +22,17 @@ typedef enum {
 } duckVM_upvalue_type_t;
 
 typedef struct {
+	dl_uint8_t *ip;
+	struct duckLisp_object_s *bytecode;
+} duckVM_callFrame_t;
+
+typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
 	dl_array_t errors;  /* Runtime errors. */
 	dl_array_t stack;  /* duckLisp_object_t For data. */
-	dl_array_t call_stack;  /* unsigned char * */
+	dl_array_t call_stack;  /* duckVM_callFrame_t */
+	/* I'm lazy and I don't want to bother with correct GC. */
+	struct duckLisp_object_s *currentBytecode;
 	dl_array_t upvalue_stack;  /* duckVM_upvalue_t * */
 	dl_array_t upvalue_array_call_stack;  /* duckVM_upvalue_t ** */
 	dl_array_t upvalue_array_length_call_stack;  /* dl_size_t */
@@ -55,6 +62,7 @@ typedef enum {
   duckLisp_object_type_upvalue,
   duckLisp_object_type_upvalueArray,
   duckLisp_object_type_internalVector,
+  duckLisp_object_type_bytecode,
 } duckLisp_object_type_t;
 
 typedef struct duckLisp_object_s {
@@ -77,7 +85,11 @@ typedef struct duckLisp_object_s {
 			dl_error_t (*callback)(duckVM_t *);
 		} function;
 		struct {
+			/* `name` might not be a good name. It is the index of the function. */
 			dl_ptrdiff_t name;
+			/* The *entire* bytecode the function is defined in. In most cases the function is a small part of the
+			   code. */
+			struct duckLisp_object_s *bytecode;
 			struct duckLisp_object_s *upvalue_array;
 			dl_uint8_t arity;
 			dl_bool_t variadic;
@@ -108,6 +120,10 @@ typedef struct duckLisp_object_s {
 			struct duckLisp_object_s *internal_vector;
 			dl_ptrdiff_t offset;
 		} vector;
+		struct {
+			dl_uint8_t *bytecode;
+			dl_size_t bytecode_length;
+		} bytecode;
 	} value;
 	duckLisp_object_type_t type;
 	dl_bool_t inUse;
@@ -115,7 +131,10 @@ typedef struct duckLisp_object_s {
 
 dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
-dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_uint8_t *bytecode);
+dl_error_t duckVM_execute(duckVM_t *duckVM,
+                          duckLisp_object_t *return_value,
+                          dl_uint8_t *bytecode,
+                          dl_size_t bytecode_length);
 dl_error_t duckVM_funcall(duckVM_t *duckVM,
                           duckLisp_object_t *return_value,
                           dl_uint8_t *bytecode,

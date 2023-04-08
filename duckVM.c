@@ -104,6 +104,7 @@ static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t 
 		}
 		else if (object->type == duckLisp_object_type_closure) {
 			duckVM_gclist_markObject(gclist, object->value.closure.upvalue_array);
+			duckVM_gclist_markObject(gclist, object->value.closure.bytecode);
 		}
 		else if (object->type == duckLisp_object_type_upvalue) {
 			if (object->value.upvalue.type == duckVM_upvalue_type_heap_object) {
@@ -167,13 +168,25 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		}
 	}
 
-	/* Lexical statics */
+	/* Globals */
 	DL_DOTIMES(i, duckVM->globals.elements_length) {
 		duckLisp_object_t *object = DL_ARRAY_GETADDRESS(duckVM->globals, duckLisp_object_t *, i);
 		if (object != dl_null) {
 			duckVM_gclist_markObject(&duckVM->gclist, object);
 		}
 	}
+
+	/* Call stack */
+	DL_DOTIMES(i, duckVM->call_stack.elements_length) {
+		duckLisp_object_t *object = (DL_ARRAY_GETADDRESS(duckVM->call_stack, duckVM_callFrame_t, i)
+		                             .bytecode);
+		if (object != dl_null) {
+			duckVM_gclist_markObject(&duckVM->gclist, object);
+		}
+	}
+
+	/* Current bytecode */
+	duckVM_gclist_markObject(&duckVM->gclist, duckVM->currentBytecode);
 
 	/* Free cells if not marked. */
 
@@ -192,6 +205,12 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.internal_vector.values != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.internal_vector.values);
+				if (e) goto cleanup;
+			}
+			else if ((duckVM->gclist.objects[i].type == duckLisp_object_type_bytecode)
+			         /* Prevent multiple frees. */
+			         && (duckVM->gclist.objects[i].value.bytecode.bytecode != dl_null)) {
+				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.bytecode.bytecode);
 				if (e) goto cleanup;
 			}
 		}
@@ -221,7 +240,8 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 		// Try twice
 		if (gclist->freeObjects_length == 0) {
 			e = dl_error_outOfMemory;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_gclist_pushObject: Garbage collection failed. Out of memory."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_gclist_pushObject: Garbage collection failed. Out of memory."));
 			if (!e) e = eError;
 			goto cleanup;
 		}
@@ -236,7 +256,8 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 			              objectIn.value.upvalue_array.length,
 			              duckLisp_object_t **);
 			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_gclist_pushObject: Upvalue array allocation failed."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_gclist_pushObject: Upvalue array allocation failed."));
 				if (!e) e = eError;
 				goto cleanup;
 			}
@@ -247,20 +268,42 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 		if (e) goto cleanup;
 	}
 	else if (objectIn.type == duckLisp_object_type_internalVector) {
-		/* heapObject->value.internal_vector.initialized = dl_false; */
 		if (objectIn.value.internal_vector.length > 0) {
 			e = DL_MALLOC(duckVM->memoryAllocation,
 			              (void **) &heapObject->value.internal_vector.values,
 			              objectIn.value.internal_vector.length,
 			              duckLisp_object_t **);
 			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_gclist_pushObject: Vector allocation failed."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_gclist_pushObject: Vector allocation failed."));
 				if (!e) e = eError;
 				goto cleanup;
 			}
 		}
 		else {
 			heapObject->value.internal_vector.values = dl_null;
+		}
+		if (e) goto cleanup;
+	}
+	else if (objectIn.type == duckLisp_object_type_bytecode) {
+		if (objectIn.value.bytecode.bytecode_length > 0) {
+			e = DL_MALLOC(duckVM->memoryAllocation,
+			              &heapObject->value.bytecode.bytecode,
+			              objectIn.value.bytecode.bytecode_length,
+			              dl_uint8_t);
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_gclist_pushObject: Bytecode allocation failed."));
+				if (!e) e = eError;
+				goto cleanup;
+			}
+			/**/ dl_memcopy_noOverlap(heapObject->value.bytecode.bytecode,
+			                          objectIn.value.bytecode.bytecode,
+			                          objectIn.value.bytecode.bytecode_length);
+		}
+		else {
+			heapObject->value.bytecode.bytecode = dl_null;
+			heapObject->value.bytecode.bytecode_length = 0;
 		}
 		if (e) goto cleanup;
 	}
@@ -277,7 +320,10 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 
 	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
-	/**/ dl_array_init(&duckVM->call_stack, duckVM->memoryAllocation, sizeof(unsigned char *), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->call_stack,
+	                   duckVM->memoryAllocation,
+	                   sizeof(duckVM_callFrame_t),
+	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->upvalue_stack,
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckLisp_object_t *),
@@ -365,10 +411,14 @@ static dl_error_t stack_pop_multiple(duckVM_t *duckVM, dl_size_t pops) {
 
 static dl_error_t call_stack_push(duckVM_t *duckVM,
                                   dl_uint8_t *ip,
+                                  duckLisp_object_t *bytecode,
                                   duckLisp_object_t **upvalues,
                                   dl_size_t upvalues_length) {
 	dl_error_t e = dl_error_ok;
-	e = dl_array_pushElement(&duckVM->call_stack, &ip);
+	duckVM_callFrame_t frame;
+	frame.ip = ip;
+	frame.bytecode = bytecode;
+	e = dl_array_pushElement(&duckVM->call_stack, &frame);
 	if (e) goto cleanup;
 	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, &upvalues);
 	if (e) goto cleanup;
@@ -381,10 +431,13 @@ static dl_error_t call_stack_push(duckVM_t *duckVM,
 	return e;
 }
 
-static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip) {
+static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip, duckLisp_object_t **bytecode) {
 	dl_error_t e = dl_error_ok;
-	e = dl_array_popElement(&duckVM->call_stack, ip);
+	duckVM_callFrame_t frame;
+	e = dl_array_popElement(&duckVM->call_stack, &frame);
 	if (e) goto cleanup;
+	*ip = frame.ip;
+	*bytecode = frame.bytecode;
 	e = dl_array_popElement(&duckVM->upvalue_array_call_stack, dl_null);
 	if (e) goto cleanup;
 	e = dl_array_popElement(&duckVM->upvalue_array_length_call_stack, dl_null);
@@ -428,7 +481,10 @@ dl_error_t duckVM_global_set(duckVM_t *duckVM, duckLisp_object_t *value, dl_ptrd
 	return e;
 }
 
-int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned char **ipPtr, dl_bool_t *halt) {
+int duckVM_executeInstruction(duckVM_t *duckVM,
+                              duckLisp_object_t *bytecode,
+                              unsigned char **ipPtr,
+                              dl_bool_t *halt) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -602,11 +658,11 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 			// Like to live dangerously?
 			if (ptrdiff1 < 0) {
 				e = dl_error_invalidValue;
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-upvalue: Index pointing to upvalue is negative."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->push-upvalue: Index pointing to upvalue is negative."));
 				if (!e) e = eError;
 				break;
 			}
-			/* dl_size_t length = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_length_call_stack, dl_size_t); */
 			duckLisp_object_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
 			                                                    duckLisp_object_t **)[ptrdiff1];
 			if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
@@ -673,6 +729,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 		size1 = *(ip++) + (size1 << 8);
 		size1 = *(ip++) + (size1 << 8);
 
+		object1.value.closure.bytecode = bytecode;
+
 		/* This could also point to a static version instead since this array is never changed
 		   and multiple closures could use the same array. */
 
@@ -732,7 +790,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 				e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 				if (e) {
 					e = dl_error_shouldntHappen;
-					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
 					if (!e) e = eError;
 					break;
 				}
@@ -768,7 +827,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 					upvalue.value.upvalue.value.stack_index = ptrdiff1;
 					e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 					if (e) {
-						eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
 						if (!e) e = eError;
 						break;
 					}
@@ -1018,10 +1078,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 		/* Call. */
 		e = call_stack_push(duckVM,
 		                    ip,
+		                    bytecode,
 		                    object1.value.closure.upvalue_array->value.upvalue_array.upvalues,
 		                    object1.value.closure.upvalue_array->value.upvalue_array.length);
 		if (e) break;
-		ip = &bytecode[object1.value.closure.name];
+		bytecode = object1.value.closure.bytecode;
+		ip = &bytecode->value.bytecode.bytecode[object1.value.closure.name];
 		break;
 
 	case duckLisp_instruction_apply8:
@@ -1126,10 +1188,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 		/* Call. */
 		e = call_stack_push(duckVM,
 		                    ip,
+		                    bytecode,
 		                    object1.value.closure.upvalue_array->value.upvalue_array.upvalues,
 		                    object1.value.closure.upvalue_array->value.upvalue_array.length);
 		if (e) break;
-		ip = &bytecode[object1.value.closure.name];
+		bytecode = object1.value.closure.bytecode;
+		ip = &bytecode->value.bytecode.bytecode[object1.value.closure.name];
 		break;
 
 		/* I probably don't need an `if` if I research the standard a bit. */
@@ -1143,7 +1207,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 	case duckLisp_instruction_call8:
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		ptrdiff2 = *(ip++);
-		call_stack_push(duckVM, ip, dl_null, 0);
+		call_stack_push(duckVM, ip, bytecode, dl_null, 0);
 		if (e) break;
 		if (opcode == duckLisp_instruction_call32) {
 			if (ptrdiff1 & 0x80000000ULL) {
@@ -1172,52 +1236,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 		--ip;
 		break;
 
-		/* 	// Not implemented properly. */
-		/* // I probably don't need an `if` if I research the standard a bit. */
-		/* case duckLisp_instruction_acall32: */
-		/* 	ptrdiff1 = *(ip++); */
-		/* 	ptrdiff1 = *(ip++) + (ptrdiff1 << 8); */
-		/* 	ptrdiff1 = *(ip++) + (ptrdiff1 << 8); */
-		/* 	ptrdiff1 = *(ip++) + (ptrdiff1 << 8); */
-		/* 	e = dl_array_pushElement(&duckVM->call_stack, &ip); */
-		/* 	if (e) break; */
-		/* 	if (ptrdiff1 & 0x80000000ULL) { */
-		/* 		ip -= ((~((dl_size_t) ptrdiff1) + 1) & 0xFFFFFFFFULL); */
-		/* 	} */
-		/* 	else { */
-		/* 		ip += ptrdiff1; */
-		/* 	} */
-		/* 	--ip; */
-		/* 	break; */
-		/* case duckLisp_instruction_acall16: */
-		/* 	ptrdiff1 = *(ip++); */
-		/* 	ptrdiff1 = *(ip++) + (ptrdiff1 << 8); */
-		/* 	e = dl_array_pushElement(&duckVM->call_stack, &ip); */
-		/* 	if (e) break; */
-		/* 	if (ptrdiff1 & 0x8000ULL) { */
-		/* 		ip -= ((~ptrdiff1 + 1) & 0xFFFFULL); */
-		/* 	} */
-		/* 	else { */
-		/* 		ip += ptrdiff1; */
-		/* 	} */
-		/* 	--ip; */
-		/* 	break; */
-		/* case duckLisp_instruction_acall8: */
-		/* 	ptrdiff1 = *(ip++); */
-		/* 	ptrdiff2 = *(ip++); */
-		/* 	e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1); */
-		/* 	if (e) break; */
-		/* 	if (object1.type != duckLisp_object_type_integer) { */
-		/* 		e = dl_error_invalidValue; */
-		/* 		break; */
-		/* 	} */
-		/* 	e = dl_array_pushElement(&duckVM->call_stack, &ip); */
-		/* 	if (e) break; */
-		/* 	ip = &bytecode[object1.value.integer]; */
-		/* 	e = stack_pop_multiple(duckVM, ptrdiff2); */
-		/* 	if (e) break; */
-		/* 	break; */
-
 	case duckLisp_instruction_ccall32:
 		ptrdiff1 = *(ip++);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -1232,11 +1250,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = duckVM_global_get(duckVM, &global, ptrdiff1);
 			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->c-call: Could not find global callback."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->c-call: Could not find global callback."));
 				if (!e) e = eError;
 				break;
 			}
-				e = DL_ARRAY_GETADDRESS(duckVM->globals, duckLisp_object_t *, ptrdiff1)->value.function.callback(duckVM);
+				e = DL_ARRAY_GETADDRESS(duckVM->globals,
+				                        duckLisp_object_t *,
+				                        ptrdiff1)->value.function.callback(duckVM);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->c-call: C callback returned error."));
 				if (!e) e = eError;
@@ -3539,14 +3560,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 			e = stack_push(duckVM, &object1);
 			if (e) break;
 		}
-		e = call_stack_pop(duckVM, &ip);
+		e = call_stack_pop(duckVM, &ip, &bytecode);
 		if (e == dl_error_bufferUnderflow) {
 			*halt = dl_true;
 			e = dl_error_ok;
 		}
 		break;
 	case duckLisp_instruction_return0:
-		e = call_stack_pop(duckVM, &ip);
+		e = call_stack_pop(duckVM, &ip, &bytecode);
 		if (e == dl_error_bufferUnderflow) {
 			*halt = dl_true;
 			e = dl_error_ok;
@@ -3569,17 +3590,30 @@ int duckVM_executeInstruction(duckVM_t *duckVM, dl_uint8_t *bytecode, unsigned c
 	return e;
 }
 
-dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_uint8_t *bytecode) {
+dl_error_t duckVM_execute(duckVM_t *duckVM,
+                          duckLisp_object_t *return_value,
+                          dl_uint8_t *bytecode,
+                          dl_size_t bytecode_length) {
 	dl_error_t e = dl_error_ok;
 	/* dl_error_t eError = dl_error_ok; */
 
 	dl_uint8_t *ip = bytecode;
 	dl_bool_t halt = dl_false;
+	/* Why a reference to bytecode? So it can be switched out with other bytecodes by `duckVM_executeInstruction`. */
+	duckLisp_object_t *bytecodeObject;
+	{
+		duckLisp_object_t temp;
+		temp.type = duckLisp_object_type_bytecode;
+		temp.value.bytecode.bytecode = bytecode;
+		temp.value.bytecode.bytecode_length = bytecode_length;
+		e = duckVM_gclist_pushObject(duckVM, &bytecodeObject, temp);
+		if (e) goto l_cleanup;
+	}
 	do {
-		e = duckVM_executeInstruction(duckVM, bytecode, &ip, &halt);
+		e = duckVM_executeInstruction(duckVM, bytecodeObject, &ip, &halt);
 	} while (!e && !halt);
 
-	/* l_cleanup: */
+ l_cleanup:
 
 	if (e) {
 		puts("VM ERROR");
@@ -3594,100 +3628,100 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_
 	return e;
 }
 
-dl_error_t duckVM_funcall(duckVM_t *duckVM,
-                          duckLisp_object_t *return_value,
-                          dl_uint8_t *bytecode,
-                          duckLisp_object_t *closure) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
+/* dl_error_t duckVM_funcall(duckVM_t *duckVM, */
+/*                           duckLisp_object_t *return_value, */
+/*                           dl_uint8_t *bytecode, */
+/*                           duckLisp_object_t *closure) { */
+/* 	dl_error_t e = dl_error_ok; */
+/* 	dl_error_t eError = dl_error_ok; */
 
-	if ((closure->type == duckLisp_object_type_function)
-	    && (closure->value.function.callback != dl_null)) {
-		e = closure->value.function.callback(duckVM);
-	}
-	else if (closure->type == duckLisp_object_type_closure) {
-		/* Assume the stack is empty. */
+/* 	if ((closure->type == duckLisp_object_type_function) */
+/* 	    && (closure->value.function.callback != dl_null)) { */
+/* 		e = closure->value.function.callback(duckVM); */
+/* 	} */
+/* 	else if (closure->type == duckLisp_object_type_closure) { */
+/* 		/\* Assume the stack is empty. *\/ */
 
-		/* Hack: Will tell the VM to return to this single char of bytecode which will exit the VM. */
-		unsigned char ret = duckLisp_instruction_return0;
+/* 		/\* Hack: Will tell the VM to return to this single char of bytecode which will exit the VM. *\/ */
+/* 		unsigned char ret = duckLisp_instruction_return0; */
 
-		e = stack_push(duckVM, closure);
-		if (e) goto l_cleanup;
+/* 		e = stack_push(duckVM, closure); */
+/* 		if (e) goto l_cleanup; */
 
-		/* Call. */
-		e = call_stack_push(duckVM,
-		                    &ret,  /* Hack: See above. */
-		                    closure->value.closure.upvalue_array->value.upvalue_array.upvalues,
-		                    closure->value.closure.upvalue_array->value.upvalue_array.length);
-		if (e) goto l_cleanup;
-		/* Hack:  */
-		dl_uint8_t *ip = &bytecode[closure->value.closure.name];
-		dl_bool_t halt = dl_false;
-		do {
-			e = duckVM_executeInstruction(duckVM, bytecode, &ip, &halt);
-		} while (!e && !halt);
+/* 		/\* Call. *\/ */
+/* 		e = call_stack_push(duckVM, */
+/* 		                    &ret,  /\* Hack: See above. *\/ */
+/* 		                    closure->value.closure.upvalue_array->value.upvalue_array.upvalues, */
+/* 		                    closure->value.closure.upvalue_array->value.upvalue_array.length); */
+/* 		if (e) goto l_cleanup; */
+/* 		/\* Hack:  *\/ */
+/* 		dl_uint8_t *ip = &bytecode[closure->value.closure.name]; */
+/* 		dl_bool_t halt = dl_false; */
+/* 		do { */
+/* 			e = duckVM_executeInstruction(duckVM, &bytecode, &ip, &halt); */
+/* 		} while (!e && !halt); */
 
-		if (e) {
-			puts("VM ERROR");
-			printf("ip 0x%llX\n", (dl_size_t) (ip - bytecode));
-			printf("*ip 0x%X\n", *ip);
-		}
-		else {
-			if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
-			e = stack_pop(duckVM, return_value);
-		}
-	}
-	else {
-		e = dl_error_invalidValue;
-		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_funcall: Object is not a closure.."));
-		if (!e) e = eError;
-		goto l_cleanup;
-	}
+/* 		if (e) { */
+/* 			puts("VM ERROR"); */
+/* 			printf("ip 0x%llX\n", (dl_size_t) (ip - bytecode)); */
+/* 			printf("*ip 0x%X\n", *ip); */
+/* 		} */
+/* 		else { */
+/* 			if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM); */
+/* 			e = stack_pop(duckVM, return_value); */
+/* 		} */
+/* 	} */
+/* 	else { */
+/* 		e = dl_error_invalidValue; */
+/* 		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_funcall: Object is not a closure..")); */
+/* 		if (!e) e = eError; */
+/* 		goto l_cleanup; */
+/* 	} */
 
- l_cleanup:
-	if (e) {
-		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_funcall: Failed."));
-		if (!e) e = eError;
-	}
+/*  l_cleanup: */
+/* 	if (e) { */
+/* 		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_funcall: Failed.")); */
+/* 		if (!e) e = eError; */
+/* 	} */
 
-	return e;
-}
+/* 	return e; */
+/* } */
 
-dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index) {
-	dl_error_t e = dl_error_ok;
+/* dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index) { */
+/* 	dl_error_t e = dl_error_ok; */
 
-	duckLisp_object_t functionObject;
+/* 	duckLisp_object_t functionObject; */
 
-	// Allow addressing relative to the top of the stack with negative indices.
-	if (function_index < 0) {
-		function_index = duckVM->stack.elements_length + function_index;
-	}
-	if ((function_index < 0) || ((dl_size_t) function_index  >= duckVM->stack.elements_length)) {
-		e = dl_error_invalidValue;
-		goto l_cleanup;
-	}
+/* 	// Allow addressing relative to the top of the stack with negative indices. */
+/* 	if (function_index < 0) { */
+/* 		function_index = duckVM->stack.elements_length + function_index; */
+/* 	} */
+/* 	if ((function_index < 0) || ((dl_size_t) function_index  >= duckVM->stack.elements_length)) { */
+/* 		e = dl_error_invalidValue; */
+/* 		goto l_cleanup; */
+/* 	} */
 
-	functionObject = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, function_index);
-	if (functionObject.type != duckLisp_object_type_function) {
-		// Push runtime error.
-		e = dl_error_invalidValue;
-		goto l_cleanup;
-	}
+/* 	functionObject = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, function_index); */
+/* 	if (functionObject.type != duckLisp_object_type_function) { */
+/* 		// Push runtime error. */
+/* 		e = dl_error_invalidValue; */
+/* 		goto l_cleanup; */
+/* 	} */
 
-	if (functionObject.value.function.callback != dl_null) {
-		e = functionObject.value.function.callback(duckVM);
-	}
-	else if (functionObject.value.function.bytecode != dl_null) {
-		e = duckVM_execute(duckVM, return_value, functionObject.value.function.bytecode);
-	}
-	else {
-		e = dl_error_invalidValue;
-	}
+/* 	if (functionObject.value.function.callback != dl_null) { */
+/* 		e = functionObject.value.function.callback(duckVM); */
+/* 	} */
+/* 	else if (functionObject.value.function.bytecode != dl_null) { */
+/* 		e = duckVM_execute(duckVM, return_value, functionObject.value.function.bytecode, functionObject.value.function.); */
+/* 	} */
+/* 	else { */
+/* 		e = dl_error_invalidValue; */
+/* 	} */
 
-	l_cleanup:
+/* 	l_cleanup: */
 
-	return e;
-}
+/* 	return e; */
+/* } */
 
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (*callback)(duckVM_t *)) {
 	dl_error_t e = dl_error_ok;

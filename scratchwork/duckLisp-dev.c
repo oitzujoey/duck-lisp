@@ -933,7 +933,7 @@ int eval(duckLisp_t *duckLisp,
 	/* putchar('\n'); */
 	/* puts(COLOR_CYAN "VM: {" COLOR_NORMAL); */
 
-	runtimeError = duckVM_execute(duckVM, return_value, bytecode);
+	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
 	e = print_errors(&duckVM->errors, dl_null);
 	if (e) goto l_cleanup;
 	if (runtimeError) {

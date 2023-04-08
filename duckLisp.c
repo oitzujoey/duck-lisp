@@ -2130,7 +2130,7 @@ static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
 		e = dl_array_get(&duckLisp->scope_stack, (void *) &scope, --scope_index);
 		if (e) {
 			if (e == dl_error_invalidValue) {
-				// We've gone though all the scopes.
+				/* We've gone though all the scopes. */
 				e = dl_error_ok;
 			}
 			break;
@@ -2140,7 +2140,7 @@ static dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
 		if (tempPtrdiff == duckLisp_functionType_generator) {
 			/**/ dl_trie_find(scope.generators_trie, index, name, name_length);
 		}
-		// Return the function in the nearest scope.
+		/* Return the function in the nearest scope. */
 		if (tempPtrdiff != -1) {
 			break;
 		}
@@ -5543,7 +5543,7 @@ dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
 	if (e) goto l_cleanupDL;
 
 	duckLisp_object_t return_value;
-	e = duckVM_execute(&subVM, &return_value, bytecodeArray.elements);
+	e = duckVM_execute(&subVM, &return_value, bytecodeArray.elements, bytecodeArray.elements_length);
 	if (e) goto l_cleanupVM;
 	object = DL_ARRAY_GETTOPADDRESS(subVM.stack, duckLisp_object_t);
 
@@ -8070,7 +8070,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	e = duckVM_init(&subVM, 1000);
 	if (e) goto cleanupLabels;
 
-	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements);
+	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements, completeBytecode.elements_length);
 	if (e) goto cleanupVM;
 
 	/* Compile macro expansion. */
@@ -8333,6 +8333,7 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 						if (e) goto l_cleanup;
 						e = duckLisp_emit_pushGlobal(duckLisp, assembly, duckLisp->symbols_array.elements_length - 1);
 						if (e) goto l_cleanup;
+						temp_index = duckLisp->locals_length - 1;
 					}
 					else {
 						e = duckLisp_emit_pushLabel(duckLisp, assembly, dl_null, temp_index);
@@ -8341,6 +8342,7 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 				else {
 					e = duckLisp_emit_pushGlobal(duckLisp, assembly, temp_index);
 					if (e) goto l_cleanup;
+					temp_index = duckLisp->locals_length - 1;
 				}
 			}
 			else {
@@ -8475,7 +8477,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 			                              name.value_length);
 			if (e) goto l_cleanup;
 			if (functionType == duckLisp_functionType_none) {
-				e = dl_error_invalidValue;
+				e = dl_error_ok;
 				eError = dl_array_pushElements(&eString, functionName, functionName_length);
 				if (eError) e = eError;
 				eError = dl_array_pushElements(&eString, DL_STR(": Could not find variable \""));
@@ -8484,13 +8486,15 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 				                               name.value,
 				                               name.value_length);
 				if (eError) e = eError;
-				eError = dl_array_pushElements(&eString, DL_STR("\"."));
+				eError = dl_array_pushElements(&eString, DL_STR("\". Assuming dynamic scope."));
 				if (eError) e = eError;
 				eError = duckLisp_error_pushRuntime(duckLisp,
 				                                    eString.elements,
 				                                    eString.elements_length * eString.element_size);
 				if (eError) e = eError;
-				goto l_cleanup;
+				if (e) goto l_cleanup;
+				/* goto l_cleanup; */
+				functionType = duckLisp_functionType_ducklisp_pure;
 			}
 		}
 		/* Compile function. */
@@ -11820,7 +11824,7 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 		case duckLisp_instruction_setStatic8:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("set-static.8    "));
+				e = dl_array_pushElements(&disassembly, DL_STR("set-global.8    "));
 				if (e) return dl_null;
 				break;
 			case 1:
@@ -12408,6 +12412,19 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 				tempChar = ' ';
 				e = dl_array_pushElement(&disassembly, &tempChar);
 				if (e) return dl_null;
+				break;
+
+			case 3:
+				// Arity
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
 				arg = 0;
 				continue;
 			default:
@@ -12457,6 +12474,19 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 				e = dl_array_pushElement(&disassembly, &tempChar);
 				if (e) return dl_null;
 				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 5:
+				// Arity
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = '\n';
 				e = dl_array_pushElement(&disassembly, &tempChar);
 				if (e) return dl_null;
 				arg = 0;

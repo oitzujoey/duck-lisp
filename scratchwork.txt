@@ -1467,6 +1467,15 @@ New features:
     Garbage collected bytecode
     Tracing of user-added objects.
 
+Static variables have been removed and dynamic/global variables have replaced them.
+
+
+Bytecode is copied to the heap once on VM start.
+The call stack may require references to the bytecode currently in use so that the VM knows which set of bytecode to execute when a function is called and returns.
+New closures save a reference to the currently executing bytecode object.
+
+If I were to create a standard duck-lisp, I would not include globals in the specification. This means that a compliant implementation would only need a minimal call stack like is currently implemented.
+
 
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 
