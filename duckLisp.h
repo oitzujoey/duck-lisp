@@ -168,7 +168,7 @@ typedef struct {
 } duckLisp_label_t;
 
 typedef struct {
-	dl_array_t bytecode;  /* dl_uint8_t */
+	duckLisp_object_t *closure;
 	duckLisp_ast_identifier_t name;
 } duckLisp_function_t;
 
@@ -195,6 +195,7 @@ typedef struct {
 	dl_trie_t labels_trie;
 	dl_bool_t function_scope;  /* Used to determine when to create a deep upvalue. */
 
+	/* Upvalues */
 	dl_ptrdiff_t *scope_uvs;
 	dl_size_t scope_uvs_length;
 
@@ -218,6 +219,9 @@ typedef struct {
 
 	dl_trie_t symbols_trie;  /* Index points to the string in `symbols_array` */
 	dl_array_t symbols_array;  /* duckLisp_ast_identifier_t */
+
+	/* A VM instance for macros. */
+	duckVM_t vm;
 } duckLisp_t;
 
 typedef enum {
@@ -608,7 +612,10 @@ duckLisp_addGenerator(duckLisp_t *duckLisp,
                       dl_error_t (*callback)(duckLisp_t *, dl_array_t *,
                                              duckLisp_ast_expression_t *),
                       const char *name, const dl_size_t name_length);
-dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
+dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp,
+                                           dl_error_t (*callback)(duckVM_t *),
+                                           const char *name,
+                                           const dl_size_t name_length);
 // dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name,
 // const dl_size_t name_length,
 //                                   const dl_error_t(*generator)(duckLisp_t*,

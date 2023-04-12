@@ -1090,7 +1090,7 @@ int main(int argc, char *argv[]) {
 	/* Add C functions. */
 
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
-		e = duckLisp_linkCFunction(&duckLisp, callbacks[i].name, callbacks[i].name_length);
+		e = duckLisp_linkCFunction(&duckLisp, callbacks[i].callback, callbacks[i].name, callbacks[i].name_length);
 		if (e) {
 			printf(COLOR_RED "Could not create function. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 			goto l_cleanup;

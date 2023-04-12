@@ -1751,6 +1751,7 @@ dl_ptrdiff_t duckLisp_symbol_nameToValue(const duckLisp_t *duckLisp, const char 
 	return value;
 }
 
+/* Guaranteed not to create a new symbol if a symbol with the given name already exists. */
 dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -1812,7 +1813,6 @@ static dl_error_t scope_quit(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	scope->functions_length = 0;
 	DL_DOTIMES(i, scope->pure_functions.elements_length) {
 		duckLisp_function_t function = DL_ARRAY_GETADDRESS(scope->pure_functions, duckLisp_function_t, i);
-		e = dl_array_quit(&function.bytecode);
 		e = DL_FREE(duckLisp->memoryAllocation, &function.name.value);
 		function.name.value_length = 0;
 	}
@@ -5494,107 +5494,6 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_generator_constexpr(duckLisp_t *duckLisp,
-                                        dl_array_t *assembly,
-                                        duckLisp_ast_expression_t *expression) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
-	dl_array_t eString;
-	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
-
-	duckLisp_t subCompiler;
-	duckVM_t subVM;
-	/* dl_size_t tempDlSize; */
-	dl_array_t bytecodeArray;
-	duckLisp_object_t object;
-	duckLisp_ast_compoundExpression_t ast;
-
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2, dl_false);
-	if (e) goto l_cleanup;
-
-	/* Compile */
-
-	subCompiler.memoryAllocation = duckLisp->memoryAllocation;
-
-	e = duckLisp_init(&subCompiler);
-	if (e) goto l_cleanup;
-
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("constexpr: Pre compilation memory usage: %llu/%llu (%llu%%)\n", */
-	/*        tempDlSize, */
-	/*        duckLisp->memoryAllocation->size, */
-	/*        100*tempDlSize/duckLisp->memoryAllocation->size); */
-
-	e = duckLisp_compileAST(&subCompiler, &bytecodeArray, expression->compoundExpressions[1]);
-	if (e) goto l_cleanupDL;
-
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("constexpr: Post compilation/Pre execution memory usage: %llu/%llu (%llu%%)\n", */
-	/*        tempDlSize, */
-	/*        duckLisp->memoryAllocation->size, */
-	/*        100*tempDlSize/duckLisp->memoryAllocation->size); */
-
-	/* Execute */
-
-	subVM.memoryAllocation = duckLisp->memoryAllocation;
-
-	// Shouldn't need too much.
-	e = duckVM_init(&subVM, 1000);
-	if (e) goto l_cleanupDL;
-
-	duckLisp_object_t return_value;
-	e = duckVM_execute(&subVM, &return_value, bytecodeArray.elements, bytecodeArray.elements_length);
-	if (e) goto l_cleanupVM;
-	object = DL_ARRAY_GETTOPADDRESS(subVM.stack, duckLisp_object_t);
-
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("constexpr: Post execution memory usage: %llu/%llu (%llu%%)\n", */
-	/*        tempDlSize, */
-	/*        duckLisp->memoryAllocation->size, */
-	/*        100*tempDlSize/duckLisp->memoryAllocation->size); */
-
-	// Compile result.
-
-	e = duckLisp_objectToAST(duckLisp, &ast, &object, dl_false);
-	if (e) goto l_cleanupVM;
-
-	e = ast_print_compoundExpression(*duckLisp, ast);
-	if (e) goto l_cleanupVM;
-	/* putchar('\n'); */
-
-	e = duckLisp_compile_compoundExpression(duckLisp,
-	                                        assembly,
-	                                        expression->compoundExpressions[0].value.identifier.value,
-	                                        expression->compoundExpressions[0].value.identifier.value_length,
-	                                        &ast,
-	                                        dl_null,
-	                                        dl_null,
-	                                        dl_false);
-	if (e) goto l_cleanupVM;
-
-	/* puts("done"); */
-
- l_cleanupVM:
-	/**/ duckVM_quit(&subVM);
-
- l_cleanupDL:
-
-	eError = dl_array_pushElements(&duckLisp->errors,
-	                               subCompiler.errors.elements,
-	                               subCompiler.errors.elements_length);
-	if (eError) e = eError;
-
-	/**/ duckLisp_quit(&subCompiler);
-
- l_cleanup:
-	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
-
-	return e;
-}
-
 dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
                                        dl_array_t *assembly,
                                        duckLisp_ast_expression_t *expression) {
@@ -5632,6 +5531,12 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	subLisp.memoryAllocation = duckLisp->memoryAllocation;
 	e = duckLisp_init(&subLisp);
 	if (e) goto cleanupArrays;
+
+	DL_DOTIMES(i, duckLisp->symbols_array.elements_length) {
+		duckLisp_ast_identifier_t name = DL_ARRAY_GETADDRESS(duckLisp->symbols_array, duckLisp_ast_identifier_t, i);
+		e = duckLisp_symbol_create(&subLisp, name.value, name.value_length);
+		if (e) goto cleanupCompiler;
+	}
 
 	{
 		duckLisp_scope_t scope;
@@ -5831,6 +5736,8 @@ dl_error_t duckLisp_compilePureFunction(duckLisp_t *duckLisp,
 	}
 	/**/ duckLisp_quit(&subLisp);
  cleanupArrays:
+	eError = dl_array_quit(&functionBytecode);
+	if (!e) e = eError;
 	eError = dl_array_quit(&eString);
 	if (!e) e = eError;
 
@@ -7958,7 +7865,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	duckLisp_macro_t macro;
 	dl_array_t bytecode;
-	duckVM_t subVM;
 	duckLisp_object_t return_value;
 	duckLisp_ast_compoundExpression_t ast;
 	dl_bool_t found;
@@ -8008,6 +7914,12 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	subLisp.memoryAllocation = duckLisp->memoryAllocation;
 	e = duckLisp_init(&subLisp);
 	if (e) goto cleanupArrays;
+
+	DL_DOTIMES(i, duckLisp->symbols_array.elements_length) {
+		duckLisp_ast_identifier_t name = DL_ARRAY_GETADDRESS(duckLisp->symbols_array, duckLisp_ast_identifier_t, i);
+		e = duckLisp_symbol_create(&subLisp, name.value, name.value_length);
+		if (e) goto cleanupCompiler;
+	}
 
 	duckLisp_ast_compoundExpression_t call;
 	call.type = duckLisp_ast_type_expression;
@@ -8064,13 +7976,10 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Execute macro. */
 
-	subVM.memoryAllocation = duckLisp->memoryAllocation;
+	e = duckVM_softReset(&duckLisp->vm);
+	if (e) goto cleanupVM;
 
-	/* Shouldn't need too many resources. */
-	e = duckVM_init(&subVM, 1000);
-	if (e) goto cleanupLabels;
-
-	e = duckVM_execute(&subVM, &return_value, completeBytecode.elements, completeBytecode.elements_length);
+	e = duckVM_execute(&duckLisp->vm, &return_value, completeBytecode.elements, completeBytecode.elements_length);
 	if (e) goto cleanupVM;
 
 	/* Compile macro expansion. */
@@ -8095,8 +8004,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	if (!e) e = eError;
 
  cleanupVM:
-	/**/ duckVM_quit(&subVM);
-
  cleanupLabels:
 	/* I hate this. `labels` shouldn't be global. */
 	eError = dl_array_quit(&subLisp.labels);
@@ -8331,7 +8238,10 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 						                           compoundExpression->value.identifier.value,
 						                           compoundExpression->value.identifier.value_length);
 						if (e) goto l_cleanup;
-						e = duckLisp_emit_pushGlobal(duckLisp, assembly, duckLisp->symbols_array.elements_length - 1);
+						dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp,
+						                                               compoundExpression->value.identifier.value,
+						                                               compoundExpression->value.identifier.value_length);
+						e = duckLisp_emit_pushGlobal(duckLisp, assembly, key);
 						if (e) goto l_cleanup;
 						temp_index = duckLisp->locals_length - 1;
 					}
@@ -10713,7 +10623,6 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                  {DL_STR("\0defun:lambda"),     duckLisp_generator_lambda},
 	                  {DL_STR("\0defmacro:lambda"),  duckLisp_generator_lambda},
 	                  {DL_STR("lambda"),             duckLisp_generator_lambda},
-	                  {DL_STR("constexpr"),          duckLisp_generator_constexpr},
 	                  {DL_STR("defmacro"),           duckLisp_generator_defmacro},
 	                  {DL_STR("noscope"),            duckLisp_generator_noscope},
 	                  {DL_STR("quote"),              duckLisp_generator_quote},
@@ -10778,6 +10687,27 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 		}
 	}
 
+	duckLisp->vm.memoryAllocation = duckLisp->memoryAllocation;
+	error = duckVM_init(&duckLisp->vm, 1000);
+	if (error) goto cleanup;
+
+	{
+		/* String: "\0" */
+		char *string = "";
+		dl_size_t length = 1;
+		error = duckLisp_symbol_create(duckLisp, string, length);
+		if (error) goto cleanup;
+		dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp, string, length);
+		duckLisp_object_t object;
+		object.type = duckLisp_object_type_list;
+		object.value.list = dl_null;
+		duckLisp_object_t *objectPtr;
+		error = duckVM_gclist_pushObject(&duckLisp->vm, &objectPtr, object);
+		if (error) goto cleanup;
+		error = duckVM_makeGlobal(&duckLisp->vm, key, objectPtr);
+		if (error) goto cleanup;
+	}
+
 	cleanup:
 
 	return error;
@@ -10786,6 +10716,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 void duckLisp_quit(duckLisp_t *duckLisp) {
 	dl_error_t e;
 
+	/**/ duckVM_quit(&duckLisp->vm);
 	duckLisp->locals_length = 0;
 	duckLisp->gensym_number = 0;
 	e = dl_array_quit(&duckLisp->generators_stack);
@@ -10959,7 +10890,7 @@ dl_error_t duckLisp_addStatic(duckLisp_t *duckLisp,
 
 	e = duckLisp_symbol_create(duckLisp, name, name_length);
 	if (e) goto l_cleanup;
-	*index = duckLisp->symbols_array.elements_length - 1;
+	*index = duckLisp_symbol_nameToValue(duckLisp, name, name_length);
 
  l_cleanup:
 
@@ -11067,30 +10998,37 @@ dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length) {
+dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
+                                  dl_error_t (*callback)(duckVM_t *),
+                                  const char *name,
+                                  const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
+	(void) callback;
 
 	duckLisp_scope_t scope;
 
-	// Stick name and index in the current scope's trie.
+	/* Stick name and index in the current scope's trie. */
 	e = scope_getTop(duckLisp, &scope);
 	if (e) {
 		goto l_cleanup;
 	}
 
-	// Record function type in function trie.
+	/* Record function type in function trie. */
 	e = dl_trie_insert(&scope.functions_trie, name, name_length, duckLisp_functionType_c);
 	if (e) {
 		goto l_cleanup;
 	}
-	// Keep track of the function by using a symbol as the global's key.
+	/* Keep track of the function by using a symbol as the global's key. */
 	e = duckLisp_symbol_create(duckLisp, name, name_length);
+	if (e) goto l_cleanup;
+	dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp, name, name_length);
+	e = duckVM_linkCFunction(&duckLisp->vm, key, callback);
 	if (e) goto l_cleanup;
 
 	e = scope_setTop(duckLisp, &scope);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
+
+	/* Add to the VM's scope. */
 
  l_cleanup:
 

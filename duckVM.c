@@ -186,7 +186,9 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	}
 
 	/* Current bytecode */
-	duckVM_gclist_markObject(&duckVM->gclist, duckVM->currentBytecode);
+	if (duckVM->currentBytecode != dl_null) {
+		duckVM_gclist_markObject(&duckVM->gclist, duckVM->currentBytecode);
+	}
 
 	/* Free cells if not marked. */
 
@@ -318,6 +320,7 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
+	duckVM->currentBytecode = dl_null;
 	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->call_stack,
@@ -1002,8 +1005,21 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_closure) {
+		if (object1.type == duckLisp_object_type_function) {
+			e = object1.value.function.callback(duckVM);
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->funcall: C callback returned error."));
+				if (!e) e = eError;
+				break;
+			}
+			break;
+		}
+		else if (object1.type != duckLisp_object_type_closure) {
 			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->funcall: Object is not a callback or closure."));
+			if (!e) e = eError;
 			break;
 		}
 		if (object1.value.closure.variadic) {
@@ -1255,9 +1271,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (!e) e = eError;
 				break;
 			}
-				e = DL_ARRAY_GETADDRESS(duckVM->globals,
-				                        duckLisp_object_t *,
-				                        ptrdiff1)->value.function.callback(duckVM);
+			e = global->value.function.callback(duckVM);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->c-call: C callback returned error."));
 				if (!e) e = eError;
@@ -3609,9 +3623,11 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		e = duckVM_gclist_pushObject(duckVM, &bytecodeObject, temp);
 		if (e) goto l_cleanup;
 	}
+	duckVM->currentBytecode = bytecodeObject;
 	do {
 		e = duckVM_executeInstruction(duckVM, bytecodeObject, &ip, &halt);
 	} while (!e && !halt);
+	duckVM->currentBytecode = dl_null;
 
  l_cleanup:
 
@@ -3771,6 +3787,10 @@ dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object) {
 	return stack_pop(duckVM, object);
 }
 
+dl_error_t duckVM_popAll(duckVM_t *duckVM) {
+	return stack_pop_multiple(duckVM, duckVM->stack.elements_length);
+}
+
 dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object) {
 	return stack_push(duckVM, object);
 }
@@ -3780,6 +3800,24 @@ dl_error_t duckVM_pushNil(duckVM_t *duckVM) {
 	object.type = duckLisp_object_type_list;
 	object.value.list = dl_null;
 	return stack_push(duckVM, &object);
+}
+
+dl_error_t duckVM_softReset(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	e = stack_pop_multiple(duckVM, duckVM->stack.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_popElements(&duckVM->upvalue_array_call_stack, dl_null, duckVM->call_stack.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_popElements(&duckVM->upvalue_array_length_call_stack, dl_null, duckVM->call_stack.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_popElements(&duckVM->call_stack, dl_null, duckVM->call_stack.elements_length);
+	if (e) goto cleanup;
+ cleanup:
+	if (e) {
+		dl_error_t eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_softReset: Failed."));
+		if (!e) e = eError;
+	}
+	return e;
 }
 
 /* dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object) { */

@@ -1476,6 +1476,48 @@ New closures save a reference to the currently executing bytecode object.
 
 If I were to create a standard duck-lisp, I would not include globals in the specification. This means that a compliant implementation would only need a minimal call stack like is currently implemented.
 
+Bytecode copying and GC implemented.
+
+
+User object tracing should be easy enough.
+
+
+An alternative to adding objects to trace is to create a global vector that stores objects I want to keep alive. That would be a very Emacsy way of doing it. Since the GC isn't compacting, objects always stay in the same spot once they are allocated. Because of that, I can gensym the name and hold references to the global vector and all pure functions that I shove in it.
+
+Create a single VM instance to be used for all macro calls.
+Pass a vector to the VM to trace for GC.
+For each pure function:
+    Compile each pure function to bytecode.
+    Execute the bytecode.
+    Put the result on the GC-traced vector.
+    Attach the returned closure to the associated symbol in the current scope.
+    Free the bytecode since the VM holds a copy.
+For each macro call:
+    For each pure function in the current scope from the root to the leaf:
+        Add the closure object as a dynamic variable, overwriting any dynamics with the same name.
+    Call the macro function.
+Destroy the VM.
+
+The GC-traced vector is actually a nested list. A new cons is added to the list each time a new scope is created. Each element holds a list of the pure closures.
+
+It looks like there is already an array of DL functions in each scope. Currently they hold a copy of the bytecode. They will need to be changed to hold a reference to the closure.
+Macros are the same way, but they actually work, so I'm going to leave them alone for now.
+
+The DL scope stack only exists to prevent garbage collection of the closures.
+
+
+Nope. It's still hard.
+
+The problem is that I want to create closures, which means I can't simply use dynamic scope for all the pure functions. Using dynamic scope for lexically scoped functions won't work.
+On the other hand, I now have the ability to hold closures on the scope stack, so maybe there's a way I can use actual lexical scope?
+
+
+I think running callbacks in macros is easy. I should just need to copy over the symbol table and then delete it before I call duckLisp_quit.
+
+
+The duckVM scope stack along with its closures will stay, but I will use genuine lexical scoping. I will copy over the compiler scope stack to the sub-compiler and then have it compile a single pure function that may reference other functions. This will create a small chunk of bytecode that is then run to create a closure. The closure is placed on the VM scope stack. When a macro is called, then entirety of the VM scope stack is manually placed on the VM's stack and the macro is run.
+The only problem I can see right now is that the upvalues might need to reference objects with pointers, but if I recall correctly, they instead use indices which shouldn't cause a problem.
+
 
 Next step: Do some cleanup, fix bugs, and round out the keywords.
 

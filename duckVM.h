@@ -149,8 +149,10 @@ dl_error_t duckVM_garbageCollect(duckVM_t *duckVM);
 /* void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length); */
 /* dl_error_t duckVM_getArg(duckVM_t *duckVM, duckLisp_object_t *object, dl_ptrdiff_t index); */
 dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object);
+dl_error_t duckVM_popAll(duckVM_t *duckVM);
 dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object);
 dl_error_t duckVM_pushNil(duckVM_t *duckVM);
+dl_error_t duckVM_softReset(duckVM_t *duckVM);
 /* dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object); */
 dl_error_t duckVM_makeGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckLisp_object_t *object);
 
