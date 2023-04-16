@@ -1518,10 +1518,36 @@ I think running callbacks in macros is easy. I should just need to copy over the
 The duckVM scope stack along with its closures will stay, but I will use genuine lexical scoping. I will copy over the compiler scope stack to the sub-compiler and then have it compile a single pure function that may reference other functions. This will create a small chunk of bytecode that is then run to create a closure. The closure is placed on the VM scope stack. When a macro is called, then entirety of the VM scope stack is manually placed on the VM's stack and the macro is run.
 The only problem I can see right now is that the upvalues might need to reference objects with pointers, but if I recall correctly, they instead use indices which shouldn't cause a problem.
 
+NOPE. The fact that variables are missing from the stack means that I either have to push dummy variables on (which seems impractical) or compile pure functions entirely separately from the main program.
+The ideal solution would be some sort of incremental compilation and execution that would allow me to compile and evaluate every function definition once.
 
-Next step: Do some cleanup, fix bugs, and round out the keywords.
+The macro itself couldn't care less whether the context it is run in is lexical or global. However, considering my plan with pure functions it might be better if they are compiled lexically.
+
+I don't *want* two scope stacks.
+
+Fexprs are tempting, but I'm trying to keep a sharp line between compiler and interpreter. Fexprs aren't useful when compiling for a microcontroller.
+
+Pure functions *must* be lexically scoped. Pure functions will ideally be converted to closures *first*, and then functions that reference them will be compiled and store them as upvalues.
+
+I *can* add a separate scope stack for pure functions. I just don't want to. I may or may not be able to do incremental compilation and execution.
+
+This is literally the last major feature until the language is complete. It should be OK if it gets messy. I never have to look at that part again. If DL is too slow and I actually do need to fix it, then I can switch to Common Lisp or Scheme and add a DL compatibility layer.
+
+This would be so much easier if C had garbage collection.
+
+I can generate modular high-level assembly.
+Functions are *always* closures, and labels never escape closures (that I am aware of). This means that the only linkage to other functions is through stack indices. I might be able to recreate the labels array from just the high-level assembly, in which case, why do I have a global labels array at all?!?
+I might be able to modularize bytecode generation and optimization.
+
+I think the assembler as a whole can be moved to a separate function.
+
+It turns out the name field of duckLisp_label_t was set but never read, so it's gone now. Now labels are just a list of instruction indices, which means I can almost certainly generate them right before they are needed. The labels trie will stay as it is though and I will probably add another counter to give each label a unique whole number identifier.
+
+
+Next step:
 
 Defer:
+	There's a memory bug likely caused by the lack of GC for symbols and strings.
 
 Todo:
 	macros
@@ -1531,3 +1557,8 @@ Todo:
 	Clean up.
 	Merge with Hidey-Chess and add required functions.
 	Clean up.
+
+How to design your compiler for macros:
+Assumptions: You want macros to be able to call functions that do not depend on impure functions.
+Are all macros top-level (i.e. global)? Then it's easy! Just compile each function and make the function object a global in the macro VM. When a macro is called, just run it. I haven't actually tried this by the way.
+Are your macros lexical scoped? Meaning they aren't first class and can't create closures but they have lexical scope and dynamic extent. They do? Oh. My condolences. Every pure function must be compiled twice while all the rest are only compiled once. Be sure the compile supports incremental compilation of functions inside other functions since there might be a defmacro nested inside the outer function. Why is this such a pain? Because macros are a hack. Fexprs are the full version of macros.

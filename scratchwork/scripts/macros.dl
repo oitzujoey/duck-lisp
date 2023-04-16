@@ -59,9 +59,38 @@
 
 (defmacro comptime-disassemble ()
   (disassemble))
-(comptime-disassemble)
+(comment (comptime-disassemble))
 
 (defmacro comptime-print (value)
-  (print value))
+  (print value)
+  value)
 
-(comptime-print "Hello!\n")
+(print (comptime-print "Hello!\n"))
+
+(comment (defmacro eval (form)
+           (defmacro evaluator ()
+             form)
+           (evaluator)))
+
+(comment (defmacro comptime-defun (name lambda)
+           (defmacro another-defun (name lambda)
+             (list (quote global) (list (quote quote) name) lambda))
+           (another-defun name lambda))
+
+         (comptime-defun f (lambda ()
+                             (print "f\n") (quote f))))
+
+(defmacro init ()
+  (global channel ())
+  ())
+
+(defmacro send (v)
+  (setq channel v)
+  ())
+
+(defmacro receive ()
+  channel)
+
+(init)
+(send 4)
+(print (receive))

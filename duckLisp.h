@@ -161,8 +161,6 @@ typedef struct {
 } duckLisp_label_source_t;
 
 typedef struct {
-	char *name;
-	dl_size_t name_length;
 	dl_ptrdiff_t target;
 	dl_array_t sources; // duckLisp_label_source_t
 } duckLisp_label_t;
@@ -214,6 +212,7 @@ typedef struct {
 
 	dl_array_t generators_stack; /* dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t) */
 	dl_array_t labels;  /* duckLisp_label_t */
+	dl_size_t label_number;
 
 	dl_size_t gensym_number;
 

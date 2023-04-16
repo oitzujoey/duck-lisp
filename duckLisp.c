@@ -8,7 +8,8 @@
 #include "DuckLib/trie.h"
 #include <stdio.h>
 
-dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp, dl_array_t *assembly,
+dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
+                                         dl_array_t *assembly,
                                          duckLisp_ast_expression_t *expression);
 
 /*
@@ -4315,7 +4316,7 @@ dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *iden
 		identifier->value_length = 0;
 		return dl_error_outOfMemory;
 	}
-	identifier->value[0] = '\0';  // Surely not even an idiot would start a string with a null char.
+	identifier->value[0] = '\0';  /* Surely not even an idiot would start a string with a null char. */
 	DL_DOTIMES(i, 8/4*sizeof(dl_size_t)) {
 		identifier->value[i + 1] = dl_nybbleToHexChar((duckLisp->gensym_number >> 4*i) & 0xF);
 	}
@@ -4326,7 +4327,6 @@ dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *iden
 dl_error_t duckLisp_register_label(duckLisp_t *duckLisp, char *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
-	dl_ptrdiff_t label_index = -1;
 	duckLisp_scope_t scope;
 
 	duckLisp_label_t label;
@@ -4336,26 +4336,16 @@ dl_error_t duckLisp_register_label(duckLisp_t *duckLisp, char *name, const dl_si
 		goto l_cleanup;
 	}
 
-	// declare the label.
-	e = DL_MALLOC(duckLisp->memoryAllocation, &label.name, name_length, char);
-	if (e) goto l_cleanup;
-	/**/ dl_memcopy_noOverlap(label.name, name, name_length);
-	label.name_length = name_length;
-
 	/**/ dl_array_init(&label.sources,
 	                   duckLisp->memoryAllocation,
 	                   sizeof(duckLisp_label_source_t),
 	                   dl_array_strategy_double);
 	label.target = -1;
 	e = dl_array_pushElement(&duckLisp->labels, &label);
-	if (e) {
-		goto l_cleanup;
-	}
-	label_index = duckLisp->labels.elements_length - 1;
-	e = dl_trie_insert(&scope.labels_trie, label.name, label.name_length, label_index);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto l_cleanup;
+	e = dl_trie_insert(&scope.labels_trie, name, name_length, duckLisp->label_number);
+	if (e) goto l_cleanup;
+	duckLisp->label_number++;
 
 	e = scope_setTop(duckLisp, &scope);
 	if (e) goto l_cleanup;
@@ -5191,23 +5181,19 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 					}
 
 					// declare the label.
-					label.name = label_name.value;
-					label.name_length = label_name.value_length;
-
 					/**/ dl_array_init(&label.sources,
 					                   duckLisp->memoryAllocation,
 					                   sizeof(duckLisp_label_source_t),
 					                   dl_array_strategy_double);
 					label.target = -1;
 					e = dl_array_pushElement(&duckLisp->labels, &label);
-					if (e) {
-						goto l_cleanup;
-					}
-					label_index = duckLisp->labels.elements_length - 1;
-					e = dl_trie_insert(&scope.labels_trie, label.name, label.name_length, label_index);
-					if (e) {
-						goto l_cleanup;
-					}
+					if (e) goto l_cleanup;
+					e = dl_trie_insert(&scope.labels_trie,
+					                   label_name.value,
+					                   label_name.value_length,
+					                   duckLisp->label_number);
+					if (e) goto l_cleanup;
+					duckLisp->label_number++;
 
 
 					e = scope_setTop(duckLisp, &scope);
@@ -7277,7 +7263,7 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly, d
 				if (e) {
 					goto l_cleanup;
 				}
-				e = dl_array_pushElements(&eString, DL_STR("\"."));
+				e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming dynamic scope."));
 				if (e) {
 					goto l_cleanup;
 				}
@@ -7287,8 +7273,20 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp, dl_array_t *assembly, d
 				if (eError) {
 					e = eError;
 				}
-				e = dl_error_invalidValue;
-				goto l_cleanup;
+
+				e = duckLisp_symbol_create(duckLisp,
+				                           (expression->compoundExpressions[1]
+				                            .value.identifier.value),
+				                           (expression->compoundExpressions[1]
+				                            .value.identifier.value_length));
+				if (e) goto l_cleanup;
+				identifier_index = duckLisp_symbol_nameToValue(duckLisp,
+				                                               (expression->compoundExpressions[1]
+				                                                .value.identifier.value),
+				                                               (expression->compoundExpressions[1]
+				                                                .value.identifier.value_length));
+				e = duckLisp_emit_setStatic(duckLisp, assembly, identifier_index, duckLisp->locals_length - 1);
+				if (e) goto l_cleanup;
 			}
 			else {
 				e = duckLisp_emit_setStatic(duckLisp, assembly, identifier_index, duckLisp->locals_length - 1);
@@ -7968,6 +7966,12 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Merge the two bytecode programs into one. */
 
+	DL_DOTIMES(i, subLisp.symbols_array.elements_length) {
+		duckLisp_ast_identifier_t name = DL_ARRAY_GETADDRESS(subLisp.symbols_array, duckLisp_ast_identifier_t, i);
+		e = duckLisp_symbol_create(duckLisp, name.value, name.value_length);
+		if (e) goto cleanupCompiler;
+	}
+
 	/* HACK The return is not guaranteed to be one byte long. */
 	e = dl_array_pushElements(&completeBytecode, bytecode.elements, bytecode.elements_length - 1);
 	if (e) goto cleanupLabels;
@@ -7980,6 +7984,12 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	if (e) goto cleanupVM;
 
 	e = duckVM_execute(&duckLisp->vm, &return_value, completeBytecode.elements, completeBytecode.elements_length);
+	eError = dl_array_pushElements(&duckLisp->errors,
+	                               duckLisp->vm.errors.elements,
+	                               duckLisp->vm.errors.elements_length);
+	if (!e) e = eError;
+	if (e) goto cleanupVM;
+	e = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
 	if (e) goto cleanupVM;
 
 	/* Compile macro expansion. */
@@ -10281,8 +10291,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				}
 				e = dl_array_quit(&label.sources);
 				if (e) goto l_cleanup;
-				e = DL_FREE(duckLisp->memoryAllocation, &label.name);
-				if (e) goto l_cleanup;
 			}
 		}
 
@@ -10662,6 +10670,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_label_t),
 	                             dl_array_strategy_double);
+	duckLisp->label_number = 0;
 	/* No error */ dl_array_init(&duckLisp->symbols_array,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_ast_identifier_t),
@@ -10836,6 +10845,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_label_t),
 	                             dl_array_strategy_double);
+	duckLisp->label_number = 0;
 
 	duckLisp->locals_length = 0;
 	e = duckLisp_compileAST(duckLisp, &bytecodeArray, ast);
