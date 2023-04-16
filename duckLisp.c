@@ -8439,28 +8439,13 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
-                               dl_array_t *bytecode,
-                               duckLisp_ast_compoundExpression_t astCompoundexpression) {
+dl_error_t duckLisp_assemble(duckLisp_t *duckLisp, dl_array_t *bytecode, dl_array_t *assembly) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	/* Not initialized until later. This is reused for multiple arrays. */
-	dl_array_t assembly; /* dl_array_t:duckLisp_instructionObject_t */
-	/* Initialize to zero. */
-	/**/ dl_array_init(&assembly,
-	                   duckLisp->memoryAllocation,
-	                   sizeof(duckLisp_instructionObject_t),
-	                   dl_array_strategy_fit);
-	duckLisp_instructionObject_t tempInstructionObject;
-	/* expression stack for navigating the tree. */
-	dl_array_t expressionStack;
-	/**/ dl_array_init(&expressionStack,
-	                   duckLisp->memoryAllocation,
-	                   sizeof(duckLisp_ast_compoundExpression_t),
-	                   dl_array_strategy_double);
+	dl_ptrdiff_t tempPtrdiff = -1;
 
 	typedef struct {
 		dl_uint8_t byte;
@@ -8472,162 +8457,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&bytecodeList, duckLisp->memoryAllocation, sizeof(byteLink_t), dl_array_strategy_double);
 
 	byteLink_t tempByteLink;
-
-	// dl_array_t bytecode; // unsigned char
-	/**/ dl_array_init(bytecode, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
-
-	dl_ptrdiff_t tempPtrdiff = -1;
-
-
-	/* * * * * *
-	 * Compile *
-	 * * * * * */
-
-
-	/* putchar('\n'); */
-
-	if (astCompoundexpression.type != duckLisp_ast_type_expression) {
-		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot compile non-expression types to bytecode."));
-		if (eError) {
-			e = eError;
-		}
-		goto l_cleanup;
-	}
-
-	/* First stage: Create assembly tree from AST. */
-
-	/* Stack length is zero. */
-
-	e = duckLisp_compile_expression(duckLisp,
-	                                &assembly,
-	                                DL_STR("compileAST"),
-	                                &astCompoundexpression.value.expression,
-	                                dl_null);
-	if (e) goto l_cleanup;
-
-	e = duckLisp_emit_return(duckLisp, &assembly, ((duckLisp->locals_length == 0) ? 0 : duckLisp->locals_length - 1));
-	if (e) goto l_cleanup;
-
-	// Print list.
-	/* printf("\n"); */
-
-	/* { */
-	/* 	dl_size_t tempDlSize; */
-	/* 	/\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* 	printf("Compiler memory usage (post compilation): %llu/%llu (%llu%%)\n\n", */
-	/* 	       tempDlSize, */
-	/* 	       duckLisp->memoryAllocation->size, */
-	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* } */
-
-	/* dl_array_t ia; */
-	/* duckLisp_instructionObject_t io; */
-	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < instructionList.elements_length; i++) { */
-	/*		ia = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i); */
-	/* printf("{\n"); */
-	/* for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly.elements_length; j++) { */
-	/* 	io = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j); */
-	/* 	/\* printf("{\n"); *\/ */
-	/* 	printf("Instruction class: %s", */
-	/* 	       (char *[38]){ */
-	/* 		       ""  // Trick the formatter. */
-	/* 			       "nop", */
-	/* 			       "push-string", */
-	/* 			       "push-boolean", */
-	/* 			       "push-integer", */
-	/* 			       "push-index", */
-	/* 			       "push-symbol", */
-	/* 			       "push-upvalue", */
-	/* 			       "push-closure", */
-	/* 			       "set-upvalue", */
-	/* 			       "release-upvalues", */
-	/* 			       "funcall", */
-	/* 			       "apply", */
-	/* 			       "call", */
-	/* 			       "ccall", */
-	/* 			       "acall", */
-	/* 			       "jump", */
-	/* 			       "brz", */
-	/* 			       "brnz", */
-	/* 			       "move", */
-	/* 			       "not", */
-	/* 			       "mul", */
-	/* 			       "div", */
-	/* 			       "add", */
-	/* 			       "sub", */
-	/* 			       "equal", */
-	/* 			       "less", */
-	/* 			       "greater", */
-	/* 			       "cons", */
-	/* 			       "car", */
-	/* 			       "cdr", */
-	/* 			       "set-car", */
-	/* 			       "set-cdr", */
-	/* 			       "null?", */
-	/* 			       "type-of", */
-	/* 			       "pop", */
-	/* 			       "return", */
-	/* 			       "nil", */
-	/* 			       "push-label", */
-	/* 			       "label", */
-	/* 			       }[io.instructionClass]); */
-	/* 	/\* printf("[\n"); *\/ */
-	/* 	duckLisp_instructionArgClass_t ia; */
-	/* 	if (io.args.elements_length == 0) { */
-	/* 		putchar('\n'); */
-	/* 	} */
-	/* 	for (dl_ptrdiff_t k = 0; (dl_size_t) k < io.args.elements_length; k++) { */
-	/* 		putchar('\n'); */
-	/* 		ia = ((duckLisp_instructionArgClass_t *) io.args.elements)[k]; */
-	/* 		/\* printf("		   {\n"); *\/ */
-	/* 		printf("		Type: %s", */
-	/* 		       (char *[4]){ */
-	/* 			       "none", */
-	/* 			       "integer", */
-	/* 			       "index", */
-	/* 			       "string", */
-	/* 		       }[ia.type]); */
-	/* 		putchar('\n'); */
-	/* 		printf("		Value: "); */
-	/* 		switch (ia.type) { */
-	/* 		case duckLisp_instructionArgClass_type_none: */
-	/* 			printf("None"); */
-	/* 			break; */
-	/* 		case duckLisp_instructionArgClass_type_integer: */
-	/* 			printf("%i", ia.value.integer); */
-	/* 			break; */
-	/* 		case duckLisp_instructionArgClass_type_index: */
-	/* 			printf("%llu", ia.value.index); */
-	/* 			break; */
-	/* 		case duckLisp_instructionArgClass_type_string: */
-	/* 			printf("\""); */
-	/* 			for (dl_ptrdiff_t m = 0; (dl_size_t) m < ia.value.string.value_length; m++) { */
-	/* 				switch (ia.value.string.value[m]) { */
-	/* 				case '\n': */
-	/* 					putchar('\\'); */
-	/* 					putchar('n'); */
-	/* 					break; */
-	/* 				default: */
-	/* 					putchar(ia.value.string.value[m]); */
-	/* 				} */
-	/* 			} */
-	/* 			printf("\""); */
-	/* 			break; */
-	/* 		default: */
-	/* 			printf("		Undefined type.\n"); */
-	/* 		} */
-	/* 		putchar('\n'); */
-	/* 	} */
-	/* 	printf("\n"); */
-	/* 	/\* printf("}\n"); *\/ */
-	/* } */
-	/* printf("}\n"); */
-	/* } */
-
-
-	/** * * * * *
-	 * Assemble *
-	 * * * * * **/
 
 	dl_array_t labels;  /* duckLisp_label_t */
 	/* No error */ dl_array_init(&labels,
@@ -8650,8 +8479,8 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	linkArray_t linkArray = {0};
 	currentInstruction.prev = -1;
 	/**/ dl_array_init(&currentArgs, duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
-	for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly.elements_length; j++) {
-		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j);
+	for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly->elements_length; j++) {
+		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, j);
 		// This is OK because there is no chance of reallocating the args array.
 		duckLisp_instructionArgClass_t *args = &DL_ARRAY_GETADDRESS(instruction.args,
 		                                                            duckLisp_instructionArgClass_t, 0);
@@ -10528,6 +10357,191 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* } */
 
+ l_cleanup:
+	eError = dl_array_quit(&bytecodeList);
+	if (eError) e = eError;
+
+	eError = dl_array_quit(&eString);
+	if (eError) e = eError;
+
+	e = dl_array_quit(&labels);
+	if (e) goto l_cleanup;
+
+	return e;
+}
+
+dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
+                               dl_array_t *bytecode,  /* dl_array_t:dl_uint8_t */
+                               duckLisp_ast_compoundExpression_t astCompoundexpression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	/* Not initialized until later. This is reused for multiple arrays. */
+	dl_array_t assembly; /* dl_array_t:duckLisp_instructionObject_t */
+	/* Initialize to zero. */
+	/**/ dl_array_init(&assembly,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionObject_t),
+	                   dl_array_strategy_fit);
+	/* expression stack for navigating the tree. */
+	dl_array_t expressionStack;
+	/**/ dl_array_init(&expressionStack,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_ast_compoundExpression_t),
+	                   dl_array_strategy_double);
+
+	/**/ dl_array_init(bytecode, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+
+
+	/* * * * * *
+	 * Compile *
+	 * * * * * */
+
+
+	/* putchar('\n'); */
+
+	if (astCompoundexpression.type != duckLisp_ast_type_expression) {
+		e = dl_error_invalidValue;
+		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot compile non-expression types to bytecode."));
+		if (eError) e = eError;
+		goto l_cleanup;
+	}
+
+	/* First stage: Create assembly tree from AST. */
+
+	/* Stack length is zero. */
+
+	e = duckLisp_compile_expression(duckLisp,
+	                                &assembly,
+	                                DL_STR("compileAST"),
+	                                &astCompoundexpression.value.expression,
+	                                dl_null);
+	if (e) goto l_cleanup;
+
+	e = duckLisp_emit_return(duckLisp, &assembly, ((duckLisp->locals_length == 0) ? 0 : duckLisp->locals_length - 1));
+	if (e) goto l_cleanup;
+
+	// Print list.
+	/* printf("\n"); */
+
+	/* { */
+	/* 	dl_size_t tempDlSize; */
+	/* 	/\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
+	/* 	printf("Compiler memory usage (post compilation): %llu/%llu (%llu%%)\n\n", */
+	/* 	       tempDlSize, */
+	/* 	       duckLisp->memoryAllocation->size, */
+	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
+	/* } */
+
+	/* dl_array_t ia; */
+	/* duckLisp_instructionObject_t io; */
+	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < instructionList.elements_length; i++) { */
+	/*		ia = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i); */
+	/* printf("{\n"); */
+	/* for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly.elements_length; j++) { */
+	/* 	io = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j); */
+	/* 	/\* printf("{\n"); *\/ */
+	/* 	printf("Instruction class: %s", */
+	/* 	       (char *[38]){ */
+	/* 		       ""  // Trick the formatter. */
+	/* 			       "nop", */
+	/* 			       "push-string", */
+	/* 			       "push-boolean", */
+	/* 			       "push-integer", */
+	/* 			       "push-index", */
+	/* 			       "push-symbol", */
+	/* 			       "push-upvalue", */
+	/* 			       "push-closure", */
+	/* 			       "set-upvalue", */
+	/* 			       "release-upvalues", */
+	/* 			       "funcall", */
+	/* 			       "apply", */
+	/* 			       "call", */
+	/* 			       "ccall", */
+	/* 			       "acall", */
+	/* 			       "jump", */
+	/* 			       "brz", */
+	/* 			       "brnz", */
+	/* 			       "move", */
+	/* 			       "not", */
+	/* 			       "mul", */
+	/* 			       "div", */
+	/* 			       "add", */
+	/* 			       "sub", */
+	/* 			       "equal", */
+	/* 			       "less", */
+	/* 			       "greater", */
+	/* 			       "cons", */
+	/* 			       "car", */
+	/* 			       "cdr", */
+	/* 			       "set-car", */
+	/* 			       "set-cdr", */
+	/* 			       "null?", */
+	/* 			       "type-of", */
+	/* 			       "pop", */
+	/* 			       "return", */
+	/* 			       "nil", */
+	/* 			       "push-label", */
+	/* 			       "label", */
+	/* 			       }[io.instructionClass]); */
+	/* 	/\* printf("[\n"); *\/ */
+	/* 	duckLisp_instructionArgClass_t ia; */
+	/* 	if (io.args.elements_length == 0) { */
+	/* 		putchar('\n'); */
+	/* 	} */
+	/* 	for (dl_ptrdiff_t k = 0; (dl_size_t) k < io.args.elements_length; k++) { */
+	/* 		putchar('\n'); */
+	/* 		ia = ((duckLisp_instructionArgClass_t *) io.args.elements)[k]; */
+	/* 		/\* printf("		   {\n"); *\/ */
+	/* 		printf("		Type: %s", */
+	/* 		       (char *[4]){ */
+	/* 			       "none", */
+	/* 			       "integer", */
+	/* 			       "index", */
+	/* 			       "string", */
+	/* 		       }[ia.type]); */
+	/* 		putchar('\n'); */
+	/* 		printf("		Value: "); */
+	/* 		switch (ia.type) { */
+	/* 		case duckLisp_instructionArgClass_type_none: */
+	/* 			printf("None"); */
+	/* 			break; */
+	/* 		case duckLisp_instructionArgClass_type_integer: */
+	/* 			printf("%i", ia.value.integer); */
+	/* 			break; */
+	/* 		case duckLisp_instructionArgClass_type_index: */
+	/* 			printf("%llu", ia.value.index); */
+	/* 			break; */
+	/* 		case duckLisp_instructionArgClass_type_string: */
+	/* 			printf("\""); */
+	/* 			for (dl_ptrdiff_t m = 0; (dl_size_t) m < ia.value.string.value_length; m++) { */
+	/* 				switch (ia.value.string.value[m]) { */
+	/* 				case '\n': */
+	/* 					putchar('\\'); */
+	/* 					putchar('n'); */
+	/* 					break; */
+	/* 				default: */
+	/* 					putchar(ia.value.string.value[m]); */
+	/* 				} */
+	/* 			} */
+	/* 			printf("\""); */
+	/* 			break; */
+	/* 		default: */
+	/* 			printf("		Undefined type.\n"); */
+	/* 		} */
+	/* 		putchar('\n'); */
+	/* 	} */
+	/* 	printf("\n"); */
+	/* 	/\* printf("}\n"); *\/ */
+	/* } */
+	/* printf("}\n"); */
+	/* } */
+
+	e = duckLisp_assemble(duckLisp, bytecode, &assembly);
+	if (e) goto l_cleanup;
+
 	/* * * * * *
 	 * Cleanup *
 	 * * * * * */
@@ -10536,41 +10550,14 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	/* putchar('\n'); */
 
-	eError = dl_array_quit(&bytecodeList);
-	if (eError) {
-		e = eError;
-	}
-
-	DL_ARRAY_FOREACH(tempInstructionObject, assembly, {
-			e = dl_array_e;
-			break;
-		}, {
-			if (tempInstructionObject.args.elements_length) {
-				eError = dl_array_quit(&tempInstructionObject.args);
-				if (eError) {
-					e = eError;
-					break;
-				}
-			}
-		})
-
-		eError = dl_array_quit(&assembly);
-	if (eError) {
-		e = eError;
-	}
+	eError = dl_array_quit(&assembly);
+	if (eError) e = eError;
 
 	eError = dl_array_quit(&expressionStack);
-	if (eError) {
-		e = eError;
-	}
+	if (eError) e = eError;
 
 	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
-
-	e = dl_array_quit(&labels);
-	if (e) goto l_cleanup;
+	if (eError) e = eError;
 
 	return e;
 }
