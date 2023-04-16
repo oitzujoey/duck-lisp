@@ -4329,20 +4329,11 @@ dl_error_t duckLisp_register_label(duckLisp_t *duckLisp, char *name, const dl_si
 
 	duckLisp_scope_t scope;
 
-	duckLisp_label_t label;
-
 	e = scope_getTop(duckLisp, &scope);
 	if (e) {
 		goto l_cleanup;
 	}
 
-	/**/ dl_array_init(&label.sources,
-	                   duckLisp->memoryAllocation,
-	                   sizeof(duckLisp_label_source_t),
-	                   dl_array_strategy_double);
-	label.target = -1;
-	e = dl_array_pushElement(&duckLisp->labels, &label);
-	if (e) goto l_cleanup;
 	e = dl_trie_insert(&scope.labels_trie, name, name_length, duckLisp->label_number);
 	if (e) goto l_cleanup;
 	duckLisp->label_number++;
@@ -5145,7 +5136,6 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 				/**/ dl_string_compare(&result, function.value, function.value_length, DL_STR("label"));
 				if (result) {
 					duckLisp_ast_identifier_t label_name = currentE.compoundExpressions[1].value.identifier;
-					duckLisp_label_t label;
 
 					// This is why we pushed the scope here.
 					e = scope_getTop(duckLisp, &scope);
@@ -5180,14 +5170,6 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 						goto l_cleanup;
 					}
 
-					// declare the label.
-					/**/ dl_array_init(&label.sources,
-					                   duckLisp->memoryAllocation,
-					                   sizeof(duckLisp_label_source_t),
-					                   dl_array_strategy_double);
-					label.target = -1;
-					e = dl_array_pushElement(&duckLisp->labels, &label);
-					if (e) goto l_cleanup;
 					e = dl_trie_insert(&scope.labels_trie,
 					                   label_name.value,
 					                   label_name.value_length,
@@ -5583,8 +5565,6 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	if (e) goto cleanupLabels;
 
  cleanupLabels:
-	eError = dl_array_quit(&subLisp.labels);
-	if (!e) e = eError;
 	eError = DL_FREE(subLisp.memoryAllocation, (void **) &lambda.value.expression.compoundExpressions);
 	if (!e) e = eError;
  cleanupCompiler:
@@ -5705,8 +5685,6 @@ dl_error_t duckLisp_compilePureFunction(duckLisp_t *duckLisp,
 	if (e) goto cleanupLabels;
 
  cleanupLabels:
-	eError = dl_array_quit(&subLisp.labels);
-	if (!e) e = eError;
 	eError = DL_FREE(subLisp.memoryAllocation, (void **) &lambda.value.expression.compoundExpressions);
 	if (!e) e = eError;
  cleanupCompiler:
@@ -7955,28 +7933,28 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	e = duckLisp_addInterpretedFunction(&subLisp,
 	                                    call.value.expression.compoundExpressions[0].value.identifier,
 	                                    dl_true);
-	if (e) goto cleanupQuotes;
+	if (e) goto cleanupVM;
 	e = duckLisp_scope_addObject(&subLisp,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value_length);
 	subLisp.locals_length++;
-	if (e) goto cleanupQuotes;
+	if (e) goto cleanupVM;
 	e = duckLisp_compileAST(&subLisp, &subBytecode, call);
-	if (e) goto cleanupLabels;
+	if (e) goto cleanupVM;
 
 	/* Merge the two bytecode programs into one. */
 
 	DL_DOTIMES(i, subLisp.symbols_array.elements_length) {
 		duckLisp_ast_identifier_t name = DL_ARRAY_GETADDRESS(subLisp.symbols_array, duckLisp_ast_identifier_t, i);
 		e = duckLisp_symbol_create(duckLisp, name.value, name.value_length);
-		if (e) goto cleanupCompiler;
+		if (e) goto cleanupVM;
 	}
 
 	/* HACK The return is not guaranteed to be one byte long. */
 	e = dl_array_pushElements(&completeBytecode, bytecode.elements, bytecode.elements_length - 1);
-	if (e) goto cleanupLabels;
+	if (e) goto cleanupVM;
 	e = dl_array_pushElements(&completeBytecode, subBytecode.elements, subBytecode.elements_length);
-	if (e) goto cleanupLabels;
+	if (e) goto cleanupVM;
 
 	/* Execute macro. */
 
@@ -8014,12 +7992,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	if (!e) e = eError;
 
  cleanupVM:
- cleanupLabels:
-	/* I hate this. `labels` shouldn't be global. */
-	eError = dl_array_quit(&subLisp.labels);
-	if (!e) e = eError;
-
- cleanupQuotes:
 	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
 		duckLisp_ast_compoundExpression_t quote;
 		quote = call.value.expression.compoundExpressions[i];
@@ -8475,18 +8447,15 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	// Not initialized until later. This is reused for multiple arrays.
-	dl_array_t assembly; // duckLisp_instructionObject_t
-	// Initialize to zero.
+	/* Not initialized until later. This is reused for multiple arrays. */
+	dl_array_t assembly; /* dl_array_t:duckLisp_instructionObject_t */
+	/* Initialize to zero. */
 	/**/ dl_array_init(&assembly,
 	                   duckLisp->memoryAllocation,
 	                   sizeof(duckLisp_instructionObject_t),
 	                   dl_array_strategy_fit);
 	duckLisp_instructionObject_t tempInstructionObject;
-	// Create high-level bytecode list.
-	/* dl_array_t instructionList; // dl_array_t */
-	/* /\**\/ dl_array_init(&instructionList, &duckLisp->memoryAllocation, sizeof(dl_array_t), dl_array_strategy_double); */
-	// expression stack for navigating the tree.
+	/* expression stack for navigating the tree. */
 	dl_array_t expressionStack;
 	/**/ dl_array_init(&expressionStack,
 	                   duckLisp->memoryAllocation,
@@ -8660,15 +8629,27 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	 * Assemble *
 	 * * * * * **/
 
+	dl_array_t labels;  /* duckLisp_label_t */
+	/* No error */ dl_array_init(&labels,
+	                             duckLisp->memoryAllocation,
+	                             sizeof(duckLisp_label_t),
+	                             dl_array_strategy_double);
+	DL_DOTIMES(i, duckLisp->label_number) {
+		duckLisp_label_t label;
+		/**/ dl_array_init(&label.sources,
+		                   duckLisp->memoryAllocation,
+		                   sizeof(duckLisp_label_source_t),
+		                   dl_array_strategy_double);
+		label.target = -1;
+		e = dl_array_pushElement(&labels, &label);
+		if (e) goto l_cleanup;
+	}
+
 	byteLink_t currentInstruction;
-	dl_array_t currentArgs; // unsigned char
+	dl_array_t currentArgs; /* unsigned char */
 	linkArray_t linkArray = {0};
 	currentInstruction.prev = -1;
 	/**/ dl_array_init(&currentArgs, duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
-	/* for (dl_ptrdiff_t i = instructionList.elements_length - 1; i >= 0; --i) { */
-	/*		dl_array_t instructions = DL_ARRAY_GETADDRESS(instructionList, dl_array_t, i); */
-	/* for (dl_ptrdiff_t j = 0; (dl_size_t) j < instructions.elements_length; j++) { */
-	/*		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(instructions, duckLisp_instructionObject_t, j); */
 	for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly.elements_length; j++) {
 		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(assembly, duckLisp_instructionObject_t, j);
 		// This is OK because there is no chance of reallocating the args array.
@@ -10058,7 +10039,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 			label_index = args[0].value.integer;
 
 			// This should never fail due to the above initialization.
-			label = DL_ARRAY_GETADDRESS(duckLisp->labels, duckLisp_label_t, label_index);
+			label = DL_ARRAY_GETADDRESS(labels, duckLisp_label_t, label_index);
 			// There should only be one label instruction. The rest should be branches.
 			tempPtrdiff = bytecodeList.elements_length;
 			if (instruction.instructionClass == duckLisp_instructionClass_pseudo_label) {
@@ -10098,7 +10079,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 				}
 				linkArray.links_length++;
 			}
-			DL_ARRAY_GETADDRESS(duckLisp->labels, duckLisp_label_t, label_index) = label;
+			DL_ARRAY_GETADDRESS(labels, duckLisp_label_t, label_index) = label;
 
 			if (instruction.instructionClass == duckLisp_instructionClass_pseudo_label) continue;
 
@@ -10275,8 +10256,8 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 		{
 			dl_ptrdiff_t index = 0;
-			for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->labels.elements_length; i++) {
-				duckLisp_label_t label = DL_ARRAY_GETADDRESS(duckLisp->labels, duckLisp_label_t, i);
+			for (dl_ptrdiff_t i = 0; (dl_size_t) i < labels.elements_length; i++) {
+				duckLisp_label_t label = DL_ARRAY_GETADDRESS(labels, duckLisp_label_t, i);
 				for (dl_ptrdiff_t j = 0; (dl_size_t) j < label.sources.elements_length; j++) {
 					linkArray.links[index].target = label.target;
 					linkArray.links[index].source = DL_ARRAY_GETADDRESS(label.sources,
@@ -10588,6 +10569,9 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 		e = eError;
 	}
 
+	e = dl_array_quit(&labels);
+	if (e) goto l_cleanup;
+
 	return e;
 }
 
@@ -10665,10 +10649,6 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	/* No error */ dl_array_init(&duckLisp->generators_stack,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
-	                             dl_array_strategy_double);
-	/* No error */ dl_array_init(&duckLisp->labels,
-	                             duckLisp->memoryAllocation,
-	                             sizeof(duckLisp_label_t),
 	                             dl_array_strategy_double);
 	duckLisp->label_number = 0;
 	/* No error */ dl_array_init(&duckLisp->symbols_array,
@@ -10841,10 +10821,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	/* Compile AST to bytecode. */
 
-	/* No error */ dl_array_init(&duckLisp->labels,
-	                             duckLisp->memoryAllocation,
-	                             sizeof(duckLisp_label_t),
-	                             dl_array_strategy_double);
 	duckLisp->label_number = 0;
 
 	duckLisp->locals_length = 0;
@@ -10852,9 +10828,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	if (e) goto l_cleanup;
 
 	e = ast_compoundExpression_quit(duckLisp, &ast);
-	if (e) goto l_cleanup;
-
-	e = dl_array_quit(&duckLisp->labels);
 	if (e) goto l_cleanup;
 
 	*bytecode = ((unsigned char*) (bytecodeArray).elements);

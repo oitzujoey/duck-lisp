@@ -1544,6 +1544,35 @@ I think the assembler as a whole can be moved to a separate function.
 It turns out the name field of duckLisp_label_t was set but never read, so it's gone now. Now labels are just a list of instruction indices, which means I can almost certainly generate them right before they are needed. The labels trie will stay as it is though and I will probably add another counter to give each label a unique whole number identifier.
 
 
+Label reference — Pushes a label.
+
+	duckLisp_label_t label;
+
+	/**/ dl_array_init(&label.sources,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_label_source_t),
+	                   dl_array_strategy_double);
+	label.target = -1;
+	e = dl_array_pushElement(&labels, &label);
+	if (e) goto l_cleanup;
+
+Label creation lookahead — Simply initializes the label. Does not populate it at all.
+
+					duckLisp_label_t label;
+
+					// declare the label.
+					/**/ dl_array_init(&label.sources,
+					                   duckLisp->memoryAllocation,
+					                   sizeof(duckLisp_label_source_t),
+					                   dl_array_strategy_double);
+					label.target = -1;
+					e = dl_array_pushElement(&labels, &label);
+					if (e) goto l_cleanup;
+
+
+Time to split.
+
+
 Next step:
 
 Defer:

@@ -211,7 +211,6 @@ typedef struct {
 	dl_size_t locals_length;
 
 	dl_array_t generators_stack; /* dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t) */
-	dl_array_t labels;  /* duckLisp_label_t */
 	dl_size_t label_number;
 
 	dl_size_t gensym_number;
