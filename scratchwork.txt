@@ -1573,6 +1573,96 @@ Label creation lookahead — Simply initializes the label. Does not populate it 
 Time to split.
 
 
+AST can be composed.
+High-level assembly can be composed in certain cases.
+Bytecode can be composed in certain cases.
+
+
+All interactions between modules to be composed should be done with the stack or globals. Labels should *always* be private to the module. It would be best if modules are always local functions since they are stored on the stack and labels are always local to them.
+
+
+AST functions can be composed.
+HLA functions can be composed.
+Bytecode functions can be composed.
+
+
+I want to incrementally generate assembly and compile it multiple times during that process. Only complete functions exist in the assembly when it is assembled.
+
+
+The VM remains live in between runs, but the stack is reset. Before each run, assembly
+
+I just remembered! The whole reason I want to use HLA instead of bytecode is that I can incrementally generate HLA but not bytecode. Though I might be able to generate bytecode incrementally and concatenate them together if I feed the function an empty assembly array.
+
+There is a bytecode array dedicated to pure functions. It starts empty and grows over the course of the compilation.
+
+defun (pure): The function is compiled to bytecode in the current scope. *Only* this function is compiled to bytecode. This segment of bytecode references other functions, but does not have the actual referenced function definitions in this bytecode. It is appended to the global pure function bytecode array once it is compiled.
+defmacro: The macro is compiled to bytecode in the exact same way that pure functions are. Does it get appended to the pure functions bytecode as well?
+macro: Call the macro function.
+
+I don't think separating the assembler from the compiler actually helped much considering the only change I'm making is to feed the compiler an empty HLA array and concatenate all the bytecode together.
+
+Now the problem is where to store the pure function tries. Do I do it in duckLisp_scope_t? But then I would pretty much need two compilers.
+
+Pure functions are compiled in their own compiler instance. The pure function scope stack is copied to the new compiler as the main scope stack.
+
+What needs to be copied into the new compiler:
+    pure function bytecode
+    scope
+        pure functions
+        macros
+        "function scope?"
+        upvalues?
+
+Instead of copying everything, maybe I can just make the scope stack an extra parameter to generators? In practice, this would probably be called something like duckLisp_compilerState_t.
+
+On compiler exit:
+    global vm
+    global gensym_number
+    global generators_stack
+    global symbols_trie
+    global symbols_array
+    local locals_length
+    local scope_stack
+
+I think I want to duplicate pretty much all of *_scope_t
+
+typedef struct {
+	dl_trie_t locals_trie;
+	dl_trie_t functions_trie;
+	dl_size_t functions_length;
+	dl_array_t pure_functions;
+	dl_trie_t generators_trie;
+	dl_size_t generators_length;
+	dl_trie_t macros_trie;
+	dl_size_t macros_length;
+	dl_array_t macros;
+	dl_trie_t labels_trie;
+	dl_bool_t function_scope;
+	dl_ptrdiff_t *scope_uvs;
+	dl_size_t scope_uvs_length;
+	dl_ptrdiff_t *function_uvs;
+	dl_size_t function_uvs_length;
+} duckLisp_scope_t;
+typedef struct {
+	dl_memoryAllocation_t *memoryAllocation;
+	dl_array_t errors;
+	duplicate dl_array_t scope_stack;
+	duplicate dl_size_t locals_length;
+	dl_array_t generators_stack;
+	dl_size_t label_number;
+	duplicate dl_size_t label_numberForCompile;
+	dl_size_t gensym_number;
+	dl_trie_t symbols_trie;
+	dl_array_t symbols_array;
+	duckVM_t vm;
+} duckLisp_t;
+typedef struct {
+	dl_array_t scope_stack;
+    dl_size_t locals_length;
+    dl_size_t label_numberForCompile;
+} duckLisp_compileState_t;
+
+
 Next step:
 
 Defer:
@@ -1591,3 +1681,13 @@ How to design your compiler for macros:
 Assumptions: You want macros to be able to call functions that do not depend on impure functions.
 Are all macros top-level (i.e. global)? Then it's easy! Just compile each function and make the function object a global in the macro VM. When a macro is called, just run it. I haven't actually tried this by the way.
 Are your macros lexical scoped? Meaning they aren't first class and can't create closures but they have lexical scope and dynamic extent. They do? Oh. My condolences. Every pure function must be compiled twice while all the rest are only compiled once. Be sure the compile supports incremental compilation of functions inside other functions since there might be a defmacro nested inside the outer function. Why is this such a pain? Because macros are a hack. Fexprs are the full version of macros.
+
+Duck-lisp architecture:
+Parse source text into an AST.
+Expand macros — Most complicated step as it recursively performs other steps here as well.
+Perform optimizations (DL skips this)
+Compile AST into HLA.
+Assemble HLA into bytecode.
+Perform peephole optimizations.
+
+It is important to separate the assembler from the AST compiler so that the compiler can call the assembler multiple times on the assembly that has been generated so far.

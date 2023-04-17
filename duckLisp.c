@@ -4360,6 +4360,7 @@ dl_error_t duckLisp_register_label(duckLisp_t *duckLisp, char *name, const dl_si
 	e = dl_trie_insert(&scope.labels_trie, name, name_length, duckLisp->label_number);
 	if (e) goto l_cleanup;
 	duckLisp->label_number++;
+	duckLisp->label_numberForCompile++;
 
 	e = scope_setTop(duckLisp, &scope);
 	if (e) goto l_cleanup;
@@ -5199,6 +5200,7 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 					                   duckLisp->label_number);
 					if (e) goto l_cleanup;
 					duckLisp->label_number++;
+					duckLisp->label_numberForCompile++;
 
 
 					e = scope_setTop(duckLisp, &scope);
@@ -8486,7 +8488,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp, dl_array_t *bytecode, dl_arra
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_label_t),
 	                             dl_array_strategy_double);
-	DL_DOTIMES(i, duckLisp->label_number) {
+	DL_DOTIMES(i, duckLisp->label_numberForCompile) {
 		duckLisp_label_t label;
 		/**/ dl_array_init(&label.sources,
 		                   duckLisp->memoryAllocation,
@@ -10436,6 +10438,9 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	/* Stack length is zero. */
 
+	/* Do not reset `label_number`. */
+	duckLisp->label_numberForCompile = 0;
+
 	e = duckLisp_compile_expression(duckLisp,
 	                                &assembly,
 	                                DL_STR("compileAST"),
@@ -10661,6 +10666,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                             sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
 	                             dl_array_strategy_double);
 	duckLisp->label_number = 0;
+	duckLisp->label_numberForCompile = 0;
 	/* No error */ dl_array_init(&duckLisp->symbols_array,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_ast_identifier_t),
@@ -10830,8 +10836,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	/* } */
 
 	/* Compile AST to bytecode. */
-
-	duckLisp->label_number = 0;
 
 	duckLisp->locals_length = 0;
 	e = duckLisp_compileAST(duckLisp, &bytecodeArray, ast);
