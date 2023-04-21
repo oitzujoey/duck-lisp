@@ -653,6 +653,7 @@ dl_error_t print_errors(dl_array_t *errors, dl_array_t *sourceCode){
 }
 
 dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
+                                         duckLisp_compileState_t *compileState,
                                          dl_array_t *assembly,
                                          duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
@@ -767,7 +768,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* printf("include: Pre compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* puts(COLOR_NORMAL); */
 
-	e = duckLisp_generator_noscope(duckLisp, assembly, &ast.value.expression);
+	e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &ast.value.expression);
 	if (e) goto l_cFileName_cleanup;
 
 	e = ast_compoundExpression_quit(&subLisp, &ast);
@@ -1046,7 +1047,7 @@ int main(int argc, char *argv[]) {
 	struct {
 		const char *name;
 		const dl_size_t name_length;
-		dl_error_t (*callback)(duckLisp_t*, dl_array_t*, duckLisp_ast_expression_t*);
+		dl_error_t (*callback)(duckLisp_t*, duckLisp_compileState_t*, dl_array_t*, duckLisp_ast_expression_t*);
 	} generators[] = {
 		{DL_STR("include"), duckLispDev_generator_include},
 		{dl_null, 0,        dl_null}

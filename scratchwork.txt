@@ -1663,6 +1663,9 @@ typedef struct {
 } duckLisp_compileState_t;
 
 
+Globals and generators should not be stored in the top-most scope. They should be stored in a separate global field in duckLisp_t.
+
+
 Next step:
 
 Defer:
