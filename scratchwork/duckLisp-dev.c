@@ -661,8 +661,6 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	duckLisp_t subLisp;
-
 	duckLisp_ast_string_t fileName;
 	char *cFileName = NULL;
 	FILE *sourceFile = NULL;
@@ -675,14 +673,10 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	duckLisp_ast_compoundExpression_t ast;
 	/**/ ast_compoundExpression_init(&ast);
 
-	duckLisp_error_t error; // Compile errors.
-
 	/* Check arguments for call and type errors. */
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2, dl_false);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	if (expression->compoundExpressions[1].type != duckLisp_ast_type_string) {
 		
@@ -700,43 +694,36 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	printf(COLOR_NORMAL);
 
 	e = dl_malloc(duckLisp->memoryAllocation, (void **) &cFileName, (fileName.value_length + 1) * sizeof(char));
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 	/**/ dl_memcopy_noOverlap(cFileName, fileName.value, fileName.value_length);
 	cFileName[fileName.value_length] = '\0';
-
-	subLisp.memoryAllocation = duckLisp->memoryAllocation;
-
-	e = duckLisp_init(&subLisp);
-	if (e) goto l_cFileName_cleanup;
 
 	/* Fetch script. */
 
 	e = dl_array_pushElements(&sourceCode, DL_STR("("));
 	if (e) {
-		goto l_cFileName_cleanup;
+		goto cFileName_cleanup;
 	}
 
 	sourceFile = fopen(cFileName, "r");
 	if (sourceFile == NULL) {
 		printf(COLOR_RED "Could not open file \"%s\".\n" COLOR_NORMAL, cFileName);
 		e = dl_error_nullPointer;
-		goto l_cFileName_cleanup;
+		goto cFileName_cleanup;
 	}
 	while ((tempInt = fgetc(sourceFile)) != EOF) {
 		tempChar = tempInt & 0xFF;
 		e = dl_array_pushElement(&sourceCode, &tempChar);
 		if (e) {
 			fclose(sourceFile);
-			goto l_cFileName_cleanup;
+			goto cFileName_cleanup;
 		}
 	}
 	fclose(sourceFile);
 
 	tempChar = ')';
 	e = dl_array_pushElement(&sourceCode, &tempChar);
-	if (e) {
-		goto l_cFileName_cleanup;
-	}
+	if (e) goto cFileName_cleanup;
 
 	/* Parse script. */
 
@@ -745,20 +732,18 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* puts(COLOR_NORMAL); */
 
-	e = duckLisp_cst_append(&subLisp, sourceCode.elements, sourceCode.elements_length, &cst, 0, dl_true);
-	if (e) goto l_cFileName_cleanup;
+	e = duckLisp_cst_append(duckLisp, sourceCode.elements, sourceCode.elements_length, &cst, 0, dl_true);
+	if (e) goto cFileName_cleanup;
 
-	e = duckLisp_ast_append(&subLisp, sourceCode.elements, &ast, &cst, 0, dl_true);
-	if (e) goto l_cFileName_cleanup;
+	e = duckLisp_ast_append(duckLisp, sourceCode.elements, &ast, &cst, 0, dl_true);
+	if (e) goto cFileName_cleanup;
 
-	e = cst_compoundExpression_quit(&subLisp, &cst);
-	if (e) {
-		goto l_cFileName_cleanup;
-	}
+	e = cst_compoundExpression_quit(duckLisp, &cst);
+	if (e) goto cFileName_cleanup;
 
 	/* printf(COLOR_YELLOW); */
 	/* printf("Included AST: "); */
-	/* e = ast_print_compoundExpression(subLisp, ast); */
+	/* e = ast_print_compoundExpression(*duckLisp, ast); */
 	/* putchar('\n'); */
 	/* if (e) goto l_cFileName_cleanup; */
 	/* puts(COLOR_NORMAL); */
@@ -769,67 +754,27 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* puts(COLOR_NORMAL); */
 
 	e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &ast.value.expression);
-	if (e) goto l_cFileName_cleanup;
+	if (e) goto cFileName_cleanup;
 
-	e = ast_compoundExpression_quit(&subLisp, &ast);
-	if (e) goto l_cFileName_cleanup;
+	e = ast_compoundExpression_quit(duckLisp, &ast);
+	if (e) goto cFileName_cleanup;
 
 	/* printf(COLOR_YELLOW); */
 	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
 	/* printf("include: Post compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* puts(COLOR_NORMAL); */
 
- l_cFileName_cleanup:
-
-	while (subLisp.errors.elements_length > 0) {
-		putchar('\n');
-
-		e = dl_array_popElement(&subLisp.errors, (void *) &error);
-		if (e) {
-			break;
-		}
-
-		printf(COLOR_RED);
-		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
-			putchar(error.message[i]);
-		}
-		printf(COLOR_NORMAL);
-		putchar('\n');
-
-		if (error.index == -1) {
-			continue;
-		}
-
-		printf(COLOR_YELLOW);
-		for (dl_ptrdiff_t i = 0; (dl_size_t) i < sourceCode.elements_length; i++) {
-			if (DL_ARRAY_GETADDRESS(sourceCode, char, i) == '\n')
-				putchar(' ');
-			else
-				putchar(DL_ARRAY_GETADDRESS(sourceCode, char, i));
-		}
-
-		puts(COLOR_RED);
-		for (dl_ptrdiff_t i = /* subLisp.source.elements_length - sourceCode.elements_length */0; i < error.index; i++) {
-			putchar(' ');
-		}
-		puts("^");
-
-		puts(COLOR_NORMAL);
-	}
+ cFileName_cleanup:
 
 	eError = dl_free(duckLisp->memoryAllocation, (void **) &cFileName);
 	if (eError) e = eError;
 
- l_cleanup:
-
-	/**/ duckLisp_quit(&subLisp);
+ cleanup:
 
 	/**/ dl_array_quit(&sourceCode);
 
 	eError = dl_array_quit(&eString);
-	if (eError) {
-		e = eError;
-	}
+	if (eError) e = eError;
 
 	return e;
 }
@@ -853,18 +798,14 @@ int eval(duckLisp_t *duckLisp,
 
 	// Provide implicit progn.
 	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	e = dl_array_pushElements(&sourceCode, source, source_length);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
 	tempChar = ')';
 	e = dl_array_pushElement(&sourceCode, &tempChar);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	/* Compile functions. */
 
@@ -926,7 +867,7 @@ int eval(duckLisp_t *duckLisp,
 	}
 
 	e = print_errors(&duckLisp->errors, &sourceCode);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 	/* printf(COLOR_CYAN); */
 	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
 	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
@@ -936,7 +877,7 @@ int eval(duckLisp_t *duckLisp,
 		/* putchar('\n'); */
 		printf(COLOR_RED "Failed to compile source.\n" COLOR_NORMAL);
 		e = loadError;
-		goto l_cleanup;
+		goto cleanup;
 	}
 
 	if (g_disassemble) {
@@ -959,7 +900,7 @@ int eval(duckLisp_t *duckLisp,
 
 	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
 	e = print_errors(&duckVM->errors, dl_null);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 	if (runtimeError) {
 		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[runtimeError]);
 		e = runtimeError;
@@ -972,7 +913,7 @@ int eval(duckLisp_t *duckLisp,
 
 	/* puts(COLOR_CYAN "}" COLOR_NORMAL); */
 
- l_cleanup:
+ cleanup:
 
 	eError = dl_array_quit(&sourceCode);
 	if (!e) e = eError;
@@ -1000,19 +941,19 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckLisp_object_t *return_v
 			e = dl_array_pushElement(&sourceCode, &tempChar);
 			if (e) {
 				fclose(sourceFile);
-				goto l_cleanup;
+				goto cleanup;
 			}
 		}
 		fclose(sourceFile);
 	}
 	else {
 		e = dl_error_invalidValue;
-		goto l_cleanup;
+		goto cleanup;
 	}
 
 	e = eval(duckLisp, duckVM, return_value, sourceCode.elements, sourceCode.elements_length);
 
- l_cleanup:
+ cleanup:
 
 	eError = dl_array_quit(&sourceCode);
 	if (!e) e = eError;

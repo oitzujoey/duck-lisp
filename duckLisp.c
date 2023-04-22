@@ -1513,10 +1513,10 @@ static dl_error_t cst_parse_compoundExpression(duckLisp_t *duckLisp,
 	} readerStruct_t;
 
 	readerStruct_t readerStruct[] = {
-		{.reader = cst_parse_bool,		 .type = duckLisp_ast_type_bool},
-		{.reader = cst_parse_int,		 .type = duckLisp_ast_type_int},
-		{.reader = cst_parse_float,				 .type = duckLisp_ast_type_float},
-		{.reader = cst_parse_string,	 .type = duckLisp_ast_type_string},
+		{.reader = cst_parse_bool,       .type = duckLisp_ast_type_bool},
+		{.reader = cst_parse_int,        .type = duckLisp_ast_type_int},
+		{.reader = cst_parse_float,      .type = duckLisp_ast_type_float},
+		{.reader = cst_parse_string,     .type = duckLisp_ast_type_string},
 		{.reader = cst_parse_identifier, .type = duckLisp_ast_type_identifier},
 		{.reader = cst_parse_expression, .type = duckLisp_ast_type_expression},
 	};
@@ -1526,17 +1526,14 @@ static dl_error_t cst_parse_compoundExpression(duckLisp_t *duckLisp,
 		e = readerStruct[i].reader(duckLisp, source, compoundExpression, start_index, length, dl_false);
 		if (!e) {
 			compoundExpression->type = readerStruct[i].type;
-			goto l_cleanup;
+			goto cleanup;
 		}
-		if (e != dl_error_invalidValue) {
-			goto l_cleanup;
-		}
+		if (e != dl_error_invalidValue) goto cleanup;
 	}
 	eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Unrecognized form."), index, throwErrors);
 	e = eError ? eError : dl_error_invalidValue;
 
- l_cleanup:
-
+ cleanup:
 	return e;
 }
 

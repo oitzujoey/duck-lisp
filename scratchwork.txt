@@ -1666,6 +1666,9 @@ typedef struct {
 Globals and generators should not be stored in the top-most scope. They should be stored in a separate global field in duckLisp_t.
 
 
+Now that I can compile multiple pieces of code at the same time, I think I can remove the `subLisp` instances.
+
+
 Next step:
 
 Defer:
