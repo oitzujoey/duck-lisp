@@ -6779,7 +6779,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	duckLisp_object_t return_value;
 	duckLisp_ast_compoundExpression_t ast;
 	dl_bool_t found;
-	duckLisp_t subLisp;
 	dl_array_t subAssembly;
 	dl_array_t subBytecode;
 	dl_array_t completeBytecode;
@@ -6822,23 +6821,13 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Generate bytecode for arguments. */
 
-	subLisp.memoryAllocation = duckLisp->memoryAllocation;
-	e = duckLisp_init(&subLisp);
-	if (e) goto cleanupArrays;
-
-	DL_DOTIMES(i, duckLisp->symbols_array.elements_length) {
-		duckLisp_ast_identifier_t name = DL_ARRAY_GETADDRESS(duckLisp->symbols_array, duckLisp_ast_identifier_t, i);
-		e = duckLisp_symbol_create(&subLisp, name.value, name.value_length);
-		if (e) goto cleanupCompiler;
-	}
-
 	duckLisp_ast_compoundExpression_t call;
 	call.type = duckLisp_ast_type_expression;
-	e = DL_MALLOC(subLisp.memoryAllocation,
+	e = DL_MALLOC(duckLisp->memoryAllocation,
 	              &call.value.expression.compoundExpressions,
 	              expression->compoundExpressions_length,
 	              duckLisp_ast_compoundExpression_t);
-	if (e) goto cleanupCompiler;
+	if (e) goto cleanupArrays;
 	call.value.expression.compoundExpressions_length = expression->compoundExpressions_length;
 	call.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
 	/* The function name is empty. This is an actual function that will be added to the environment that represents the
@@ -6852,7 +6841,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 		quote = call.value.expression.compoundExpressions[i];
 		quote.type = duckLisp_ast_type_expression;
 		quote.value.expression.compoundExpressions_length = 2;
-		e = DL_MALLOC(subLisp.memoryAllocation,
+		e = DL_MALLOC(duckLisp->memoryAllocation,
 		              &quote.value.expression.compoundExpressions,
 		              2,
 		              duckLisp_ast_compoundExpression_t);
@@ -6868,29 +6857,23 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	/**/ duckLisp_compileState_init(duckLisp, &subLisp_compileState);
 
 	/* Macros never have upvalues, which means they are pure. */
-	e = duckLisp_addInterpretedFunction(&subLisp,
+	e = duckLisp_addInterpretedFunction(duckLisp,
 	                                    &subLisp_compileState,
 	                                    call.value.expression.compoundExpressions[0].value.identifier,
 	                                    dl_true);
 	if (e) goto cleanupVM;
-	e = duckLisp_scope_addObject(&subLisp,
+	e = duckLisp_scope_addObject(duckLisp,
 	                             &subLisp_compileState,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value_length);
 	subLisp_compileState.locals_length++;
 	if (e) goto cleanupVM;
-	e = duckLisp_compileAST(&subLisp, &subLisp_compileState, &subBytecode, call);
+	e = duckLisp_compileAST(duckLisp, &subLisp_compileState, &subBytecode, call);
 	if (e) goto cleanupVM;
 	e = duckLisp_compileState_quit(&subLisp_compileState);
 	if (e) goto cleanupVM;
 
 	/* Merge the two bytecode programs into one. */
-
-	DL_DOTIMES(i, subLisp.symbols_array.elements_length) {
-		duckLisp_ast_identifier_t name = DL_ARRAY_GETADDRESS(subLisp.symbols_array, duckLisp_ast_identifier_t, i);
-		e = duckLisp_symbol_create(duckLisp, name.value, name.value_length);
-		if (e) goto cleanupVM;
-	}
 
 	/* HACK The return is not guaranteed to be one byte long. */
 	e = dl_array_pushElements(&completeBytecode, bytecode.elements, bytecode.elements_length - 1);
@@ -6938,7 +6921,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	for (dl_ptrdiff_t i = 1; (dl_size_t) i < expression->compoundExpressions_length; i++) {
 		duckLisp_ast_compoundExpression_t quote;
 		quote = call.value.expression.compoundExpressions[i];
-		eError = DL_FREE(subLisp.memoryAllocation, &quote.value.expression.compoundExpressions);
+		eError = DL_FREE(duckLisp->memoryAllocation, &quote.value.expression.compoundExpressions);
 		if (!e) {
 			e = eError;
 			if (e) break;
@@ -6947,11 +6930,8 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	}
 
  cleanupCall:
-	eError = DL_FREE(subLisp.memoryAllocation, &call.value.expression.compoundExpressions);
+	eError = DL_FREE(duckLisp->memoryAllocation, &call.value.expression.compoundExpressions);
 	if (!e) e = eError;
-
- cleanupCompiler:
-	/**/ duckLisp_quit(&subLisp);
 
  cleanupArrays:
 
