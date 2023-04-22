@@ -226,8 +226,8 @@ typedef struct {
 	/* This is where we keep everything that needs to be scoped. */
 	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
-	
-	dl_size_t label_numberForCompile;
+
+	dl_size_t label_number;
 } duckLisp_compileState_t;
 
 /* This remains until the compiler is destroyed. */
@@ -241,8 +241,6 @@ typedef struct {
 	dl_size_t generators_length;
 
 	dl_trie_t callbacks_trie;  /* Points to runtime C callbacks. */
-
-	dl_size_t label_number;
 
 	dl_size_t gensym_number;
 
