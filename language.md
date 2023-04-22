@@ -48,12 +48,12 @@ Arithmetic operators are generators, not functions, so they have no value. Howev
 
 ## Variables
 
-Variables are lexically scoped. The only exception at the moment are global callbacks that can be set from C.
+Duck-lisp has both lexically and globally scoped variables. Callbacks from C are created as globals. Global variables persist between bytecode executions on the VM and can be accessed by name from C.
 
 For the most part, it should be safe to assume that all identifiers reside within a single namespace.
 
 Scopes are created as in C, but using parentheses instead of curly braces. Confusing? Yes.  
-Variables are created as in C, but the value argument is required.
+Lexical variables are created as in C but using the `var` keyword. Global variables are created using the `global` keyword. The value argument is required for both `var` and `global`.
 
 ```lisp
 (var x 5)
@@ -63,6 +63,9 @@ Variables are created as in C, but the value argument is required.
  (var x 6)
  (print x))  (; ⇒ 6)
 (print x)  (; ⇒ 5)
+
+(; `y' will still exist when newly-compiled bytecode is run on the VM.)
+(global y)
 ```
 
 ### Functions
@@ -356,4 +359,4 @@ or alternatively,
   list)
 ```
 
-The most significant limitation is that free variables, functions, and macros cannot be accessed in the macro definition, so any external functions the macro uses must be redefined in the body of `defmacro`.
+The most significant limitation is that, with the exception of globals, free variables and functions cannot be accessed in the macro definition, so any external functions the macro uses must be redefined in the body of `defmacro`.
