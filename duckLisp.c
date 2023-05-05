@@ -1362,12 +1362,9 @@ static dl_error_t ast_string_quit(duckLisp_t *duckLisp, duckLisp_ast_string_t *s
 	string->value_length = 0;
 
 	e = dl_free(duckLisp->memoryAllocation, (void **) &string->value);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
- l_cleanup:
-
+ cleanup:
 	return e;
 }
 
@@ -1883,13 +1880,10 @@ static dl_error_t scope_getTop(duckLisp_t *duckLisp, duckLisp_compileState_t *co
 		/* Push a scope if we don't have one yet. */
 		/**/ scope_init(duckLisp, scope, dl_true);
 		e = dl_array_pushElement(&compileState->scope_stack, scope);
-		if (e) {
-			goto l_cleanup;
-		}
+		if (e) goto cleanup;
 	}
 
- l_cleanup:
-
+ cleanup:
 	return e;
 }
 
@@ -5243,7 +5237,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 	lambda.compoundExpressions[0].value.identifier.value_length = sizeof("\0defun:lambda") - 1;
 	for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
 		lambda.compoundExpressions[i - 1] = expression->compoundExpressions[i];
-	};
+	}
 	duckLisp_ast_expression_t var;
 	e = DL_MALLOC(duckLisp->memoryAllocation, (void **) &var.compoundExpressions, 3, duckLisp_ast_compoundExpression_t);
 	if (e) goto cleanup;
@@ -6853,24 +6847,24 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 		call.value.expression.compoundExpressions[i] = quote;
 	}
 
-	duckLisp_compileState_t subLisp_compileState;
-	/**/ duckLisp_compileState_init(duckLisp, &subLisp_compileState);
+	duckLisp_compileState_t macro_compileState;
+	/**/ duckLisp_compileState_init(duckLisp, &macro_compileState);
 
 	/* Macros never have upvalues, which means they are pure. */
 	e = duckLisp_addInterpretedFunction(duckLisp,
-	                                    &subLisp_compileState,
+	                                    &macro_compileState,
 	                                    call.value.expression.compoundExpressions[0].value.identifier,
 	                                    dl_true);
 	if (e) goto cleanupVM;
 	e = duckLisp_scope_addObject(duckLisp,
-	                             &subLisp_compileState,
+	                             &macro_compileState,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value,
 	                             call.value.expression.compoundExpressions[0].value.identifier.value_length);
-	subLisp_compileState.locals_length++;
+	macro_compileState.locals_length++;
 	if (e) goto cleanupVM;
-	e = duckLisp_compileAST(duckLisp, &subLisp_compileState, &subBytecode, call);
+	e = duckLisp_compileAST(duckLisp, &macro_compileState, &subBytecode, call);
 	if (e) goto cleanupVM;
-	e = duckLisp_compileState_quit(&subLisp_compileState);
+	e = duckLisp_compileState_quit(&macro_compileState);
 	if (e) goto cleanupVM;
 
 	/* Merge the two bytecode programs into one. */
@@ -9664,10 +9658,11 @@ dl_error_t duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpress
 void duckLisp_compileState_init(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState) {
 	compileState->label_number = 0;
 	compileState->locals_length = 0;
-	/* No error */ dl_array_init(&compileState->scope_stack,
-	                             duckLisp->memoryAllocation,
-	                             sizeof(duckLisp_scope_t),
-	                             dl_array_strategy_fit);
+	/**/ dl_array_init(&compileState->scope_stack,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_scope_t),
+	                   dl_array_strategy_fit);
+	compileState->nextCompileState = dl_null;
 }
 
 dl_error_t duckLisp_compileState_quit(duckLisp_compileState_t *compileState) {
@@ -9709,14 +9704,10 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	/* Parse. */
 
 	e = duckLisp_cst_append(duckLisp, source, source_length, &cst, index, dl_true);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	e = duckLisp_ast_append(duckLisp, source, &ast, &cst, index, dl_true);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	// printf("CST: ");
 	// e = cst_print_compoundExpression(*duckLisp, cst); putchar('\n');
@@ -9724,14 +9715,10 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	//		goto l_cleanup;
 	// }
 	e = cst_compoundExpression_quit(duckLisp, &cst);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 	/* printf("AST: "); */
 	/* e = ast_print_compoundExpression(*duckLisp, ast); putchar('\n'); */
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	/* { */
 	/* 	dl_size_t tempDlSize; */
@@ -9747,17 +9734,17 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	duckLisp_compileState_t compileState;
 	duckLisp_compileState_init(duckLisp, &compileState);
 	e = duckLisp_compileAST(duckLisp, &compileState, &bytecodeArray, ast);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 	e = duckLisp_compileState_quit(&compileState);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
 	e = ast_compoundExpression_quit(duckLisp, &ast);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
-	*bytecode = ((unsigned char*) (bytecodeArray).elements);
+	*bytecode = ((unsigned char*) bytecodeArray.elements);
 	*bytecode_length = bytecodeArray.elements_length;
 
- l_cleanup:
+ cleanup:
 	return e;
 }
 

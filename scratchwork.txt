@@ -1666,7 +1666,48 @@ typedef struct {
 Globals and generators should not be stored in the top-most scope. They should be stored in a separate global field in duckLisp_t.
 
 
-Now that I can compile multiple pieces of code at the same time, I think I can remove the `subLisp` instances.
+Now that I can compile multiple pieces of code at the same time, I think I can remove the `subLisp` instances
+
+I think the next step is to start compiling pure functions into a global _compileState_t.
+
+It might be possible to use one bytecode array for all macros without doing any copying during macro invocation. All pure functions and macros would be incrementally compiled to bytecode and then when a macro is called, it just runs the script and calls the function at the correct stack index.
+
+`var` will not write assembly when compiled in "pure" mode.
+`defmacro` will not write assembly when compiled in "pure" mode.
+
+
+Pure functions and macros are the same from a compiletime standpoint.
+Pure functions are compiled in both the runtime and compiletime states.
+Macros are only compiled in the compiletime state.
+Macros are only executed in the runtime state.
+
+The compiletime state is never compiled by normal functions. Instead, when it is desired to compile to the compiletime state, the compiletime state is set as the runtime state and a new compiletime state is created.
+
+var runtime
++ runtime
+defmacro comptime
+defun runtime comptime
+macro runtime
+
+What does this code do?
+
+(var x 4)
+(if x
+    ((defun f ()))
+    ((defun g ())))
+
+Both are compiled regardless of the value of `x' and the functions are in their own scope, so it's all good.
+Functions are independent modules that can be thrown anywhere without worry about whether the labels will cross the boundary of a function. As long as the names of all labels are unique, all is well.
+
+If `defmacro' were run both at compile time and run time like `defun' I think it would work without problems. Both versions would exist in their respective binaries, but only the compile time version would be called by the runtime. So oddly enough, `defmacro' is a special case of `defun'. `var` is normal like other generators. Macro calls are weird since they also transfer control to comptime.
+
+defun runtime→runtime comptime→comptime
+defmacro runtime→comptime &optional runtime→comptime
+generator runtime→runtime
+funcall runtime→runtime
+macro runtime→comptime
+
+So the real hard parts are `defun` and macro calls.
 
 
 Next step:

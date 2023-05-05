@@ -222,12 +222,13 @@ typedef struct {
 } duckLisp_scope_t;
 
 /* This can safely be deleted after each compile. */
-typedef struct {
+typedef struct duckLisp_compileState_s {
 	/* This is where we keep everything that needs to be scoped. */
 	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
-
 	dl_size_t label_number;
+	struct duckLisp_compileState_s *nextCompileState;
+	dl_array_t bytecode;  /* dl_array_t:dl_uint8_t */
 } duckLisp_compileState_t;
 
 /* This remains until the compiler is destroyed. */
