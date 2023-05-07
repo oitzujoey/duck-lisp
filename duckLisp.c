@@ -6477,7 +6477,7 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 	                                        &expression->compoundExpressions[0],
 	                                        &identifier_index,
 	                                        dl_null,
-	                                        dl_true);
+	                                        dl_false);
 	if (e) goto cleanup;
 
 	outerStartStack_length = compileState->locals_length;
@@ -7300,7 +7300,6 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		case duckLisp_functionType_ducklisp:
 			/* Fall through */
 		case duckLisp_functionType_ducklisp_pure:
-			/* What's nice is we only need the label to generate the required code. No tries required. ^‿^ */
 			e = duckLisp_generator_funcall(duckLisp, compileState, assembly, expression);
 			if (e) goto cleanup;
 			break;
@@ -7382,15 +7381,13 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&currentArgs, duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
 	for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly->elements_length; j++) {
 		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, j);
-		// This is OK because there is no chance of reallocating the args array.
+		/* This is OK because there is no chance of reallocating the args array. */
 		duckLisp_instructionArgClass_t *args = &DL_ARRAY_GETADDRESS(instruction.args,
 		                                                            duckLisp_instructionArgClass_t, 0);
 		dl_size_t byte_length;
 
 		e = dl_array_clear(&currentArgs);
-		if (e) {
-			goto cleanup;
-		}
+		if (e) goto cleanup;
 
 		switch (instruction.instructionClass) {
 		case duckLisp_instructionClass_nop: {
@@ -7414,9 +7411,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 					byte_length = 4;
 				}
 				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
-				if (e) {
-					goto cleanup;
-				}
+				if (e) goto cleanup;
 				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
 					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.index >> 8*(byte_length - n - 1))
 					                                                   & 0xFFU);
@@ -7424,9 +7419,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				break;
 			default:
 				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
-				if (eError) {
-					e = eError;
-				}
+				if (eError) e = eError;
 				goto cleanup;
 			}
 			break;
