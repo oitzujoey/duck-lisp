@@ -1709,8 +1709,11 @@ macro runtime→comptime
 
 So the real hard parts are `defun` and macro calls.
 
+Closure addresses are absolute. Maybe I could generate the jump target at runtime when a closure is created? The `name' field would become the relative address to the start of the function instead of the absolute address.
+Closure instructions are now relative, but closures objects are absolute and calculated on object creation.
 
-Next step:
+
+Next step: Generate bytecode incrementally.
 
 Defer:
 	There's a memory bug likely caused by the lack of GC for symbols and strings.

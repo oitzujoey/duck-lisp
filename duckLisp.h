@@ -185,7 +185,7 @@ typedef struct {
 
 typedef struct {
 	dl_ptrdiff_t target;
-	dl_array_t sources; /* duckLisp_label_source_t */
+	dl_array_t sources; /* dl_array_t:duckLisp_label_source_t */
 } duckLisp_label_t;
 
 typedef struct {
@@ -297,7 +297,6 @@ typedef enum {
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_return,
 	duckLisp_instructionClass_nil,
-	duckLisp_instructionClass_pushLabel,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
 
@@ -329,8 +328,12 @@ typedef enum {
 	duckLisp_instruction_pushUpvalue16,
 	duckLisp_instruction_pushUpvalue32,
 
+	duckLisp_instruction_pushClosure8,
+	duckLisp_instruction_pushClosure16,
 	duckLisp_instruction_pushClosure32,
 
+	duckLisp_instruction_pushVaClosure8,
+	duckLisp_instruction_pushVaClosure16,
 	duckLisp_instruction_pushVaClosure32,
 
 	duckLisp_instruction_pushGlobal8,

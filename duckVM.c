@@ -515,6 +515,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
+	dl_uint8_t *ptr1 = dl_null;
 	dl_ptrdiff_t ptrdiff1 = 0;
 	dl_ptrdiff_t ptrdiff2 = 0;
 	dl_ptrdiff_t ptrdiff3 = 0;
@@ -742,13 +743,44 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_pushClosure32:
 		/* Fall through */
 	case duckLisp_instruction_pushVaClosure32:
-		object1.value.closure.variadic = (opcode == duckLisp_instruction_pushVaClosure32);
 		object1.value.closure.name = *(ip++);
 		object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
 		object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
 		object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
-		object1.type = duckLisp_object_type_closure;
+		ptr1 = ip;
+		if (object1.value.closure.name & 0x80000000ULL) {
+			object1.value.closure.name = -((~object1.value.closure.name + 1) & 0xFFFFFFFFULL);
+		}
+		parsedBytecode = dl_true;
+		/* Fall through */
+	case duckLisp_instruction_pushClosure16:
+		/* Fall through */
+	case duckLisp_instruction_pushVaClosure16:
+		if (!parsedBytecode) {
+			object1.value.closure.name = *(ip++);
+			object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
+			ptr1 = ip;
+			if (object1.value.closure.name & 0x8000ULL) {
+				object1.value.closure.name = -((~object1.value.closure.name + 1) & 0xFFFFULL);
+			}
+			parsedBytecode = dl_true;
+		}
+		/* Fall through */
+	case duckLisp_instruction_pushClosure8:
+		/* Fall through */
+	case duckLisp_instruction_pushVaClosure8:
+		if (!parsedBytecode) {
+			object1.value.closure.name = *(ip++);
+			ptr1 = ip;
+			if (object1.value.closure.name & 0x80ULL) {
+				object1.value.closure.name = -((~object1.value.closure.name + 1) & 0xFFULL);
+			}
+		}
 
+		object1.type = duckLisp_object_type_closure;
+		object1.value.closure.variadic = ((opcode == duckLisp_instruction_pushVaClosure32)
+		                                  || (opcode == duckLisp_instruction_pushVaClosure16)
+		                                  || (opcode == duckLisp_instruction_pushVaClosure8));
 		object1.value.closure.arity = *(ip++);
 
 		size1 = *(ip++);
@@ -757,6 +789,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		size1 = *(ip++) + (size1 << 8);
 
 		object1.value.closure.bytecode = bytecode;
+		object1.value.closure.name += ptr1 - bytecode->value.bytecode.bytecode;
 
 		/* This could also point to a static version instead since this array is never changed
 		   and multiple closures could use the same array. */
@@ -767,7 +800,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			upvalue_array.value.upvalue_array.length = size1;
 			e = duckVM_gclist_pushObject(duckVM, &object1.value.closure.upvalue_array, upvalue_array);
 			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
 				if (!e) e = eError;
 				break;
 			}
@@ -778,7 +812,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		/* Immediately push on stack so that the GC can see it. Allocating upvalues could trigger a GC. */
 		e = dl_array_pushElement(&duckVM->stack, &object1);
 		if (e) {
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: dl_array_pushElement failed."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->push-closure: dl_array_pushElement failed."));
 			if (!e) e = eError;
 			break;
 		}
@@ -800,7 +835,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				ptrdiff1 = (duckVM->stack.elements_length - 1) - ptrdiff1;
 				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > (duckVM->upvalue_stack.elements_length - 1))) {
 					e = dl_error_invalidValue;
-					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: Stack index out of bounds."));
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->push-closure: Stack index out of bounds."));
 					if (!e) e = eError;
 					break;
 				}
@@ -865,7 +901,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 				if (upvalue_pointer->type != duckLisp_object_type_upvalue) {
 					e = dl_error_shouldntHappen;
-					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-closure: Captured object is not an upvalue."));
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->push-closure: Captured object is not an upvalue."));
 					if (!e) e = eError;
 					break;
 				}
@@ -1405,7 +1442,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				else {
 					ip += ptrdiff1;
 				}
-				--ip; // This accounts for the pop argument.
+				--ip; /* This accounts for the pop argument. */
 			}
 		}
 		break;
@@ -1487,7 +1524,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->not: Object is not a boolean, integer, list, or vector."));
 			if (!e) e = eError;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -1522,7 +1559,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -1541,7 +1578,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -1559,12 +1596,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		if (e) break;
@@ -1594,7 +1631,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -1613,7 +1650,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -1631,12 +1668,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -1663,7 +1700,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -1682,7 +1719,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -1700,12 +1737,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -1740,7 +1777,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -1759,7 +1796,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -1777,12 +1814,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		if (e) break;
@@ -1812,7 +1849,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -1831,7 +1868,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -1849,12 +1886,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -1881,7 +1918,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -1900,7 +1937,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -1918,12 +1955,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -1958,7 +1995,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -1977,7 +2014,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -1995,12 +2032,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		if (e) break;
@@ -2030,7 +2067,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2049,7 +2086,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2067,12 +2104,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -2099,7 +2136,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2118,7 +2155,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2136,12 +2173,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -2176,7 +2213,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2195,7 +2232,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2213,12 +2250,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		if (e) break;
@@ -2248,7 +2285,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2267,7 +2304,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2285,12 +2322,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -2317,7 +2354,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2336,7 +2373,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2354,12 +2391,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		e = stack_push(duckVM, &object1);
 		break;
@@ -2392,7 +2429,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2408,7 +2445,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2424,12 +2461,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		object1.type = duckLisp_object_type_bool;
 		e = stack_push(duckVM, &object1);
@@ -2458,7 +2495,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2474,7 +2511,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2490,12 +2527,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		object1.type = duckLisp_object_type_bool;
 		e = stack_push(duckVM, &object1);
@@ -2521,7 +2558,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2537,7 +2574,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2553,12 +2590,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		object1.type = duckLisp_object_type_bool;
 		e = stack_push(duckVM, &object1);
@@ -2665,7 +2702,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		object1.type = duckLisp_object_type_bool;
 		e = stack_push(duckVM, &object1);
@@ -2699,7 +2736,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2715,7 +2752,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2731,12 +2768,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		object1.type = duckLisp_object_type_bool;
 		e = stack_push(duckVM, &object1);
@@ -2765,7 +2802,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2781,7 +2818,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2797,12 +2834,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		object1.type = duckLisp_object_type_bool;
 		e = stack_push(duckVM, &object1);
@@ -2828,7 +2865,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_integer:
@@ -2844,7 +2881,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		case duckLisp_object_type_bool:
@@ -2860,12 +2897,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			default:
 				e = dl_error_invalidValue;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			break;
 		default:
 			e = dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		object1.type = duckLisp_object_type_bool;
 		e = stack_push(duckVM, &object1);
@@ -3621,9 +3658,11 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 
 	default:
 		e = dl_error_invalidValue;
-		goto l_cleanup;
+		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute: Invalid opcode."));
+		if (!e) e = eError;
+		goto cleanup;
 	}
- l_cleanup:
+ cleanup:
 	*ipPtr = ip;
 	return e;
 }
@@ -3645,7 +3684,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		temp.value.bytecode.bytecode = bytecode;
 		temp.value.bytecode.bytecode_length = bytecode_length;
 		e = duckVM_gclist_pushObject(duckVM, &bytecodeObject, temp);
-		if (e) goto l_cleanup;
+		if (e) goto cleanup;
 	}
 	duckVM->currentBytecode = bytecodeObject;
 	do {
@@ -3653,7 +3692,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 	} while (!e && !halt);
 	duckVM->currentBytecode = dl_null;
 
- l_cleanup:
+ cleanup:
 
 	if (e) {
 		puts("VM ERROR");

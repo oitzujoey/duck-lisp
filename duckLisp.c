@@ -2822,16 +2822,6 @@ dl_error_t duckLisp_emit_move(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_emit_pushLabel(duckLisp_t *duckLisp,
-                                   duckLisp_compileState_t *compileState,
-                                   dl_array_t *assembly,
-                                   const dl_ptrdiff_t label_index) {
-	duckLisp_instructionArgClass_t argument = {0};
-	argument.type = duckLisp_instructionArgClass_type_integer;
-	argument.value.integer = label_index;
-	return duckLisp_emit_unaryOperator(duckLisp, compileState, assembly, duckLisp_instructionClass_pushLabel, argument);
-}
-
 dl_error_t duckLisp_emit_pushBoolean(duckLisp_t *duckLisp,
                                      duckLisp_compileState_t *compileState,
                                      dl_array_t *assembly,
@@ -7125,42 +7115,31 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 				                                         compoundExpression->value.identifier.value_length);
 				if (e) goto cleanup;
 				if (temp_index == -1) {
-					/* Now we check for labels. */
-					e = scope_getLabelFromName(compileState,
-					                           &temp_index,
+					/* Maybe it's a global that hasn't been defined yet? */
+					e = dl_array_pushElements(&eString, DL_STR("compoundExpression: Could not find variable \""));
+					if (e) goto cleanup;
+					e = dl_array_pushElements(&eString,
+					                          compoundExpression->value.identifier.value,
+					                          compoundExpression->value.identifier.value_length);
+					if (e) goto cleanup;
+					e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming dynamic scope."));
+					if (e) goto cleanup;
+					e = duckLisp_error_pushRuntime(duckLisp,
+					                               eString.elements,
+					                               eString.elements_length * eString.element_size);
+					if (e) goto cleanup;
+					/* Register global (symbol) and then use it. */
+					e = duckLisp_symbol_create(duckLisp,
 					                           compoundExpression->value.identifier.value,
 					                           compoundExpression->value.identifier.value_length);
 					if (e) goto cleanup;
-					if (temp_index == -1) {
-						/* Maybe it's a global that hasn't been defined yet? */
-						e = dl_array_pushElements(&eString, DL_STR("compoundExpression: Could not find variable \""));
-						if (e) goto cleanup;
-						e = dl_array_pushElements(&eString,
-						                          compoundExpression->value.identifier.value,
-						                          compoundExpression->value.identifier.value_length);
-						if (e) goto cleanup;
-						e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming dynamic scope."));
-						if (e) goto cleanup;
-						e = duckLisp_error_pushRuntime(duckLisp,
-						                                    eString.elements,
-						                                    eString.elements_length * eString.element_size);
-						if (e) goto cleanup;
-						/* Register global (symbol) and then use it. */
-						e = duckLisp_symbol_create(duckLisp,
-						                           compoundExpression->value.identifier.value,
-						                           compoundExpression->value.identifier.value_length);
-						if (e) goto cleanup;
-						dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp,
-						                                               compoundExpression->value.identifier.value,
-						                                               (compoundExpression
-						                                                ->value.identifier.value_length));
-						e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, key);
-						if (e) goto cleanup;
-						temp_index = compileState->locals_length - 1;
-					}
-					else {
-						e = duckLisp_emit_pushLabel(duckLisp, compileState, assembly, temp_index);
-					}
+					dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp,
+					                                               compoundExpression->value.identifier.value,
+					                                               (compoundExpression
+					                                                ->value.identifier.value_length));
+					e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, key);
+					if (e) goto cleanup;
+					temp_index = compileState->locals_length - 1;
 				}
 				else {
 					e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, temp_index);
@@ -8776,7 +8755,6 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 		}
 			/* Labels */
 		case duckLisp_instructionClass_pseudo_label:
-		case duckLisp_instructionClass_pushLabel:
 		case duckLisp_instructionClass_pushClosure:
 		case duckLisp_instructionClass_pushVaClosure:
 			/* Branches */
@@ -8789,9 +8767,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			duckLisp_label_source_t labelSource;
 			label_index = args[0].value.integer;
 
-			// This should never fail due to the above initialization.
+			/* This should never fail due to the above initialization. */
 			label = DL_ARRAY_GETADDRESS(labels, duckLisp_label_t, label_index);
-			// There should only be one label instruction. The rest should be branches.
+			/* There should only be one label instruction. The rest should be branches. */
 			tempPtrdiff = bytecodeList.elements_length;
 			if (instruction.instructionClass == duckLisp_instructionClass_pseudo_label) {
 				if (label.target == -1) {
@@ -8800,34 +8778,17 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				else {
 					e = dl_error_invalidValue;
 					eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Redefinition of label."));
-					if (eError) {
-						e = eError;
-					}
+					if (eError) e = eError;
 					goto cleanup;
 				}
-			}
-			else if ((instruction.instructionClass == duckLisp_instructionClass_pushLabel)
-			         || (instruction.instructionClass == duckLisp_instructionClass_pushClosure)
-			         || (instruction.instructionClass == duckLisp_instructionClass_pushVaClosure)) {
-				tempPtrdiff++;	// `++` for opcode. This is so the optimizer can be used with generic address links.
-				labelSource.source = tempPtrdiff;
-				// Don't optimize for size; force 32-bit address.
-				labelSource.absolute = dl_true;
-				e = dl_array_pushElement(&label.sources, &labelSource);
-				if (e) {
-					goto cleanup;
-				}
-				linkArray.links_length++;
 			}
 			else {
-				tempPtrdiff++;	// `++` for opcode. This is so the optimizer can be used with generic address links.
+				tempPtrdiff++;	/* `++` for opcode. This is so the optimizer can be used with generic address links. */
 				labelSource.source = tempPtrdiff;
-				// Optimize for size.
+				/* Optimize for size. */
 				labelSource.absolute = dl_false;
 				e = dl_array_pushElement(&label.sources, &labelSource);
-				if (e) {
-					goto cleanup;
-				}
+				if (e) goto cleanup;
 				linkArray.links_length++;
 			}
 			DL_ARRAY_GETADDRESS(labels, duckLisp_label_t, label_index) = label;
@@ -8835,14 +8796,11 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			if (instruction.instructionClass == duckLisp_instructionClass_pseudo_label) continue;
 
 			switch (instruction.instructionClass) {
-			case duckLisp_instructionClass_pushLabel:
-				currentInstruction.byte = duckLisp_instruction_pushInteger32;
-				break;
 			case duckLisp_instructionClass_pushVaClosure:
-				currentInstruction.byte = duckLisp_instruction_pushVaClosure32;
+				currentInstruction.byte = duckLisp_instruction_pushVaClosure8;
 				break;
 			case duckLisp_instructionClass_pushClosure:
-				currentInstruction.byte = duckLisp_instruction_pushClosure32;
+				currentInstruction.byte = duckLisp_instruction_pushClosure8;
 				break;
 			case duckLisp_instructionClass_call:
 				currentInstruction.byte = duckLisp_instruction_call8;
@@ -8860,7 +8818,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 
 			if ((instruction.instructionClass == duckLisp_instructionClass_brnz)
 			    || (instruction.instructionClass == duckLisp_instructionClass_call)) {
-				// br?? also have a pop argument. Insert that.
+				/* br?? also have a pop argument. Insert that. */
 				e = dl_array_pushElements(&currentArgs, dl_null, 1);
 				if (e) {
 					goto cleanup;
@@ -8871,7 +8829,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			}
 			else if ((instruction.instructionClass == duckLisp_instructionClass_pushClosure)
 			         || (instruction.instructionClass == duckLisp_instructionClass_pushVaClosure)) {
-				// Arity
+				/* Arity */
 				byte_length = 1;
 				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
 				if (e) goto cleanup;
@@ -8882,7 +8840,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				}
 				index += byte_length;
 
-				// Number of upvalues
+				/* Number of upvalues */
 				byte_length = 4;
 				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
 				if (e) goto cleanup;
@@ -8893,7 +8851,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				}
 				index += byte_length;
 
-				// Upvalues
+				/* Upvalues */
 				// I'm not going to check args here either.
 				byte_length = 4;
 				e = dl_array_pushElements(&currentArgs,
@@ -9329,7 +9287,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 		e = dl_error_invalidValue;
 		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot compile non-expression types to bytecode."));
 		if (eError) e = eError;
-		goto l_cleanup;
+		goto cleanup;
 	}
 
 	/* First stage: Create assembly tree from AST. */
@@ -9345,13 +9303,13 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	                                DL_STR("compileAST"),
 	                                &astCompoundexpression.value.expression,
 	                                dl_null);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
 	e = duckLisp_emit_return(duckLisp,
 	                         compileState,
 	                         &assembly,
 	                         ((compileState->locals_length == 0) ? 0 : compileState->locals_length - 1));
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
 	// Print list.
 	/* printf("\n"); */
@@ -9470,13 +9428,13 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	/* } */
 
 	e = duckLisp_assemble(duckLisp, compileState, bytecode, &assembly);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
 	/* * * * * *
 	 * Cleanup *
 	 * * * * * */
 
- l_cleanup:
+ cleanup:
 
 	/* putchar('\n'); */
 
@@ -10304,6 +10262,236 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 				arg = 0;
 				continue;
 			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+
+		case duckLisp_instruction_pushVaClosure8:
+			/* Fall through */
+		case duckLisp_instruction_pushClosure8:
+			switch (arg) {
+			case 0:
+				if (opcode == duckLisp_instruction_pushClosure32) {
+					e = dl_array_pushElements(&disassembly, DL_STR("push-closure.8     "));
+				}
+				else {
+					e = dl_array_pushElements(&disassembly, DL_STR("push-va-closure.8  "));
+				}
+				if (e) return dl_null;
+				break;
+			case 1:
+				// Function address
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 2:
+				// Arity
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 3:
+				// Upvalues length
+				tempSize = (dl_size_t) bytecode[i] << 8 * 3;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 4:
+				tempSize |= (dl_size_t) bytecode[i] << 8 * 2;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 5:
+				tempSize |= (dl_size_t) bytecode[i] << 8 * 1;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 6:
+				tempSize |= (dl_size_t) bytecode[i] << 8 * 0;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				if (tempSize == 0) tempChar = '\n';
+				else tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				if (tempSize == 0) {
+					arg = 0;
+					continue;
+				}
+				break;
+			default:
+				// Upvalues
+				if (tempSize-- > 0) {
+					DL_DOTIMES(m, 4) {
+						tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						if (m != (4 - 1)) i++;
+					}
+					if (tempSize == 0) tempChar = '\n';
+					else tempChar = ' ';
+					e = dl_array_pushElement(&disassembly, &tempChar);
+					if (e) return dl_null;
+					if (tempSize == 0) {
+						arg = 0;
+						continue;
+					}
+					break;
+				}
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+
+		case duckLisp_instruction_pushVaClosure16:
+			/* Fall through */
+		case duckLisp_instruction_pushClosure16:
+			switch (arg) {
+			case 0:
+				if (opcode == duckLisp_instruction_pushClosure32) {
+					e = dl_array_pushElements(&disassembly, DL_STR("push-closure.16    "));
+				}
+				else {
+					e = dl_array_pushElements(&disassembly, DL_STR("push-va-closure.16 "));
+				}
+				if (e) return dl_null;
+				break;
+			case 1:
+				// Function address
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 2:
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 3:
+				// Arity
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+
+			case 4:
+				// Upvalues length
+				tempSize = (dl_size_t) bytecode[i] << 8 * 3;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 5:
+				tempSize |= (dl_size_t) bytecode[i] << 8 * 2;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 6:
+				tempSize |= (dl_size_t) bytecode[i] << 8 * 1;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				break;
+			case 7:
+				tempSize |= (dl_size_t) bytecode[i] << 8 * 0;
+				tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				if (tempSize == 0) tempChar = '\n';
+				else tempChar = ' ';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				if (tempSize == 0) {
+					arg = 0;
+					continue;
+				}
+				break;
+			default:
+				// Upvalues
+				if (tempSize-- > 0) {
+					DL_DOTIMES(m, 4) {
+						tempChar = dl_nybbleToHexChar((bytecode[i] >> 4) & 0xF);
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						tempChar = dl_nybbleToHexChar(bytecode[i] & 0xF);
+						e = dl_array_pushElement(&disassembly, &tempChar);
+						if (e) return dl_null;
+						if (m != (4 - 1)) i++;
+					}
+					if (tempSize == 0) tempChar = '\n';
+					else tempChar = ' ';
+					e = dl_array_pushElement(&disassembly, &tempChar);
+					if (e) return dl_null;
+					if (tempSize == 0) {
+						arg = 0;
+						continue;
+					}
+					break;
+				}
 				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
 				if (e) return dl_null;
 			}
