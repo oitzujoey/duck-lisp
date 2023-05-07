@@ -3675,7 +3675,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 	dl_error_t e = dl_error_ok;
 	/* dl_error_t eError = dl_error_ok; */
 
-	dl_uint8_t *ip = bytecode;
 	dl_bool_t halt = dl_false;
 	/* Why a reference to bytecode? So it can be switched out with other bytecodes by `duckVM_executeInstruction`. */
 	duckLisp_object_t *bytecodeObject;
@@ -3687,6 +3686,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		e = duckVM_gclist_pushObject(duckVM, &bytecodeObject, temp);
 		if (e) goto cleanup;
 	}
+	dl_uint8_t *ip = bytecodeObject->value.bytecode.bytecode;
 	duckVM->currentBytecode = bytecodeObject;
 	do {
 		e = duckVM_executeInstruction(duckVM, bytecodeObject, &ip, &halt);

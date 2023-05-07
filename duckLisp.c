@@ -9287,7 +9287,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	/* Stack length is zero. */
 
-	/* Do not reset `label_number`. */
 	compileState->label_number = 0;
 
 	e = duckLisp_compile_expression(duckLisp,

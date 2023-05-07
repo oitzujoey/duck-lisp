@@ -1709,8 +1709,50 @@ macro runtime→comptime
 
 So the real hard parts are `defun` and macro calls.
 
+
 Closure addresses are absolute. Maybe I could generate the jump target at runtime when a closure is created? The `name' field would become the relative address to the start of the function instead of the absolute address.
 Closure instructions are now relative, but closures objects are absolute and calculated on object creation.
+
+
+This is my greatest nightmare:
+
+(defun f (a) ())
+(defun g (a)
+  (defun h (a) (f))
+  (defmacro m (a) (h))
+  (m))
+
+`f' and `h' are defined when `m' is called. How do I incrementally compile that snippet when `g' has unresolved labels?
+
+Runtime is never called during compilation.
+Comptime is
+
+I think `defun' has exponential complexity.
+
+r0 f
+c1 f
+r0 g
+ r0 h
+ c1 h
+ c1 m
+c1 g
+ c1 h
+ c2 h
+ c2 m
+
+(defun f (a)
+  (defun g (a)))
+
+r0 f
+ r0 g
+ c1 g
+c1 f
+ c1 g
+ c2 g
+
+The problem is that I have to fully compile a function definition inside the body of another function that is in the process of being compiled. How compilation currently works is that the inner function and all forms that come before it are compiled into one block of assembly.
+
+The problem is unresolved labels caused by the fact that I would be only partially compiling functions. There's no way to jump over the function because the function isn't yet complete.
 
 
 Next step: Generate bytecode incrementally.
