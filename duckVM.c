@@ -469,7 +469,7 @@ static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip, duckLisp_obj
 	if (e) goto cleanup;
 	e = dl_array_popElement(&duckVM->upvalue_array_length_call_stack, dl_null);
  cleanup:
-	if (e) {
+	if (e && (e != dl_error_bufferUnderflow)) {
 		dl_error_t eError = duckVM_error_pushRuntime(duckVM, DL_STR("call_stack_pop: Failed."));
 		if (!e) e = eError;
 	}
@@ -3623,6 +3623,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (!parsedBytecode) {
 			ptrdiff1 = *(ip++);
 		}
+
 		if (duckVM->stack.elements_length > 0) {
 			e = dl_array_getTop(&duckVM->stack, &object1);
 			if (e) break;
