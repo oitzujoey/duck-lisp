@@ -5601,8 +5601,6 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	dl_ptrdiff_t args_index[2] = {-1, -1};
-
 	dl_bool_t forceGoto = dl_false;
 	dl_bool_t branch = dl_false;
 
@@ -5639,32 +5637,15 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		branch = expression->compoundExpressions[1].value.string.value_length > 0;
 		break;
 	case duckLisp_ast_type_identifier:
-		e = duckLisp_scope_getLocalIndexFromName(compileState->currentCompileState,
-		                                         &args_index[0],
-		                                         expression->compoundExpressions[1].value.identifier.value,
-		                                         expression->compoundExpressions[1].value.identifier.value_length);
-		if (e) goto cleanup;
-		if (args_index[0] == -1) {
-			e = dl_error_invalidValue;
-			eError = dl_array_pushElements(&eString, DL_STR("Could not find local \""));
-			if (eError) goto cleanup;
-			eError = dl_array_pushElements(&eString, expression->compoundExpressions[1].value.identifier.value,
-			                               expression->compoundExpressions[1].value.identifier.value_length);
-			if (eError) goto cleanup;
-			eError = dl_array_pushElements(&eString, DL_STR("\" in generator \""));
-			if (eError) goto cleanup;
-			eError = dl_array_pushElements(&eString, expression->compoundExpressions[0].value.identifier.value,
-			                               expression->compoundExpressions[0].value.identifier.value_length);
-			if (eError) goto cleanup;
-			eError = dl_array_pushElements(&eString, DL_STR("\"."));
-			if (eError) goto cleanup;
-			eError = duckLisp_error_pushRuntime(duckLisp,
-			                                    eString.elements,
-			                                    eString.elements_length * eString.element_size);
-			if (eError) e = eError;
-			goto cleanup;
-		}
-		e = duckLisp_emit_pushIndex(duckLisp, compileState, assembly, args_index[0]);
+		e = duckLisp_compile_compoundExpression(duckLisp,
+		                                        compileState,
+		                                        assembly,
+		                                        expression->compoundExpressions[0].value.identifier.value,
+		                                        expression->compoundExpressions[0].value.identifier.value_length,
+		                                        &expression->compoundExpressions[1],
+		                                        dl_null,
+		                                        dl_null,
+		                                        dl_true);
 		if (e) goto cleanup;
 		break;
 	case duckLisp_ast_type_expression:
@@ -5679,8 +5660,6 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		                                        dl_true);
 		if (e) goto cleanup;
 		pops = getLocalsLength(compileState) - startStack_length;
-
-		args_index[0] = getLocalsLength(compileState) - 1;
 		break;
 	default:
 		e = dl_array_pushElements(&eString, DL_STR("until: Unsupported data type."));
