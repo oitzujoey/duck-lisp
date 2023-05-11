@@ -233,6 +233,7 @@ typedef struct duckLisp_compileState_s {
 	duckLisp_subCompileState_t runtimeCompileState;
 	duckLisp_subCompileState_t comptimeCompileState;
 	duckLisp_subCompileState_t *currentCompileState;
+	dl_array_t *assembly;  /* This is always the true assembly array. */
 } duckLisp_compileState_t;
 
 /* This remains until the compiler is destroyed. */

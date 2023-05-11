@@ -4867,6 +4867,12 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 	duckLisp_ast_identifier_t gensym = {0};
 	dl_size_t startStack_length = 0;
 
+	dl_array_t bodyAssembly;
+	/**/ dl_array_init(&bodyAssembly,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionObject_t),
+	                   dl_array_strategy_double);
+
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2, dl_true);
 	if (e) goto cleanup;
 
@@ -4912,14 +4918,14 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 		if (e) goto cleanup_gensym;
 
 		// (goto gensym)
-		e = duckLisp_emit_jump(duckLisp, compileState, assembly, gensym.value, gensym.value_length);
+		e = duckLisp_emit_jump(duckLisp, compileState, &bodyAssembly, gensym.value, gensym.value_length);
 		if (e) goto cleanup_gensym;
 
 		e = duckLisp_register_label(duckLisp, compileState->currentCompileState, DL_STR("self"));
 		if (e) goto cleanup_gensym;
 
 		// (label function_name)
-		e = duckLisp_emit_label(duckLisp, compileState, assembly, DL_STR("self"));
+		e = duckLisp_emit_label(duckLisp, compileState, &bodyAssembly, DL_STR("self"));
 		if (e) goto cleanup_gensym;
 
 		// `label_index` should never equal -1 after this function exits.
@@ -4980,7 +4986,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 		duckLisp_ast_expression_t progn;
 		progn.compoundExpressions = &expression->compoundExpressions[2];
 		progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
-		e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+		e = duckLisp_generator_expression(duckLisp, compileState, &bodyAssembly, &progn);
 		if (e) goto cleanup_gensym;
 
 		// Footer
@@ -4993,7 +4999,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			if (scope.scope_uvs_length) {
 				e = duckLisp_emit_releaseUpvalues(duckLisp,
 				                                  compileState,
-				                                  assembly,
+				                                  &bodyAssembly,
 				                                  scope.scope_uvs,
 				                                  scope.scope_uvs_length);
 				if (e) goto cleanup_gensym;
@@ -5002,7 +5008,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 
 		e = duckLisp_emit_return(duckLisp,
 		                         compileState,
-		                         assembly,
+		                         &bodyAssembly,
 		                         TIF(expression->compoundExpressions[1].type == duckLisp_ast_type_expression,
 		                             getLocalsLength(compileState) - startStack_length - 1,
 		                             0));
@@ -5010,8 +5016,13 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 
 		compileState->currentCompileState->locals_length = startStack_length;
 
-		// (label gensym)
-		e = duckLisp_emit_label(duckLisp, compileState, assembly, gensym.value, gensym.value_length);
+		/* (label gensym) */
+		e = duckLisp_emit_label(duckLisp, compileState, &bodyAssembly, gensym.value, gensym.value_length);
+		if (e) goto cleanup_gensym;
+
+		/* Now that the function is complete, append it to the main bytecode. This mechanism guarantees that function
+		   bodies are never nested. */
+		e = dl_array_pushElements(compileState->assembly, bodyAssembly.elements, bodyAssembly.elements_length);
 		if (e) goto cleanup_gensym;
 
 		{
@@ -5046,6 +5057,9 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 	if (eError) e = eError;
 
  cleanup:
+
+	eError = dl_array_quit(&bodyAssembly);
+	if (eError) e = eError;
 
 	eError = dl_array_quit(&eString);
 	if (eError) e = eError;
@@ -9335,6 +9349,8 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	compileState->currentCompileState->label_number = 0;
 
+	compileState->assembly = &assembly;
+
 	e = duckLisp_compile_expression(duckLisp,
 	                                compileState,
 	                                &assembly,
@@ -9670,12 +9686,14 @@ void duckLisp_compileState_init(duckLisp_t *duckLisp, duckLisp_compileState_t *c
 	/**/ duckLisp_subCompileState_init(duckLisp->memoryAllocation, &compileState->runtimeCompileState);
 	/**/ duckLisp_subCompileState_init(duckLisp->memoryAllocation, &compileState->comptimeCompileState);
 	compileState->currentCompileState = &compileState->runtimeCompileState;
+	compileState->assembly = dl_null;
 }
 
 dl_error_t duckLisp_compileState_quit(duckLisp_compileState_t *compileState) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	compileState->currentCompileState = dl_null;
+	compileState->assembly = dl_null;
 	e = duckLisp_subCompileState_quit(&compileState->comptimeCompileState);
 	eError = duckLisp_subCompileState_quit(&compileState->runtimeCompileState);
 	return (e ? e : eError);
