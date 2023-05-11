@@ -221,14 +221,18 @@ typedef struct {
 	dl_size_t function_uvs_length;
 } duckLisp_scope_t;
 
-/* This can safely be deleted after each compile. */
-typedef struct duckLisp_compileState_s {
+typedef struct {
 	/* This is where we keep everything that needs to be scoped. */
 	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
 	dl_size_t label_number;
-	struct duckLisp_compileState_s *nextCompileState;
-	dl_array_t bytecode;  /* dl_array_t:dl_uint8_t */
+} duckLisp_subCompileState_t;
+
+/* This can safely be deleted after each compile. */
+typedef struct duckLisp_compileState_s {
+	duckLisp_subCompileState_t runtimeCompileState;
+	duckLisp_subCompileState_t comptimeCompileState;
+	duckLisp_subCompileState_t *currentCompileState;
 } duckLisp_compileState_t;
 
 /* This remains until the compiler is destroyed. */
@@ -538,7 +542,7 @@ dl_error_t cst_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_cst_compou
 dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression);
 dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 
-dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_compileState_t *compileState,
+dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_subCompileState_t *subCompileState,
                                                 dl_ptrdiff_t *index,
                                                 const char *name,
                                                 const dl_size_t name_length);
@@ -657,11 +661,11 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
                                const dl_size_t source_length);
 
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp,
-                                       duckLisp_compileState_t *compileState,
+                                       duckLisp_subCompileState_t *compileState,
                                        duckLisp_scope_t *scope,
                                        dl_bool_t is_function);
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp,
-                                      duckLisp_compileState_t *compileState,
+                                      duckLisp_subCompileState_t *subCompileState,
                                       duckLisp_scope_t *scope);
 dl_error_t DECLSPEC duckLisp_addStatic(duckLisp_t *duckLisp,
                                        const char *name,

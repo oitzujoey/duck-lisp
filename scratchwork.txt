@@ -1743,19 +1743,197 @@ c1 g
 (defun f (a)
   (defun g (a)))
 
-r0 f
- r0 g
- c1 g
-c1 f
- c1 g
- c2 g
+ r0 g ← Normal runtime compilation.
+ c1 g ← For use by macros defined in `f' but after `g'.
+r0 f ← Final runtime
+ c1 g ← Normal comptime compilation.
+ c2 g ← For use by macros defined in `f' but after `g'.
+c1 f ← Final comptime
 
 The problem is that I have to fully compile a function definition inside the body of another function that is in the process of being compiled. How compilation currently works is that the inner function and all forms that come before it are compiled into one block of assembly.
 
 The problem is unresolved labels caused by the fact that I would be only partially compiling functions. There's no way to jump over the function because the function isn't yet complete.
 
+;; Source
+(defun f (a)
+  (defun g () ())
+  (defmacro m () (g))
+  (m))
 
-Next step: Generate bytecode incrementally.
+;; Comptime pre-macro
+(
+ (defun g () ())
+ (defmacro m () (g))
+ (here))
+
+;; Expanded
+(defun f (a)
+  (defun g () ())
+  ())
+(here)
+
+;; Comptime post-macro
+(
+ (defun g (a))
+ (defun m (a)))
+(defun f (a)
+  (defun g (a))
+  ())
+(here)
+
+
+Runtime:
+
+jump skip-g
+  label g
+  nil
+  return
+label skip-g
+
+jump skip-f
+  label f
+  push-closure g 0 0
+  nil
+  return
+label skip-f
+push-closure g
+
+(
+ (defun g ()
+   ()))
+(defun f ()
+  (declare g)
+  ())
+
+
+Comptime:
+
+jump skip-g
+  label g
+  nil
+  return
+label skip-g
+push-closure g 0 0
+
+jump skip-m
+  label m
+  push-upvalue 1
+  call
+  return
+label skip-m
+push-closure m 0 0
+
+jump skip-f
+  label f
+  push-closure g 0 0
+  nil
+  return
+label skip-f
+push-closure g
+
+(
+ (define g ()
+   ())
+ (define m ()
+   (g)))
+(defun f ()
+  (declare g)
+  (declare m)
+  ())
+
+
+It looks to me like I only need a runtime state and a comptime state. That's much better than the potentially infinite depth I was thinking I would need. The bad news: I may need to relocate function bodies so I can execute partially compiled functions.
+
+Recursion is hard to think about.
+
+
+Maybe I can detect impure functions by checking the runtime stack during comptime. If the referenced object is a variable, the function is impure.
+This feels like static typing.
+
+
+Declaration: Put the function name in the current scope.
+Definition: The location of the function body.
+
+If I can define inner functions before outer functions, then I should be able to get O(n) compilation of nested functions. THIS WILL MAKE FUNCTIONS NON-COMPOSABLE DUE TO LABELS CROSSING FUNCTION BOUNDARIES. Functions are declared as usual. Function definitions will each be compiled to a brand new assembly array. After the body is compiled to the new assembly array, the push-closure is written to the parent function.
+
+
+(defun f ()
+  (defun g ()
+    (defun h ()
+      ())))
+
+Comptime:
+(
+ (
+  (
+   (defun h ()
+     ()))
+  (defun g ()
+    (declare h)))
+ (defun f ()
+   (declare g)))
+(declare f)
+
+Runtime:
+(define h ()
+  ())
+(define g ()
+  (declare h))
+(define f ()
+  (declare g))
+(declare f)
+
+
+(defun f ()
+  (defun g ()
+    ())
+  (defun h ()
+    ()))
+
+Comptime:
+(
+ (defun g ()
+   ())
+ (defun h ()
+   ()))
+(defun f ()
+  (declare g)
+  (declare h))
+
+
+defun: Define the function. Push a closure.
+define: Define the function. Do not push a closure. The name is not in the global scope, but a gensymed label links it to its parent function.
+declare: Declare the function in the current scope. Push a closure.
+
+`push-closure` needs to be written twice for comptime because the inner functions may be called before and after the outer function is defined. So one `push-closure` goes right after the inner function is declared and the other `push-closure` goes inside the outer function's body.
+Right before the lambda generator exits, the new assembly array is appended to the main assembly array. The new assembly array is discarded.
+
+Do I finally have it? 🥺 This almost feels robust.
+
+The new assembly array is alive for the duration of the lambda generator.
+
+First step is to do the definition relocation. After that's done we'll come back to comptime functions.
+
+
+Labels peephole optimization:
+
+jump a
+…
+label b
+…
+label a
+jump b
+
+can be converted to
+
+jump c
+…
+label c
+
+This should work nicely with the new function definitions.
+
+
+Next step: 
 
 Defer:
 	There's a memory bug likely caused by the lack of GC for symbols and strings.
