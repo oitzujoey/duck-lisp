@@ -6534,7 +6534,7 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 	                                        &expression->compoundExpressions[0],
 	                                        &identifier_index,
 	                                        dl_null,
-	                                        dl_false);
+	                                        dl_true);
 	if (e) goto cleanup;
 
 	outerStartStack_length = getLocalsLength(compileState);
@@ -7216,9 +7216,7 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 		else if (pushReference) {
 			// We are NOT pushing an index since the index is part of the instruction.
 			e = duckLisp_emit_pushIndex(duckLisp, compileState, assembly, temp_index);
-			if (e) {
-				goto cleanup;
-			}
+			if (e) goto cleanup;
 		}
 
 		temp_type = duckLisp_ast_type_none;  // Let's use `none` as a wildcard. Variables do not have a set type.
