@@ -81,6 +81,11 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 ./duckLisp-dev "(include ../scripts/underout.dl) (main 52)"
 ```
 
+```bash
+# Start the REPL.
+./duckLisp-dev
+```
+
 
 ## Usage
 
