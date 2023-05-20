@@ -1,0 +1,11 @@
+(var y (comptime
+        (var x 5)
+        (setq x (* 2 x))))
+
+(var x 3)
+(setq x (* 2 x))
+
+(comptime
+ (print x))
+(print x)
+(print y)

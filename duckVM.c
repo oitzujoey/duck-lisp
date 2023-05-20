@@ -511,7 +511,7 @@ dl_error_t duckVM_global_set(duckVM_t *duckVM, duckLisp_object_t *value, dl_ptrd
 int duckVM_executeInstruction(duckVM_t *duckVM,
                               duckLisp_object_t *bytecode,
                               unsigned char **ipPtr,
-                              dl_bool_t *halt) {
+                              duckVM_halt_mode_t *halt) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -3638,16 +3638,20 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = call_stack_pop(duckVM, &ip, &bytecode);
 		if (e == dl_error_bufferUnderflow) {
-			*halt = dl_true;
+			*halt = duckVM_halt_mode_halt;
 			e = dl_error_ok;
 		}
 		break;
 	case duckLisp_instruction_return0:
 		e = call_stack_pop(duckVM, &ip, &bytecode);
 		if (e == dl_error_bufferUnderflow) {
-			*halt = dl_true;
+			*halt = duckVM_halt_mode_halt;
 			e = dl_error_ok;
 		}
+		break;
+
+	case duckLisp_instruction_yield:
+		*halt = duckVM_halt_mode_yield;
 		break;
 
 	case duckLisp_instruction_nil:
@@ -3675,7 +3679,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 	dl_error_t e = dl_error_ok;
 	/* dl_error_t eError = dl_error_ok; */
 
-	dl_bool_t halt = dl_false;
+	duckVM_halt_mode_t halt = duckVM_halt_mode_run;
 	/* Why a reference to bytecode? So it can be switched out with other bytecodes by `duckVM_executeInstruction`. */
 	duckLisp_object_t *bytecodeObject;
 	{
@@ -3690,7 +3694,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 	duckVM->currentBytecode = bytecodeObject;
 	do {
 		e = duckVM_executeInstruction(duckVM, bytecodeObject, &ip, &halt);
-	} while (!e && !halt);
+	} while (!e && (halt == duckVM_halt_mode_run));
 	duckVM->currentBytecode = dl_null;
 
  cleanup:
@@ -3699,6 +3703,17 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		puts("VM ERROR");
 		printf("ip 0x%llX\n", (dl_size_t) (ip - bytecode));
 		printf("*ip 0x%X\n", *ip);
+	}
+	else if (halt == duckVM_halt_mode_yield) {
+		/* Don't pop anything here so that the compiler can predict the starting stack length for the next run. */
+		if (duckVM->stack.elements_length == 0) {
+			/* Return nil if nothing on stack. */
+			return_value->type = duckLisp_object_type_list;
+			return_value->value.list = dl_null;
+		}
+		else {
+			*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t);
+		}
 	}
 	else {
 		if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);

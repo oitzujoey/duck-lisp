@@ -226,6 +226,7 @@ typedef struct {
 	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
 	dl_size_t label_number;
+	dl_array_t assembly;  /* This is always the true assembly array. */
 } duckLisp_subCompileState_t;
 
 /* This can safely be deleted after each compile. */
@@ -233,7 +234,6 @@ typedef struct duckLisp_compileState_s {
 	duckLisp_subCompileState_t runtimeCompileState;
 	duckLisp_subCompileState_t comptimeCompileState;
 	duckLisp_subCompileState_t *currentCompileState;
-	dl_array_t *assembly;  /* This is always the true assembly array. */
 } duckLisp_compileState_t;
 
 /* This remains until the compiler is destroyed. */
@@ -301,6 +301,7 @@ typedef enum {
 	duckLisp_instructionClass_typeof,
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_return,
+	duckLisp_instructionClass_yield,
 	duckLisp_instructionClass_nil,
 	duckLisp_instructionClass_pseudo_label,
 } duckLisp_instructionClass_t;
@@ -473,6 +474,8 @@ typedef enum {
 	duckLisp_instruction_return8,
 	duckLisp_instruction_return16,
 	duckLisp_instruction_return32,
+
+	duckLisp_instruction_yield,
 
 	duckLisp_instruction_nil,
 } duckLisp_instruction_t;
@@ -649,10 +652,15 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        duckLisp_ast_expression_t *expression,
                                        dl_ptrdiff_t *index);
 
+dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
+                             duckLisp_compileState_t *compileState,
+                             dl_array_t *bytecode,
+                             dl_array_t *assembly);
 dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
                                duckLisp_compileState_t *compileState,
                                dl_array_t *bytecode,
 							   duckLisp_ast_compoundExpression_t astCompoundexpression);
+
 dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 dl_ptrdiff_t duckLisp_symbol_nameToValue(const duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,

@@ -53,7 +53,7 @@ typedef struct {
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
 	dl_array_t errors;  /* Runtime errors. */
-	dl_array_t stack;  /* duckLisp_object_t For data. */
+	dl_array_t stack;  /* dl_array_t:duckLisp_object_t For data. */
 	dl_array_t call_stack;  /* duckVM_callFrame_t */
 	/* I'm lazy and I don't want to bother with correct GC. */
 	struct duckLisp_object_s *currentBytecode;
@@ -65,6 +65,12 @@ typedef struct {
 	dl_array_t globals_map;  /* dl_ptrdiff_t */
 	duckVM_gclist_t gclist;
 } duckVM_t;
+
+typedef enum {
+	duckVM_halt_mode_run,
+	duckVM_halt_mode_yield,
+	duckVM_halt_mode_halt,
+} duckVM_halt_mode_t;
 
 /* When adding types, always add to the end of the section. */
 typedef enum {

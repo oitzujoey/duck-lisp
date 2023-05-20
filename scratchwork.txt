@@ -1933,7 +1933,52 @@ label c
 This should work nicely with the new function definitions.
 
 
-Next step: 
+No top-level forms other than functions and macros should be compiled to comptime assembly.
+Top-level functions initiate writing to comptime assembly by compiling their bodies twice instead of once. They set a flag that tells nested functions to only compile their bodies once to the currently selected compile state.
+
+
+I think I need to do compilation for both runtime and comptime at the same time, even in normal generators like add, if, list, etc. Maybe emitters can write to both assembly arrays at the same time if a flag is set?
+
+
+In the comptime assembly, the only difference between pure and impure functions is whether definitions have a `push-closure` immediately after them. Pure functions do. Impure functions do not. Pure definitions have two `push-closure`s that point to them while impure functions only have one.
+Top-level impure functions Are ideally not compiled to bytecode.
+
+
+(comptime
+ (global *evil* true))
+
+(defmacro wicked ()
+  (setq *evil* (not *evil*))
+  *evil*)
+
+(defun perverted ()
+  (wicked))
+
+The results in `perverted` returning `false` when used at compile time and `true` when used at runtime. Or perhaps the opposite.
+Let's say `wicked` expands into one of two functions.
+
+(comptime (defun comptime? () …))
+
+(defmacro wicked ()
+  (if (comptime?)
+      (quote (defun f ()))
+      (quote (defun g ()))))
+
+Should both of the functions be compiled to comptime HLA? Or should `f` be compiled to comptime HLA but `g` be compiled to runtime HLA?
+
+Answer: I give up. I don't think there's a way to do this that won't result in more complicated code doing something unexpected. All code with the exception of macros is only compiled into the runtime HLA by default. Comptime code must be explicitly wrapped by the `comptime` keyword.
+
+
+Ideally `comptime' would incrementally *run* the program. A new instruction, "yield", can be used as the last instruction of the bytecode snippet. It will pause execution of the VM with the stack still populated. This will allow locals declared with `var' to be usable for the duration of the entire compilation.
+
+I think I can just append new bytecode onto old bytecode without causing any problems with labels.
+
+I think I can run new bytecode as is and discard old bytecode since closures should already be on the stack and link to copies of old bytecode.
+
+Yielding: The VM halts but the stack remains. Nothing is popped. When the VM starts again, the PC initializes to the begining of the new bytecode as it usually does.
+
+
+Next step: Determine semantics for `comptime'. Implement `comptime'.
 
 Defer:
 	There's a memory bug likely caused by the lack of GC for symbols and strings.
@@ -1950,7 +1995,8 @@ Todo:
 How to design your compiler for macros:
 Assumptions: You want macros to be able to call functions that do not depend on impure functions.
 Are all macros top-level (i.e. global)? Then it's easy! Just compile each function and make the function object a global in the macro VM. When a macro is called, just run it. I haven't actually tried this by the way.
-Are your macros lexical scoped? Meaning they aren't first class and can't create closures but they have lexical scope and dynamic extent. They do? Oh. My condolences. Every pure function must be compiled twice while all the rest are only compiled once. Be sure the compile supports incremental compilation of functions inside other functions since there might be a defmacro nested inside the outer function. Why is this such a pain? Because macros are a hack. Fexprs are the full version of macros.
+Are your macros lexically scoped? Meaning they aren't first class and can't create closures but they have lexical scope and dynamic extent. They do? Oh. My condolences. Every pure function must be compiled twice while all the rest are only compiled once. Be sure the compile supports incremental compilation of functions inside other functions since there might be a defmacro nested inside the outer function. Why is this such a pain? Because macros are a hack. Fexprs are a more full version of macros, but then you can't easily compile them.
+Alternative macro compilation that won't harm your brain: just wrap compile time functions in a `comptime' keyword. Depending on what you want out of it, you may need to create a way for the VM to yield control midway through execution.
 
 Duck-lisp architecture:
 Parse source text into an AST.
