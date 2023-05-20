@@ -4536,7 +4536,6 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 		}
 	}
 	else {
-		puts("null");
 		ast->value.expression.compoundExpressions = dl_null;
 		ast->value.expression.compoundExpressions_length = 0;
 		ast->type = duckLisp_ast_type_expression;
@@ -4607,11 +4606,13 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		break;
 	case duckLisp_object_type_closure:
 		e = dl_error_invalidValue;
+		eError = duckLisp_error_pushRuntime(duckLisp,
+		                                    DL_STR("objectToAST: Attempted to convert closure to expression."));
+		if (!e) e = eError;
 		break;
 	default:
 		e = dl_error_invalidValue;
 		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("objectToAST: Illegal object type."));
-		printf("%i\n", object->type);
 		if (!e) e = eError;
 	}
 
@@ -4650,13 +4651,23 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 	e = duckLisp_generator_noscope(duckLisp, compileState, &compAssembly, &subExpression);
 	if (e) goto cleanup;
 
+	e = dl_array_pushElements(&compileState->currentCompileState->assembly,
+	                          compAssembly.elements,
+	                          compAssembly.elements_length);
+	if (e) goto cleanup;
+
 	// Stack is not balanced. It will constantly grow. Not horrible, but not ideal.
 	/* e = duckLisp_emit_pop(duckLisp, compileState, &compAssembly, ) */
 
-	e = duckLisp_assemble(duckLisp, compileState, &bytecode, &compAssembly);
+	e = duckLisp_assemble(duckLisp, compileState, &bytecode, &compileState->currentCompileState->assembly);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElement(&bytecode, &yieldInstruction);
+	if (e) goto cleanup;
+
+	e = dl_array_popElements(&compileState->currentCompileState->assembly,
+	                         dl_null,
+	                         compileState->currentCompileState->assembly.elements_length);
 	if (e) goto cleanup;
 
 	/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */

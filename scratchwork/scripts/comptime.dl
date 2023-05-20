@@ -6,6 +6,10 @@
 (setq x (* 2 x))
 
 (comptime
- (print x))
+ (defun f ()
+   (print x))
+ ())
 (print x)
+(comptime
+ (f))
 (print y)
