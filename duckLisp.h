@@ -189,26 +189,14 @@ typedef struct {
 } duckLisp_label_t;
 
 typedef struct {
-	duckLisp_object_t *closure;
-	duckLisp_ast_identifier_t name;
-} duckLisp_function_t;
-
-typedef struct {
-	dl_array_t bytecode;  /* dl_uint8_t */
-	duckLisp_ast_identifier_t name;
-} duckLisp_macro_t;
-
-typedef struct {
 	/* All variable names in the current scope are stored here. */
 	dl_trie_t locals_trie;   /* Points to stack objects. */
 
 	dl_trie_t functions_trie;  /* Records all the function types in this scope. */
 	dl_size_t functions_length;
-	dl_array_t pure_functions;  /* dl_array_t:duckLisp_function_t * */
 
 	dl_trie_t macros_trie;  /* Index of macro in `macros`. */
 	dl_size_t macros_length;
-	dl_array_t macros;  /* dl_array_t:duckLisp_macro_t * */
 
 	dl_trie_t labels_trie;
 	dl_bool_t function_scope;  /* Used to determine when to create a deep upvalue. */
@@ -226,7 +214,7 @@ typedef struct {
 	dl_array_t scope_stack;  /* dl_array_t:duckLisp_scope_t:{dl_trie_t} */
 	dl_size_t locals_length;
 	dl_size_t label_number;
-	dl_array_t assembly;  /* This is always the true assembly array. */
+	dl_array_t assembly;  /* dl_array_t:duckLisp_instructionObject_t This is always the true assembly array. */
 } duckLisp_subCompileState_t;
 
 /* This can safely be deleted after each compile. */
@@ -692,8 +680,7 @@ dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
                                            const dl_bool_t pure);
 dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
                                             duckLisp_compileState_t *compileState,
-                                            const duckLisp_ast_identifier_t name,
-                                            dl_array_t bytecode);
+                                            const duckLisp_ast_identifier_t name);
 dl_error_t DECLSPEC  duckLisp_addGenerator(duckLisp_t *duckLisp,
                                            dl_error_t (*callback)(duckLisp_t*,
                                                                   duckLisp_compileState_t *,

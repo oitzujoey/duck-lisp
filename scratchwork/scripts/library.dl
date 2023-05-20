@@ -10,6 +10,15 @@
 (var duckLisp-object-type-closure 8)
 (var duckLisp-object-type-vector 9)
 
+(defun integer? (value)
+  (= (type-of value) duckLisp-object-type-int))
+
+(defun list? (value)
+  (= (type-of value) duckLisp-object-type-list))
+
+(defun cons? (value)
+  (= (type-of value) duckLisp-object-type-list))
+
 (comment " Copied straight out of CLHS B）")
 
 (defun caar (x)
@@ -92,6 +101,11 @@
 
 (defun rest (x)
   (cdr x))
+
+(defun list* (&rest args)
+  (if (null? (rest args))
+      (first args)
+      (cons (first args) (apply self (rest args)))))
 
 (defun print (&rest vs)
   (var vs2 vs)
@@ -196,12 +210,6 @@
 
 (defun sort-ascending (list)
   (nreverse (quicksort-hoare list (length list))))
-
-(defun integer? (value)
-  (= (type-of value) duckLisp-object-type-int))
-
-(defun list? (value)
-  (= (type-of value) duckLisp-object-type-list))
 
 (comment (defun type-to-string (type)
            (switch type
@@ -386,7 +394,8 @@
 	(while (not (null? list))
 		   (setq reversed-list (cons (car list)
 									 reversed-list))
-		   (to list (cdr)))
+           (comment FIXME: `to` doesn't work here?!?)
+		   (setq list (cdr list)))
 	reversed-list)
   (var variable (car bind))
   (var l (car (cdr bind)))

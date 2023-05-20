@@ -1086,6 +1086,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (object1.value.closure.variadic) {
 			if (uint8 < object1.value.closure.arity) {
 				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->funcall: Too few arguments."));
+				if (!e) e = eError;
 				break;
 			}
 			/* Create list. */
@@ -1149,6 +1152,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		else {
 			if (object1.value.closure.arity != uint8) {
 				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->funcall: Incorrect number of arguments."));
+				if (!e) e = eError;
 				break;
 			}
 		}
@@ -1522,7 +1528,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			break;
 		default:
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->not: Object is not a boolean, integer, list, or vector."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->not: Object is not a boolean, integer, list, or vector."));
 			if (!e) e = eError;
 			goto cleanup;
 		}
@@ -3704,20 +3711,22 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		printf("ip 0x%llX\n", (dl_size_t) (ip - bytecode));
 		printf("*ip 0x%X\n", *ip);
 	}
-	else if (halt == duckVM_halt_mode_yield) {
-		/* Don't pop anything here so that the compiler can predict the starting stack length for the next run. */
-		if (duckVM->stack.elements_length == 0) {
-			/* Return nil if nothing on stack. */
-			return_value->type = duckLisp_object_type_list;
-			return_value->value.list = dl_null;
+	else if (return_value != dl_null) {
+		if (halt == duckVM_halt_mode_yield) {
+			/* Don't pop anything here so that the compiler can predict the starting stack length for the next run. */
+			if (duckVM->stack.elements_length == 0) {
+				/* Return nil if nothing on stack. */
+				return_value->type = duckLisp_object_type_list;
+				return_value->value.list = dl_null;
+			}
+			else {
+				*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t);
+			}
 		}
 		else {
-			*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t);
+			if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
+			e = stack_pop(duckVM, return_value);
 		}
-	}
-	else {
-		if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
-		e = stack_pop(duckVM, return_value);
 	}
 
 	return e;

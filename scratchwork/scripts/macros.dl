@@ -52,11 +52,6 @@
 			 true)))
 (print "\n")
 
-(comment (defmacro add1 (value)
-   (1+ value))
- (print (add1 5))
- (print "\n"))
-
 (defmacro comptime-disassemble ()
   (disassemble))
 (comment (comptime-disassemble))
@@ -66,19 +61,6 @@
   value)
 
 (print (comptime-print "Hello!\n"))
-
-(comment (defmacro eval (form)
-           (defmacro evaluator ()
-             form)
-           (evaluator)))
-
-(comment (defmacro comptime-defun (name lambda)
-           (defmacro another-defun (name lambda)
-             (list (quote global) (list (quote quote) name) lambda))
-           (another-defun name lambda))
-
-         (comptime-defun f (lambda ()
-                             (print "f\n") (quote f))))
 
 (defmacro init ()
   (global channel ())
@@ -92,5 +74,32 @@
   channel)
 
 (init)
-(send 4)
+(send "Message")
 (print (receive))
+(print "\n")
+
+(comptime
+ (var lexical-channel ())
+ ())
+
+(defmacro send (v)
+  (setq lexical-channel v)
+  ())
+
+(defmacro receive ()
+  lexical-channel)
+
+(send "Lexical message")
+(print (receive))
+(print "\n")
+
+(comptime
+ (defun f ()
+   (print "captured!\n")
+   ())
+ ())
+
+(defmacro m ()
+  (f))
+(m)
+
