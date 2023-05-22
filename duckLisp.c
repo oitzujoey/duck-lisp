@@ -2390,7 +2390,6 @@ dl_error_t duckLisp_emit_setCar(duckLisp_t *duckLisp,
 	                                      source_index,
 	                                      destination_index);
 	// I should probably make this operator return something.
-	decrementLocalsLength(compileState);
 	return e;
 }
 
@@ -2406,7 +2405,6 @@ dl_error_t duckLisp_emit_setCdr(duckLisp_t *duckLisp,
 	                                      duckLisp_instructionClass_setCdr,
 	                                      source_index,
 	                                      destination_index);
-	decrementLocalsLength(compileState);
 	return e;
 }
 
@@ -4214,76 +4212,13 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	dl_bool_t result = dl_false;
-	duckLisp_scope_t scope;
-	dl_ptrdiff_t label_index = -1;
-
 	dl_size_t startStack_length;
 	dl_bool_t foundVar = dl_false;
 	dl_bool_t foundDefun = dl_false;
 	dl_bool_t foundInclude = dl_false;
+	dl_bool_t foundNoscope = dl_false;
+	dl_bool_t foundMacro = dl_false;
 	dl_ptrdiff_t pops = 0;
-
-	/* Labels */
-
-	// I believe this should come before any compilation.
-
-	for (dl_ptrdiff_t i = 0; (dl_size_t) i < expression->compoundExpressions_length; i++) {
-		duckLisp_ast_compoundExpression_t currentCE = expression->compoundExpressions[i];
-		if (currentCE.type == duckLisp_ast_type_expression) {
-			duckLisp_ast_expression_t currentE = currentCE.value.expression;
-			if (currentE.compoundExpressions_length == 2 &&
-			    currentE.compoundExpressions[0].type == duckLisp_ast_type_identifier &&
-			    currentE.compoundExpressions[1].type == duckLisp_ast_type_identifier) {
-
-				duckLisp_ast_identifier_t function = currentE.compoundExpressions[0].value.identifier;
-				/**/ dl_string_compare(&result, function.value, function.value_length, DL_STR("label"));
-				if (result) {
-					duckLisp_ast_identifier_t label_name = currentE.compoundExpressions[1].value.identifier;
-
-					// This is why we pushed the scope here.
-					e = scope_getTop(duckLisp, compileState->currentCompileState, &scope);
-					if (e) goto cleanup;
-
-					// Make sure label is undeclared.
-					/**/ dl_trie_find(scope.labels_trie, &label_index, label_name.value, label_name.value_length);
-					if (label_index != -1) {
-						e = dl_error_invalidValue;
-						eError = dl_array_pushElements(&eString, DL_STR("Multiple definitions of label \""));
-						if (eError) {
-							e = eError;
-							goto cleanup;
-						}
-						eError = dl_array_pushElements(&eString, label_name.value, label_name.value_length);
-						if (eError) {
-							e = eError;
-							goto cleanup;
-						}
-						eError = dl_array_pushElements(&eString, DL_STR("\"."));
-						if (eError) {
-							e = eError;
-							goto cleanup;
-						}
-						eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements),
-						                                    eString.elements_length);
-						if (eError) e = eError;
-						goto cleanup;
-					}
-
-					e = dl_trie_insert(&scope.labels_trie,
-					                   label_name.value,
-					                   label_name.value_length,
-					                   compileState->currentCompileState->label_number);
-					if (e) goto cleanup;
-					compileState->currentCompileState->label_number++;
-
-
-					e = scope_setTop(compileState->currentCompileState, &scope);
-					if (e) goto cleanup;
-				}
-			}
-		}
-	}
 
 	/* Compile */
 
@@ -4293,6 +4228,8 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 		foundDefun = dl_false;
 		foundVar = dl_false;
 		foundInclude = dl_false;
+		foundNoscope = dl_false;
+		foundMacro = dl_false;
 		if ((currentExpression.type == duckLisp_ast_type_expression)
 		    && (currentExpression.value.expression.compoundExpressions_length > 0)
 		    && (currentExpression.value.expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)) {
@@ -4304,42 +4241,68 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
 			                  DL_STR("defun"));
-			/* `include` is an exception because the included file exists in the parent scope. */
+			// `include` is an exception because the included file exists in the parent scope.
 			dl_string_compare(&foundInclude,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
 			                  DL_STR("include"));
+			dl_string_compare(&foundNoscope,
+			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
+			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
+			                  DL_STR("noscope"));
+			{
+				duckLisp_functionType_t functionType = duckLisp_functionType_none;
+				dl_ptrdiff_t functionIndex = -1;
+				e = scope_getFunctionFromName(duckLisp,
+				                              compileState->currentCompileState,
+				                              &functionType,
+				                              &functionIndex,
+				                              (currentExpression.value.expression.compoundExpressions[0]
+				                               .value.identifier.value),
+				                              (currentExpression.value.expression.compoundExpressions[0]
+				                               .value.identifier.value_length));
+				if (e) goto cleanup;
+				foundMacro = (functionType == duckLisp_functionType_macro);
+			}
 		}
 		e = duckLisp_compile_compoundExpression(duckLisp,
 		                                        compileState,
 		                                        assembly,
-		                                        DL_STR("expression"),
+		                                        DL_STR("noscope"),
 		                                        &expression->compoundExpressions[i],
 		                                        dl_null,
 		                                        dl_null,
 		                                        dl_true);
 		if (e) goto cleanup;
-		if (!foundInclude) {
-			pops = (((dl_size_t) i == expression->compoundExpressions_length - 1)
-			        ? 0
-			        : (getLocalsLength(compileState)
-			           - startStack_length
-			           - (foundVar || foundDefun)));
-			if (pops > 0) {
-				e = duckLisp_emit_pop(duckLisp, compileState, assembly, pops);
-				if (e) goto cleanup;
-			}
+		if (!(foundInclude
+		      || foundNoscope
+		      || foundMacro
+		      || ((dl_size_t) i == expression->compoundExpressions_length - 1))) {
+			pops = getLocalsLength(compileState) - startStack_length - (foundVar || foundDefun);
+			e = duckLisp_emit_pop(duckLisp, compileState, assembly, pops);
+			if (e) goto cleanup;
 		}
 		foundInclude = dl_false;
+		foundNoscope = dl_false;
+		foundMacro = dl_false;
 	}
 	if (expression->compoundExpressions_length == 0) e = duckLisp_emit_nil(duckLisp, compileState, assembly);
 
  cleanup:
-
 	eError = dl_array_quit(&eString);
 	if (eError) e = eError;
 
 	return e;
+}
+
+dl_error_t duckLisp_generator_noscope2(duckLisp_t *duckLisp,
+                                       duckLisp_compileState_t *compileState,
+                                       dl_array_t *assembly,
+                                       duckLisp_ast_expression_t *expression) {
+	duckLisp_ast_expression_t subExpression;
+	subExpression.compoundExpressions = &expression->compoundExpressions[1];
+	subExpression.compoundExpressions_length = expression->compoundExpressions_length - 1;
+	return duckLisp_generator_noscope(duckLisp, compileState, assembly, &subExpression);
 }
 
 dl_size_t duckLisp_consList_length(duckLisp_object_t *cons) {
@@ -4459,7 +4422,7 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 		ast->value.expression.compoundExpressions[op].value.identifier.value_length = sizeof("cons") - 1;
 		ast->value.expression.compoundExpressions[op].type = duckLisp_ast_type_identifier;
 
-		if (cons->value.cons.car->type == duckLisp_object_type_cons) {
+		if ((cons->value.cons.car == dl_null) || (cons->value.cons.car->type == duckLisp_object_type_cons)) {
 			e = duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->value.cons.car);
 			if (e) goto cleanup;
 		}
@@ -4470,7 +4433,7 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 			                         dl_false);
 			if (e) goto cleanup;
 		}
-		if (cons->value.cons.cdr->type == duckLisp_object_type_cons) {
+		if ((cons->value.cons.cdr == dl_null) || (cons->value.cons.cdr->type == duckLisp_object_type_cons)) {
 			e = duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->value.cons.cdr);
 			if (e) goto cleanup;
 		}
@@ -9345,7 +9308,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                  {DL_STR("\0defmacro:lambda"),  duckLisp_generator_lambda},
 	                  {DL_STR("lambda"),             duckLisp_generator_lambda},
 	                  {DL_STR("defmacro"),           duckLisp_generator_defmacro},
-	                  {DL_STR("noscope"),            duckLisp_generator_noscope},
+	                  {DL_STR("noscope"),            duckLisp_generator_noscope2},
 	                  {DL_STR("comptime"),           duckLisp_generator_comptime},
 	                  {DL_STR("quote"),              duckLisp_generator_quote},
 	                  {DL_STR("list"),               duckLisp_generator_list},

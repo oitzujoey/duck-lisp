@@ -3495,7 +3495,11 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			(object2.value.vector.internal_vector
 			 ->value.internal_vector.values[object2.value.vector.offset]) = objectPtr1;
 		}
-		else e = dl_error_invalidValue;
+		else {
+			e = dl_error_invalidValue;
+			break;
+		}
+		e = stack_push(duckVM, &object2);
 		break;
 
 		// I probably don't need an `if` if I research the standard a bit.
@@ -3548,7 +3552,11 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		                 && (object1.value.list == dl_null)))) {
 			object2.value.vector.internal_vector->value.internal_vector.length = object2.value.vector.offset;
 		}
-		else e = dl_error_invalidValue;
+		else {
+			e = dl_error_invalidValue;
+			break;
+		}
+		e = stack_push(duckVM, &object2);
 		break;
 
 		// I probably don't need an `if` if I research the standard a bit.

@@ -1,3 +1,9 @@
+(defmacro bothtime (&rest body)
+  (list (quote noscope)
+        (cons (quote comptime)
+              body)
+        (cons (quote noscope)
+              body)))
 
 (var duckLisp-object-type-none 0)
 (var duckLisp-object-type-bool 1)
