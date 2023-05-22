@@ -685,9 +685,11 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2, dl_false);
 	if (e) goto cleanup;
 
-	if (expression->compoundExpressions[1].type != duckLisp_ast_type_string) {
-		
-	}
+	e = duckLisp_checkTypeAndReportError(duckLisp,
+	                                     expression->compoundExpressions[0].value.identifier,
+	                                     expression->compoundExpressions[1],
+	                                     duckLisp_ast_type_string);
+	if (e) goto cleanup;
 
 	fileName.value = expression->compoundExpressions[1].value.string.value;
 	fileName.value_length = expression->compoundExpressions[1].value.string.value_length;
@@ -708,9 +710,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* Fetch script. */
 
 	e = dl_array_pushElements(&sourceCode, DL_STR("("));
-	if (e) {
-		goto cFileName_cleanup;
-	}
+	if (e) goto cFileName_cleanup;
 
 	sourceFile = fopen(cFileName, "r");
 	if (sourceFile == NULL) {

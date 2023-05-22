@@ -4888,7 +4888,6 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			                              scope.function_uvs_length);
 			if (e) goto cleanup_gensym;
 			if (pure != dl_null) *pure = scope.function_uvs_length == 0;
-			/* if ((pure != dl_null) && *pure) puts("Pure!"); */
 		}
 
 		e = duckLisp_popScope(duckLisp, compileState->currentCompileState, dl_null);

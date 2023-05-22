@@ -513,6 +513,10 @@ dl_error_t DECLSPEC duckLisp_error_pushRuntime(duckLisp_t *duckLisp,
 dl_error_t DECLSPEC duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp, duckLisp_ast_expression_t astExpression,
                                                      const dl_size_t numArgs,
                                                      const dl_bool_t variadic);
+dl_error_t DECLSPEC duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
+                                                     duckLisp_ast_identifier_t functionName,
+                                                     duckLisp_ast_compoundExpression_t astCompoundExpression,
+                                                     const duckLisp_ast_type_t type);
 
 void cst_compoundExpression_init(duckLisp_cst_compoundExpression_t *compoundExpression);
 void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression);
