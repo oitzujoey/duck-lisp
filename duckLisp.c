@@ -192,15 +192,13 @@ dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&string, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 	const duckLisp_ast_identifier_t typeString[] = {
 #define X(s) s, sizeof(s) - 1
-		{X("dl_error_ok")},
-		{X("dl_error_invalidValue")},
-		{X("dl_error_bufferUnderflow")},
-		{X("dl_error_bufferOverflow")},
-		{X("dl_error_nullPointer")},
-		{X("dl_error_danglingPointer")},
-		{X("dl_error_outOfMemory")},
-		{X("dl_error_shouldntHappen")},
-		{X("dl_error_cantHappen")}
+		{X("duckLisp_ast_type_none")},
+		{X("duckLisp_ast_type_expression")},
+		{X("duckLisp_ast_type_identifier")},
+		{X("duckLisp_ast_type_string")},
+		{X("duckLisp_ast_type_float")},
+		{X("duckLisp_ast_type_int")},
+		{X("duckLisp_ast_type_bool")},
 #undef X
 	};
 
@@ -222,6 +220,14 @@ dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
 		if (e) goto l_cleanup;
 
 		e = dl_array_pushElements(&string, DL_STR("\". Was passed type \""));
+		if (e) goto l_cleanup;
+
+		e = dl_array_pushElements(&string,
+		                          typeString[astCompoundExpression.type].value,
+		                          typeString[astCompoundExpression.type].value_length);
+		if (e) goto l_cleanup;
+
+		e = dl_array_pushElements(&string, DL_STR("\"."));
 		if (e) goto l_cleanup;
 
 		e = duckLisp_error_pushRuntime(duckLisp,
