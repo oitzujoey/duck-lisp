@@ -176,6 +176,7 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		}
 		else if (object->type == duckLisp_object_type_closure) {
 			duckVM_gclist_markObject(&duckVM->gclist, object->value.closure.upvalue_array);
+			duckVM_gclist_markObject(&duckVM->gclist, object->value.closure.bytecode);
 		}
 		else if (object->type == duckLisp_object_type_vector) {
 			duckVM_gclist_markObject(&duckVM->gclist, object->value.vector.internal_vector);
