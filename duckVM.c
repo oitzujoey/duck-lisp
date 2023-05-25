@@ -1062,9 +1062,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		break;
 
-	case duckLisp_instruction_funcall8:
+	case duckLisp_instruction_funcall32:
 		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_funcall16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_funcall8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		uint8 = *(ip++);
+		printf("R index %lli  length %llu\n", ptrdiff1, duckVM->stack.elements_length);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
 		if (object1.type == duckLisp_object_type_function) {
@@ -1170,12 +1178,21 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ip = &bytecode->value.bytecode.bytecode[object1.value.closure.name];
 		break;
 
-	case duckLisp_instruction_apply8:
+	case duckLisp_instruction_apply32:
 		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_apply16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_apply8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
 		if (object1.type != duckLisp_object_type_closure) {
+			printf("type %i\n", object1.type);
+			e = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Applied object is not a closure."));
 			e = dl_error_invalidValue;
 			break;
 		}
@@ -1183,12 +1200,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = stack_pop(duckVM, &rest);
 		if (e) break;
 		if (rest.type != duckLisp_object_type_list) {
+			e = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Last argument is not a list."));
 			e = dl_error_invalidValue;
 			break;
 		}
 		while ((uint8 < object1.value.closure.arity) && (rest.value.list != dl_null)) {
 			if ((rest.value.list->type != duckLisp_object_type_cons)
 			    || rest.value.list->type != duckLisp_object_type_cons) {
+				e = duckVM_error_pushRuntime(duckVM,
+				                             DL_STR("duckVM_execute->apply: Object pointed to by list root is not a list."));
 				e = dl_error_invalidValue;
 				break;
 			}
@@ -3738,6 +3758,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		}
 	}
 
+	printf("E length %llu\n", duckVM->stack.elements_length);
 	return e;
 }
 

@@ -1978,7 +1978,19 @@ I think I can run new bytecode as is and discard old bytecode since closures sho
 Yielding: The VM halts but the stack remains. Nothing is popped. When the VM starts again, the PC initializes to the begining of the new bytecode as it usually does.
 
 
-Next step: Determine semantics for `comptime'. Implement `comptime'.
+Identifier precedence:
+local (bytecode)
+free (bytecode)
+all
+
+Desired identifier precedence:
+macro
+local (bytecode)
+free (bytecode)
+all
+
+
+Next step: 
 
 Defer:
 	There's a memory bug likely caused by the lack of GC for symbols and strings.

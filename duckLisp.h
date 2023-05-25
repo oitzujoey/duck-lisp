@@ -662,11 +662,11 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
                                const dl_size_t source_length);
 
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp,
-                                       duckLisp_subCompileState_t *compileState,
+                                       duckLisp_compileState_t *compileState,
                                        duckLisp_scope_t *scope,
                                        dl_bool_t is_function);
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp,
-                                      duckLisp_subCompileState_t *subCompileState,
+                                      duckLisp_compileState_t *compileState,
                                       duckLisp_scope_t *scope);
 dl_error_t DECLSPEC duckLisp_addStatic(duckLisp_t *duckLisp,
                                        const char *name,
