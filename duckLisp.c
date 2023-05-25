@@ -4679,7 +4679,7 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 	                         compileState->currentCompileState->assembly.elements_length);
 	if (e) goto cleanup;
 
-	puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length));
+	/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */
 
 	e = duckVM_execute(&duckLisp->vm, &returnValue, bytecode.elements, bytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,
@@ -4777,9 +4777,9 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	                         compileState->comptimeCompileState.assembly.elements_length);
 	if (e) goto cleanup;
 
-	puts(duckLisp_disassemble(duckLisp->memoryAllocation,
-	                          macroBytecode.elements,
-	                          macroBytecode.elements_length));
+	/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, */
+	/*                           macroBytecode.elements, */
+	/*                           macroBytecode.elements_length)); */
 
 	e = duckVM_execute(&duckLisp->vm, dl_null, macroBytecode.elements, macroBytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,
@@ -4821,6 +4821,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	duckLisp_ast_identifier_t gensym = {0};
+	duckLisp_ast_identifier_t selfGensym = {0};
 	dl_size_t startStack_length = 0;
 
 	dl_array_t bodyAssembly;
@@ -4848,9 +4849,9 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 	{
 		dl_ptrdiff_t function_label_index = -1;
 
-		// Header.
+		/* Header. */
 
-		e = duckLisp_pushScope(duckLisp, compileState, dl_null, dl_true);
+		e = duckLisp_pushScope(duckLisp, compileState, dl_null, dl_false);
 		if (e) goto cleanup;
 
 		e = duckLisp_scope_addObject(duckLisp, compileState, DL_STR("self"));
@@ -4867,34 +4868,46 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			if (e) goto cleanup;
 		}
 
+		e = duckLisp_pushScope(duckLisp, compileState, dl_null, dl_true);
+		if (e) goto cleanup;
+
 		e = duckLisp_gensym(duckLisp, &gensym);
 		if (e) goto cleanup;
 
 		e = duckLisp_register_label(duckLisp, compileState->currentCompileState, gensym.value, gensym.value_length);
 		if (e) goto cleanup_gensym;
 
-		// (goto gensym)
+		/* (goto gensym) */
 		e = duckLisp_emit_jump(duckLisp, compileState, &bodyAssembly, gensym.value, gensym.value_length);
 		if (e) goto cleanup_gensym;
 
-		e = duckLisp_register_label(duckLisp, compileState->currentCompileState, DL_STR("self"));
+		e = duckLisp_gensym(duckLisp, &selfGensym);
+		if (e) goto cleanup;
+
+		e = duckLisp_register_label(duckLisp,
+		                            compileState->currentCompileState,
+		                            selfGensym.value,
+		                            selfGensym.value_length);
 		if (e) goto cleanup_gensym;
 
-		// (label function_name)
-		e = duckLisp_emit_label(duckLisp, compileState, &bodyAssembly, DL_STR("self"));
+		/* (label function_name) */
+		e = duckLisp_emit_label(duckLisp, compileState, &bodyAssembly, selfGensym.value, selfGensym.value_length);
 		if (e) goto cleanup_gensym;
 
-		// `label_index` should never equal -1 after this function exits.
-		e = scope_getLabelFromName(compileState->currentCompileState, &function_label_index, DL_STR("self"));
+		/* `label_index` should never equal -1 after this function exits. */
+		e = scope_getLabelFromName(compileState->currentCompileState,
+		                           &function_label_index,
+		                           selfGensym.value,
+		                           selfGensym.value_length);
 		if (e) goto cleanup_gensym;
 		if (function_label_index == -1) {
-			// We literally just added the function name to the parent scope.
+			/* We literally just added the function name to the parent scope. */
 			e = dl_error_cantHappen;
 			goto cleanup_gensym;
 		}
 
 
-		// Arguments
+		/* Arguments */
 
 		startStack_length = getLocalsLength(compileState);
 
@@ -5003,6 +5016,9 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			if (e) goto cleanup_gensym;
 			if (pure != dl_null) *pure = scope.function_uvs_length == 0;
 		}
+
+		e = duckLisp_popScope(duckLisp, compileState, dl_null);
+		if (e) goto cleanup_gensym;
 
 		e = duckLisp_popScope(duckLisp, compileState, dl_null);
 		if (e) goto cleanup_gensym;
@@ -6786,7 +6802,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	/* 	                              expression->compoundExpressions[0].value.identifier.value_length); */
 	/* } */
 	if (e) goto cleanupArrays;
-	printf("C index %lli  length %llu\n", functionIndex, getLocalsLength(compileState));
 
 	/* Generate bytecode for arguments. */
 
@@ -6843,8 +6858,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 			}
 		}
 
-		printf("C index %lli  length %llu\n", functionIndex, getLocalsLength(compileState));
-		printf("R index %lli  length %llu\n", functionIndex, duckLisp->vm.stack.elements_length);
 		/* The zeroth argument is the function name, which also happens to be a label. */
 		e = duckLisp_emit_funcall(duckLisp,
 		                          compileState,
@@ -6855,7 +6868,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 		compileState->currentCompileState->locals_length = outerStartStack_length + 1;
 	}
-	printf("C index %lli  length %llu\n", functionIndex, getLocalsLength(compileState));
 
 	/* Assemble. */
 
@@ -6867,7 +6879,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Execute macro. */
 
-	puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length));
+	/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */
 
 	e = duckVM_execute(&duckLisp->vm, &return_value, bytecode.elements, bytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,
@@ -6888,13 +6900,11 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	e = duckLisp_objectToAST(duckLisp, &ast, &return_value, dl_true);
 	if (e) goto cleanupArrays;
 
-	duckLisp_ast_print(duckLisp, ast);
+	/* duckLisp_ast_print(duckLisp, ast); */
 
-	/* while (compileState->currentCompileState->locals_length > startStack_length) { */
 	e = duckVM_pop(&duckLisp->vm, dl_null);
 	if (e) goto cleanupArrays;
 	/**/ decrementLocalsLength(compileState);
-	/* } */
 
 	compileState->currentCompileState->locals_length = lastLocalsLength;
 	compileState->currentCompileState = lastSubCompileState;

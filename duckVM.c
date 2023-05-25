@@ -1072,7 +1072,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_funcall8:
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		uint8 = *(ip++);
-		printf("R index %lli  length %llu\n", ptrdiff1, duckVM->stack.elements_length);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
 		if (object1.type == duckLisp_object_type_function) {
@@ -3758,7 +3757,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		}
 	}
 
-	printf("E length %llu\n", duckVM->stack.elements_length);
 	return e;
 }
 

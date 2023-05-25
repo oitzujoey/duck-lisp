@@ -1,109 +1,4 @@
-(defmacro identity (x)
-  x)
-
-(defmacro to (variable function &rest args)
-  (var subform (list function variable))
-  (set-cdr (cdr subform) args)
-  (list (quote setq) variable subform))
-
-(defmacro and (&rest args)
-  (if args
-	  (list (quote if) (car args)
-			(apply self (cdr args))
-			false)
-	  true))
-
-(defmacro or (&rest args)
-  (if args
-	  (list (quote if) (car args)
-			true
-			(apply self (cdr args)))
-	  false))
-
-(comment Pure)
-(defun 1+ (x)
-  (+ 1 x))
-(var y 4)
-(comment Impure)
-(defun y+ (x)
-  (+ y x))
-(comment Pure)
-(defun 1+1+ (x)
-  (1+ (1+ x)))
-
-(var x 5)
-(print x)
-(to x + 1)  (comment Expands to (setq x (+ x 1)))
-(to x 1+)
-(print x) (print "\n")
-
-(print (identity (quote variable))) (print "\n")
-
-(print (or 18)) (print "\n\n")
-
-(print (and (
-			 (print "First") (print "\n")
-			 true)
-			(
-			 (print "Second") (print "\n")
-			 false)
-			(
-			 (print "Third") (print "\n")
-			 true)))
-(print "\n")
-
-(defmacro comptime-disassemble ()
-  (disassemble))
-(comment (comptime-disassemble))
-
-(defmacro comptime-print (value)
-  (print value)
-  value)
-
-(print (comptime-print "Hello!\n"))
-
-(defmacro init ()
-  (global channel ())
-  ())
-
-(defmacro send (v)
-  (setq channel v)
-  ())
-
-(defmacro receive ()
-  channel)
-
-(init)
-(send "Message")
-(print (receive))
-(print "\n")
-
-(comptime
- (var lexical-channel ())
- ())
-
-(defmacro send (v)
-  (setq lexical-channel v)
-  ())
-
-(defmacro receive ()
-  lexical-channel)
-
-(send "Lexical message")
-(print (receive))
-(print "\n")
-
-(comptime
- (defun f ()
-   (print "captured!\n")
-   ())
- ())
-
-(defmacro m ()
-  (f))
-(m)
-
-
+(comment Compile forms in both runtime and comptime environments)
 (defmacro bothtime (&rest body)
   (list (quote noscope)
         (cons (quote comptime)
@@ -111,8 +6,42 @@
         (cons (quote noscope)
               body)))
 
+(comment Define a function in both runtime and comptime environments)
+(defmacro bdefun (name parameters &rest body)
+  (var defun (list (quote defun) name parameters))
+  (set-cdr (cdr (cdr defun)) body)
+  (list (quote bothtime)
+        defun
+        ()))
+
+(comment Define some functions in both runtime and comptime environments)
+(bdefun first (list)
+        (car list))
+(bdefun rest (x)
+        (cdr x))
+
+(bdefun list* (&rest args)
+        (if (null? (rest args))
+            (first args)
+            (cons (first args) (apply self (rest args)))))
+
+(defmacro to (variable form)
+  (list (quote setq) variable (list* (car form) variable (cdr form))))
+
+(comment Define a variable in both runtime and comptime environments)
 (bothtime
  (var both 5))
+
+(comment Expand a macro in code that is expanded by other macros)
+(bdefun inc ()
+        (to both (+ 4)))
+
+(comment Print 9)
+(print both)
+(comptime
+ (print both))
+
+(bothtime (inc))
 
 (print both)
 (comptime
