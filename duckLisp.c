@@ -5269,6 +5269,46 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_generator_error(duckLisp_t *duckLisp,
+                                    duckLisp_compileState_t *compileState,
+                                    dl_array_t *assembly,
+                                    duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	(void) assembly;
+	(void) compileState;
+
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2, dl_false);
+	if (e) goto cleanup;
+	e = duckLisp_checkTypeAndReportError(duckLisp,
+	                                     expression->compoundExpressions[0].value.identifier,
+	                                     expression->compoundExpressions[1],
+	                                     duckLisp_ast_type_string);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(&eString,
+	                          expression->compoundExpressions[0].value.identifier.value,
+	                          expression->compoundExpressions[0].value.identifier.value_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(&eString, DL_STR(": "));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(&eString,
+	                          expression->compoundExpressions[1].value.string.value,
+	                          expression->compoundExpressions[1].value.string.value_length);
+	if (e) goto cleanup;
+	eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
+	if (eError) e = eError;
+	goto cleanup;
+
+ cleanup:
+	eError = dl_array_quit(&eString);
+	if (eError) e = eError;
+
+	return dl_error_invalidValue;
+}
+
 dl_error_t duckLisp_generator_not(duckLisp_t *duckLisp,
                                   duckLisp_compileState_t *compileState,
                                   dl_array_t *assembly,
@@ -5645,16 +5685,21 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		goto cleanup;
 	}
 
-	if (forceGoto && branch) {
-		e = duckLisp_compile_compoundExpression(duckLisp,
-		                                        compileState,
-		                                        assembly,
-		                                        expression->compoundExpressions[0].value.identifier.value,
-		                                        expression->compoundExpressions[0].value.identifier.value_length,
-		                                        &expression->compoundExpressions[2],
-		                                        dl_null,
-		                                        dl_null,
-		                                        dl_true);
+	if (forceGoto) {
+		if (branch) {
+			e = duckLisp_emit_nil(duckLisp, compileState, assembly);
+		}
+		else {
+			e = duckLisp_compile_compoundExpression(duckLisp,
+			                                        compileState,
+			                                        assembly,
+			                                        expression->compoundExpressions[0].value.identifier.value,
+			                                        expression->compoundExpressions[0].value.identifier.value_length,
+			                                        &expression->compoundExpressions[2],
+			                                        dl_null,
+			                                        dl_null,
+			                                        dl_true);
+		}
 		goto cleanup;
 	}
 	else {
@@ -5789,16 +5834,21 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp,
 		goto cleanup;
 	}
 
-	if (forceGoto && branch) {
-		e = duckLisp_compile_compoundExpression(duckLisp,
-		                                        compileState,
-		                                        assembly,
-		                                        expression->compoundExpressions[0].value.identifier.value,
-		                                        expression->compoundExpressions[0].value.identifier.value_length,
-		                                        &expression->compoundExpressions[2],
-		                                        dl_null,
-		                                        dl_null,
-		                                        dl_true);
+	if (forceGoto) {
+		if (branch) {
+			e = duckLisp_compile_compoundExpression(duckLisp,
+			                                        compileState,
+			                                        assembly,
+			                                        expression->compoundExpressions[0].value.identifier.value,
+			                                        expression->compoundExpressions[0].value.identifier.value_length,
+			                                        &expression->compoundExpressions[2],
+			                                        dl_null,
+			                                        dl_null,
+			                                        dl_true);
+		}
+		else {
+			e = duckLisp_emit_nil(duckLisp, compileState, assembly);
+		}
 		goto cleanup;
 	}
 	else {
@@ -9509,6 +9559,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                  {DL_STR("set-cdr"),            duckLisp_generator_setCdr},
 	                  {DL_STR("null?"),              duckLisp_generator_nullp},
 	                  {DL_STR("type-of"),            duckLisp_generator_typeof},
+	                  {DL_STR("error"),              duckLisp_generator_error},
 	                  {dl_null, 0,                   dl_null}};
 
 	// /* No error */ cst_expression_init(&duckLisp->cst);

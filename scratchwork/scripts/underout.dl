@@ -1,3 +1,5 @@
+(comptime (print "<comptime underout.dl>\n"))
+(print "<underout.dl>\n")
 (include "../scripts/library.dl")
 
 (comment Under-Out
@@ -110,3 +112,6 @@
   (println "\nCycles ․․․․․․․․․․․․․ " (cadr cycles))
   (println "\nNumber of cycles ․․․ " (caddr cycles))
   (println "\nIdentity shuffles ․․ " identity-shuffles))
+
+(comptime (print "</comptime underout.dl>\n"))
+(print "</underout.dl>\n")
