@@ -94,3 +94,7 @@ Extending the language is done by adding generators and callbacks to the compile
 `duckVM.c`: This contains the VM.
 
 Examples on how to extend the language can be found in `duckLisp-dev.c`.
+
+## Is it any good?
+
+Um…
