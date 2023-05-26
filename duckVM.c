@@ -2727,6 +2727,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				object1.value.boolean = dl_false;
 			}
 			break;
+		case duckLisp_object_type_type:
+			switch (object2.type) {
+			case duckLisp_object_type_type:
+				object1.value.boolean = (object1.value.type == object2.value.type);
+				break;
+			default:
+				object1.value.boolean = dl_false;
+			}
+			break;
 		default:
 			e = dl_error_invalidValue;
 			goto cleanup;
@@ -3611,31 +3620,18 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_typeof32:
 		ptrdiff1 = *(ip++);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
-		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-		if (e) break;
-		object2.type = duckLisp_object_type_integer;
-		object2.value.integer = object1.type;
-		e = stack_push(duckVM, &object2);
-		if (e) break;
-		break;
+		/* Fall through. */
 	case duckLisp_instruction_typeof16:
-		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_typeof8:
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		object2.type = duckLisp_object_type_integer;
-		object2.value.integer = object1.type;
-		e = stack_push(duckVM, &object2);
-		if (e) break;
-		break;
-	case duckLisp_instruction_typeof8:
-		ptrdiff1 = *(ip++);
-		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
-		if (e) break;
-		object2.type = duckLisp_object_type_integer;
-		object2.value.integer = object1.type;
+		object2.type = duckLisp_object_type_type;
+		object2.value.type = ((object2.type == duckLisp_object_type_composite)
+		                      ? object1.value.composite.type
+		                      : object1.type);
 		e = stack_push(duckVM, &object2);
 		if (e) break;
 		break;

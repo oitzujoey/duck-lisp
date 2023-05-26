@@ -1989,6 +1989,24 @@ local (bytecode)
 free (bytecode)
 all
 
+(make-type)::Type
+(make-instance type::Type value::Any closure::Any)::type
+(type-of object::Any)::Type
+(value object::Any)::Any
+(function object::Any)::Any
+(set-value object::Composite value::Any)
+(set-function object::Composite function::Any)
+
+(defun make-type () 4)
+(defun make-instance (type value closure) (vector type value closure))
+(defun type-of (object) (elt object 0))
+(defun value (object) (elt object 1))
+(defun function (object) (elt object 2))
+(defun set-value (object value) (set-vector-element object 1 value))
+(defun set-function (object function) (set-vector-element object 2 function))
+
+The new types are called "type" and "composite".
+
 
 Next step: 
 

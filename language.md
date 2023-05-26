@@ -310,7 +310,7 @@ Duck-lisp supports `quote` and the symbol data type. This is enough to implement
 (print (quote (+ 4 17)))  (; ⇒ (+→0 4 17))
 ```
 
-Simple macros are also supported.
+Common Lisp-like macros are also supported.
 
 ```lisp
 (defmacro to (variable form)
@@ -330,7 +330,7 @@ Simple macros are also supported.
   list)
 ```
 
-Macros, like functions, can also be variadic.
+Macros, like functions, can be variadic.
 
 ```lisp
 (defmacro to (variable function &rest args)
@@ -359,4 +359,52 @@ or alternatively,
   list)
 ```
 
-The most significant limitation is that, with the exception of globals, free variables and functions cannot be accessed in the macro definition, so any external functions the macro uses must be redefined in the body of `defmacro`.
+The most significant limitation is that there are separate runtime and compile time environments, which means that macros cannot call functions in the runtime environment and functions in the runtime environment cannot call functions in the compile time environment. The `comptime` keyword is provided to run code at compile time.
+
+```lisp
+(comptime
+ (defun list* (&rest args)
+   (if (null? (cdr args))
+       (car args)
+       (cons (car args) (apply self (cdr args))))))
+
+(; `to' calls the compile time function `list*')
+(defmacro to (variable form)
+  (list (quote setq) variable (list* (car form) variable (cdr form))))
+```
+
+Macros are really just compile time functions declared in the runtime environment, so it is possible to call macros like functions at compile time.
+
+```lisp
+(defmacro and (&rest args)
+  (if args
+	  (list (quote if) (car args)
+            (; `self' is always called as a function)
+			(apply self (cdr args))
+			false)
+	  true))
+```
+
+Calling a macro using normal function call syntax at compile time still results in it being treated as a macro.
+
+```lisp
+(comptime
+ (var x 4)
+ (to x (+ 5))
+ (print x))  (; ⇒ 9)
+```
+
+`funcall` can be used to explicitly force calling the macro as a function.
+
+```lisp
+(comptime
+ (var x 4)
+ (funcall to x (+ 5))  (; Error: `+' requires two arguments)
+ (print x))
+```
+
+`comptime` can be used to calculate constants at compile time, but it is unable to pass closures to the runtime environment.
+
+```lisp
+(print (comptime (+ 3 4)))  (; ⇒ 7)
+```

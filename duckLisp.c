@@ -4622,6 +4622,10 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		                                    DL_STR("objectToAST: Attempted to convert closure to expression."));
 		if (!e) e = eError;
 		break;
+	case duckLisp_object_type_type:
+		ast->value.integer.value = object->value.type;
+		ast->type = duckLisp_ast_type_int;
+		break;
 	default:
 		e = dl_error_invalidValue;
 		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("objectToAST: Illegal object type."));

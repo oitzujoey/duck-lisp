@@ -86,6 +86,8 @@ typedef enum {
   duckLisp_object_type_function,
   duckLisp_object_type_closure,
   duckLisp_object_type_vector,
+  duckLisp_object_type_type,
+  duckLisp_object_type_composite,
 
   /* These types should never appear on the stack. */
   duckLisp_object_type_cons,
@@ -154,6 +156,12 @@ typedef struct duckLisp_object_s {
 			dl_uint8_t *bytecode;
 			dl_size_t bytecode_length;
 		} bytecode;
+		dl_size_t type;
+		struct {
+			dl_size_t type;
+			struct duckLisp_object_s *value;
+			struct duckLisp_object_s *function;
+		} composite;
 	} value;
 	duckLisp_object_type_t type;
 	dl_bool_t inUse;

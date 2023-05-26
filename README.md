@@ -7,11 +7,11 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 ## Features
 
 * Lexical scope
-* Simple macros
+* Common Lisp-like macros
 * UTF-8 compatible
 * User created keywords
 * C FFI
-* Separate compiler and VM
+* Split compiler and VM
 * Tested on x64 (Linux) and ARM (Linux)
 * A simplified VM has been used on an ATmega328P.
 
@@ -23,13 +23,12 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 
 ### Quirks
 
-* Functions created by `defun` are lexically scoped.
-* Built-in keywords can be overridden using `defun`.
-* Variables are declared as they are in C-based languages. There is no `let`.
+* Functions created by `defun` and `defmacro` are lexically scoped.
+* Built-in keywords can be overridden using `var`, `defun` and `defmacro`.
+* Variables are declared as they are in C-like languages. There is no `let`.
 
 ### Misfeatures
 
-* Functions do not have signatures. i.e. `(funcall (lambda (a b) (+ a b)) 5)` will compile but crash the VM.
 * Error reporting is horrible. It will likely stay this way.
 * There are no debug features other than a disassembler.
 
@@ -89,7 +88,7 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 
 ## Usage
 
-Extending the language is done by adding generators and callbacks to the language. Generators are functions that convert the AST to bytecode during compilation. Callbacks are functions that are called at runtime to perform I/O and tasks that would be slower or difficult in the VM.
+Extending the language is done by adding generators and callbacks to the compiler and VM. Generators are functions that convert the AST to bytecode during compilation. Callbacks are functions that are called at runtime to perform I/O and tasks that would be slow or difficult in the VM.
 
 `duckLisp.c`: This contains the compiler.  
 `duckVM.c`: This contains the VM.
