@@ -448,17 +448,17 @@
   (funcall to variable (list (quote 1-))))
 
 (defmacro dolist (bind &rest body)
+  (var dolist-temp (gensym))
   (var variable (car bind))
   (var l (car (cdr bind)))
   (var return (car (cdr (cdr bind))))
-  (setq body (nreverse (cons (list (quote pop) (quote dolist-temp))
+  (setq body (nreverse (cons (list (quote pop) dolist-temp)
 							 (nreverse body))))
   (list
-   (list (quote var) (quote dolist-temp) l)
+   (list (quote var) dolist-temp l)
    (list (quote var) variable ())
-   (cons (quote while) (cons (quote dolist-temp)
-							 (cons (list (quote setq) variable (list (quote car) (quote dolist-temp)))
-								   
+   (cons (quote while) (cons dolist-temp
+							 (cons (list (quote setq) variable (list (quote car) dolist-temp))
 								   body)))
    return))
 
@@ -537,10 +537,11 @@
           (print place))            ; ⇒ 7
          )
 (defmacro ref (place)
+  (var ref-value (gensym))
   (list (quote cons)
         (list (quote lambda) (list) place)
-        (list (quote lambda) (list (quote __ref-value))
-              (list (quote setq) place (quote __ref-value)))))
+        (list (quote lambda) (list ref-value)
+              (list (quote setq) place ref-value))))
 
 (bdefun deref (reference)
         (funcall (car reference)))

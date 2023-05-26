@@ -64,6 +64,7 @@ typedef struct {
 	dl_array_t globals;  /* duckVM_object_t * */
 	dl_array_t globals_map;  /* dl_ptrdiff_t */
 	duckVM_gclist_t gclist;
+	void *duckLisp;
 } duckVM_t;
 
 typedef enum {

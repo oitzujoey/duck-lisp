@@ -9509,6 +9509,28 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
   ================
 */
 
+dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	duckLisp_t *duckLisp = duckVM->duckLisp;
+	duckLisp_object_t object;
+	duckLisp_ast_identifier_t identifier;
+	e = duckLisp_gensym(duckLisp, &identifier);
+	if (e) goto cleanup;
+
+	e = duckLisp_symbol_create(duckLisp, identifier.value, identifier.value_length);
+	if (e) goto cleanup;
+
+	object.type = duckLisp_object_type_symbol;
+	object.value.symbol.id = duckLisp_symbol_nameToValue(duckLisp, identifier.value, identifier.value_length);
+	/**/ dl_memcopy_noOverlap(object.value.symbol.value, identifier.value, identifier.value_length);
+	object.value.symbol.value_length = identifier.value_length;
+	e = duckVM_push(duckVM, &object);
+	if (e) goto cleanup;
+ cleanup:
+	return e;
+}
+
 dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	dl_error_t error = dl_error_ok;
 
@@ -9562,6 +9584,15 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	                  {DL_STR("error"),              duckLisp_generator_error},
 	                  {dl_null, 0,                   dl_null}};
 
+	struct {
+		const char *name;
+		const dl_size_t name_length;
+		dl_error_t (*callback)(duckVM_t *);
+	} callbacks[] = {
+		{DL_STR("gensym"), duckLisp_callback_gensym},
+		{dl_null, 0,       dl_null}
+	};
+
 	// /* No error */ cst_expression_init(&duckLisp->cst);
 	// /* No error */ ast_expression_init(&duckLisp->ast);
 	/* No error */ dl_array_init(&duckLisp->errors,
@@ -9599,25 +9630,27 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	error = duckVM_init(&duckLisp->vm, 1000);
 	if (error) goto cleanup;
 
-	{
-		/* String: "\0" */
-		char *string = "";
-		dl_size_t length = 1;
-		error = duckLisp_symbol_create(duckLisp, string, length);
-		if (error) goto cleanup;
-		dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp, string, length);
-		duckLisp_object_t object;
-		object.type = duckLisp_object_type_list;
-		object.value.list = dl_null;
-		duckLisp_object_t *objectPtr;
-		error = duckVM_gclist_pushObject(&duckLisp->vm, &objectPtr, object);
-		if (error) goto cleanup;
-		error = duckVM_makeGlobal(&duckLisp->vm, key, objectPtr);
-		if (error) goto cleanup;
+	duckLisp->vm.duckLisp = duckLisp;
+
+	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
+		error = duckLisp_linkCFunction(duckLisp, callbacks[i].callback, callbacks[i].name, callbacks[i].name_length);
+		if (error) {
+			printf("Could not create function. (%s)\n", dl_errorString[error]);
+			goto cleanup;
+		}
 	}
 
-	cleanup:
+	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
+		error = duckVM_linkCFunction(&duckLisp->vm,
+		                         duckLisp_symbol_nameToValue(duckLisp, callbacks[i].name, callbacks[i].name_length),
+		                         callbacks[i].callback);
+		if (error) {
+			printf("Could not link callback into VM. (%s)\n", dl_errorString[error]);
+			goto cleanup;
+		}
+	}
 
+ cleanup:
 	return error;
 }
 
