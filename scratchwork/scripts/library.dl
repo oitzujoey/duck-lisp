@@ -508,3 +508,6 @@
 
 (bdefun set-deref (reference value)
   (funcall (cdr reference) value))
+
+(comment If we are going to pause anywhere, this is the place)
+(garbage-collect)
