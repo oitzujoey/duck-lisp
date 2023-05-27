@@ -63,8 +63,10 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckLisp_object_t *c
 		printf("nil");
 	}
 	else {
-		if ((cons->value.cons.car == dl_null)
-		    || (cons->value.cons.car->type == duckLisp_object_type_cons)) {
+		if (cons->value.cons.car == dl_null) {
+			printf("nil");
+		}
+		else if (cons->value.cons.car->type == duckLisp_object_type_cons) {
 			printf("(");
 			e = duckLispDev_callback_printCons(duckVM, cons->value.cons.car);
 			if (e) goto l_cleanup;
@@ -255,6 +257,9 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		}
 		printf("]");
 		break;
+	case duckLisp_object_type_type:
+		printf("::%llu", object.value.type);
+		break;
 	default:
 		printf("print: Unsupported type. [%u]\n", object.type);
 	}
@@ -440,6 +445,9 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			}
 		}
 		printf("]\n");
+			break;
+		case duckLisp_object_type_type:
+			printf("::%llu\n", tempObject.value.type);
 			break;
 		default:
 			printf("Bad object type %u.\n", tempObject.type);
@@ -804,7 +812,7 @@ int eval(duckLisp_t *duckLisp,
 	/* Fetch script. */
 
 	// Provide implicit progn.
-	e = dl_array_pushElements(&sourceCode, DL_STR("((;) "));
+	e = dl_array_pushElements(&sourceCode, DL_STR("(() "));
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(&sourceCode, source, source_length);
