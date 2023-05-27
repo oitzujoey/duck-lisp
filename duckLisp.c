@@ -9317,8 +9317,8 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	eError = dl_array_quit(&eString);
 	if (eError) e = eError;
 
-	e = dl_array_quit(&labels);
-	if (e) goto cleanup;
+	eError = dl_array_quit(&labels);
+	if (eError) e = eError;
 
 	return e;
 }
