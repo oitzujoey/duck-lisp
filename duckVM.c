@@ -1074,7 +1074,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type == duckLisp_object_type_composite) {
+		while (object1.type == duckLisp_object_type_composite) {
 			object1 = *object1.value.composite->value.internalComposite.function;
 		}
 		if (object1.type == duckLisp_object_type_function) {
@@ -1192,7 +1192,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type == duckLisp_object_type_composite) {
+		while (object1.type == duckLisp_object_type_composite) {
 			object1 = *object1.value.composite->value.internalComposite.function;
 		}
 		if (object1.type != duckLisp_object_type_closure) {
