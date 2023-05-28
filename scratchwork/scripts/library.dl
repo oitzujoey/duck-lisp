@@ -415,7 +415,9 @@
         (nth n list))
 
 (bdefun last (list)
-        (car (nreverse list)))
+        (while (cdr list)
+	      (pop list))
+        list)
 
 (bdefun append (list1 list2)
         (var appended-list ())
