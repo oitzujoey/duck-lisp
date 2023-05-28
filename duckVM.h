@@ -64,6 +64,7 @@ typedef struct {
 	dl_array_t globals;  /* duckVM_object_t * */
 	dl_array_t globals_map;  /* dl_ptrdiff_t */
 	duckVM_gclist_t gclist;
+	dl_size_t nextUserType;
 	void *duckLisp;
 } duckVM_t;
 
@@ -96,6 +97,10 @@ typedef enum {
   duckLisp_object_type_upvalueArray,
   duckLisp_object_type_internalVector,
   duckLisp_object_type_bytecode,
+  duckLisp_object_type_internalComposite,
+
+  /* This is... you guessed it... the last entry in the enum. */
+  duckLisp_object_type_last,
 } duckLisp_object_type_t;
 
 typedef struct duckLisp_object_s {
@@ -162,7 +167,8 @@ typedef struct duckLisp_object_s {
 			dl_size_t type;
 			struct duckLisp_object_s *value;
 			struct duckLisp_object_s *function;
-		} composite;
+		} internalComposite;
+		struct duckLisp_object_s *composite;
 	} value;
 	duckLisp_object_type_t type;
 	dl_bool_t inUse;

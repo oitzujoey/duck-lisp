@@ -1997,29 +1997,46 @@ all
 (set-value object::Composite value::Any)
 (set-function object::Composite function::Any)
 
-(defun make-type () 4)
-(defun make-instance (type value closure) (vector type value closure))
-(defun type-of (object) (elt object 0))
-(defun value (object) (elt object 1))
-(defun function (object) (elt object 2))
-(defun set-value (object value) (set-vector-element object 1 value))
-(defun set-function (object function) (set-vector-element object 2 function))
+(defun __make-type () 4)
+(defun __make-instance (type value closure) (vector type value closure))
+(defun __type-of (object) (elt object 0))
+(defun __composite-value (object) (elt object 1))
+(defun __composite-function (object) (elt object 2))
+(defun __set-composite-value (object value) (set-vector-element object 1 value))
+(defun __set-composite-function (object function) (set-vector-element object 2 function))
 
 The new types are called "type" and "composite".
 
+Matrix {
+I've had quite a bit of trouble with stack balance, the past week and in the past, so I slightly changed the rules a little bit. The old ones were like below, but a little more ad-hoc.
 
-Next step: 
+1.  All "normal" generators emit a sequence of instructions to push one object on the stack. This one object may be popped by the calling generator without problem. As many generators as possible should be normal.
+    + is a normal generator. Scope (which is invoked by wrapping parentheses around several statements) is a normal generator. `if` and `setq` are normal generators.
+    `noscope` is not a normal generator. `funcall` is not a normal generator. Macros are not normal generators.
+2.  Function calls pop their arguments and push one object on the stack.
+3.  `var` and `defun` push two objects on the stack. The new top object can safely be popped by the calling generator.
+4.  `defmacro` acts like `defun` in the compile time environment and `nil` in the run time environment.
+5.  `noscope` may push any number of objects on the stack, but it always pushes one extra that can safely be popped by the calling generator. This allows `var`, `defun`, and `defmacro` to create static variables that remain after `noscope` exits.
+}
+
+
+Next step:
 
 Defer:
 	There's a memory bug likely caused by the lack of GC for symbols and strings.
 
 Todo:
-	macros
-	Clean up.
+    User-defined types
+    library: composite types
+    library: multiple dispatch
+    Hash tables?
+    Strings
+	Peephole optimization
+    Floats
 	Profile.
-	Optimize?
+    Optimization?
 	Clean up.
-	Merge with Hidey-Chess and add required functions.
+	Create Hidey-Chess branch and add required functions.
 	Clean up.
 
 How to design your compiler for macros:

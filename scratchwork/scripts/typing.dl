@@ -1,0 +1,18 @@
+(print "{\n")
+
+(__comptime (disassemble))
+
+(print (__make-type)) (print "\n")
+(print (__make-type)) (print "\n")
+(__var my-type (__make-type))
+(print my-type) (print "\n")
+(__var my-object (__make-instance my-type 5 (__lambda ())))
+(print my-object) (print "\n")
+(print (__type-of my-object)) (print "\n")
+(print (__composite-value my-object)) (print "\n")
+(print (__composite-function my-object)) (print "\n")
+(__set-composite-value my-object (__quote value))
+(__set-composite-function my-object (__quote function))
+(print my-object) (print "\n")
+
+(print "}\n")

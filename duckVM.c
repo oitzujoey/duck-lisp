@@ -346,6 +346,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
 	duckVM->currentBytecode = dl_null;
+	duckVM->nextUserType = duckLisp_object_type_last;
 	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->call_stack,
@@ -361,7 +362,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	                   sizeof(duckLisp_object_t **),
 	                   dl_array_strategy_fit);
 	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, dl_null);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 	/**/ dl_array_init(&duckVM->upvalue_array_length_call_stack,
 	                   duckVM->memoryAllocation,
 	                   sizeof(dl_size_t),
@@ -375,10 +376,9 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	                   sizeof(dl_ptrdiff_t *),
 	                   dl_array_strategy_fit);
 	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxObjects);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
-	l_cleanup:
-
+ cleanup:
 	return e;
 }
 
@@ -3475,7 +3475,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (e) break;
 		break;
 
-		// I probably don't need an `if` if I research the standard a bit.
 	case duckLisp_instruction_setCar32:
 		ptrdiff1 = *(ip++);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -3616,7 +3615,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (e) break;
 		break;
 
-		// I probably don't need an `if` if I research the standard a bit.
 	case duckLisp_instruction_typeof32:
 		ptrdiff1 = *(ip++);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -3629,11 +3627,256 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
 		object2.type = duckLisp_object_type_type;
-		object2.value.type = ((object2.type == duckLisp_object_type_composite)
-		                      ? object1.value.composite.type
+		object2.value.type = ((object1.type == duckLisp_object_type_composite)
+		                      ? object1.value.composite->value.internalComposite.type
 		                      : object1.type);
 		e = stack_push(duckVM, &object2);
 		if (e) break;
+		break;
+
+	case duckLisp_instruction_makeType:
+		object1.type = duckLisp_object_type_type;
+		object1.value.type = duckVM->nextUserType++;
+		e = stack_push(duckVM, &object1);
+		if (e) break;
+		break;
+
+	case duckLisp_instruction_makeInstance32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_makeInstance16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_makeInstance8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+		ptrdiff2 = *(ip++);
+		switch (opcode) {
+		case duckLisp_instruction_makeInstance32:
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			/* Fall through */
+		case duckLisp_instruction_makeInstance16:
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			/* Fall through */
+		case duckLisp_instruction_makeInstance8:
+			break;
+		default:
+			e = dl_error_invalidValue;
+			break;
+		}
+		if (e) break;
+
+		ptrdiff3 = *(ip++);
+		switch (opcode) {
+		case duckLisp_instruction_makeInstance32:
+			ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+			ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+			/* Fall through */
+		case duckLisp_instruction_makeInstance16:
+			ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+			/* Fall through */
+		case duckLisp_instruction_makeInstance8:
+			break;
+		default:
+			e = dl_error_invalidValue;
+			break;
+		}
+		if (e) break;
+
+		ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
+		if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->make-instance: Index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+		if (e) break;
+		if (object1.type != duckLisp_object_type_type) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->make-instance: `type` argument must have type `type`."));
+			if (!e) e = eError;
+			break;
+		}
+		if (object1.value.type < duckLisp_object_type_last) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->make-instance: Invalid instance type."));
+			if (!e) e = eError;
+			break;
+		}
+
+		ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
+		if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->make-instance: Index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+		if (e) break;
+
+		ptrdiff3 = duckVM->stack.elements_length - ptrdiff3;
+		if ((ptrdiff3 < 0) || ((dl_size_t) ptrdiff3 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->make-instance: Index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object3, ptrdiff3);
+		if (e) break;
+
+		{
+			dl_size_t type = object1.value.type;
+			object1.type = duckLisp_object_type_internalComposite;
+			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
+			if (e) break;
+			object1.type = duckLisp_object_type_composite;
+			object1.value.composite = objectPtr1;
+			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
+			if (e) break;
+			e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object3);
+			if (e) break;
+			object1.value.composite->value.internalComposite.type = type;
+			object1.value.composite->value.internalComposite.value = objectPtr1;
+			object1.value.composite->value.internalComposite.function = objectPtr2;
+		}
+
+		e = stack_push(duckVM, &object1);
+		if (e) break;
+		break;
+
+	case duckLisp_instruction_compositeValue32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_compositeValue16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_compositeValue8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+		if (e) break;
+		if (object1.type != duckLisp_object_type_composite) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->composite-value: Argument must be a composite type."));
+			if (!e) e = eError;
+			break;
+		}
+		e = stack_push(duckVM, object1.value.composite->value.internalComposite.value);
+		if (e) break;
+		break;
+
+	case duckLisp_instruction_compositeFunction32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_compositeFunction16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_compositeFunction8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+		if (e) break;
+		if (object1.type != duckLisp_object_type_composite) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->composite-function: Argument must be a composite type."));
+			if (!e) e = eError;
+			break;
+		}
+		e = stack_push(duckVM, object1.value.composite->value.internalComposite.function);
+		if (e) break;
+		break;
+
+	case duckLisp_instruction_setCompositeValue32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff2 = *(ip++);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		parsedBytecode = dl_true;
+		/* Fall through */
+	case duckLisp_instruction_setCompositeValue16:
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			parsedBytecode = dl_true;
+		}
+		/* Fall through */
+	case duckLisp_instruction_setCompositeValue8:
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++);
+			ptrdiff2 = *(ip++);
+		}
+		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+		if (e) break;
+		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
+		if (e) break;
+
+		if (object1.type != duckLisp_object_type_composite) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->set-composite-value: First argument must be a composite type."));
+			if (!e) e = eError;
+			break;
+		}
+		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
+		if (e) break;
+		object1.value.composite->value.internalComposite.value = objectPtr1;
+		e = stack_push(duckVM, &object1);
+		break;
+
+	case duckLisp_instruction_setCompositeFunction32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff2 = *(ip++);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		parsedBytecode = dl_true;
+		/* Fall through */
+	case duckLisp_instruction_setCompositeFunction16:
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			parsedBytecode = dl_true;
+		}
+		/* Fall through */
+	case duckLisp_instruction_setCompositeFunction8:
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++);
+			ptrdiff2 = *(ip++);
+		}
+		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+		if (e) break;
+		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
+		if (e) break;
+
+		if (object1.type != duckLisp_object_type_composite) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->set-composite-function: First argument must be a composite type."));
+			if (!e) e = eError;
+			break;
+		}
+		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
+		if (e) break;
+		object1.value.composite->value.internalComposite.function = objectPtr1;
+		e = stack_push(duckVM, &object1);
 		break;
 
 	case duckLisp_instruction_return32:
@@ -3642,14 +3885,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		parsedBytecode = dl_true;
-		// Fall through
+		/* Fall through */
 	case duckLisp_instruction_return16:
 		if (!parsedBytecode) {
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			parsedBytecode = dl_true;
 		}
-		// Fall through
+		/* Fall through */
 	case duckLisp_instruction_return8:
 		if (!parsedBytecode) {
 			ptrdiff1 = *(ip++);
