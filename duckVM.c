@@ -366,7 +366,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->globals_map,
 	                   duckVM->memoryAllocation,
-	                   sizeof(dl_ptrdiff_t *),
+	                   sizeof(dl_ptrdiff_t),
 	                   dl_array_strategy_fit);
 	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxObjects);
 	if (e) goto cleanup;
