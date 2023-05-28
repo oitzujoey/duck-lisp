@@ -36,24 +36,17 @@ dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const
 	duckLisp_error_t error;
 
 	e = dl_malloc(duckVM->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 	e = dl_memcopy((void *) error.message, (void *) message, message_length * sizeof(char));
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	error.message_length = message_length;
 	error.index = -1;
 
 	e = dl_array_pushElement(&duckVM->errors, &error);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
- l_cleanup:
-
+ cleanup:
 	return e;
 }
 

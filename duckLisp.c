@@ -5835,7 +5835,7 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp,
 		                       gensym_loop.value_length,
 		                       getLocalsLength(compileState) - startStack_length);
 		if (e) goto free_gensym_end;
-		e = duckLisp_emit_pushInteger(duckLisp, compileState, assembly, dl_null, 0);
+		e = duckLisp_emit_nil(duckLisp, compileState, assembly);
 		if (e) goto free_gensym_end;
 
 		goto free_gensym_end;
@@ -9981,6 +9981,8 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 
 	object.type = duckLisp_object_type_symbol;
 	object.value.symbol.id = duckLisp_symbol_nameToValue(duckLisp, identifier.value, identifier.value_length);
+	e = DL_MALLOC(duckVM->memoryAllocation, &object.value.symbol.value, identifier.value_length, char);
+	if (e) goto cleanup;
 	/**/ dl_memcopy_noOverlap(object.value.symbol.value, identifier.value, identifier.value_length);
 	object.value.symbol.value_length = identifier.value_length;
 	e = duckVM_push(duckVM, &object);
