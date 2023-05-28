@@ -1074,6 +1074,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
+		if (object1.type == duckLisp_object_type_composite) {
+			object1 = *object1.value.composite->value.internalComposite.function;
+		}
 		if (object1.type == duckLisp_object_type_function) {
 			e = object1.value.function.callback(duckVM);
 			if (e) {
@@ -1189,6 +1192,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
+		if (object1.type == duckLisp_object_type_composite) {
+			object1 = *object1.value.composite->value.internalComposite.function;
+		}
 		if (object1.type != duckLisp_object_type_closure) {
 			printf("type %i\n", object1.type);
 			e = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Applied object is not a closure."));
