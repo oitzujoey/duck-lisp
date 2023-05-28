@@ -498,21 +498,6 @@
 (defmacro dec (variable)
   (funcall to variable (list (quote 1-))))
 
-(defmacro dolist (bind &rest body)
-  (var dolist-temp (gensym))
-  (var variable (car bind))
-  (var l (car (cdr bind)))
-  (var return (car (cdr (cdr bind))))
-  (setq body (nreverse (cons (list (quote pop) dolist-temp)
-							 (nreverse body))))
-  (list
-   (list (quote var) dolist-temp l)
-   (list (quote var) variable ())
-   (cons (quote while) (cons dolist-temp
-							 (cons (list (quote setq) variable (list (quote car) dolist-temp))
-								   body)))
-   return))
-
 (bdefun subseq (sequence start &rest end)
         (setq sequence (nthcdr start sequence))
         (when end
@@ -599,6 +584,79 @@
 
 (bdefun set-deref (reference value)
         (funcall (cdr reference) value))
+
+
+(comment Not the typical `let*'.
+         (let* (x 4
+                y 3
+                z 8
+                w 0)
+           (setq w (* x y))
+           (+ z w)))
+(defmacro let* (bindings &rest body)
+  (var vars (list (quote noscope)))
+  (while bindings
+    (push (list (quote var) (first bindings) (second bindings)) vars)
+    (to bindings (cddr)))
+  (if (null? vars)
+      (list body)
+      (list* (nreverse vars) body)))
+
+(comment Not the typical `let'.
+         (let (x 4
+               y 3
+               z 8
+               w 0)
+           (setq w (* x y))
+           (+ z w)))
+(defmacro let (bindings &rest body)
+  (apply let* bindings body))
+
+(comment Not the typical `dotimes'.
+         (dotimes i 4
+                  (println i))
+         In the above example, the numbers 0-3 are printed.
+         `top' is only evaluated once. Returns `top'.)
+(defmacro dotimes (variable top &rest body)
+  (var top-var (gensym))
+  (list
+   (list (quote var) variable 0)
+   (list (quote var) top-var top)
+   (list (quote while) (list (quote <) variable top-var)
+         (list* (quote noscope) body)
+         (list (quote to) variable (quote (1+))))
+   top-var))
+
+(comment Like `dolist`, but for generic sequences.
+         (dosequence i (list 1 2 3)
+                     (println i))
+         In the above example, the numbers 1-3 are printed.
+         Returns the sequence. It is only evaluated once.)
+(defmacro dosequence (variable sequence &rest body)
+  (var sequence-var (gensym))
+  (var return-var (gensym))
+  (list
+   (list (quote var) variable ())
+   (list (quote var) sequence-var sequence)
+   (list (quote var) return-var sequence)
+   (list (quote while) sequence-var
+         (list (quote setq) variable (list (quote car) sequence-var))
+         (apply noscope
+                body)
+         (funcall to sequence-var (quote (cdr))))
+   return-var))
+
+(comment Not the typical `dolist'.
+         (dolist i (list 1 2 3)
+                 (println i))
+         In the above example, the numbers 1-3 are printed.
+         Returns the list. It is only evaluated once.)
+(defmacro dolist (variable sequence &rest body)
+  (apply dosequence variable sequence body))
+
+(defmacro progn (&rest body)
+  (list* () body))
+
 
 (comptime (println "</comptime library.dl>"))
 (println "</library.dl>")
