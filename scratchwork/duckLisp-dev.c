@@ -258,7 +258,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		printf("]");
 		break;
 	case duckLisp_object_type_type:
-		printf("::%llu", object.value.type);
+		printf("<%llu>", object.value.type);
 		break;
 	case duckLisp_object_type_composite:
 		printf("(make-instance <%llu> ", object.value.composite->value.internalComposite.type);
