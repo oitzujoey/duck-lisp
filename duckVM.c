@@ -3959,6 +3959,69 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = stack_push(duckVM, &object1);
 		break;
 
+	case duckLisp_instruction_makeString32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_makeString16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_makeString8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		{
+			dl_uint8_t *string = dl_null;
+			dl_size_t string_length = 0;
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			if (object1.type == duckLisp_object_type_vector) {
+				dl_size_t vector_length = object1.value.vector.internal_vector->value.internal_vector.length;
+				string_length = vector_length - object1.value.vector.offset;
+				e = DL_MALLOC(duckVM->memoryAllocation, &string, string_length, dl_uint8_t);
+				if (e) break;
+				for (dl_ptrdiff_t i = object1.value.vector.offset; (dl_size_t) i < vector_length; i++) {
+					duckLisp_object_t *element = object1.value.vector.internal_vector->value.internal_vector.values[i];
+					if (element->type != duckLisp_object_type_integer) {
+						e = dl_error_invalidValue;
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->make-string: All elements of vector must be integers."));
+						if (eError) e = eError;
+						eError = DL_FREE(duckVM->memoryAllocation, &string);
+						if (eError) e = eError;
+						break;
+					}
+					/* Truncate to 8 bits. */
+					string[i - object1.value.vector.offset] = element->value.integer;
+				}
+			}
+			else {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->make-string: Only vector arguments are supported."));
+				if (eError) e = eError;
+				eError = DL_FREE(duckVM->memoryAllocation, &string);
+				if (eError) e = eError;
+				break;
+			}
+			object1.type = duckLisp_object_type_internalString;
+			object1.value.internalString.value = string;
+			object1.value.internalString.value_length = string_length;
+			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+			if (e) {
+				eError = DL_FREE(duckVM->memoryAllocation, &string);
+				if (eError) e = eError;
+				break;
+			}
+			e = DL_FREE(duckVM->memoryAllocation, &string);
+			if (e) break;
+			object1.type = duckLisp_object_type_string;
+			object1.value.string.internalString = objectPtr1;
+			object1.value.string.offset = 0;
+			object1.value.string.length = string_length;
+			e = stack_push(duckVM, &object1);
+			if (e) break;
+		}
+		break;
+
 	case duckLisp_instruction_return32:
 		ptrdiff1 = *(ip++);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
