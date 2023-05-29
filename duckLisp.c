@@ -7714,6 +7714,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 		/* Another optimization would be to run this block multiple times over the entire assembly. */
 		if (((dl_size_t) i < assembly->elements_length - 1)
 		    && ((class == duckLisp_instructionClass_nil)
+		        || (class == duckLisp_instructionClass_makeType)
 		        || (class == duckLisp_instructionClass_pushString)
 		        || (class == duckLisp_instructionClass_pushBoolean)
 		        || (class == duckLisp_instructionClass_pushInteger)
@@ -7732,6 +7733,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				switch (class) {
 				case duckLisp_instructionClass_nil:
 					puts("NIL");
+					break;
+				case duckLisp_instructionClass_makeType:
+					puts("MAKE TYPE");
 					break;
 				case duckLisp_instructionClass_pushString:
 					puts("PUSH STRING");
