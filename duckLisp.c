@@ -7684,6 +7684,104 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_label_t),
 	                             dl_array_strategy_double);
+
+	/* Push-pop peephole optimization */
+
+	DL_DOTIMES(i, assembly->elements_length) {
+		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i);
+		duckLisp_instructionClass_t class = instruction.instructionClass;
+		/* The following instruction classes could also be deleted at some point. */
+		/* duckLisp_instructionClass_not, */
+		/* duckLisp_instructionClass_mul, */
+		/* duckLisp_instructionClass_div, */
+		/* duckLisp_instructionClass_add, */
+		/* duckLisp_instructionClass_sub, */
+		/* duckLisp_instructionClass_equal, */
+		/* duckLisp_instructionClass_less, */
+		/* duckLisp_instructionClass_greater, */
+		/* duckLisp_instructionClass_cons, */
+		/* duckLisp_instructionClass_vector, */
+		/* duckLisp_instructionClass_makeVector, */
+		/* duckLisp_instructionClass_getVecElt, */
+		/* duckLisp_instructionClass_car, */
+		/* duckLisp_instructionClass_cdr, */
+		/* duckLisp_instructionClass_nullp, */
+		/* duckLisp_instructionClass_typeof, */
+		/* duckLisp_instructionClass_makeType, */
+		/* duckLisp_instructionClass_makeInstance, */
+		/* duckLisp_instructionClass_compositeValue, */
+		/* duckLisp_instructionClass_compositeFunction, */
+		/* Another optimization would be to run this block multiple times over the entire assembly. */
+		if (((dl_size_t) i < assembly->elements_length - 1)
+		    && ((class == duckLisp_instructionClass_nil)
+		        || (class == duckLisp_instructionClass_pushString)
+		        || (class == duckLisp_instructionClass_pushBoolean)
+		        || (class == duckLisp_instructionClass_pushInteger)
+		        || (class == duckLisp_instructionClass_pushIndex)
+		        || (class == duckLisp_instructionClass_pushSymbol)
+		        || (class == duckLisp_instructionClass_pushUpvalue)
+		        || (class == duckLisp_instructionClass_pushClosure)
+		        || (class == duckLisp_instructionClass_pushVaClosure)
+		        || (class == duckLisp_instructionClass_pushGlobal))) {
+			duckLisp_instructionObject_t nextInstruction = DL_ARRAY_GETADDRESS(*assembly,
+			                                                                   duckLisp_instructionObject_t,
+			                                                                   i + 1);
+			duckLisp_instructionClass_t nextClass = nextInstruction.instructionClass;
+			if (nextClass == duckLisp_instructionClass_pop) {
+#if 0
+				switch (class) {
+				case duckLisp_instructionClass_nil:
+					puts("NIL");
+					break;
+				case duckLisp_instructionClass_pushString:
+					puts("PUSH STRING");
+					break;
+				case duckLisp_instructionClass_pushBoolean:
+					puts("PUSH BOOLEAN");
+					break;
+				case duckLisp_instructionClass_pushInteger:
+					puts("PUSH INTEGER");
+					break;
+				case duckLisp_instructionClass_pushIndex:
+					puts("PUSH INDEX");
+					break;
+				case duckLisp_instructionClass_pushSymbol:
+					puts("PUSH SYMBOL");
+					break;
+				case duckLisp_instructionClass_pushUpvalue:
+					puts("PUSH UPVALUE");
+					break;
+				case duckLisp_instructionClass_pushClosure:
+					puts("PUSH CLOSURE");
+					break;
+				case duckLisp_instructionClass_pushVaClosure:
+					puts("PUSH VA CLOSURE");
+					break;
+				case duckLisp_instructionClass_pushGlobal:
+					puts("PUSH GLOBAL");
+					break;
+				default:;
+				}
+#endif
+				instruction.instructionClass = duckLisp_instructionClass_internalNop;
+				DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i) = instruction;
+				duckLisp_instructionArgClass_t pops = DL_ARRAY_GETADDRESS(nextInstruction.args,
+				                                                          duckLisp_instructionArgClass_t,
+				                                                          0);
+				--pops.value.integer;
+				if (pops.value.integer == 0) {
+					nextInstruction.instructionClass = duckLisp_instructionClass_internalNop;
+					DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i + 1) = nextInstruction;
+				}
+				else {
+					DL_ARRAY_GETADDRESS(nextInstruction.args, duckLisp_instructionArgClass_t, 0) = pops;
+				}
+			}
+		}
+	}
+
+	/* Create label links. */
+
 	DL_DOTIMES(i, compileState->currentCompileState->label_number) {
 		duckLisp_label_t label;
 		/**/ dl_array_init(&label.sources,
@@ -7704,15 +7802,20 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, j);
 		/* This is OK because there is no chance of reallocating the args array. */
 		duckLisp_instructionArgClass_t *args = &DL_ARRAY_GETADDRESS(instruction.args,
-		                                                            duckLisp_instructionArgClass_t, 0);
+		                                                            duckLisp_instructionArgClass_t,
+		                                                            0);
 		dl_size_t byte_length;
 
 		e = dl_array_clear(&currentArgs);
 		if (e) goto cleanup;
 
 		switch (instruction.instructionClass) {
+		case duckLisp_instructionClass_internalNop: {
+			/* Does not reach bytecode. */
+			continue;
+		}
 		case duckLisp_instructionClass_nop: {
-			// Finish later. We probably don't need it.
+			/* Finish later. We probably don't need it. */
 			currentInstruction.byte = duckLisp_instruction_nop;
 			break;
 		}
@@ -9473,7 +9576,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* } */
 
-	// Resolve jumps here.
+	/* Resolve jumps here. */
 
 	if (linkArray.links_length) {
 		e = dl_malloc(duckLisp->memoryAllocation,

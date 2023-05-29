@@ -2024,15 +2024,14 @@ Next step:
 
 Defer:
 	There's a memory bug likely caused by the lack of GC for symbols and strings.
-    `when' has is buggy with multiple statements. Maybe the problem is `setq' at the end?
+    `when' and `unless' are buggy with multiple statements. Maybe the problem is using `setq' at the end?
 
 Todo:
+    Strings/Symbols
+    Floats
     library: composite types
     library: multiple dispatch
-	Peephole optimization
     Hash tables?
-    Strings
-    Floats
 	Profile.
     Optimization?
 	Clean up.

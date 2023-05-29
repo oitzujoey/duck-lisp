@@ -298,6 +298,7 @@ typedef enum {
 	duckLisp_instructionClass_yield,
 	duckLisp_instructionClass_nil,
 	duckLisp_instructionClass_pseudo_label,
+	duckLisp_instructionClass_internalNop,
 } duckLisp_instructionClass_t;
 
 // Max number of instructions must be 256.
