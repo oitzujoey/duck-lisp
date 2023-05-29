@@ -2028,13 +2028,16 @@ Defer:
 
 Todo:
     Strings/Symbols
-    Floats
-    library: composite types
-    library: multiple dispatch
-    Hash tables?
+    Clean up memory
+    Rewrite parser
+    Clean up memory
+    Fix error handling?
 	Profile.
     Optimization?
 	Clean up.
+    library: composite types?
+    library: multiple dispatch?
+    Hash tables?
 	Create Hidey-Chess branch and add required functions.
 	Clean up.
 

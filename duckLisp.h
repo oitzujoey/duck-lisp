@@ -250,6 +250,7 @@ typedef enum {
 	duckLisp_instructionClass_pushString,
 	duckLisp_instructionClass_pushBoolean,
 	duckLisp_instructionClass_pushInteger,
+	duckLisp_instructionClass_pushDoubleFloat,
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_pushSymbol,
 	duckLisp_instructionClass_pushUpvalue,
@@ -316,6 +317,8 @@ typedef enum {
 	duckLisp_instruction_pushInteger8,
 	duckLisp_instruction_pushInteger16,
 	duckLisp_instruction_pushInteger32,
+
+	duckLisp_instruction_pushDoubleFloat,
 
 	duckLisp_instruction_pushIndex8,
 	duckLisp_instruction_pushIndex16,
@@ -500,6 +503,7 @@ typedef enum {
 typedef enum {
 	duckLisp_instructionArgClass_type_none,
 	duckLisp_instructionArgClass_type_integer,
+	duckLisp_instructionArgClass_type_doubleFloat,
 	duckLisp_instructionArgClass_type_index,
 	duckLisp_instructionArgClass_type_string,
 } duckLisp_instructionArgClass_type_t;
@@ -517,6 +521,7 @@ typedef struct duckLisp_instructionArgs_s {
 	union {
 		int integer;
 		dl_ptrdiff_t index;
+		double doubleFloat;
 		struct {
 			char *value;
 			dl_size_t value_length;

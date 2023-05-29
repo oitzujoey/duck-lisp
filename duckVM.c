@@ -643,6 +643,26 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		break;
 
+	case duckLisp_instruction_pushDoubleFloat: {
+		dl_uint64_t totallyNotADoubleFloat = 0;
+		totallyNotADoubleFloat = *(ip++);
+		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
+		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
+		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
+		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
+		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
+		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
+		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
+		object1.type = duckLisp_object_type_float;
+		object1.value.floatingPoint = *((double *) &totallyNotADoubleFloat);
+		e = stack_push(duckVM, &object1);
+		if (e) {
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-double-float: stack_push failed."));
+			if (!e) e = eError;
+		}
+		break;
+	}
+
 	case duckLisp_instruction_pushIndex32:
 		ptrdiff1 = *(ip++);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -1542,13 +1562,16 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		case duckLisp_object_type_integer:
 			object1.value.integer = !object1.value.integer;
 			break;
+		case duckLisp_object_type_float:
+			object1.value.floatingPoint = !object1.value.floatingPoint;
+			break;
 		case duckLisp_object_type_bool:
 			object1.value.boolean = !object1.value.boolean;
 			break;
 		default:
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
-			                                  DL_STR("duckVM_execute->not: Object is not a boolean, integer, list, or vector."));
+			                                  DL_STR("duckVM_execute->not: Object is not a boolean, integer, float, list, or vector."));
 			if (!e) e = eError;
 			goto cleanup;
 		}
