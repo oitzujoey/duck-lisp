@@ -656,9 +656,13 @@
 (defmacro dolist (variable sequence &rest body)
   (apply dosequence variable sequence body))
 
+(comment Pretty much just like lisp's progn, except it provides scoping)
 (defmacro progn (&rest body)
   (list* () body))
 
+(comment Semi-functional quasiquote. Vectors and composites are not fully implemented. Better error checking is needed.
+         Arity checking is not implemented for "," and ",@" .
+         ",", and ",@" need to be called as functions in order to match properly.)
 (defmacro ` (form)
     (println form)
   (switch (type-of form)
@@ -674,10 +678,12 @@
                                                    (list (quote cons) (self (car form)) (self (cdr form))))
                                            (list (quote cons) (self (car form)) (self (cdr form))))))
           duckLisp-object-type-symbol (list (quote quote) form)
-          duckLisp-object-type-closure (list (quote error) "qq: Cannot quote closure object")
+          duckLisp-object-type-closure (list (quote error) "`: Cannot quote closure object")
           duckLisp-object-type-vector (list (quote quote) form)
-          duckLisp-object-type-type (list (quote error) "qq: Cannot quote type object")
+          duckLisp-object-type-type (list (quote error) "`: Cannot quote type object")
           form))
+(comment See above description of the backtick character.)
+(defmacro quasiquote (form) (funcall ` form))
 
 
 (comptime (println "</comptime library.dl>"))
