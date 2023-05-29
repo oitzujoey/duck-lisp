@@ -4184,8 +4184,13 @@ dl_error_t duckLisp_generator_vector(duckLisp_t *duckLisp,
 	if (e) goto cleanup;
 
 	/* For this one, we will need to save the indices. */
-	e = DL_MALLOC(duckLisp->memoryAllocation, &args_indexes, expression->compoundExpressions_length - 1, dl_ptrdiff_t);
-	if (e) goto cleanup;
+	if (expression->compoundExpressions_length > 1) {
+		e = DL_MALLOC(duckLisp->memoryAllocation,
+		              &args_indexes,
+		              expression->compoundExpressions_length - 1,
+		              dl_ptrdiff_t);
+		if (e) goto cleanup;
+	}
 
 	DL_DOTIMES(i, expression->compoundExpressions_length - 1) {
 		e = duckLisp_compile_compoundExpression(duckLisp,
@@ -4209,8 +4214,10 @@ dl_error_t duckLisp_generator_vector(duckLisp_t *duckLisp,
 	if (e) goto cleanupIndices;
 
  cleanupIndices:
-	eError = DL_FREE(duckLisp->memoryAllocation, &args_indexes);
-	if (!e) e = eError;
+	if (expression->compoundExpressions_length > 1) {
+		eError = DL_FREE(duckLisp->memoryAllocation, &args_indexes);
+		if (!e) e = eError;
+	}
 
  cleanup:
 
@@ -6033,16 +6040,18 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 	/* Flow does not reach here. */
 
  free_gensym_end:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	if (!e) e = eError;
 	gensym_end.value_length = 0;
  free_gensym_then:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	if (!e) e = eError;
 	gensym_then.value_length = 0;
 
  cleanup:
 
 	eError = dl_array_quit(&eString);
-	if (eError) e = eError;
+	if (!e) e = eError;
 
 	return e;
 }
@@ -6182,16 +6191,18 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp,
 	/* Flow does not reach here. */
 
  free_gensym_end:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_end.value);
+	if (!e) e = eError;
 	gensym_end.value_length = 0;
  free_gensym_then:
-	e = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	eError = dl_free(duckLisp->memoryAllocation, (void **) &gensym_then.value);
+	if (!e) e = eError;
 	gensym_then.value_length = 0;
 
  cleanup:
 
 	eError = dl_array_quit(&eString);
-	if (eError) e = eError;
+	if (!e) e = eError;
 
 	return e;
 }
