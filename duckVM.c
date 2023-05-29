@@ -3262,15 +3262,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
 		if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->get-vector-element: Vector stack index out of bounds."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->get-vector-element: Vector stack index out of bounds."));
 			if (!e) e = eError;
 			break;
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_vector) {
+		if ((object1.type != duckLisp_object_type_vector) && (object1.type != duckLisp_object_type_string)) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->get-vector-element: dl_array_get failed."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->get-vector-element: dl_array_get failed."));
 			if (!e) e = eError;
 			break;
 		}
@@ -3278,7 +3280,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
 		if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->get-vector-element: Index stack index out of bounds."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->get-vector-element: Index stack index out of bounds."));
 			if (!e) e = eError;
 			break;
 		}
@@ -3286,21 +3289,40 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (e) break;
 		if (object2.type != duckLisp_object_type_integer) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->get-vector-element: dl_array_get failed."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->get-vector-element: dl_array_get failed."));
 			if (!e) e = eError;
 			break;
 		}
 
-		ptrdiff1 = object2.value.integer;
-		if ((dl_size_t) (ptrdiff1 + object1.value.vector.offset)
-		    >= object1.value.vector.internal_vector->value.internal_vector.length) {
-			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->get-vector-element: Vector index out of bounds."));
-			if (!e) e = eError;
-			break;
+		if (object1.type == duckLisp_object_type_vector) {
+			ptrdiff1 = object2.value.integer;
+			if ((ptrdiff1 < 0)
+			    || ((dl_size_t) (ptrdiff1 + object1.value.vector.offset)
+			        >= object1.value.vector.internal_vector->value.internal_vector.length)) {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->get-vector-element: Vector index out of bounds."));
+				if (!e) e = eError;
+				break;
+			}
+			object2 = *object1.value.vector.internal_vector->value.internal_vector.values[object1.value.vector.offset
+			                                                                              + ptrdiff1];
 		}
-		object2 = *object1.value.vector.internal_vector->value.internal_vector.values[object1.value.vector.offset
-		                                                                              + ptrdiff1];
+		else if (object1.type == duckLisp_object_type_string) {
+			ptrdiff1 = object2.value.integer;
+			if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 >= object1.value.string.length - object1.value.string.offset)) {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->get-vector-element: String index out of bounds."));
+				if (!e) e = eError;
+				break;
+			}
+			object2.type = duckLisp_object_type_integer;
+			object2.value.integer = (object1.value.string.internalString
+			                         ->value.internalString.value[object1.value.string.offset
+			                                                      + ptrdiff1]);
+		}
 		e = stack_push(duckVM, &object2);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->get-vector-element: stack_push failed."));
