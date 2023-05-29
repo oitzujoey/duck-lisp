@@ -151,6 +151,11 @@ static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t 
 				/**/ duckVM_gclist_markObject(gclist, object->value.string.internalString);
 			}
 		}
+		else if (object->type == duckLisp_object_type_symbol) {
+			if (object->value.symbol.internalString) {
+				/**/ duckVM_gclist_markObject(gclist, object->value.symbol.internalString);
+			}
+		}
 		/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 	}
 }
@@ -181,6 +186,9 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		}
 		else if (object->type == duckLisp_object_type_string) {
 			/**/ duckVM_gclist_markObject(&duckVM->gclist, object->value.string.internalString);
+		}
+		else if (object->type == duckLisp_object_type_symbol) {
+			/**/ duckVM_gclist_markObject(&duckVM->gclist, object->value.symbol.internalString);
 		}
 		/* Don't check for conses, upvalues, upvalue arrays, or internal vectors since they should never be on the
 		   stack. */
@@ -570,29 +578,34 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
 		object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
 		object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
-		object1.value.symbol.value_length = *(ip++);
-		object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
-		object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
-		object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
+		size1 = *(ip++);
+		size1 = *(ip++) + (size1 << 8);
+		size1 = *(ip++) + (size1 << 8);
+		size1 = *(ip++) + (size1 << 8);
 		parsedBytecode = dl_true;
 		/* Fall through */
 	case duckLisp_instruction_pushSymbol16:
 		if (!parsedBytecode) {
 			object1.value.symbol.id = *(ip++);
 			object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
-			object1.value.symbol.value_length = *(ip++);
-			object1.value.symbol.value_length = *(ip++) + (object1.value.symbol.value_length << 8);
+			size1 = *(ip++);
+			size1 = *(ip++) + (size1 << 8);
 			parsedBytecode = dl_true;
 		}
 		/* Fall through */
 	case duckLisp_instruction_pushSymbol8:
 		if (!parsedBytecode) {
 			object1.value.symbol.id = *(ip++);
-			object1.value.symbol.value_length = *(ip++);
+			size1 = *(ip++);
 		}
-		object1.value.symbol.value = (char *) ip;
-		ip += object1.value.symbol.value_length;
+		object1.type = duckLisp_object_type_internalString;
+		object1.value.internalString.value_length = size1;
+		object1.value.internalString.value = ip;
+		ip += size1;
+		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+		if (e) break;
 		object1.type = duckLisp_object_type_symbol;
+		object1.value.symbol.internalString = objectPtr1;
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-symbol: stack_push failed."));
@@ -613,6 +626,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		object1.value.internalString.value = ip;
 		ip += object1.value.internalString.value_length;
 		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+		if (e) break;
 		object1.type = duckLisp_object_type_string;
 		object1.value.string.internalString = objectPtr1;
 		object1.value.string.length = objectPtr1->value.internalString.value_length;

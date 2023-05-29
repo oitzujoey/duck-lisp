@@ -2039,7 +2039,7 @@ Defer:
     `when' and `unless' are buggy with multiple statements. Maybe the problem is using `setq' at the end?
 
 Todo:
-    Strings/Symbols
+    Strings
     Clean up memory
     Rewrite parser
     Clean up memory

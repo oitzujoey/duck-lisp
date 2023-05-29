@@ -4878,14 +4878,14 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		}
 		break;
 	case duckLisp_object_type_symbol:
-		ast->value.identifier.value_length = object->value.symbol.value_length;
+		ast->value.identifier.value_length = object->value.symbol.internalString->value.internalString.value_length;
 		e = dl_malloc(duckLisp->memoryAllocation,
 		              (void **) &ast->value.identifier.value,
-		              object->value.symbol.value_length);
+		              object->value.symbol.internalString->value.internalString.value_length);
 		if (e) break;
 		/**/ dl_memcopy_noOverlap(ast->value.identifier.value,
-		                          object->value.symbol.value,
-		                          object->value.symbol.value_length);
+		                          object->value.symbol.internalString->value.internalString.value,
+		                          object->value.symbol.internalString->value.internalString.value_length);
 		ast->type = duckLisp_ast_type_identifier;
 		break;
 	case duckLisp_object_type_function:
@@ -10132,6 +10132,7 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 
 	duckLisp_t *duckLisp = duckVM->duckLisp;
 	duckLisp_object_t object;
+	duckLisp_object_t *objectPointer;
 	duckLisp_ast_identifier_t identifier;
 	e = duckLisp_gensym(duckLisp, &identifier);
 	if (e) goto cleanup;
@@ -10139,12 +10140,14 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	e = duckLisp_symbol_create(duckLisp, identifier.value, identifier.value_length);
 	if (e) goto cleanup;
 
+	object.type = duckLisp_object_type_internalString;
+	object.value.internalString.value_length = identifier.value_length;
+	object.value.internalString.value = (dl_uint8_t *) identifier.value;
+	e = duckVM_gclist_pushObject(duckVM, &objectPointer, object);
+	if (e) goto cleanup;
 	object.type = duckLisp_object_type_symbol;
 	object.value.symbol.id = duckLisp_symbol_nameToValue(duckLisp, identifier.value, identifier.value_length);
-	e = DL_MALLOC(duckVM->memoryAllocation, &object.value.symbol.value, identifier.value_length, char);
-	if (e) goto cleanup;
-	/**/ dl_memcopy_noOverlap(object.value.symbol.value, identifier.value, identifier.value_length);
-	object.value.symbol.value_length = identifier.value_length;
+	object.value.symbol.internalString = objectPointer;
 	e = duckVM_push(duckVM, &object);
 	if (e) goto cleanup;
  cleanup:

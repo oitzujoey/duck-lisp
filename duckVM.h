@@ -119,8 +119,7 @@ typedef struct duckLisp_object_s {
 		} string;
 		struct {
 			dl_size_t id;
-			char *value;
-			dl_size_t value_length;
+			struct duckLisp_object_s *internalString;
 		} symbol;
 		struct {
 			// duckLisp_ast_compoundExpression_t tree;
