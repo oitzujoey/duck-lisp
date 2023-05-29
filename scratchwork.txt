@@ -2020,6 +2020,18 @@ I've had quite a bit of trouble with stack balance, the past week and in the pas
 }
 
 
+Characters are dl_uint8_t. Assignment of an integer to a string element will truncate the integer to a character.
+Strings are immutable.
+
+(make-string sequence)
+(get-vector-element string index)
+(length string)
+(= left-string right-string)
+(concatenate left-string right-string)
+(substring string start-index end-index)
+(symbol-value symbol)
+
+
 Next step:
 
 Defer:

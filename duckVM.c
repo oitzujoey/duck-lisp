@@ -146,6 +146,11 @@ static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t 
 				}
 			}
 		}
+		else if (object->type == duckLisp_object_type_string) {
+			if (object->value.string.internalString) {
+				/**/ duckVM_gclist_markObject(gclist, object->value.string.internalString);
+			}
+		}
 		/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 	}
 }
@@ -173,6 +178,9 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		}
 		else if (object->type == duckLisp_object_type_vector) {
 			duckVM_gclist_markObject(&duckVM->gclist, object->value.vector.internal_vector);
+		}
+		else if (object->type == duckLisp_object_type_string) {
+			/**/ duckVM_gclist_markObject(&duckVM->gclist, object->value.string.internalString);
 		}
 		/* Don't check for conses, upvalues, upvalue arrays, or internal vectors since they should never be on the
 		   stack. */
@@ -231,6 +239,12 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.bytecode.bytecode != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.bytecode.bytecode);
+				if (e) goto cleanup;
+			}
+			else if ((duckVM->gclist.objects[i].type == duckLisp_object_type_internalString)
+			         /* Prevent multiple frees. */
+			         && (duckVM->gclist.objects[i].value.internalString.value != dl_null)) {
+				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.internalString.value);
 				if (e) goto cleanup;
 			}
 		}
@@ -324,6 +338,28 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 		else {
 			heapObject->value.bytecode.bytecode = dl_null;
 			heapObject->value.bytecode.bytecode_length = 0;
+		}
+		if (e) goto cleanup;
+	}
+	else if (objectIn.type == duckLisp_object_type_internalString) {
+		if (objectIn.value.internalString.value_length > 0) {
+			e = DL_MALLOC(duckVM->memoryAllocation,
+			              &heapObject->value.internalString.value,
+			              objectIn.value.internalString.value_length,
+			              dl_uint8_t);
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_gclist_pushObject: String allocation failed."));
+				if (!e) e = eError;
+				goto cleanup;
+			}
+			/**/ dl_memcopy_noOverlap(heapObject->value.internalString.value,
+			                          objectIn.value.internalString.value,
+			                          objectIn.value.internalString.value_length);
+		}
+		else {
+			heapObject->value.internalString.value = dl_null;
+			heapObject->value.internalString.value_length = 0;
 		}
 		if (e) goto cleanup;
 	}
@@ -565,17 +601,22 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		break;
 
 	case duckLisp_instruction_pushString32:
-		object1.value.string.value_length = *(ip++);
-		object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
+		object1.value.internalString.value_length = *(ip++);
+		object1.value.internalString.value_length = *(ip++) + (object1.value.internalString.value_length << 8);
 		// Fall through
 	case duckLisp_instruction_pushString16:
-		object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
+		object1.value.internalString.value_length = *(ip++) + (object1.value.internalString.value_length << 8);
 		// Fall through
 	case duckLisp_instruction_pushString8:
-		object1.value.string.value_length = *(ip++) + (object1.value.string.value_length << 8);
-		object1.value.string.value = (char *) ip;
-		ip += object1.value.string.value_length;
+		object1.value.internalString.value_length = *(ip++) + (object1.value.internalString.value_length << 8);
+		object1.type = duckLisp_object_type_internalString;
+		object1.value.internalString.value = ip;
+		ip += object1.value.internalString.value_length;
+		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 		object1.type = duckLisp_object_type_string;
+		object1.value.string.internalString = objectPtr1;
+		object1.value.string.length = objectPtr1->value.internalString.value_length;
+		object1.value.string.offset = 0;
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-string: stack_push failed."));
@@ -2702,10 +2743,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			switch (object2.type) {
 			case duckLisp_object_type_string:
 				/**/ dl_string_compare(&bool1,
-				                       object1.value.string.value,
-				                       object1.value.string.value_length,
-				                       object2.value.string.value,
-				                       object2.value.string.value_length);
+				                       (char *) (object1.value.string.internalString->value.internalString.value
+				                                 + object1.value.string.offset),
+				                       object1.value.string.length - object1.value.string.offset,
+				                       (char *) (object2.value.string.internalString->value.internalString.value
+				                                 + object2.value.string.offset),
+				                       object2.value.string.length - object2.value.string.offset);
 				object1.value.boolean = bool1;
 				break;
 			default:
@@ -3382,7 +3425,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 				else {
 					e = dl_error_shouldntHappen;
-					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->cdr: Non-null list does not contain a cons."));
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->cdr: Non-null list does not contain a cons."));
 					if (!e) e = eError;
 					break;
 				}

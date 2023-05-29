@@ -74,7 +74,6 @@ typedef enum {
 	duckVM_halt_mode_halt,
 } duckVM_halt_mode_t;
 
-/* When adding types, always add to the end of the section. */
 typedef enum {
   duckLisp_object_type_none,
 
@@ -98,6 +97,7 @@ typedef enum {
   duckLisp_object_type_internalVector,
   duckLisp_object_type_bytecode,
   duckLisp_object_type_internalComposite,
+  duckLisp_object_type_internalString,
 
   /* This is... you guessed it... the last entry in the enum. */
   duckLisp_object_type_last,
@@ -109,8 +109,13 @@ typedef struct duckLisp_object_s {
 		dl_ptrdiff_t integer;
 		double floatingPoint;
 		struct {
-			char *value;
+			dl_uint8_t *value;
 			dl_size_t value_length;
+		} internalString;
+		struct {
+			struct duckLisp_object_s *internalString;
+			dl_ptrdiff_t offset;
+			dl_size_t length;
 		} string;
 		struct {
 			dl_size_t id;
