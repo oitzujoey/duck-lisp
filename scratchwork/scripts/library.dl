@@ -659,6 +659,26 @@
 (defmacro progn (&rest body)
   (list* () body))
 
+(defmacro ` (form)
+    (println form)
+  (switch (type-of form)
+          duckLisp-object-type-list (when form
+                                      (
+                                       (var sub-form (car form))
+                                       (if (list? sub-form)
+                                           (switch (car sub-form)
+                                                   (quote ,) (list (quote cons) (cadr sub-form) (self (cdr form)))
+                                                   (quote ,@) (list (quote append)
+                                                                    (cadr sub-form)
+                                                                    (self (cdr form)))
+                                                   (list (quote cons) (self (car form)) (self (cdr form))))
+                                           (list (quote cons) (self (car form)) (self (cdr form))))))
+          duckLisp-object-type-symbol (list (quote quote) form)
+          duckLisp-object-type-closure (list (quote error) "qq: Cannot quote closure object")
+          duckLisp-object-type-vector (list (quote quote) form)
+          duckLisp-object-type-type (list (quote error) "qq: Cannot quote type object")
+          form))
+
 
 (comptime (println "</comptime library.dl>"))
 (println "</library.dl>")
