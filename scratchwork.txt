@@ -2025,11 +2025,17 @@ Strings are immutable.
 
 (make-string sequence)
 (get-vector-element string index)
-(length string)
+(car string)
+(cdr string)
+(null? string)
 (= left-string right-string)
+(length string)
+(symbol-value symbol)
 (concatenate left-string right-string)
 (substring string start-index end-index)
-(symbol-value symbol)
+
+
+And that was the last planned feature.
 
 
 Next step:
@@ -2039,7 +2045,6 @@ Defer:
     `when' and `unless' are buggy with multiple statements. Maybe the problem is using `setq' at the end?
 
 Todo:
-    Strings
     Clean up memory
     Rewrite parser
     Clean up memory

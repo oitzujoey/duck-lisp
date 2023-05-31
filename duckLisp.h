@@ -295,6 +295,11 @@ typedef enum {
 	duckLisp_instructionClass_setCompositeValue,
 	duckLisp_instructionClass_setCompositeFunction,
 	duckLisp_instructionClass_makeString,
+	duckLisp_instructionClass_concatenate,
+	duckLisp_instructionClass_substring,
+	duckLisp_instructionClass_length,
+	duckLisp_instructionClass_symbolString,
+	duckLisp_instructionClass_symbolId,
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_return,
 	duckLisp_instructionClass_yield,
@@ -490,6 +495,26 @@ typedef enum {
 	duckLisp_instruction_makeString8,
 	duckLisp_instruction_makeString16,
 	duckLisp_instruction_makeString32,
+
+	duckLisp_instruction_concatenate8,
+	duckLisp_instruction_concatenate16,
+	duckLisp_instruction_concatenate32,
+
+	duckLisp_instruction_substring8,
+	duckLisp_instruction_substring16,
+	duckLisp_instruction_substring32,
+
+	duckLisp_instruction_length8,
+	duckLisp_instruction_length16,
+	duckLisp_instruction_length32,
+
+	duckLisp_instruction_symbolString8,
+	duckLisp_instruction_symbolString16,
+	duckLisp_instruction_symbolString32,
+
+	duckLisp_instruction_symbolId8,
+	duckLisp_instruction_symbolId16,
+	duckLisp_instruction_symbolId32,
 
 	duckLisp_instruction_pop8,
 	duckLisp_instruction_pop16,

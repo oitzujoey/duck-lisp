@@ -558,6 +558,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	dl_ptrdiff_t ptrdiff2 = 0;
 	dl_ptrdiff_t ptrdiff3 = 0;
 	dl_size_t size1 = 0;
+	dl_size_t size2 = 0;
 	dl_uint8_t uint8 = 0;
 	duckLisp_object_t object1 = {0};
 	duckLisp_object_t object2 = {0};
@@ -574,10 +575,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		break;
 
 	case duckLisp_instruction_pushSymbol32:
-		object1.value.symbol.id = *(ip++);
-		object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
-		object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
-		object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
+		size2 = *(ip++);
+		size2 = *(ip++) + (size2 << 8);
+		size2 = *(ip++) + (size2 << 8);
+		size2 = *(ip++) + (size2 << 8);
 		size1 = *(ip++);
 		size1 = *(ip++) + (size1 << 8);
 		size1 = *(ip++) + (size1 << 8);
@@ -586,8 +587,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		/* Fall through */
 	case duckLisp_instruction_pushSymbol16:
 		if (!parsedBytecode) {
-			object1.value.symbol.id = *(ip++);
-			object1.value.symbol.id = *(ip++) + (object1.value.symbol.id << 8);
+			size2 = *(ip++);
+			size2 = *(ip++) + (size2 << 8);
 			size1 = *(ip++);
 			size1 = *(ip++) + (size1 << 8);
 			parsedBytecode = dl_true;
@@ -595,7 +596,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		/* Fall through */
 	case duckLisp_instruction_pushSymbol8:
 		if (!parsedBytecode) {
-			object1.value.symbol.id = *(ip++);
+			size2 = *(ip++);
 			size1 = *(ip++);
 		}
 		object1.type = duckLisp_object_type_internalString;
@@ -606,6 +607,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (e) break;
 		object1.type = duckLisp_object_type_symbol;
 		object1.value.symbol.internalString = objectPtr1;
+		object1.value.symbol.id = size2;
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-symbol: stack_push failed."));
@@ -2756,14 +2758,24 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		case duckLisp_object_type_string:
 			switch (object2.type) {
 			case duckLisp_object_type_string:
-				/**/ dl_string_compare(&bool1,
-				                       (char *) (object1.value.string.internalString->value.internalString.value
-				                                 + object1.value.string.offset),
-				                       object1.value.string.length - object1.value.string.offset,
-				                       (char *) (object2.value.string.internalString->value.internalString.value
-				                                 + object2.value.string.offset),
-				                       object2.value.string.length - object2.value.string.offset);
-				object1.value.boolean = bool1;
+				if ((object1.value.string.length - object1.value.string.offset == 0)
+				    && (object2.value.string.length - object2.value.string.offset == 0)) {
+					object1.value.boolean = dl_true;
+				}
+				else if ((object1.value.string.length - object1.value.string.offset == 0)
+				         || (object2.value.string.length - object2.value.string.offset == 0)) {
+					object1.value.boolean = dl_false;
+				}
+				else {
+					/**/ dl_string_compare(&bool1,
+					                       (char *) (object1.value.string.internalString->value.internalString.value
+					                                 + object1.value.string.offset),
+					                       object1.value.string.length - object1.value.string.offset,
+					                       (char *) (object2.value.string.internalString->value.internalString.value
+					                                 + object2.value.string.offset),
+					                       object2.value.string.length - object2.value.string.offset);
+					object1.value.boolean = bool1;
+				}
 				break;
 			default:
 				object1.value.boolean = dl_false;
@@ -3494,10 +3506,37 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 		}
+		else if (object1.type == duckLisp_object_type_string) {
+			if (object1.value.string.internalString == dl_null) {
+				object2.type = duckLisp_object_type_string;
+				object2.value.string.internalString = dl_null;
+			}
+			else {
+				if (object1.value.string.internalString->type == duckLisp_object_type_internalString) {
+					object2.type = duckLisp_object_type_string;
+					if ((object1.value.string.length == 0)
+					    /* -1 because we are going to try to get the cdr, which is the next element after. */
+					    || ((dl_size_t) object1.value.string.offset >= object1.value.string.length - 1)) {
+						object2.value.string.internalString = dl_null;
+					}
+					/* cdr can't be anything other than a string. */
+					else {
+						object2.value.string.internalString = object1.value.string.internalString;
+						object2.value.string.offset = object1.value.string.offset + 1;
+						object2.value.string.length = object1.value.string.length;
+					}
+				}
+				else {
+					e = dl_error_invalidValue;
+					break;
+				}
+			}
+		}
 		else {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->cdr: Argument is not a list or a vector."));
-			if (!e) e = eError;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->cdr: Argument is not a list, vector, or string."));
+			if (eError) e = eError;
 			break;
 		}
 		e = stack_push(duckVM, &object2);
@@ -3561,6 +3600,30 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					else {
 						object2 = *(object1.value.vector.internal_vector
 						            ->value.internal_vector.values[object1.value.vector.offset]);
+					}
+				}
+				else {
+					e = dl_error_invalidValue;
+					break;
+				}
+			}
+		}
+		else if (object1.type == duckLisp_object_type_string) {
+			if (object1.value.string.internalString == dl_null) {
+				object2.type = duckLisp_object_type_string;
+				object2.value.string.internalString = dl_null;
+			}
+			else {
+				if (object1.value.string.internalString->type == duckLisp_object_type_internalString) {
+					if ((object1.value.string.length == 0)
+					    || ((dl_size_t) object1.value.string.offset >= object1.value.string.length)) {
+						object2.type = duckLisp_object_type_string;
+						object2.value.string.internalString = dl_null;
+					}
+					else {
+						object2.type = duckLisp_object_type_integer;
+						object2.value.integer = (object1.value.string.internalString
+						                         ->value.internalString.value[object1.value.string.offset]);
 					}
 				}
 				else {
@@ -3709,6 +3772,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			object2.value.boolean = !((object1.value.vector.internal_vector != dl_null)
 			                          && ((dl_size_t) object1.value.vector.offset
 			                              < object1.value.vector.internal_vector->value.internal_vector.length));
+		}
+		else if (object1.type == duckLisp_object_type_string) {
+			object2.value.boolean = !((object1.value.string.internalString != dl_null)
+			                          && ((dl_size_t) object1.value.string.offset < object1.value.string.length));
 		}
 		else {
 			object2.value.boolean = dl_false;
@@ -3981,6 +4048,92 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = stack_push(duckVM, &object1);
 		break;
 
+	case duckLisp_instruction_length32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_length16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_length8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		{
+			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+			if (e) break;
+			object2.type = duckLisp_object_type_integer;
+			if (object1.type == duckLisp_object_type_vector) {
+				object2.value.integer = (object1.value.vector.internal_vector
+				                         ? (object1.value.vector.internal_vector->value.internal_vector.length
+				                            - object1.value.vector.offset)
+				                         : 0);
+			}
+			else if (object1.type == duckLisp_object_type_string) {
+				object2.value.integer = object1.value.string.length - object1.value.string.offset;
+			}
+			else {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->length: Argument must be a vector or string."));
+				if (eError) e = eError;
+				break;
+			}
+			e = stack_push(duckVM, &object2);
+			if (e) break;
+		}
+		break;
+
+	case duckLisp_instruction_symbolString32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_symbolString16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_symbolString8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+		if (e) break;
+		if (object1.type != duckLisp_object_type_symbol) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->symbol-string: Argument must be a symbol."));
+			if (eError) e = eError;
+			break;
+		}
+		object2.type = duckLisp_object_type_string;
+		object2.value.string.internalString = object1.value.symbol.internalString;
+		object2.value.string.offset = 0;
+		object2.value.string.length = object1.value.symbol.internalString->value.internalString.value_length;
+		e = stack_push(duckVM, &object2);
+		if (e) break;
+		break;
+
+	case duckLisp_instruction_symbolId32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_symbolId16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through. */
+	case duckLisp_instruction_symbolId8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
+		if (e) break;
+		if (object1.type != duckLisp_object_type_symbol) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->symbol-id: Argument must be a symbol."));
+			if (eError) e = eError;
+			break;
+		}
+		object2.type = duckLisp_object_type_integer;
+		object2.value.integer = object1.value.symbol.id;
+		e = stack_push(duckVM, &object2);
+		if (e) break;
+		break;
+
 	case duckLisp_instruction_makeString32:
 		ptrdiff1 = *(ip++);
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -4041,6 +4194,231 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			object1.value.string.length = string_length;
 			e = stack_push(duckVM, &object1);
 			if (e) break;
+		}
+		break;
+
+	case duckLisp_instruction_concatenate32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_concatenate16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_concatenate8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+		ptrdiff2 = *(ip++);
+		switch (opcode) {
+		case duckLisp_instruction_concatenate32:
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			/* Fall through */
+		case duckLisp_instruction_concatenate16:
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			/* Fall through */
+		case duckLisp_instruction_concatenate8:
+			break;
+		default:
+			e = dl_error_cantHappen;
+			break;
+		}
+		if (e) break;
+
+		ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
+		if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->concatenate: First string stack index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+		if (e) break;
+		if (object1.type != duckLisp_object_type_string) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
+			if (!e) e = eError;
+			break;
+		}
+
+		ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
+		if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->concatenate: Second string stack index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+		if (e) break;
+		if (object2.type != duckLisp_object_type_string) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
+			if (!e) e = eError;
+			break;
+		}
+
+		object3.type = duckLisp_object_type_internalString;
+		object3.value.internalString.value = (object1.value.string.internalString->value.internalString.value
+		                                      + object1.value.string.offset);
+		object3.value.internalString.value_length = object1.value.string.length;
+		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object3);
+		if (e) break;
+		objectPtr1->value.internalString.value_length = ((object1.value.string.length)
+		                                                 + (object2.value.string.length));
+		e = DL_REALLOC(duckVM->memoryAllocation,
+		               &objectPtr1->value.internalString.value,
+		               objectPtr1->value.internalString.value_length,
+		               dl_uint8_t);
+		if (e) break;
+		/**/ dl_memcopy_noOverlap((objectPtr1->value.internalString.value
+		                           + object1.value.string.length),
+		                          (object2.value.string.internalString->value.internalString.value
+		                           + object2.value.string.offset),
+		                          object2.value.string.length);
+		object3.type = duckLisp_object_type_string;
+		object3.value.string.offset = 0;
+		object3.value.string.length = objectPtr1->value.internalString.value_length;
+		object3.value.string.internalString = objectPtr1;
+		e = stack_push(duckVM, &object3);
+		if (e) {
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->concatenate: stack_push failed."));
+			if (!e) e = eError;
+			break;
+		}
+		break;
+
+	case duckLisp_instruction_substring32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_substring16:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		/* Fall through */
+	case duckLisp_instruction_substring8:
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+
+		ptrdiff2 = *(ip++);
+		switch (opcode) {
+		case duckLisp_instruction_substring32:
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			/* Fall through */
+		case duckLisp_instruction_substring16:
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			/* Fall through */
+		case duckLisp_instruction_substring8:
+			break;
+		default:
+			e = dl_error_cantHappen;
+			break;
+		}
+		if (e) break;
+
+		ptrdiff3 = *(ip++);
+		switch (opcode) {
+		case duckLisp_instruction_substring32:
+			ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+			ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+			/* Fall through */
+		case duckLisp_instruction_substring16:
+			ptrdiff3 = *(ip++) + (ptrdiff3 << 8);
+			/* Fall through */
+		case duckLisp_instruction_substring8:
+			break;
+		default:
+			e = dl_error_cantHappen;
+			break;
+		}
+		if (e) break;
+
+		ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
+		if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: String stack index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
+		if (e) break;
+		if (object1.type != duckLisp_object_type_string) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: dl_array_get failed."));
+			if (!e) e = eError;
+			break;
+		}
+
+		ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
+		if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: First integer stack index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
+		if (e) break;
+		if (object2.type != duckLisp_object_type_integer) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: dl_array_get failed."));
+			if (!e) e = eError;
+			break;
+		}
+		if ((object2.value.integer < 0)
+		    || ((dl_size_t) object2.value.integer >= object1.value.string.length - object1.value.string.offset)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: First integer out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+
+		ptrdiff3 = duckVM->stack.elements_length - ptrdiff3;
+		if ((ptrdiff3 < 0) || ((dl_size_t) ptrdiff3 > duckVM->stack.elements_length)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: Second integer stack index out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+		e = dl_array_get(&duckVM->stack, &object3, ptrdiff3);
+		if (e) break;
+		if (object2.type != duckLisp_object_type_integer) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
+			if (!e) e = eError;
+			break;
+		}
+		if ((object3.value.integer < 0)
+		    || ((dl_size_t) object3.value.integer >= object1.value.string.length - object1.value.string.offset)) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: Second integer out of bounds."));
+			if (!e) e = eError;
+			break;
+		}
+
+		if (object3.value.integer < object2.value.integer) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->substring: Second integer must be greater than the first."));
+			if (!e) e = eError;
+			break;
+		}
+
+		object1.value.string.length = object1.value.string.offset + object3.value.integer;
+		object1.value.string.offset = object1.value.string.offset + object2.value.integer;
+		e = stack_push(duckVM, &object1);
+		if (e) {
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->concatenate: stack_push failed."));
+			if (!e) e = eError;
+			break;
 		}
 		break;
 
