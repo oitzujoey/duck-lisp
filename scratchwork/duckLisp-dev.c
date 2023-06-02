@@ -1004,7 +1004,7 @@ int main(int argc, char *argv[]) {
 
 	const size_t duckLispMemory_size = 10 * 1024 * 1024;
 	const size_t duckVMMemory_size = 1000 * 64 * 1024;
-	const size_t duckVMMaxObjects = 60000;
+	const size_t duckVMMaxObjects = 1000000;
 
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;
