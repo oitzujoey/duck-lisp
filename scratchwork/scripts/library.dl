@@ -33,7 +33,7 @@
               body)))
 
 (defmacro bvar (name value)
-  (funcall bothtime (list (quote var) name value)))
+  (funcall bothtime (list (quote var) name value) ()))
 
 (defmacro bdefun (name parameters &rest body)
   (var defun (list (quote __defun) name parameters))
@@ -265,13 +265,14 @@
           (to i (1+)))
         i)
 
-(bdefun nreverse (list)
+(bdefun reverse (list)
         (var reversed-list ())
         (while (not (null? list))
           (setq reversed-list (cons (car list)
                                     reversed-list))
           (to list (cdr)))
         reversed-list)
+(bvar nreverse reverse)
 
 (bdefun min (&rest values)
         (var min-value (first values))
@@ -468,6 +469,7 @@
 (bdefun mapcar* (fun list)
         (unless (null? list)
           (cons (fun (car list)) (self fun (cdr list)))))
+(bvar mapcar mapcar*)
 
 (bdefun filter* (fun list)
         (unless (null? list)
@@ -638,9 +640,9 @@
   (var sequence-var (gensym))
   (var return-var (gensym))
   (list
-   (list (quote var) variable ())
    (list (quote var) sequence-var sequence)
    (list (quote var) return-var sequence)
+   (list (quote var) variable ())
    (list (quote while) sequence-var
          (list (quote setq) variable (list (quote car) sequence-var))
          (apply noscope
@@ -664,26 +666,27 @@
          Arity checking is not implemented for "," and ",@" .
          ",", and ",@" need to be called as functions in order to match properly.)
 (defmacro ` (form)
-    (println form)
-  (switch (type-of form)
-          duckLisp-object-type-list (when form
-                                      (
-                                       (var sub-form (car form))
-                                       (if (list? sub-form)
-                                           (switch (car sub-form)
-                                                   (quote ,) (list (quote cons) (cadr sub-form) (self (cdr form)))
-                                                   (quote ,@) (list (quote append)
-                                                                    (cadr sub-form)
-                                                                    (self (cdr form)))
-                                                   (list (quote cons) (self (car form)) (self (cdr form))))
-                                           (list (quote cons) (self (car form)) (self (cdr form))))))
-          duckLisp-object-type-symbol (list (quote quote) form)
-          duckLisp-object-type-closure (list (quote error) "`: Cannot quote closure object")
-          duckLisp-object-type-vector (list (quote quote) form)
-          duckLisp-object-type-type (list (quote error) "`: Cannot quote type object")
-          form))
+    (switch (type-of form)
+            duckLisp-object-type-list (when form
+                                        (
+                                         (var sub-form (car form))
+                                         (if (list? sub-form)
+                                             (switch (car sub-form)
+                                                     (quote ,) (list (quote cons) (cadr sub-form) (self (cdr form)))
+                                                     (quote ,@) (list (quote append)
+                                                                      (cadr sub-form)
+                                                                      (self (cdr form)))
+                                                     (list (quote cons) (self (car form)) (self (cdr form))))
+                                             (list (quote cons) (self (car form)) (self (cdr form))))))
+            duckLisp-object-type-symbol (list (quote quote) form)
+            duckLisp-object-type-closure (list (quote error) "`: Cannot quote closure object")
+            duckLisp-object-type-vector (list (quote quote) form)
+            duckLisp-object-type-type (list (quote error) "`: Cannot quote type object")
+            form))
 (comment See above description of the backtick character.)
 (defmacro quasiquote (form) (funcall ` form))
+
+(defmacro ' (form) (funcall quote form))
 
 
 (comptime (println "</comptime library.dl>"))

@@ -117,14 +117,14 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	
 	switch (object.type) {
 	case duckLisp_object_type_symbol:
-		for (dl_size_t i = 0; i < object.value.symbol.value_length; i++) {
-			putchar(object.value.symbol.value[i]);
+		for (dl_size_t i = 0; i < object.value.symbol.internalString->value.internalString.value_length; i++) {
+			putchar(object.value.symbol.internalString->value.internalString.value[i]);
 		}
 		printf("→%llu", object.value.symbol.id);
 		break;
 	case duckLisp_object_type_string:
-		for (dl_size_t i = 0; i < object.value.string.value_length; i++) {
-			putchar(object.value.string.value[i]);
+		for (dl_size_t i = object.value.string.offset; i < object.value.string.length; i++) {
+			putchar(object.value.string.internalString->value.internalString.value[i]);
 		}
 		break;
 	case duckLisp_object_type_integer:
@@ -321,22 +321,22 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			}
 			break;
 		case duckLisp_object_type_symbol:
-			for (dl_size_t i = 0; i < tempObject.value.symbol.value_length; i++) {
-				putchar(tempObject.value.symbol.value[i]);
+			for (dl_size_t i = 0; i < tempObject.value.symbol.internalString->value.internalString.value_length; i++) {
+				putchar(tempObject.value.symbol.internalString->value.internalString.value[i]);
 			}
 			printf("→%llu", tempObject.value.symbol.id);
 			putchar('\n');
 			break;
 		case duckLisp_object_type_string:
 			putchar('"');
-			for (dl_ptrdiff_t k = 0; (dl_size_t) k < tempObject.value.string.value_length; k++) {
-				switch (tempObject.value.string.value[k]) {
+			for (dl_ptrdiff_t k = tempObject.value.string.offset; (dl_size_t) k < tempObject.value.string.length; k++) {
+				switch (tempObject.value.string.internalString->value.internalString.value[k]) {
 				case '\n':
 					putchar('\\');
 					putchar('n');
 					break;
 				default:
-					putchar(tempObject.value.string.value[k]);
+					putchar(tempObject.value.string.internalString->value.internalString.value[k]);
 				}
 			}
 			putchar('"');
@@ -720,11 +720,11 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	fileName.value_length = expression->compoundExpressions[1].value.string.value_length;
 
 	printf(COLOR_YELLOW);
-	printf("(include ");
+	printf("(include \"");
 	DL_DOTIMES(i, fileName.value_length) {
 		putchar(fileName.value[i]);
 	}
-	printf(")\n");
+	printf("\")\n");
 	printf(COLOR_NORMAL);
 
 	e = dl_malloc(duckLisp->memoryAllocation, (void **) &cFileName, (fileName.value_length + 1) * sizeof(char));
@@ -1004,7 +1004,7 @@ int main(int argc, char *argv[]) {
 
 	const size_t duckLispMemory_size = 10 * 1024 * 1024;
 	const size_t duckVMMemory_size = 1000 * 64 * 1024;
-	const size_t duckVMMaxObjects = 60000;
+	const size_t duckVMMaxObjects = 1000000;
 
 	duckLisp_t duckLisp;
 	void *duckLispMemory = dl_null;

@@ -913,11 +913,12 @@ static dl_error_t cst_parse_int(duckLisp_t *duckLisp,
 	dl_ptrdiff_t index = start_index;
 	dl_ptrdiff_t stop_index = start_index + length;
 	dl_bool_t tempBool;
+	dl_bool_t hexadecimal = dl_false;
 
 	if (index >= stop_index) {
 		eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Unexpected end of file in integer."), index, throwErrors);
 		e = eError ? eError : dl_error_invalidValue;
-		goto l_cleanup;
+		goto cleanup;
 	}
 
 	if (source[index] == '-') {
@@ -929,23 +930,37 @@ static dl_error_t cst_parse_int(duckLisp_t *duckLisp,
 			                                   index,
 			                                   throwErrors);
 			e = eError ? eError : dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 	}
 
-	/* No error */ dl_string_isDigit(&tempBool, source[index]);
+	/**/ dl_string_isDigit(&tempBool, source[index]);
 	if (!tempBool) {
 		eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Expected a digit in integer."), index, throwErrors);
 		e = eError ? eError : dl_error_invalidValue;
-		goto l_cleanup;
+		goto cleanup;
+	}
+	index++;
+
+	/* Hexadecimal */
+	if (index < stop_index) {
+		if ((source[index - 1] == '0') && ((source[index] == 'x') || (source[index] == 'X'))) {
+			index++;
+			hexadecimal = dl_true;
+		}
 	}
 
 	while (index < stop_index) {
-		/* No error */ dl_string_isDigit(&tempBool, source[index]);
+		if (hexadecimal) {
+			/**/ dl_string_isHexadecimalDigit(&tempBool, source[index]);
+		}
+		else {
+			/**/ dl_string_isDigit(&tempBool, source[index]);
+		}
 		if (!tempBool) {
 			eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Expected a digit in integer."), index, throwErrors);
 			e = eError ? eError : dl_error_invalidValue;
-			goto l_cleanup;
+			goto cleanup;
 		}
 		index++;
 	}
@@ -953,8 +968,7 @@ static dl_error_t cst_parse_int(duckLisp_t *duckLisp,
 	compoundExpression->value.integer.token_index = start_index;
 	compoundExpression->value.integer.token_length = length;
 
- l_cleanup:
-
+ cleanup:
 	return e;
 }
 
@@ -6647,7 +6661,7 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp,
 				                          expression->compoundExpressions[1].value.identifier.value,
 				                          expression->compoundExpressions[1].value.identifier.value_length);
 				if (e) goto cleanup;
-				e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming dynamic scope."));
+				e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming global scope."));
 				if (e) goto cleanup;
 				eError = duckLisp_error_pushRuntime(duckLisp,
 				                                    eString.elements,

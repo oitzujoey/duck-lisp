@@ -1,6 +1,6 @@
 (print "{\n")
 
-(__comptime (disassemble))
+
 
 (print (__make-type)) (print "\n")
 (print (__make-type)) (print "\n")
@@ -17,7 +17,9 @@
 (__set-composite-function my-object (__quote function))
 (print my-object) (print "\n")
 
-(__set-composite-function my-object (__lambda (a b c)
+(__set-composite-function my-object (__lambda (m a b c)
+                                              (print m)
+                                              (print " ")
                                               (print a)
                                               (print " ")
                                               (print b)
@@ -27,5 +29,22 @@
 (my-object 1 2 3)
 (__funcall my-object 4 5 6)
 (__apply my-object (__list 7 8 9))
+
+(__set-composite-function my-object (__lambda (m o a b c)
+                                              (print m)
+                                              (print " ")
+                                              (print o)
+                                              (print " ")
+                                              (print a)
+                                              (print " ")
+                                              (print b)
+                                              (print " ")
+                                              (print c)
+                                              (print "\n")))
+
+(__var outer-object (__make-instance (__make-type) (__quote outer-value) my-object))
+(outer-object 1 2 3)
+(__funcall outer-object 4 5 6)
+(__apply outer-object (__list 7 8 9))
 
 (print "}\n")
