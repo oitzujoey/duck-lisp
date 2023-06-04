@@ -26,6 +26,7 @@ SOFTWARE.
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <errno.h>
 #include "../DuckLib/core.h"
 #include "../duckLisp.h"
 #include "../duckVM.h"
@@ -53,6 +54,19 @@ SOFTWARE.
 
 dl_bool_t g_disassemble = dl_false;
 
+typedef enum {
+	duckLispDev_user_type_none,
+	duckLispDev_user_type_file,
+} duckLispDev_user_type_t;
+
+typedef struct {
+	union {
+		FILE *file;
+		duckLisp_object_t *heapObject;
+	} _;
+	duckLispDev_user_type_t type;
+} duckLispDev_user_t;
+
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM);
 
 
@@ -69,52 +83,52 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckLisp_object_t *c
 		else if (cons->value.cons.car->type == duckLisp_object_type_cons) {
 			printf("(");
 			e = duckLispDev_callback_printCons(duckVM, cons->value.cons.car);
-			if (e) goto l_cleanup;
+			if (e) goto cleanup;
 			printf(")");
 		}
 		else {
 			e = duckVM_push(duckVM, cons->value.cons.car);
-			if (e) goto l_cleanup;
+			if (e) goto cleanup;
 			e = duckLispDev_callback_print(duckVM);
-			if (e) goto l_cleanup;
+			if (e) goto cleanup;
 			e = duckVM_pop(duckVM, dl_null);
-			if (e) goto l_cleanup;
+			if (e) goto cleanup;
 		}
-		
-		
+
+
 		if ((cons->value.cons.cdr == dl_null)
 		    || (cons->value.cons.cdr->type == duckLisp_object_type_cons)) {
 			if (cons->value.cons.cdr != dl_null) {
 				printf(" ");
 				e = duckLispDev_callback_printCons(duckVM, cons->value.cons.cdr);
-				if (e) goto l_cleanup;
+				if (e) goto cleanup;
 			}
 		}
 		else {
 			printf(" . ");
 			e = duckVM_push(duckVM, cons->value.cons.cdr);
-			if (e) goto l_cleanup;
+			if (e) goto cleanup;
 			e = duckLispDev_callback_print(duckVM);
-			if (e) goto l_cleanup;
+			if (e) goto cleanup;
 			e = duckVM_pop(duckVM, dl_null);
-			if (e) goto l_cleanup;
+			if (e) goto cleanup;
 		}
 	}
-		
- l_cleanup:
-	
+
+ cleanup:
+
 	return e;
 }
 
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
-	
+
 	duckLisp_object_t object;
-	
+
 	// e = duckVM_getArg(duckVM, &string, 0);
 	e = duckVM_pop(duckVM, &object);
 	if (e) goto cleanup;
-	
+
 	switch (object.type) {
 	case duckLisp_object_type_symbol:
 		for (dl_size_t i = 0; i < object.value.symbol.internalString->value.internalString.value_length; i++) {
@@ -632,12 +646,209 @@ dl_error_t duckLispDev_callback_quicksort_hoare(duckVM_t *duckVM) {
 	if (e) goto cleanup;
 	e = duckVM_push(duckVM, &list);
 	if (e) goto cleanupMalloc;
-	
+
  cleanupMalloc:
 	eError = DL_FREE(duckVM->memoryAllocation, &array);
 	if (!e) e = eError;
  cleanup:
 
+	return e;
+}
+
+dl_error_t duckLispDev_destructor_openFile(duckVM_gclist_t *gclist, struct duckLisp_object_s *object) {
+	dl_error_t e = dl_error_ok;
+
+	(void) gclist;
+
+	puts("DESTRUCT");
+
+	duckLispDev_user_t *fileUser = object->value.user.data;
+	if (fileUser == NULL) return e;
+
+	if (fclose(fileUser->_.file)) {
+		e = dl_error_invalidValue;
+	}
+	/**/ free(fileUser);
+	fileUser = dl_null;
+
+	return e;
+}
+
+dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_object_t fileName_object;
+	duckLisp_object_t mode_object;
+	char *fileName = NULL;
+	char *mode = NULL;
+	duckLisp_object_t internal;
+	duckLisp_object_t ret;
+
+	e = duckVM_pop(duckVM, &mode_object);
+	if (e) goto cleanup;
+	if (mode_object.type != duckLisp_object_type_string) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->open-file: Second argument (mode) must be a string."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	e = duckVM_pop(duckVM, &fileName_object);
+	if (e) goto cleanup;
+	if (fileName_object.type != duckLisp_object_type_string) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->open-file: First argument (file-name) must be a string."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	mode = malloc(sizeof(char) * (mode_object.value.string.internalString->value.internalString.value_length + 1));
+	if (mode == NULL) {
+		e = dl_error_outOfMemory;
+		goto cleanup;
+	}
+	memcpy(mode,
+	       mode_object.value.string.internalString->value.internalString.value,
+	       mode_object.value.string.internalString->value.internalString.value_length);
+	mode[mode_object.value.string.internalString->value.internalString.value_length] = '\0';
+
+	fileName = malloc(sizeof(char)
+	                  * (fileName_object.value.string.internalString->value.internalString.value_length + 1));
+	if (fileName == NULL) {
+		e = dl_error_outOfMemory;
+		goto cleanup;
+	}
+	memcpy(fileName,
+	       fileName_object.value.string.internalString->value.internalString.value,
+	       fileName_object.value.string.internalString->value.internalString.value_length);
+	fileName[fileName_object.value.string.internalString->value.internalString.value_length] = '\0';
+
+	FILE *file = fopen(fileName, mode);
+	if (file == NULL) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->open-file: `fopen` failed."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+	internal.type = duckLisp_object_type_user;
+	internal.value.user.destructor = duckLispDev_destructor_openFile;
+	internal.value.user.data = malloc(sizeof(duckLispDev_user_t));
+	if (internal.value.user.data == NULL) {
+		e = dl_error_outOfMemory;
+		goto cleanup;
+	}
+	duckLispDev_user_t *internalUser = internal.value.user.data;
+	internalUser->type = duckLispDev_user_type_file;
+	internalUser->_.file = file;
+	duckLisp_object_t *internalPointer = dl_null;
+	e = duckVM_gclist_pushObject(duckVM, &internalPointer, internal);
+	if (e) goto cleanup;
+
+	ret.type = duckLisp_object_type_user;
+	ret.value.user.destructor = dl_null;
+	ret.value.user.data = internalPointer;
+
+	e = duckVM_push(duckVM, &ret);
+	if (e) goto cleanup;
+
+ cleanup:
+	if (fileName) /**/ free(fileName);
+	if (mode) /**/ free(mode);
+	return e;
+}
+
+dl_error_t duckLispDev_callback_closeFile(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_object_t file_object;
+	duckLisp_object_t ret;
+
+	e = duckVM_pop(duckVM, &file_object);
+	if (e) goto cleanup;
+
+	if (file_object.type != duckLisp_object_type_user) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->close-file: Argument (file) must be a file."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	duckLisp_object_t *internal = file_object.value.user.data;
+	duckLispDev_user_t *fileUser = dl_null;
+	if (internal != dl_null) {
+		fileUser = internal->value.user.data;
+	}
+
+	if ((internal == dl_null)
+	    || (fileUser == dl_null)
+	    || (fileUser->type != duckLispDev_user_type_file)) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->close-file: Argument (file) must be a file."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	ret.type = duckLisp_object_type_integer;
+	ret.value.integer = fclose(fileUser->_.file);
+	fileUser->_.file = NULL;
+	/**/ free(fileUser);
+	internal->value.user.data = NULL;
+
+	e = duckVM_push(duckVM, &ret);
+	if (e) goto cleanup;
+
+ cleanup:
+	return e;
+}
+
+dl_error_t duckLispDev_callback_fgetc(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_object_t file_object;
+	duckLisp_object_t ret;
+
+	e = duckVM_pop(duckVM, &file_object);
+	if (e) goto cleanup;
+
+	if (file_object.type != duckLisp_object_type_user) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->fgetc: Argument (file) must be a file."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	duckLisp_object_t *internal = file_object.value.user.data;
+	duckLispDev_user_t *fileUser = dl_null;
+	if (internal != dl_null) {
+		fileUser = internal->value.user.data;
+	}
+
+	if ((internal == dl_null)
+	    || (fileUser == dl_null)
+	    || (fileUser->type != duckLispDev_user_type_file)) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->fgetc: Argument (file) must be a file."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	ret.type = duckLisp_object_type_integer;
+	ret.value.integer = fgetc(fileUser->_.file);
+
+	e = duckVM_push(duckVM, &ret);
+	if (e) goto cleanup;
+
+ cleanup:
 	return e;
 }
 
@@ -1038,6 +1249,9 @@ int main(int argc, char *argv[]) {
 		{DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
 		{DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare},
 		{DL_STR("print-uv-stack"),  duckLispDev_callback_printUpvalueStack},
+		{DL_STR("open-file"),       duckLispDev_callback_openFile},
+		{DL_STR("close-file"),      duckLispDev_callback_closeFile},
+		{DL_STR("fgetc"),           duckLispDev_callback_fgetc},
 		{dl_null, 0,                dl_null}
 	};
 
@@ -1050,7 +1264,7 @@ int main(int argc, char *argv[]) {
 		       "./duckLisp-dev \"(func0 arg0 arg1 ...) (func1 arg0 arg1 ...) ...\"      Run script from string\n"
 		       "./duckLisp-dev                                                        Start REPL\n"
 		       COLOR_NORMAL);
-		goto l_cleanup;
+		goto cleanup;
 	}
 
 	tempMemory_size = duckLispMemory_size;
@@ -1058,20 +1272,20 @@ int main(int argc, char *argv[]) {
 	if (duckLispMemory == NULL) {
 		e = dl_error_outOfMemory;
 		printf(COLOR_RED "Out of memory.\n" COLOR_NORMAL);
-		goto l_cleanup;
+		goto cleanup;
 	}
 	d.duckLispMemory = dl_true;
 
 	e = dl_memory_init(&duckLispMemoryAllocation, duckLispMemory, tempMemory_size, dl_memoryFit_best);
 	if (e) {
-		goto l_cleanup;
+		goto cleanup;
 	}
 	duckLisp.memoryAllocation = &duckLispMemoryAllocation;
 
 	e = duckLisp_init(&duckLisp);
 	if (e) {
 		printf(COLOR_RED "Could not initialize DuckLisp. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
-		goto l_cleanup;
+		goto cleanup;
 	}
 	d.duckLisp_init = dl_true;
 
@@ -1090,7 +1304,7 @@ int main(int argc, char *argv[]) {
 		e = duckLisp_linkCFunction(&duckLisp, callbacks[i].callback, callbacks[i].name, callbacks[i].name_length);
 		if (e) {
 			printf(COLOR_RED "Could not create function. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
-			goto l_cleanup;
+			goto cleanup;
 		}
 	}
 
@@ -1099,12 +1313,12 @@ int main(int argc, char *argv[]) {
 	if (duckVMMemory == NULL) {
 		e = dl_error_outOfMemory;
 		printf("Out of memory.\n");
-		goto l_cleanup;
+		goto cleanup;
 	}
 
 	e = dl_memory_init(&duckVMMemoryAllocation, duckVMMemory, tempMemory_size, dl_memoryFit_best);
 	if (e) {
-		goto l_cleanup;
+		goto cleanup;
 	}
 	duckVM.memoryAllocation = &duckVMMemoryAllocation;
 
@@ -1114,7 +1328,7 @@ int main(int argc, char *argv[]) {
 	e = duckVM_init(&duckVM, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
-		goto l_cleanup;
+		goto cleanup;
 	}
 	d.duckVM_init = dl_true;
 
@@ -1124,7 +1338,7 @@ int main(int argc, char *argv[]) {
 		                         callbacks[i].callback);
 		if (e) {
 			printf("Could not link callback into VM. (%s)\n", dl_errorString[e]);
-			goto l_cleanup;
+			goto cleanup;
 		}
 	}
 
@@ -1176,7 +1390,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	l_cleanup:
+ cleanup:
 
 	puts(COLOR_CYAN);
 	if (d.duckVM_init) {

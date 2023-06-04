@@ -29,6 +29,12 @@ SOFTWARE.
 #include "DuckLib/memory.h"
 #include "DuckLib/array.h"
 
+typedef enum {
+	duckVM_upvalue_type_stack_index,
+	duckVM_upvalue_type_heap_object,
+	duckVM_upvalue_type_heap_upvalue
+} duckVM_upvalue_type_t;
+
 typedef struct duckVM_gclist_s {
 	struct duckLisp_object_s *objects;
 	struct duckLisp_object_s **freeObjects;
@@ -39,18 +45,12 @@ typedef struct duckVM_gclist_s {
 	dl_memoryAllocation_t *memoryAllocation;
 } duckVM_gclist_t;
 
-typedef enum {
-	duckVM_upvalue_type_stack_index,
-	duckVM_upvalue_type_heap_object,
-	duckVM_upvalue_type_heap_upvalue
-} duckVM_upvalue_type_t;
-
 typedef struct {
 	dl_uint8_t *ip;
 	struct duckLisp_object_s *bytecode;
 } duckVM_callFrame_t;
 
-typedef struct {
+typedef struct duckVM_s {
 	dl_memoryAllocation_t *memoryAllocation;
 	dl_array_t errors;  /* Runtime errors. */
 	dl_array_t stack;  /* dl_array_t:duckLisp_object_t For data. */
@@ -69,12 +69,6 @@ typedef struct {
 } duckVM_t;
 
 typedef enum {
-	duckVM_halt_mode_run,
-	duckVM_halt_mode_yield,
-	duckVM_halt_mode_halt,
-} duckVM_halt_mode_t;
-
-typedef enum {
   duckLisp_object_type_none,
 
   /* These types are user visible types. */
@@ -89,6 +83,8 @@ typedef enum {
   duckLisp_object_type_vector,
   duckLisp_object_type_type,
   duckLisp_object_type_composite,
+  /* User-defined type */
+  duckLisp_object_type_user,
 
   /* These types should never appear on the stack. */
   duckLisp_object_type_cons,
@@ -173,10 +169,22 @@ typedef struct duckLisp_object_s {
 			struct duckLisp_object_s *function;
 		} internalComposite;
 		struct duckLisp_object_s *composite;
+		struct {
+			void *data;
+			dl_error_t (*destructor)(duckVM_gclist_t *, struct duckLisp_object_s *);
+		} user;
 	} value;
 	duckLisp_object_type_t type;
 	dl_bool_t inUse;
 } duckLisp_object_t;
+
+typedef dl_error_t (*duckVM_gclist_destructor_t)(duckVM_gclist_t *, duckLisp_object_t *);
+
+typedef enum {
+	duckVM_halt_mode_run,
+	duckVM_halt_mode_yield,
+	duckVM_halt_mode_halt,
+} duckVM_halt_mode_t;
 
 dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);

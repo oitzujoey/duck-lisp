@@ -47,6 +47,7 @@
 (bdefun cdr (cons) (__cdr cons))
 (bdefun set-car (cons value) (__set-car cons value))
 (bdefun set-cdr (cons value) (__set-cdr cons value))
+(bdefun make-string (integer-sequence) (__make-string integer-sequence))
 (bdefun make-type () (__make-type))
 (bdefun make-instance (type value-slot function-slot) (__make-instance type value-slot function-slot))
 (bdefun composite-value (composite) (__composite-value composite))
@@ -687,6 +688,10 @@
 (defmacro quasiquote (form) (funcall ` form))
 
 (defmacro ' (form) (funcall quote form))
+
+
+(defmacro until (condition &rest body)
+  (` (while (not (, condition)) (,@ body))))
 
 
 (comptime (println "</comptime library.dl>"))

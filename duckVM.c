@@ -225,35 +225,41 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	}
 
 	/* Free cells if not marked. */
-
 	duckVM->gclist.freeObjects_length = 0;  // This feels horribly inefficient. (That's 'cause it is.)
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.objects_length; i++) {
 		if (!duckVM->gclist.objectInUse[i]) {
 			duckVM->gclist.freeObjects[duckVM->gclist.freeObjects_length++] = &duckVM->gclist.objects[i];
-			if ((duckVM->gclist.objects[i].type == duckLisp_object_type_upvalueArray)
+			duckLisp_object_type_t type = duckVM->gclist.objects[i].type;
+			if ((type == duckLisp_object_type_upvalueArray)
 			    /* Prevent multiple frees. */
 			    && (duckVM->gclist.objects[i].value.upvalue_array.upvalues != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.upvalue_array.upvalues);
 				if (e) goto cleanup;
 			}
-			else if ((duckVM->gclist.objects[i].type == duckLisp_object_type_internalVector)
+			else if ((type == duckLisp_object_type_internalVector)
 			         && duckVM->gclist.objects[i].value.internal_vector.initialized
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.internal_vector.values != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.internal_vector.values);
 				if (e) goto cleanup;
 			}
-			else if ((duckVM->gclist.objects[i].type == duckLisp_object_type_bytecode)
+			else if ((type == duckLisp_object_type_bytecode)
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.bytecode.bytecode != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.bytecode.bytecode);
 				if (e) goto cleanup;
 			}
-			else if ((duckVM->gclist.objects[i].type == duckLisp_object_type_internalString)
+			else if ((type == duckLisp_object_type_internalString)
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.internalString.value != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.internalString.value);
 				if (e) goto cleanup;
+			}
+			else if ((type == duckLisp_object_type_user)
+			         && (duckVM->gclist.objects[i].value.user.destructor != dl_null)) {
+				e = duckVM->gclist.objects[i].value.user.destructor(&duckVM->gclist, &duckVM->gclist.objects[i]);
+				if (e) goto cleanup;
+				duckVM->gclist.objects[i].value.user.destructor = dl_null;
 			}
 		}
 	}
@@ -422,15 +428,16 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 void duckVM_quit(duckVM_t *duckVM) {
 	dl_error_t e;
 	e = dl_array_quit(&duckVM->stack);
+	e = dl_array_quit(&duckVM->upvalue_stack);
+	e = dl_array_quit(&duckVM->globals);
+	e = dl_array_quit(&duckVM->globals_map);
+	e = dl_array_quit(&duckVM->call_stack);
+	duckVM->currentBytecode = dl_null;
 	e = duckVM_gclist_garbageCollect(duckVM);
 	e = dl_array_quit(&duckVM->upvalue_array_call_stack);
 	/**/ dl_array_quit(&duckVM->upvalue_array_length_call_stack);
 	/**/ duckVM_gclist_quit(&duckVM->gclist);
 	/**/ dl_memclear(&duckVM->errors, sizeof(dl_array_t));
-	e = dl_array_quit(&duckVM->globals);
-	e = dl_array_quit(&duckVM->globals_map);
-	e = dl_array_quit(&duckVM->call_stack);
-	e = dl_array_quit(&duckVM->upvalue_stack);
 	(void) e;
 }
 
@@ -1316,9 +1323,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		while ((uint8 < object1.value.closure.arity) && (rest.value.list != dl_null)) {
 			if ((rest.value.list->type != duckLisp_object_type_cons)
 			    || rest.value.list->type != duckLisp_object_type_cons) {
-				e = duckVM_error_pushRuntime(duckVM,
-				                             DL_STR("duckVM_execute->apply: Object pointed to by list root is not a list."));
 				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->apply: Object pointed to by list root is not a list."));
+				if (eError) e = eError;
 				break;
 			}
 			/* (push (car rest) stack) */
@@ -4088,6 +4096,48 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					/* Truncate to 8 bits. */
 					string[i - object1.value.vector.offset] = element->value.integer;
 				}
+			}
+			else if (object1.type == duckLisp_object_type_list) {
+				dl_array_t string_array;
+				/**/ dl_array_init(&string_array, duckVM->memoryAllocation, sizeof(char), dl_array_strategy_double);
+				objectPtr1 = object1.value.list;
+				while (objectPtr1 != dl_null) {
+					if (objectPtr1->type == duckLisp_object_type_list) {
+						objectPtr1 = objectPtr1->value.list;
+					}
+					else if (objectPtr1->type == duckLisp_object_type_cons) {
+						duckLisp_object_t *car = objectPtr1->value.cons.car;
+						if (car->type != duckLisp_object_type_integer) {
+							e = dl_error_invalidValue;
+							eError = duckVM_error_pushRuntime(duckVM,
+							                                  DL_STR("duckVM_execute->make-string: All list elements must be integers."));
+							if (eError) e = eError;
+							eError = dl_array_quit(&string_array);
+							if (eError) e = eError;
+							break;
+						}
+						uint8 = car->value.integer & 0xFF;
+						e = dl_array_pushElement(&string_array, &uint8);
+						if (e) {
+							e = dl_error_invalidValue;
+							eError = dl_array_quit(&string_array);
+							if (eError) e = eError;
+							break;
+						}
+						objectPtr1 = objectPtr1->value.cons.cdr;
+					}
+					else {
+						e = dl_error_invalidValue;
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_execute->make-string: Not a proper list."));
+						if (eError) e = eError;
+						eError = dl_array_quit(&string_array);
+						if (eError) e = eError;
+						break;
+					}
+				}
+				string = string_array.elements;
+				string_length = string_array.elements_length;
 			}
 			else {
 				e = dl_error_invalidValue;

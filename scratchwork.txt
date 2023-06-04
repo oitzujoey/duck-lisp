@@ -2041,11 +2041,9 @@ And that was the last planned feature.
 Next step:
 
 Defer:
-	There's a memory bug likely caused by the lack of GC for symbols and strings.
-    `when' and `unless' are buggy with multiple statements. Maybe the problem is using `setq' at the end?
+    `when' and `unless' are buggy with multiple statements. Maybe the problem is triggered by using `setq' at the end?
 
 Todo:
-    Clean up memory
     Rewrite parser
     Clean up memory
     Fix error handling?
@@ -2059,17 +2057,14 @@ Todo:
 	Clean up.
 
 How to design your compiler for macros:
-Assumptions: You want macros to be able to call functions that do not depend on impure functions.
-Are all macros top-level (i.e. global)? Then it's easy! Just compile each function and make the function object a global in the macro VM. When a macro is called, just run it. I haven't actually tried this by the way.
-Are your macros lexically scoped? Meaning they aren't first class and can't create closures but they have lexical scope and dynamic extent. They do? Oh. My condolences. Every pure function must be compiled twice while all the rest are only compiled once. Be sure the compile supports incremental compilation of functions inside other functions since there might be a defmacro nested inside the outer function. Why is this such a pain? Because macros are a hack. Fexprs are a more full version of macros, but then you can't easily compile them.
-Alternative macro compilation that won't harm your brain: just wrap compile time functions in a `comptime' keyword. Depending on what you want out of it, you may need to create a way for the VM to yield control midway through execution.
+Assumptions: You want macros to be able to call function at compile-time.
+Wrap compile time functions in a `comptime' keyword. Depending on what you want out of it, you may need to create a way for the VM to yield control midway through execution.
 
 Duck-lisp architecture:
 Parse source text into an AST.
 Expand macros — Most complicated step as it recursively performs other steps here as well.
 Perform optimizations (DL skips this)
 Compile AST into HLA.
+Peephole optimization: Remove redundant stack operations.
 Assemble HLA into bytecode.
-Perform peephole optimizations.
-
-It is important to separate the assembler from the AST compiler so that the compiler can call the assembler multiple times on the assembly that has been generated so far.
+Peephole optimization: Minimize the size of branch instructions.
