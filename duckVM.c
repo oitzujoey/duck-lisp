@@ -3457,6 +3457,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 				else {
 					e = dl_error_invalidValue;
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->cdr: Internal string is wrong type."));
+					if (eError) e = eError;
 					break;
 				}
 			}
