@@ -137,8 +137,10 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		printf("→%llu", object.value.symbol.id);
 		break;
 	case duckLisp_object_type_string:
-		for (dl_size_t i = object.value.string.offset; i < object.value.string.length; i++) {
-			putchar(object.value.string.internalString->value.internalString.value[i]);
+		if (object.value.string.internalString) {
+			for (dl_size_t i = object.value.string.offset; i < object.value.string.length; i++) {
+				putchar(object.value.string.internalString->value.internalString.value[i]);
+			}
 		}
 		break;
 	case duckLisp_object_type_integer:
@@ -852,6 +854,65 @@ dl_error_t duckLispDev_callback_fgetc(duckVM_t *duckVM) {
 	return e;
 }
 
+dl_error_t duckLispDev_callback_writeFile(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_object_t file_object;
+	duckLisp_object_t ret;
+	duckLisp_object_t string_object;
+
+	e = duckVM_pop(duckVM, &string_object);
+	if (e) goto cleanup;
+	if (string_object.type != duckLisp_object_type_string) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->fwrite: Second argument must be a string."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	e = duckVM_pop(duckVM, &file_object);
+	if (e) goto cleanup;
+
+	if (file_object.type != duckLisp_object_type_user) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->fwrite: First argument (file) must be a file."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	duckLisp_object_t *internal = file_object.value.user.data;
+	duckLispDev_user_t *fileUser = dl_null;
+	if (internal != dl_null) {
+		fileUser = internal->value.user.data;
+	}
+
+	if ((internal == dl_null)
+	    || (fileUser == dl_null)
+	    || (fileUser->type != duckLispDev_user_type_file)) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM,
+		                                  DL_STR("duckVM_execute->callback->fgetc: Argument (file) must be a file."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	ret.type = duckLisp_object_type_integer;
+	ret.value.integer = fwrite((&string_object.value.string.internalString->value.internalString.value
+	                            [string_object.value.string.offset]),
+	                           sizeof(dl_uint8_t),
+	                           string_object.value.string.length,
+	                           fileUser->_.file);
+
+	e = duckVM_push(duckVM, &ret);
+	if (e) goto cleanup;
+
+ cleanup:
+	return e;
+}
+
 dl_error_t print_errors(dl_array_t *errors, dl_array_t *sourceCode){
 	dl_error_t e = dl_error_ok;
 	dl_bool_t firstLoop = dl_true;
@@ -1252,6 +1313,7 @@ int main(int argc, char *argv[]) {
 		{DL_STR("open-file"),       duckLispDev_callback_openFile},
 		{DL_STR("close-file"),      duckLispDev_callback_closeFile},
 		{DL_STR("fgetc"),           duckLispDev_callback_fgetc},
+		{DL_STR("fwrite"),          duckLispDev_callback_writeFile},
 		{dl_null, 0,                dl_null}
 	};
 
