@@ -7882,6 +7882,8 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 static dl_error_t instructionObject_quit(duckLisp_t *duckLisp, duckLisp_instructionObject_t *instruction) {
 	dl_error_t e = dl_error_ok;
 
+	(void) duckLisp;
+
 	DL_DOTIMES(j, instruction->args.elements_length) {
 		duckLisp_instructionArgClass_t arg = DL_ARRAY_GETADDRESS(instruction->args,
 		                                                         duckLisp_instructionArgClass_t,
