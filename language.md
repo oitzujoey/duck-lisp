@@ -310,10 +310,9 @@ It's probably best to create a proper constructor.
   (car (composite-value complex)))
 (defun imag-part (complex)
   (cdr (composite-value complex)))
-(defun set-real-part (complex value)
-  (car (set-composite-value complex value)))
-(defun imag-part (complex value)
-  (cdr (set-composite-value complex value)))
+
+(; There isn't generally a good reason to do this for a complex type.)
+(set-composite-value complex (cons -5.9 -6.3))
 ```
 
 Combined with function redefinition, we now have the ability to create something like dynamic dispatch.
