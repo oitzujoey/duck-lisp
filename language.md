@@ -17,14 +17,12 @@ Every function and keyword follows the form `(verb noun noun …)`.
 
 ## Data types
 
-Integers, floats, booleans, strings, cons, symbols, closures, vectors
+Integers, floats, booleans, strings, cons, symbols, closures, vectors, types, composites
 
-Floats are not yet supported by all keywords. There are no built-in string keywords.
-
-The type of a value can be converted to an integer corresponding to its type using the `type-of` keyword.
+The type of a value can be queried using the `type-of` keyword. The type of the returned value is a type.
 
 ```lisp
-(type-of 5)  (; ⇒ 2)
+(type-of 5)  (; ⇒ <2>)
 ```
 
 ## Arithmetic
@@ -257,6 +255,105 @@ Like `car`, `cdr`, `set-car`, and `set-cdr`, these two operations can be used to
 (get-vector-element x 3)  (; ⇒ [1 2 3])
 (set-vector-element (get-vector-element x 3) 2 10)  (; ⇒ 10)
 (print x)  (; ⇒ [[1 2 10] [1 2 10] [1 2 10] [1 2 10]])
+```
+
+
+## Composites
+
+Composites are user-defined types that have nearly the same language support as native types. Unlike OOP objects, they do not provide encapsulation or a convenient way to structure data. Data still has to be structured using built-in sequences. There are two advantages to placing data in composites instead of storing raw data. The first is that `type-of` returns a type value that is distinct from built-in types. The second is that composites can be called as functions.
+
+To create a composite, first create a new type. For this example, we will implement a composite that stores a complex number.
+
+```lisp
+(var complex-type (make-type))  (; ⇒ <20>)
+```
+
+Next, prepare the data to store in the composite.
+
+```lisp
+(var real-part 3.0)
+(var imag-part 4.0)
+(var internal-complex (cons real-part imag-part))
+```
+
+Now create a function to use when the composite is called. Since it doesn't really make sense to call a complex number, let's just return nil.
+
+```lisp
+(defun complex-function () ())
+```
+
+And finally, create the composite.
+
+```lisp
+(make-instance complex-type internal-complex complex-function)  (; ⇒ (composite <20> (cons 3.0 4.0) (closure 2)))
+```
+
+It's probably best to create a proper constructor.
+
+```lisp
+(defun make-complex (real imag)
+  (make-instance complex-type (cons real imag) (lambda () ())))
+
+(var complex-number (make-complex 1.2 -3.3))
+```
+
+`type-of` works on this new data type.
+
+```lisp
+(= complex-type (type-of complex-number))  (; ⇒ true)
+```
+
+`composite-value` and `composite-function` return the value and function slots of the composite. `set-composite-value` and `set-composite-function` set the value and function slots.
+
+```lisp
+(defun real-part (complex)
+  (car (composite-value complex)))
+(defun imag-part (complex)
+  (cdr (composite-value complex)))
+(defun set-real-part (complex value)
+  (car (set-composite-value complex value)))
+(defun imag-part (complex value)
+  (cdr (set-composite-value complex value)))
+```
+
+Combined with function redefinition, we now have the ability to create something like dynamic dispatch.
+
+```lisp
+(defun + (a b)
+  (if (and (= complex-type (type-of a))
+           (= complex-type (type-of b)))
+      (
+       (var a (composite-value a))
+       (var b (composite-value b))
+       (make-complex (+ (car a) (car b))
+                     (+ (cdr a) (cdr b))))
+      (+ a b)))
+```
+
+Using the ability to call composites like functions, we can simulate message passing.
+
+```lisp
+(var inc (quote inc))
+(var dec (quote dec))
+(; Unfortunately, we need to declare the object beforehand so that the)
+(; lambda can capture it, but this wordiness can be fixed with a macro)
+(var object ())
+(setq object (make-instance (make-type)
+                            0
+                            (lambda (message)
+                              (set-composite-value (+ (if (= message inc)
+                                                          1
+                                                          (if (= message dec)
+                                                              -1
+                                                              0))
+                                                      (composite-value object))))))
+(print (composite-value object))  (; ⇒ 0)
+(object inc)
+(print (composite-value object))  (; ⇒ 1)
+(object dec)
+(object dec)
+(object dec)
+(print (composite-value object))  (; ⇒ -2)
 ```
 
 
