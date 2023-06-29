@@ -27,7 +27,7 @@ The type of a value can be queried using the `type-of` keyword. The type of the 
 
 ## Arithmetic
 
-`+`, `-`, `*`, `/`, `>`, `<`, `=`, `not` are the built-in arithmetic operators. `=` tests equality. It does not perform assignment.
+`+`, `-`, `*`, `/`, `>`, `<`, `=`, `not` are the built-in arithmetic operators. All arithmetic operators except `not` require exactly two arguments. `=` tests equality. It does not perform assignment.
 
 Arithmetic operators are generators, not functions, so they have no value. However, if you do want to treat them as functions, there is a decent workaround.
 
@@ -68,7 +68,7 @@ Lexical variables are created as in C but using the `var` keyword. Global variab
 
 ### Functions
 
-`defun` generates lexically scoped functions. Functions are first class. Variadic functions are created like in Common Lisp, using the `&rest` keyword. They can be called using `funcall` and `apply`, which also come from Common Lisp. Recursion is possible (using `self`), but mutual recursion between two functions requires a third function to do the setup.
+`defun` generates lexically scoped functions. Functions are first class. Variadic functions are created like in Common Lisp, using the `&rest` keyword. They can be called using `funcall` and `apply`, which also come from Common Lisp. Recursion is possible (using `self`), but mutual recursion between two functions requires a third function to do the setup. The duck-lisp compiler does not perform tail call optimization.
 
 ```lisp
 (; Basic usage)
@@ -155,11 +155,26 @@ x  (; ⇒ 0)
 x  (; ⇒ 5)
 ```
 
-## Sequences
+## Primitive types
 
-### Strings
+### Booleans
 
-The only support for strings is `print`. The only sort of string is a string literal.
+There are two literal boolean values: `true` and `false`.
+
+### Integers
+
+The minimum and maximum integer values an object can contain is unspecified.
+
+Literal integer values are defined by this regex: `-?[0-9]+`
+
+### Floats
+
+The internal format of floating point values is unspecified. Floating point math is not IEEE-754 compliant.
+
+Literal floating point values are defined by this regex: `-?(([0-9]+\.[0-9]*)|([0-9]*\.[0-9]+)(e-?[0-9]+)?)|([0-9]e-?[0-9]+)`
+
+
+## Sequence types
 
 ### Conses and lists
 
@@ -213,7 +228,7 @@ A list without a nil on the end is called a dotted list. In general, dotted list
 
 ### Vectors
 
-Vectors are designed for O(1) element access, as opposed to lists which have O(n) element access.
+Vectors have O(1) element access, as opposed to lists which have O(n) element access.
 
 Most list operations work the same on vectors as on lists. Currently, the only major difference is that `set-cdr` works on vectors only if the "cdr" is being set to `()` or `[]`.
 
@@ -232,6 +247,12 @@ To create an array of arbitrary size at runtime, use `make-vector`. The first ar
 ```lisp
 (make-vector 5 3)  (; ⇒ [3 3 3 3 3])
 (make-vector 4 (vector 1 2 3))  (; ⇒ [[1 2 3] [1 2 3] [1 2 3] [1 2 3]])
+```
+
+The length can be obtained with the `length` keyword.
+
+```lisp
+(length (vector () () () () ()))  (; ⇒ 5)
 ```
 
 Instead of using `car` and `cdr` to access elements, `get-vector-element` can be used instead. The first argument is the vector, and the second element is the index.
@@ -255,6 +276,24 @@ Like `car`, `cdr`, `set-car`, and `set-cdr`, these two operations can be used to
 (get-vector-element x 3)  (; ⇒ [1 2 3])
 (set-vector-element (get-vector-element x 3) 2 10)  (; ⇒ 10)
 (print x)  (; ⇒ [[1 2 10] [1 2 10] [1 2 10] [1 2 10]])
+```
+
+### Strings
+
+Literal strings are any sequence of characters surrounded by quotes. Quotes are also permitted in strings as long as each one is preceded by a backslash character. The character 'n' preceded by a backslash is converted into a newline character.
+
+All vector operations work on strings. List operations work on strings, with the same limitations as vectors. `set-car` and `set-vector-element` have the additional limitation that the argument must be an integer between 0 and 255. Like with vectors, calling `null?` on an empty string returns true.
+
+Strings can be concatenated using the `concatenate` keyword.
+
+```lisp
+(concatenate "Hello, " "world!\n")  (; ⇒ "Hello, world!")
+```
+
+A portion of a string can be extracted using the `substring` command. The first argument is the string, the second is the start index, and the third is the end index. The last returned character originates from the index just before the end index.
+
+```lisp
+(substring "0123456789" 3 6)  (; ⇒ "345")
 ```
 
 
@@ -455,7 +494,7 @@ or alternatively,
   list)
 ```
 
-The most significant limitation is that there are separate runtime and compile time environments, which means that macros cannot call functions in the runtime environment and functions in the runtime environment cannot call functions in the compile time environment. The `comptime` keyword is provided to run code at compile time.
+The most significant limitation is that there are separate runtime and compile-time environments, which means that macros cannot call functions in the runtime environment, and functions in the runtime environment cannot call functions in the compile-time environment. The `comptime` keyword is provided to run code at compile-time.
 
 ```lisp
 (comptime
@@ -469,7 +508,7 @@ The most significant limitation is that there are separate runtime and compile t
   (list (quote setq) variable (list* (car form) variable (cdr form))))
 ```
 
-Macros are really just compile time functions declared in the runtime environment, so it is possible to call macros like functions at compile time.
+Macros are compile-time functions declared in the runtime environment, so it is possible to call macros like functions at compile-time.
 
 ```lisp
 (defmacro and (&rest args)
@@ -490,7 +529,7 @@ Calling a macro using normal function call syntax at compile time still results 
  (print x))  (; ⇒ 9)
 ```
 
-`funcall` can be used to explicitly force calling the macro as a function.
+`funcall` can be used to explicitly force calling the macro as a function. This only works in compile-time code.
 
 ```lisp
 (comptime
@@ -503,4 +542,31 @@ Calling a macro using normal function call syntax at compile time still results 
 
 ```lisp
 (print (comptime (+ 3 4)))  (; ⇒ 7)
+```
+
+Sometimes is convenient to return multiple unscoped forms from a macro. The most common reason to do this is to create new bindings in the caller's scope. Wrapping the bindings in a list _would_ bundle them together in one form, but that would also create a new scope. The bindings would not be visible to code that occur after the macro call. Instead, they should be wrapped in the `noscope` keyword.
+
+```lisp
+(defun declare-variables (&rest names)
+  (cons (quote noscope)
+        (mapcar (lambda (name) (list (quote var) name ())) names)))
+
+(
+ (declare-variables a b c)
+
+ (setq b 3)
+ …)
+```
+
+This expands to
+
+```lisp
+(
+ (noscope
+  (var a ())
+  (var b ())
+  (var b ()))
+
+  (setq b 3)
+  …)
 ```
