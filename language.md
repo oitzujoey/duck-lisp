@@ -173,6 +173,28 @@ The internal format of floating point values is unspecified. Floating point math
 
 Literal floating point values are defined by this regex: `-?(([0-9]+\.[0-9]*)|([0-9]*\.[0-9]+)(e-?[0-9]+)?)|([0-9]e-?[0-9]+)`
 
+### Symbols
+
+Symbols are created by quoting an identifier.
+
+```lisp
+(quote I'm-a-symbol!)  (; ⇒ I'm-a-symbol!→11)
+```
+
+They can be checked for equality with other symbols.
+
+```lisp
+(= (quote I'm-a-symbol!) (quote I'm-a-symbol!))  (; ⇒ true)
+(= (quote I'm-a-symbol!) (quote I'm-another-symbol!))  (; ⇒ false)
+```
+
+An integer unique to the symbol can be retrieved using `symbol-id`. The symbol's name can be retrieved using `symbol-string`. Symbols are immutable.
+
+```lisp
+(symbol-id (quote I'm-a-symbol!))  (; ⇒ 11)
+(symbol-string (quote I'm-a-symbol!))  (; ⇒ "I'm-a-symbol!")
+```
+
 
 ## Sequence types
 
@@ -436,6 +458,14 @@ Using the ability to call composites like functions, we can simulate message pas
   (setq x (print (+ x 1)))
   (print "\n"))
 ```
+
+
+Compilation can be terminated with an error using `error`. A compile error occurs as soon as this form is encountered. The argument is the user-defined error message.
+
+```lisp
+(error "Compile error!")
+```
+
 
 ## Metaprogramming
 
