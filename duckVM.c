@@ -4336,7 +4336,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			break;
 		}
 		if ((object3.value.integer < 0)
-		    || ((dl_size_t) object3.value.integer >= object1.value.string.length - object1.value.string.offset)) {
+		    || ((dl_size_t) object3.value.integer > object1.value.string.length - object1.value.string.offset)) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->substring: Second integer out of bounds."));
