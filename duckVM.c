@@ -1152,23 +1152,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
 		while (object1.type == duckLisp_object_type_composite) {
-			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - 1);
-			if (e) break;
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			DL_DOTIMES(k, ptrdiff1) {
-				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
-				                    (duckVM->stack.elements_length
-				                     - k - 1)) = DL_ARRAY_GETADDRESS(duckVM->stack,
-				                                                     duckLisp_object_t,
-				                                                     duckVM->stack.elements_length - k - 2);
-			}
-			uint8++;
-			DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
-				                    (duckVM->stack.elements_length
-				                     - ptrdiff1++ + 1)) = object1;
 			object1 = *object1.value.composite->value.internalComposite.function;
 		}
 		if (object1.type == duckLisp_object_type_function) {
@@ -1287,23 +1270,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
 		while (object1.type == duckLisp_object_type_composite) {
-			e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - 1);
-			if (e) break;
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			DL_DOTIMES(k, ptrdiff1) {
-				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
-				                    (duckVM->stack.elements_length
-				                     - k - 1)) = DL_ARRAY_GETADDRESS(duckVM->stack,
-				                                                     duckLisp_object_t,
-				                                                     duckVM->stack.elements_length - k - 2);
-			}
-			uint8++;
-			DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
-				                    (duckVM->stack.elements_length
-				                     - ptrdiff1++ + 1)) = object1;
 			object1 = *object1.value.composite->value.internalComposite.function;
 		}
 		if (object1.type != duckLisp_object_type_closure) {
