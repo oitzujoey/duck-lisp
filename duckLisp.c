@@ -15257,9 +15257,6 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 					break;
 				}
 				--i;
-				tempChar = '"';
-				e = dl_array_pushElement(&disassembly, &tempChar);
-				if (e) return dl_null;
 				tempChar = '\n';
 				e = dl_array_pushElement(&disassembly, &tempChar);
 				if (e) return dl_null;
