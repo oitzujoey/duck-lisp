@@ -8056,9 +8056,12 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly->elements_length; j++) {
 		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, j);
 		/* This is OK because there is no chance of reallocating the args array. */
-		duckLisp_instructionArgClass_t *args = &DL_ARRAY_GETADDRESS(instruction.args,
-		                                                            duckLisp_instructionArgClass_t,
-		                                                            0);
+		duckLisp_instructionArgClass_t *args = dl_null;
+		if (instruction.args.elements_length != 0) {
+			args = &DL_ARRAY_GETADDRESS(instruction.args,
+			                            duckLisp_instructionArgClass_t,
+			                            0);
+		}
 		dl_size_t byte_length;
 
 		e = dl_array_clear(&currentArgs);
