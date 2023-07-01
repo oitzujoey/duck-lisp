@@ -2038,6 +2038,11 @@ Strings are immutable.
 And that was the last planned feature.
 
 
+API improvements:
+    Don't require the user to mess with the internal object representations.
+    Provide a function to make working with error messages nicer?
+
+
 Next step:
 
 Defer:

@@ -204,6 +204,12 @@ if (e) {
 }
 ```
 
+The final step is to change the duck-lisp source code string to this:
+
+```c
+char source[] = "(hello-world)";
+```
+
 And that's everything there is to know about duck-lisp!
 
 Actually it's just too convoluted to write here.
