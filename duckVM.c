@@ -4328,7 +4328,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object3, ptrdiff3);
 		if (e) break;
-		if (object2.type != duckLisp_object_type_integer) {
+		if (object3.type != duckLisp_object_type_integer) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
