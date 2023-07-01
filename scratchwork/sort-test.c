@@ -182,9 +182,9 @@ int main(int argc, char *argv[]) {
 
 	clock_t program_start;
 	clock_t program_end;
-	long double heapsort_accumulated_time = 0;
-	long double quicksortlomuto_accumulated_time = 0;
-	long double quicksorthoare_accumulated_time = 0;
+	double heapsort_accumulated_time = 0;
+	double quicksortlomuto_accumulated_time = 0;
+	double quicksorthoare_accumulated_time = 0;
 
 	/* * * * * **
 	 * Heapsort *
@@ -252,8 +252,8 @@ int main(int argc, char *argv[]) {
 
 	program_end = clock();
 
-	printf("Heapsort time: %Lf sec.\n", heapsort_accumulated_time / CLOCKS_PER_SEC);
-	printf("Run time: %Lf sec. (%.1Lf%% overhead)\n", (long double) (program_end - program_start) / CLOCKS_PER_SEC,  100.0 - 100.0 * heapsort_accumulated_time / (long double) (program_end - program_start));
+	printf("Heapsort time: %f sec.\n", heapsort_accumulated_time / CLOCKS_PER_SEC);
+	printf("Run time: %f sec. (%.1f%% overhead)\n", (double) (program_end - program_start) / CLOCKS_PER_SEC,  100.0 - 100.0 * heapsort_accumulated_time / (double) (program_end - program_start));
 
 	/* * * * * * *
 	 * Quicksort *
@@ -302,8 +302,8 @@ int main(int argc, char *argv[]) {
 
 	program_end = clock();
 
-	printf("\nQuicksort (Lomuto) time: %Lf sec.\n", quicksortlomuto_accumulated_time / CLOCKS_PER_SEC);
-	printf("Run time: %Lf sec. (%.1Lf%% overhead)\n", (long double) (program_end - program_start) / CLOCKS_PER_SEC,  100.0 - 100.0 * quicksortlomuto_accumulated_time / (long double) (program_end - program_start));
+	printf("\nQuicksort (Lomuto) time: %f sec.\n", quicksortlomuto_accumulated_time / CLOCKS_PER_SEC);
+	printf("Run time: %f sec. (%.1f%% overhead)\n", (double) (program_end - program_start) / CLOCKS_PER_SEC,  100.0 - 100.0 * quicksortlomuto_accumulated_time / (double) (program_end - program_start));
 
 	program_start = clock();
 	/**/ srand(seed);
@@ -348,8 +348,8 @@ int main(int argc, char *argv[]) {
 
 	program_end = clock();
 
-	printf("\nQuicksort (Hoare) time: %Lf sec.\n", quicksorthoare_accumulated_time / CLOCKS_PER_SEC);
-	printf("Run time: %Lf sec. (%.1Lf%% overhead)\n", (long double) (program_end - program_start) / CLOCKS_PER_SEC,  100.0 - 100.0 * quicksorthoare_accumulated_time / (long double) (program_end - program_start));
+	printf("\nQuicksort (Hoare) time: %f sec.\n", quicksorthoare_accumulated_time / CLOCKS_PER_SEC);
+	printf("Run time: %f sec. (%.1f%% overhead)\n", (double) (program_end - program_start) / CLOCKS_PER_SEC,  100.0 - 100.0 * quicksorthoare_accumulated_time / (double) (program_end - program_start));
 
 	return e;
 }
