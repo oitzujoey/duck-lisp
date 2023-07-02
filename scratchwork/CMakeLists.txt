@@ -32,6 +32,7 @@ else()
   target_compile_options(duckLisp-dev PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
   target_compile_options(trie-dev PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
   target_compile_options(sort-test PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
+  target_compile_options(duckLisp-test PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
 endif()
 
 target_link_libraries(memory-dev PUBLIC DuckLib ubsan)
