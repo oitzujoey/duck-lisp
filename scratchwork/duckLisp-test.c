@@ -370,7 +370,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 	if (e) {
 		puts(COLOR_YELLOW "Execution failed" COLOR_NORMAL);
 
-		printErrors(duckLisp.errors);
+		printErrors(duckVM.errors);
 
 		goto cleanup;
 	}
