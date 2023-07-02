@@ -911,7 +911,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				/* Normal upvalue */
 				/* stack - 1 because we already pushed. */
 				ptrdiff1 = (duckVM->stack.elements_length - 1) - ptrdiff1;
-				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > (duckVM->upvalue_stack.elements_length - 1))) {
+				if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->upvalue_stack.elements_length)) {
 					e = dl_error_invalidValue;
 					eError = duckVM_error_pushRuntime(duckVM,
 					                                  DL_STR("duckVM_execute->push-closure: Stack index out of bounds."));
@@ -920,7 +920,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 			duckLisp_object_t *upvalue_pointer = dl_null;
-			if ((dl_size_t) ptrdiff1 == (duckVM->upvalue_stack.elements_length - 1)) {
+			if ((dl_size_t) ptrdiff1 == duckVM->upvalue_stack.elements_length) {
 				/* *Recursion* Capture upvalue we are about to push. This should only happen once. */
 				recursive = dl_true;
 				/* Our upvalue definitely doesn't exist yet. */
@@ -961,7 +961,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			else {
 				/* Capture upvalue on stack. */
 				e = dl_array_get(&duckVM->upvalue_stack, &upvalue_pointer, ptrdiff1);
-				if (e) goto cleanup;
+				if (e) {
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->push-closure: Retrieval of upvalue from upvalue stack failed."));
+					if (!e) e = eError;
+					break;
+				}
 				if (upvalue_pointer == dl_null) {
 					duckLisp_object_t upvalue;
 					upvalue.type = duckLisp_object_type_upvalue;
@@ -1274,9 +1279,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			object1 = *object1.value.composite->value.internalComposite.function;
 		}
 		if (object1.type != duckLisp_object_type_closure) {
-			printf("type %i\n", object1.type);
-			e = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Applied object is not a closure."));
 			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Applied object is not a closure."));
+			if (eError) e = eError;
 			break;
 		}
 		duckLisp_object_t rest;
