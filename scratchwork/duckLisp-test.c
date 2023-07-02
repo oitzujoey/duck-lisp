@@ -384,7 +384,12 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 
  cleanup:
 
-	if (e) printf(COLOR_RED "FAIL" COLOR_NORMAL " %s\n", fileBaseName);
+	if (e) {
+		puts("disassembly {");
+		printf("%s", duckLisp_disassemble(&ma, bytecode, bytecode_length));
+		puts("}");
+		printf(COLOR_RED "FAIL" COLOR_NORMAL " %s\n", fileBaseName);
+	}
 
 	(void) duckVM_quit(&duckVM);
 	(void) duckLisp_quit(&duckLisp);
