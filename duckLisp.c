@@ -6174,15 +6174,11 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 			e = duckLisp_emit_nil(duckLisp, compileState, assembly);
 		}
 		else {
-			e = duckLisp_compile_compoundExpression(duckLisp,
-			                                        compileState,
-			                                        assembly,
-			                                        expression->compoundExpressions[0].value.identifier.value,
-			                                        expression->compoundExpressions[0].value.identifier.value_length,
-			                                        &expression->compoundExpressions[2],
-			                                        dl_null,
-			                                        dl_null,
-			                                        dl_true);
+			duckLisp_ast_expression_t progn;
+			progn.compoundExpressions = &expression->compoundExpressions[2];
+			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+			if (e) goto cleanup;
 		}
 		goto cleanup;
 	}
@@ -6322,15 +6318,11 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp,
 
 	if (forceGoto) {
 		if (branch) {
-			e = duckLisp_compile_compoundExpression(duckLisp,
-			                                        compileState,
-			                                        assembly,
-			                                        expression->compoundExpressions[0].value.identifier.value,
-			                                        expression->compoundExpressions[0].value.identifier.value_length,
-			                                        &expression->compoundExpressions[2],
-			                                        dl_null,
-			                                        dl_null,
-			                                        dl_true);
+			duckLisp_ast_expression_t progn;
+			progn.compoundExpressions = &expression->compoundExpressions[2];
+			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+			if (e) goto cleanup;
 		}
 		else {
 			e = duckLisp_emit_nil(duckLisp, compileState, assembly);
