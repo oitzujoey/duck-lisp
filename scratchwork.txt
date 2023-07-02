@@ -2043,12 +2043,16 @@ API improvements:
     Provide a function to make working with error messages nicer?
 
 
+Each test is stored as "tests/*.dl". Each test in the directory will be run in a new instance of the language.
+
+
 Next step:
 
 Defer:
     `when' and `unless' are buggy with multiple statements. Maybe the problem is triggered by using `setq' at the end?
 
 Todo:
+    Write test suite
     Rewrite parser
     Clean up memory
     Fix error handling?
