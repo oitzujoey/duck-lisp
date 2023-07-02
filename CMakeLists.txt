@@ -23,8 +23,8 @@ if(MSVC)
   target_compile_options(DuckLisp PUBLIC /W4 /WX)
   target_compile_options(DuckLib PUBLIC /W4 /WX)
 else()
-  target_compile_options(DuckLisp PUBLIC -Wall -Wextra -Wpedantic -Werror)
-  target_compile_options(DuckLib PUBLIC -Wall -Wextra -Wpedantic -Werror)
+  target_compile_options(DuckLisp PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
+  target_compile_options(DuckLib PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
 endif()
 
 target_include_directories(DuckLib PUBLIC
@@ -39,6 +39,6 @@ set_target_properties(DuckLib PROPERTIES
                       
 target_compile_definitions(DuckLib PUBLIC "EXPORTING_DUCKLIB")
 
-target_link_libraries(DuckLisp PUBLIC DuckLib)
+target_link_libraries(DuckLisp PUBLIC DuckLib ubsan)
 
 target_compile_definitions(DuckLisp PUBLIC "EXPORTING_DUCKLISP")
