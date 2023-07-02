@@ -10894,6 +10894,10 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	*bytecode_length = bytecodeArray.elements_length;
 
  cleanup:
+	if (e) {
+		*bytecode_length = 0;
+	}
+
 	return e;
 }
 
