@@ -2046,6 +2046,9 @@ API improvements:
 Each test is stored as "tests/*.dl". Each test in the directory will be run in a new instance of the language.
 
 
+Label instructions in the HLA actually help with peephole optimizations. If I'm looking for a pattern such as {move.8 pop.8 move.8 pop.8} and the duplicate instructions are caused by the second `move.8` being the target of a jump, then the pattern won't match. The *actual* HLA is {move.8 pop.8 label move.8 pop.8}.
+
+
 Next step:
 
 Defer:
