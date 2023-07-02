@@ -6,7 +6,7 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 
 ## Features
 
-* Lexical scope
+* First class functions and lexical scope
 * Common Lisp-like macros
 * UTF-8 compatible
 * User created keywords
@@ -69,6 +69,11 @@ Examples can be found in the scratchwork directory.
 ```
 
 ```bash
+# Run duck-lisp language tests.
+./duckLisp-test ../../tests
+```
+
+```bash
 # Run the duck-lisp program "factorial.dl".
 ./duckLisp-dev ../scripts/factorial.dl
 ```
@@ -77,7 +82,7 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 
 ```bash
 # Run a script with arguments.
-./duckLisp-dev "(include ../scripts/underout.dl) (main 52)"
+./duckLisp-dev "(include \"../scripts/underout.dl\") (main 52)"
 ```
 
 ```bash
@@ -88,10 +93,12 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 
 ## Usage
 
-Extending the language is done by adding generators and callbacks to the compiler and VM. Generators are functions that convert the AST to bytecode during compilation. Callbacks are functions that are called at runtime to perform I/O and tasks that would be slow or difficult in the VM.
+"language.md" contains a brief description of the language.  
+"language-reference.md" contains a description of all duck-lisp keywords.  
+"api.md" contains the C API documentation. (incomplete)  
 
-`duckLisp.c`: This contains the compiler.  
-`duckVM.c`: This contains the VM.
+"duckLisp.c" contains the compiler.  
+"duckVM.c" contains the VM.  
 
 Examples on how to extend the language can be found in `duckLisp-dev.c`.
 
