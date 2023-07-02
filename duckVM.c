@@ -960,7 +960,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 			else {
 				/* Capture upvalue on stack. */
-				upvalue_pointer = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1);
+				e = dl_array_get(&duckVM->upvalue_stack, &upvalue_pointer, ptrdiff1);
+				if (e) goto cleanup;
 				if (upvalue_pointer == dl_null) {
 					duckLisp_object_t upvalue;
 					upvalue.type = duckLisp_object_type_upvalue;
