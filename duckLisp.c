@@ -10395,13 +10395,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	/* putchar('\n'); */
 
-	if (astCompoundexpression.type != duckLisp_ast_type_expression) {
-		e = dl_error_invalidValue;
-		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot compile non-expression types to bytecode."));
-		if (eError) e = eError;
-		goto cleanup;
-	}
-
 	/* First stage: Create assembly tree from AST. */
 
 	/* Stack length is zero. */
@@ -10410,12 +10403,14 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	assembly = &compileState->currentCompileState->assembly;
 
-	e = duckLisp_compile_expression(duckLisp,
-	                                compileState,
-	                                assembly,
-	                                DL_STR("compileAST"),
-	                                &astCompoundexpression.value.expression,
-	                                dl_null);
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        compileState,
+	                                        assembly,
+	                                        DL_STR("compileAST"),
+	                                        &astCompoundexpression,
+	                                        dl_null,
+	                                        dl_null,
+	                                        dl_true);
 	if (e) goto cleanup;
 
 	e = duckLisp_emit_return(duckLisp,
