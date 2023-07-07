@@ -2055,10 +2055,9 @@ If I wanted a `save-lisp-and-die`, then I would need to dump all the stacks, the
 Next step:
 
 Defer:
-    `when' and `unless' are buggy with multiple statements. Maybe the problem is triggered by using `setq' at the end?
 
 Todo:
-    Write test suite
+    Fix C API
     Rewrite parser
     Clean up memory
     Fix error handling?
