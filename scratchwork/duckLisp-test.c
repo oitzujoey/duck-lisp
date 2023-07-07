@@ -341,9 +341,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 		goto cleanup;
 	}
 
-	duckLisp.memoryAllocation = &ma;
-
-	e = duckLisp_init(&duckLisp);
+	e = duckLisp_init(&duckLisp, &ma, duckVMMaxObjects);
 	if (e) {
 		puts(COLOR_YELLOW "Compiler initialization failed" COLOR_NORMAL);
 		goto cleanup;
@@ -358,9 +356,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 		goto cleanup;
 	}
 
-	duckVM.memoryAllocation = &ma;
-
-	e = duckVM_init(&duckVM, duckVMMaxObjects);
+	e = duckVM_init(&duckVM, &ma, duckVMMaxObjects);
 	if (e) {
 		puts(COLOR_YELLOW "VM initialization failed" COLOR_NORMAL);
 		goto cleanup;

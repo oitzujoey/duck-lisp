@@ -10594,7 +10594,9 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	return e;
 }
 
-dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
+dl_error_t duckLisp_init(duckLisp_t *duckLisp,
+                         dl_memoryAllocation_t *memoryAllocation,
+                         dl_size_t maxComptimeVmObjects) {
 	dl_error_t error = dl_error_ok;
 
 	// All language-defined generators go here.
@@ -10665,6 +10667,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 		{dl_null, 0,       dl_null}
 	};
 
+	duckLisp->memoryAllocation = memoryAllocation;
+
 	// /* No error */ cst_expression_init(&duckLisp->cst);
 	// /* No error */ ast_expression_init(&duckLisp->ast);
 	/* No error */ dl_array_init(&duckLisp->errors,
@@ -10698,8 +10702,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 		}
 	}
 
-	duckLisp->vm.memoryAllocation = duckLisp->memoryAllocation;
-	error = duckVM_init(&duckLisp->vm, 10000);
+	error = duckVM_init(&duckLisp->vm, duckLisp->memoryAllocation, maxComptimeVmObjects);
 	if (error) goto cleanup;
 
 	duckLisp->vm.duckLisp = duckLisp;

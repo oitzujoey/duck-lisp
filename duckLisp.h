@@ -565,7 +565,9 @@ typedef struct duckLisp_instructionObject_s {
 	dl_array_t args;
 } duckLisp_instructionObject_t;
 
-dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp);
+dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp,
+                                  dl_memoryAllocation_t *memoryAllocation,
+                                  dl_size_t maxComptimeVmObjects);
 void DECLSPEC duckLisp_quit(duckLisp_t *duckLisp);
 
 void DECLSPEC duckLisp_compileState_init(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState);

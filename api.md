@@ -55,10 +55,9 @@ Now we can initialize the compiler.
 ```c
 duckLisp_t duckLisp;
 
-// This line is only required if using the DuckLib allocator.
-duckLisp.memoryAllocation = &duckLispMemoryAllocation;
-
-e = duckLisp_init(&duckLisp);
+// Pass `NULL` as the second argument if not using DuckLib allocator.
+// Limit the maximum number of objects allocated in the compile-time VM to 1000000.
+e = duckLisp_init(&duckLisp, &duckLispMemoryAllocation, 1000000);
 if (e) {
     printf("Failed to initialize duck-lisp\n");
     goto cleanup;
@@ -94,19 +93,18 @@ if (loadError) {
 }
 ```
 
-Assuming compilation succeeded, you will have a bit of bytecode ready to be executed.
+Assuming compilation succeeded, you will have a bit of bytecode ready to be executed. If you so desire, you may now run `duckLisp_quit` to destroy the compiler. It is not needed during bytecode execution.
 
 Create the virtual machine.
 
 ```c
 duckVM_t duckVM;
 
-// This line is only required if using the DuckLib allocator.
-duckVM.memoryAllocation = &duckLispMemoryAllocation;
-
-// Limit the maximum number of object allocated to 1000000.
+// Limit the maximum number of objects allocated in the VM to 1000000.
 const size_t objectHeap_size = 1000000;
-dl_error_t e = duckVM_init(&duckVM, objectHeap_size);
+
+// Pass `NULL` as the second argument if not using DuckLib allocator.
+dl_error_t e = duckVM_init(&duckVM, &duckLispMemoryAllocation, objectHeap_size);
 if (e) {
     printf("Failed to initialize duck-lisp\n");
     goto cleanup;

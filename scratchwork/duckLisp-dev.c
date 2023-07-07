@@ -1342,9 +1342,8 @@ int main(int argc, char *argv[]) {
 	if (e) {
 		goto cleanup;
 	}
-	duckLisp.memoryAllocation = &duckLispMemoryAllocation;
 
-	e = duckLisp_init(&duckLisp);
+	e = duckLisp_init(&duckLisp, &duckLispMemoryAllocation, duckVMMaxObjects);
 	if (e) {
 		printf(COLOR_RED "Could not initialize DuckLisp. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		goto cleanup;
@@ -1382,12 +1381,11 @@ int main(int argc, char *argv[]) {
 	if (e) {
 		goto cleanup;
 	}
-	duckVM.memoryAllocation = &duckVMMemoryAllocation;
 
 	d.duckVMMemory = dl_true;
 
 	/* Execute. */
-	e = duckVM_init(&duckVM, duckVMMaxObjects);
+	e = duckVM_init(&duckVM, &duckVMMemoryAllocation, duckVMMaxObjects);
 	if (e) {
 		printf("Could not initialize VM. (%s)\n", dl_errorString[e]);
 		goto cleanup;

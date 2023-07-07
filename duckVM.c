@@ -385,9 +385,10 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 }
 
 
-dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
+	duckVM->memoryAllocation = memoryAllocation;
 	duckVM->currentBytecode = dl_null;
 	duckVM->nextUserType = duckLisp_object_type_last;
 	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);

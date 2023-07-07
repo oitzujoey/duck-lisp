@@ -186,7 +186,7 @@ typedef enum {
 	duckVM_halt_mode_halt,
 } duckVM_halt_mode_t;
 
-dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects);
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation, dl_size_t maxObjects);
 void duckVM_quit(duckVM_t *duckVM);
 dl_error_t duckVM_execute(duckVM_t *duckVM,
                           duckLisp_object_t *return_value,
