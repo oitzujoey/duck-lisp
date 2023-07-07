@@ -4316,7 +4316,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			break;
 		}
 		if ((object2.value.integer < 0)
-		    || ((dl_size_t) object2.value.integer >= object1.value.string.length - object1.value.string.offset)) {
+		    || ((dl_size_t) object2.value.integer > object1.value.string.length - object1.value.string.offset)) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->substring: First integer out of bounds."));
