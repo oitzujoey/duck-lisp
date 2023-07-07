@@ -1,0 +1,6 @@
+(
+ (__defmacro m () ())
+ (__comptime
+  (__defun f () true)
+  (m)
+  (f)))
