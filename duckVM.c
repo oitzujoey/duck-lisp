@@ -60,13 +60,13 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 
 	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->objects,
-				  maxObjects * sizeof(duckLisp_object_t));
+				  maxObjects * sizeof(duckVM_object_t));
 	if (e) goto cleanup;
 	gclist->objects_length = maxObjects;
 
 	e = dl_malloc(gclist->memoryAllocation,
 				  (void **) &gclist->freeObjects,
-				  maxObjects * sizeof(duckLisp_object_t *));
+				  maxObjects * sizeof(duckVM_object_t *));
 	if (e) goto cleanup;
 	gclist->freeObjects_length = maxObjects;
 
@@ -77,7 +77,7 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 	if (e) goto cleanup;
 
 
-	/**/ dl_memclear(gclist->objects, gclist->objects_length * sizeof(duckLisp_object_t));
+	/**/ dl_memclear(gclist->objects, gclist->objects_length * sizeof(duckVM_object_t));
 
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < maxObjects; i++) {
@@ -108,22 +108,22 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	return e;
 }
 
-static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
+static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_object_t *object) {
 	// Bug: It is possible for object - gclist->objects to be negative during an OOM condition.
 	if (object && !gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)]) {
 		gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
-		if (object->type == duckLisp_object_type_list) {
+		if (object->type == duckVM_object_type_list) {
 			duckVM_gclist_markObject(gclist, object->value.list);
 		}
-		else if (object->type == duckLisp_object_type_cons) {
+		else if (object->type == duckVM_object_type_cons) {
 			duckVM_gclist_markObject(gclist, object->value.cons.car);
 			duckVM_gclist_markObject(gclist, object->value.cons.cdr);
 		}
-		else if (object->type == duckLisp_object_type_closure) {
+		else if (object->type == duckVM_object_type_closure) {
 			duckVM_gclist_markObject(gclist, object->value.closure.upvalue_array);
 			duckVM_gclist_markObject(gclist, object->value.closure.bytecode);
 		}
-		else if (object->type == duckLisp_object_type_upvalue) {
+		else if (object->type == duckVM_object_type_upvalue) {
 			if (object->value.upvalue.type == duckVM_upvalue_type_heap_object) {
 				duckVM_gclist_markObject(gclist, object->value.upvalue.value.heap_object);
 			}
@@ -131,27 +131,27 @@ static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t 
 				duckVM_gclist_markObject(gclist, object->value.upvalue.value.heap_upvalue);
 			}
 		}
-		else if (object->type == duckLisp_object_type_upvalueArray) {
+		else if (object->type == duckVM_object_type_upvalueArray) {
 			DL_DOTIMES(k, object->value.upvalue_array.length) {
 				duckVM_gclist_markObject(gclist, object->value.upvalue_array.upvalues[k]);
 			}
 		}
-		else if (object->type == duckLisp_object_type_vector) {
+		else if (object->type == duckVM_object_type_vector) {
 			duckVM_gclist_markObject(gclist, object->value.vector.internal_vector);
 		}
-		else if (object->type == duckLisp_object_type_internalVector) {
+		else if (object->type == duckVM_object_type_internalVector) {
 			if (object->value.internal_vector.initialized) {
 				DL_DOTIMES(k, object->value.internal_vector.length) {
 					duckVM_gclist_markObject(gclist, object->value.internal_vector.values[k]);
 				}
 			}
 		}
-		else if (object->type == duckLisp_object_type_string) {
+		else if (object->type == duckVM_object_type_string) {
 			if (object->value.string.internalString) {
 				/**/ duckVM_gclist_markObject(gclist, object->value.string.internalString);
 			}
 		}
-		else if (object->type == duckLisp_object_type_symbol) {
+		else if (object->type == duckVM_object_type_symbol) {
 			if (object->value.symbol.internalString) {
 				/**/ duckVM_gclist_markObject(gclist, object->value.symbol.internalString);
 			}
@@ -173,21 +173,21 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	/* Stack */
 	DL_DOTIMES(i, duckVM->stack.elements_length) {
-		duckLisp_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, i);
-		if (object->type == duckLisp_object_type_list) {
+		duckVM_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckVM_object_t, i);
+		if (object->type == duckVM_object_type_list) {
 			 duckVM_gclist_markObject(&duckVM->gclist, object->value.list);
 		}
-		else if (object->type == duckLisp_object_type_closure) {
+		else if (object->type == duckVM_object_type_closure) {
 			duckVM_gclist_markObject(&duckVM->gclist, object->value.closure.upvalue_array);
 			duckVM_gclist_markObject(&duckVM->gclist, object->value.closure.bytecode);
 		}
-		else if (object->type == duckLisp_object_type_vector) {
+		else if (object->type == duckVM_object_type_vector) {
 			duckVM_gclist_markObject(&duckVM->gclist, object->value.vector.internal_vector);
 		}
-		else if (object->type == duckLisp_object_type_string) {
+		else if (object->type == duckVM_object_type_string) {
 			/**/ duckVM_gclist_markObject(&duckVM->gclist, object->value.string.internalString);
 		}
-		else if (object->type == duckLisp_object_type_symbol) {
+		else if (object->type == duckVM_object_type_symbol) {
 			/**/ duckVM_gclist_markObject(&duckVM->gclist, object->value.symbol.internalString);
 		}
 		/* Don't check for conses, upvalues, upvalue arrays, or internal vectors since they should never be on the
@@ -196,7 +196,7 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	/* Upvalue stack */
 	DL_DOTIMES(i, duckVM->upvalue_stack.elements_length) {
-		duckLisp_object_t *object = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, i);
+		duckVM_object_t *object = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_object_t *, i);
 		if (object != dl_null) {
 			duckVM_gclist_markObject(&duckVM->gclist, object);
 		}
@@ -204,7 +204,7 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	/* Globals */
 	DL_DOTIMES(i, duckVM->globals.elements_length) {
-		duckLisp_object_t *object = DL_ARRAY_GETADDRESS(duckVM->globals, duckLisp_object_t *, i);
+		duckVM_object_t *object = DL_ARRAY_GETADDRESS(duckVM->globals, duckVM_object_t *, i);
 		if (object != dl_null) {
 			duckVM_gclist_markObject(&duckVM->gclist, object);
 		}
@@ -212,7 +212,7 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 
 	/* Call stack */
 	DL_DOTIMES(i, duckVM->call_stack.elements_length) {
-		duckLisp_object_t *object = (DL_ARRAY_GETADDRESS(duckVM->call_stack, duckVM_callFrame_t, i)
+		duckVM_object_t *object = (DL_ARRAY_GETADDRESS(duckVM->call_stack, duckVM_callFrame_t, i)
 		                             .bytecode);
 		if (object != dl_null) {
 			duckVM_gclist_markObject(&duckVM->gclist, object);
@@ -229,33 +229,33 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckVM->gclist.objects_length; i++) {
 		if (!duckVM->gclist.objectInUse[i]) {
 			duckVM->gclist.freeObjects[duckVM->gclist.freeObjects_length++] = &duckVM->gclist.objects[i];
-			duckLisp_object_type_t type = duckVM->gclist.objects[i].type;
-			if ((type == duckLisp_object_type_upvalueArray)
+			duckVM_object_type_t type = duckVM->gclist.objects[i].type;
+			if ((type == duckVM_object_type_upvalueArray)
 			    /* Prevent multiple frees. */
 			    && (duckVM->gclist.objects[i].value.upvalue_array.upvalues != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.upvalue_array.upvalues);
 				if (e) goto cleanup;
 			}
-			else if ((type == duckLisp_object_type_internalVector)
+			else if ((type == duckVM_object_type_internalVector)
 			         && duckVM->gclist.objects[i].value.internal_vector.initialized
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.internal_vector.values != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.internal_vector.values);
 				if (e) goto cleanup;
 			}
-			else if ((type == duckLisp_object_type_bytecode)
+			else if ((type == duckVM_object_type_bytecode)
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.bytecode.bytecode != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.bytecode.bytecode);
 				if (e) goto cleanup;
 			}
-			else if ((type == duckLisp_object_type_internalString)
+			else if ((type == duckVM_object_type_internalString)
 			         /* Prevent multiple frees. */
 			         && (duckVM->gclist.objects[i].value.internalString.value != dl_null)) {
 				e = DL_FREE(duckVM->memoryAllocation, &duckVM->gclist.objects[i].value.internalString.value);
 				if (e) goto cleanup;
 			}
-			else if ((type == duckLisp_object_type_user)
+			else if ((type == duckVM_object_type_user)
 			         && (duckVM->gclist.objects[i].value.user.destructor != dl_null)) {
 				e = duckVM->gclist.objects[i].value.user.destructor(&duckVM->gclist, &duckVM->gclist.objects[i]);
 				if (e) goto cleanup;
@@ -268,7 +268,7 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	return e;
 }
 
-dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **objectOut, duckLisp_object_t objectIn) {
+static dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **objectOut, duckVM_object_t objectIn) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -295,14 +295,14 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 		}
 	}
 
-	duckLisp_object_t *heapObject = gclist->freeObjects[--gclist->freeObjects_length];
+	duckVM_object_t *heapObject = gclist->freeObjects[--gclist->freeObjects_length];
 	*heapObject = objectIn;
-	if (objectIn.type == duckLisp_object_type_upvalueArray) {
+	if (objectIn.type == duckVM_object_type_upvalueArray) {
 		if (objectIn.value.upvalue_array.length > 0) {
 			e = DL_MALLOC(duckVM->memoryAllocation,
 			              (void **) &heapObject->value.upvalue_array.upvalues,
 			              objectIn.value.upvalue_array.length,
-			              duckLisp_object_t **);
+			              duckVM_object_t **);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM,
 				                                  DL_STR("duckVM_gclist_pushObject: Upvalue array allocation failed."));
@@ -315,12 +315,12 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 		}
 		if (e) goto cleanup;
 	}
-	else if (objectIn.type == duckLisp_object_type_internalVector) {
+	else if (objectIn.type == duckVM_object_type_internalVector) {
 		if (objectIn.value.internal_vector.length > 0) {
 			e = DL_MALLOC(duckVM->memoryAllocation,
 			              (void **) &heapObject->value.internal_vector.values,
 			              objectIn.value.internal_vector.length,
-			              duckLisp_object_t **);
+			              duckVM_object_t **);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM,
 				                                  DL_STR("duckVM_gclist_pushObject: Vector allocation failed."));
@@ -333,7 +333,7 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 		}
 		if (e) goto cleanup;
 	}
-	else if (objectIn.type == duckLisp_object_type_bytecode) {
+	else if (objectIn.type == duckVM_object_type_bytecode) {
 		if (objectIn.value.bytecode.bytecode_length > 0) {
 			e = DL_MALLOC(duckVM->memoryAllocation,
 			              &heapObject->value.bytecode.bytecode,
@@ -355,7 +355,7 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **object
 		}
 		if (e) goto cleanup;
 	}
-	else if (objectIn.type == duckLisp_object_type_internalString) {
+	else if (objectIn.type == duckVM_object_type_internalString) {
 		if (objectIn.value.internalString.value_length > 0) {
 			e = DL_MALLOC(duckVM->memoryAllocation,
 			              &heapObject->value.internalString.value,
@@ -390,20 +390,20 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 
 	duckVM->memoryAllocation = memoryAllocation;
 	duckVM->currentBytecode = dl_null;
-	duckVM->nextUserType = duckLisp_object_type_last;
+	duckVM->nextUserType = duckVM_object_type_last;
 	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
-	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckLisp_object_t), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckVM_object_t), dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->call_stack,
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckVM_callFrame_t),
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->upvalue_stack,
 	                   duckVM->memoryAllocation,
-	                   sizeof(duckLisp_object_t *),
+	                   sizeof(duckVM_object_t *),
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->upvalue_array_call_stack,
 	                   duckVM->memoryAllocation,
-	                   sizeof(duckLisp_object_t **),
+	                   sizeof(duckVM_object_t **),
 	                   dl_array_strategy_fit);
 	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, dl_null);
 	if (e) goto cleanup;
@@ -413,7 +413,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->globals,
 	                   duckVM->memoryAllocation,
-	                   sizeof(duckLisp_object_t *),
+	                   sizeof(duckVM_object_t *),
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->globals_map,
 	                   duckVM->memoryAllocation,
@@ -442,7 +442,7 @@ void duckVM_quit(duckVM_t *duckVM) {
 	(void) e;
 }
 
-static dl_error_t stack_push(duckVM_t *duckVM, duckLisp_object_t *object) {
+static dl_error_t stack_push(duckVM_t *duckVM, duckVM_object_t *object) {
 	dl_error_t e = dl_error_ok;
 	e = dl_array_pushElement(&duckVM->stack, object);
 	if (e) goto cleanup;
@@ -456,7 +456,7 @@ static dl_error_t stack_push(duckVM_t *duckVM, duckLisp_object_t *object) {
 }
 
 /* This is only used by the FFI. */
-static dl_error_t stack_pop(duckVM_t *duckVM, duckLisp_object_t *object) {
+static dl_error_t stack_pop(duckVM_t *duckVM, duckVM_object_t *object) {
 	dl_error_t e = dl_error_ok;
 	e = dl_array_popElement(&duckVM->stack, object);
 	if (e) goto cleanup;
@@ -484,8 +484,8 @@ static dl_error_t stack_pop_multiple(duckVM_t *duckVM, dl_size_t pops) {
 
 static dl_error_t call_stack_push(duckVM_t *duckVM,
                                   dl_uint8_t *ip,
-                                  duckLisp_object_t *bytecode,
-                                  duckLisp_object_t **upvalues,
+                                  duckVM_object_t *bytecode,
+                                  duckVM_object_t **upvalues,
                                   dl_size_t upvalues_length) {
 	dl_error_t e = dl_error_ok;
 	duckVM_callFrame_t frame;
@@ -504,7 +504,7 @@ static dl_error_t call_stack_push(duckVM_t *duckVM,
 	return e;
 }
 
-static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip, duckLisp_object_t **bytecode) {
+static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip, duckVM_object_t **bytecode) {
 	dl_error_t e = dl_error_ok;
 	duckVM_callFrame_t frame;
 	e = dl_array_popElement(&duckVM->call_stack, &frame);
@@ -522,18 +522,18 @@ static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip, duckLisp_obj
 	return e;
 }
 
-dl_error_t duckVM_global_get(const duckVM_t *duckVM, duckLisp_object_t **global, const dl_ptrdiff_t key) {
+dl_error_t duckVM_global_get(const duckVM_t *duckVM, duckVM_object_t **global, const dl_ptrdiff_t key) {
 	DL_DOTIMES(index, duckVM->globals_map.elements_length) {
 		dl_ptrdiff_t currentKey = DL_ARRAY_GETADDRESS(duckVM->globals_map, dl_ptrdiff_t, index);
 		if (key == currentKey) {
-			*global = DL_ARRAY_GETADDRESS(duckVM->globals, duckLisp_object_t *, index);
+			*global = DL_ARRAY_GETADDRESS(duckVM->globals, duckVM_object_t *, index);
 			return dl_error_ok;
 		}
 	}
 	return dl_error_invalidValue;
 }
 
-dl_error_t duckVM_global_set(duckVM_t *duckVM, duckLisp_object_t *value, dl_ptrdiff_t key) {
+dl_error_t duckVM_global_set(duckVM_t *duckVM, duckVM_object_t *value, dl_ptrdiff_t key) {
 	dl_error_t e = dl_error_ok;
 
 	dl_array_t *globals = &duckVM->globals;
@@ -541,7 +541,7 @@ dl_error_t duckVM_global_set(duckVM_t *duckVM, duckLisp_object_t *value, dl_ptrd
 	DL_DOTIMES(index, globals_map->elements_length) {
 		dl_ptrdiff_t currentKey = DL_ARRAY_GETADDRESS(*globals_map, dl_ptrdiff_t, index);
 		if (key == currentKey) {
-			DL_ARRAY_GETADDRESS(*globals, duckLisp_object_t *, index) = value;
+			DL_ARRAY_GETADDRESS(*globals, duckVM_object_t *, index) = value;
 			goto cleanup;
 		}
 	}
@@ -555,7 +555,7 @@ dl_error_t duckVM_global_set(duckVM_t *duckVM, duckLisp_object_t *value, dl_ptrd
 }
 
 int duckVM_executeInstruction(duckVM_t *duckVM,
-                              duckLisp_object_t *bytecode,
+                              duckVM_object_t *bytecode,
                               unsigned char **ipPtr,
                               duckVM_halt_mode_t *halt) {
 	dl_error_t e = dl_error_ok;
@@ -568,12 +568,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	dl_size_t size1 = 0;
 	dl_size_t size2 = 0;
 	dl_uint8_t uint8 = 0;
-	duckLisp_object_t object1 = {0};
-	duckLisp_object_t object2 = {0};
-	duckLisp_object_t object3 = {0};
-	duckLisp_object_t *objectPtr1 = {0};
-	duckLisp_object_t *objectPtr2 = {0};
-	duckLisp_object_t cons1 = {0};
+	duckVM_object_t object1 = {0};
+	duckVM_object_t object2 = {0};
+	duckVM_object_t object3 = {0};
+	duckVM_object_t *objectPtr1 = {0};
+	duckVM_object_t *objectPtr2 = {0};
+	duckVM_object_t cons1 = {0};
 	dl_bool_t bool1 = dl_false;
 	dl_bool_t parsedBytecode = dl_false;
 	unsigned char *ip = *ipPtr;
@@ -607,15 +607,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			size2 = *(ip++);
 			size1 = *(ip++);
 		}
-		object1.type = duckLisp_object_type_internalString;
-		object1.value.internalString.value_length = size1;
-		object1.value.internalString.value = ip;
-		ip += size1;
-		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, duckVM_object_makeInternalString(ip, size1));
 		if (e) break;
-		object1.type = duckLisp_object_type_symbol;
-		object1.value.symbol.internalString = objectPtr1;
-		object1.value.symbol.id = size2;
+		ip += size1;
+		object1 = duckVM_object_makeSymbol(size2, objectPtr1);
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-symbol: stack_push failed."));
@@ -624,23 +619,18 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		break;
 
 	case duckLisp_instruction_pushString32:
-		object1.value.internalString.value_length = *(ip++);
-		object1.value.internalString.value_length = *(ip++) + (object1.value.internalString.value_length << 8);
+		size1 = *(ip++);
+		size1 = *(ip++) + (size1 << 8);
 		// Fall through
 	case duckLisp_instruction_pushString16:
-		object1.value.internalString.value_length = *(ip++) + (object1.value.internalString.value_length << 8);
+		size1 = *(ip++) + (size1 << 8);
 		// Fall through
 	case duckLisp_instruction_pushString8:
-		object1.value.internalString.value_length = *(ip++) + (object1.value.internalString.value_length << 8);
-		object1.type = duckLisp_object_type_internalString;
-		object1.value.internalString.value = ip;
-		ip += object1.value.internalString.value_length;
-		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
+		size1 = *(ip++) + (size1 << 8);
+		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, duckVM_object_makeInternalString(ip, size1));
 		if (e) break;
-		object1.type = duckLisp_object_type_string;
-		object1.value.string.internalString = objectPtr1;
-		object1.value.string.length = objectPtr1->value.internalString.value_length;
-		object1.value.string.offset = 0;
+		ip += size1;
+		object1 = duckVM_object_makeString(objectPtr1, 0, size1);
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-string: stack_push failed."));
@@ -649,8 +639,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		break;
 
 	case duckLisp_instruction_pushBooleanFalse:
-		object1.type = duckLisp_object_type_bool;
-		object1.value.integer = dl_false;
+		object1 = duckVM_object_makeBoolean(dl_false);
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-boolean-false: stack_push failed."));
@@ -658,8 +647,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		break;
 	case duckLisp_instruction_pushBooleanTrue:
-		object1.type = duckLisp_object_type_bool;
-		object1.value.integer = dl_true;
+		object1 = duckVM_object_makeBoolean(dl_true);
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-boolean-true: stack_push failed."));
@@ -668,39 +656,30 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		break;
 
 	case duckLisp_instruction_pushInteger32:
-		object1.value.integer = *(ip++);
-		object1.value.integer = *(ip++) + (object1.value.integer << 8);
-		object1.value.integer = *(ip++) + (object1.value.integer << 8);
-		object1.value.integer = *(ip++) + (object1.value.integer << 8);
-		object1.type = duckLisp_object_type_integer;
-		object1.value.integer = ((object1.value.integer > 0x7FFFFFFF)
-		                         ? -(0x100000000 - object1.value.integer)
-		                         : object1.value.integer);
-		e = stack_push(duckVM, &object1);
-		if (e) {
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-integer: stack_push failed."));
-			if (!e) e = eError;
-		}
-		break;
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		parsedBytecode = dl_true;
+		size1 = 0x7FFFFFFF;
+		/* Fall through */
 	case duckLisp_instruction_pushInteger16:
-		object1.value.integer = *(ip++) + (object1.value.integer << 8);
-		object1.value.integer = *(ip++) + (object1.value.integer << 8);
-		object1.type = duckLisp_object_type_integer;
-		object1.value.integer = ((object1.value.integer > 0x7FFF)
-		                         ? -(0x10000 - object1.value.integer)
-		                         : object1.value.integer);
-		e = stack_push(duckVM, &object1);
-		if (e) {
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-integer: stack_push failed."));
-			if (!e) e = eError;
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			size1 = 0x7FFF;
+			parsedBytecode = dl_true;
 		}
-		break;
+		/* Fall through */
 	case duckLisp_instruction_pushInteger8:
-		object1.value.integer = *(ip++) + (object1.value.integer << 8);
-		object1.type = duckLisp_object_type_integer;
-		object1.value.integer = ((object1.value.integer > 0x7F)
-		                         ? -(0x100 - object1.value.integer)
-		                         : object1.value.integer);
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			size1 = 0x7F;
+		}
+		ptrdiff1 = (((dl_size_t) ptrdiff1 > size1)
+		            ? -(0x100 - ptrdiff1)
+		            : ptrdiff1);
+		object1 = duckVM_object_makeInteger(ptrdiff1);
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-integer: stack_push failed."));
@@ -718,8 +697,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
 		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
 		totallyNotADoubleFloat = *(ip++) + (totallyNotADoubleFloat << 8);
-		object1.type = duckLisp_object_type_float;
-		object1.value.floatingPoint = *((double *) &totallyNotADoubleFloat);
+		object1 = duckVM_object_makeFloat(*((double *) &totallyNotADoubleFloat));
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-double-float: stack_push failed."));
@@ -743,8 +721,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			if (!e) e = eError;
 			break;
 		}
-		object2 = object1;
-		e = stack_push(duckVM, &object2);
+		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-index: stack_push failed."));
 			if (!e) e = eError;
@@ -761,7 +738,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_pushUpvalue8:
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		{
-			// Need another stack with same depth as call stack to pull out upvalues.
 			// Like to live dangerously?
 			if (ptrdiff1 < 0) {
 				e = dl_error_invalidValue;
@@ -770,10 +746,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (!e) e = eError;
 				break;
 			}
-			duckLisp_object_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-			                                                    duckLisp_object_t **)[ptrdiff1];
-			if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
-				e = dl_array_get(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
+			duckVM_object_t **upvalueArray = dl_null;
+			e = dl_array_getTop(&duckVM->upvalue_array_call_stack, &upvalueArray);
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->push-upvalue: dl_array_get failed."));
+				if (!e) e = eError;
+				break;
+			}
+			duckVM_upvalue_t upvalue = duckVM_object_getUpvalue(*upvalueArray[ptrdiff1]);
+			if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_stack_index) {
+				e = dl_array_get(&duckVM->stack, &object1, duckVM_upvalue_getStackIndex(upvalue));
 				if (e) {
 					eError = duckVM_error_pushRuntime(duckVM,
 					                                  DL_STR("duckVM_execute->push-upvalue: dl_array_get failed."));
@@ -781,15 +764,16 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					break;
 				}
 			}
-			else if (upvalue->value.upvalue.type == duckVM_upvalue_type_heap_object) {
-				object1 = *upvalue->value.upvalue.value.heap_object;
+			else if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_heap_object) {
+				object1 = *duckVM_upvalue_getHeapObject(upvalue);
 			}
-			else if (upvalue->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
-				while (upvalue->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
-					upvalue = upvalue->value.upvalue.value.heap_upvalue;
+			else if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_heap_upvalue) {
+				while (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_heap_upvalue) {
+					e = duckVM_upvalue_getHeapUpvalue(upvalue, &upvalue);
+					if (e) break;
 				}
-				if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
-					e = dl_array_get(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
+				if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_stack_index) {
+					e = dl_array_get(&duckVM->stack, &object1, duckVM_upvalue_getStackIndex(upvalue));
 					if (e) {
 						eError = duckVM_error_pushRuntime(duckVM,
 						                                  DL_STR("duckVM_execute->push-upvalue: dl_array_get failed."));
@@ -798,7 +782,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					}
 				}
 				else {
-					object1 = *upvalue->value.upvalue.value.heap_object;
+					object1 = *duckVM_upvalue_getHeapObject(upvalue);
 				}
 			}
 			else {
@@ -808,7 +792,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (!e) e = eError;
 				break;
 			}
-			// We are eventually going to have *major* problems with strings.
 			e = stack_push(duckVM, &object1);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM,
@@ -822,13 +805,13 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_pushClosure32:
 		/* Fall through */
 	case duckLisp_instruction_pushVaClosure32:
-		object1.value.closure.name = *(ip++);
-		object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
-		object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
-		object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		ptr1 = ip;
-		if (object1.value.closure.name & 0x80000000ULL) {
-			object1.value.closure.name = -((~object1.value.closure.name + 1) & 0xFFFFFFFFULL);
+		if (ptrdiff1 & 0x80000000ULL) {
+			ptrdiff1 = -((~ptrdiff1 + 1) & 0xFFFFFFFFULL);
 		}
 		parsedBytecode = dl_true;
 		/* Fall through */
@@ -836,11 +819,11 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		/* Fall through */
 	case duckLisp_instruction_pushVaClosure16:
 		if (!parsedBytecode) {
-			object1.value.closure.name = *(ip++);
-			object1.value.closure.name = *(ip++) + (object1.value.closure.name << 8);
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptr1 = ip;
-			if (object1.value.closure.name & 0x8000ULL) {
-				object1.value.closure.name = -((~object1.value.closure.name + 1) & 0xFFFFULL);
+			if (ptrdiff1 & 0x8000ULL) {
+				ptrdiff1 = -((~ptrdiff1 + 1) & 0xFFFFULL);
 			}
 			parsedBytecode = dl_true;
 		}
@@ -849,44 +832,45 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		/* Fall through */
 	case duckLisp_instruction_pushVaClosure8:
 		if (!parsedBytecode) {
-			object1.value.closure.name = *(ip++);
+			ptrdiff1 = *(ip++);
 			ptr1 = ip;
-			if (object1.value.closure.name & 0x80ULL) {
-				object1.value.closure.name = -((~object1.value.closure.name + 1) & 0xFFULL);
+			if (ptrdiff1 & 0x80ULL) {
+				ptrdiff1 = -((~ptrdiff1 + 1) & 0xFFULL);
 			}
 		}
 
-		object1.type = duckLisp_object_type_closure;
-		object1.value.closure.variadic = ((opcode == duckLisp_instruction_pushVaClosure32)
-		                                  || (opcode == duckLisp_instruction_pushVaClosure16)
-		                                  || (opcode == duckLisp_instruction_pushVaClosure8));
-		object1.value.closure.arity = *(ip++);
+		object1 = duckVM_object_makeClosure(ptrdiff1,
+		                                    bytecode,
+		                                    dl_null,
+		                                    *(ip++),
+		                                    ((opcode == duckLisp_instruction_pushVaClosure32)
+		                                     || (opcode == duckLisp_instruction_pushVaClosure16)
+		                                     || (opcode == duckLisp_instruction_pushVaClosure8)));
 
 		size1 = *(ip++);
 		size1 = *(ip++) + (size1 << 8);
 		size1 = *(ip++) + (size1 << 8);
 		size1 = *(ip++) + (size1 << 8);
 
-		object1.value.closure.bytecode = bytecode;
-		object1.value.closure.name += ptr1 - bytecode->value.bytecode.bytecode;
+		object1.value.closure.name += ptr1 - duckVM_bytecode_getBytecode(duckVM_object_getBytecode(*bytecode));
 
 		/* This could also point to a static version instead since this array is never changed
 		   and multiple closures could use the same array. */
 
-		{
-			duckLisp_object_t upvalue_array;
-			upvalue_array.type = duckLisp_object_type_upvalueArray;
-			upvalue_array.value.upvalue_array.length = size1;
-			e = duckVM_gclist_pushObject(duckVM, &object1.value.closure.upvalue_array, upvalue_array);
-			if (e) {
-				eError = duckVM_error_pushRuntime(duckVM,
-				                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
-				if (!e) e = eError;
-				break;
-			}
-			DL_DOTIMES(k, object1.value.closure.upvalue_array->value.upvalue_array.length) {
-				object1.value.closure.upvalue_array->value.upvalue_array.upvalues[k] = dl_null;
-			}
+		e = duckVM_gclist_pushObject(duckVM,
+		                             &object1.value.closure.upvalue_array,
+		                             duckVM_object_makeUpvalueArray(dl_null, size1));
+		if (e) {
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->push-closure: duckVM_gclist_pushObject failed."));
+			if (!e) e = eError;
+			break;
+		}
+		duckVM_upvalueArray_t upvalueArray;
+		e = duckVM_closure_getUpvalueArray(duckVM_object_getClosure(object1), &upvalueArray);
+		if (e) break;
+		DL_DOTIMES(k, duckVM_upvalueArray_getLength(upvalueArray)) {
+			duckVM_upvalueArray_getUpvalues(upvalueArray)[k] = dl_null;
 		}
 		/* Immediately push on stack so that the GC can see it. Allocating upvalues could trigger a GC. */
 		e = dl_array_pushElement(&duckVM->stack, &object1);
@@ -899,7 +883,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 
 		dl_bool_t recursive = dl_false;
 
-		DL_DOTIMES(k, object1.value.closure.upvalue_array->value.upvalue_array.length) {
+		DL_DOTIMES(k, duckVM_upvalueArray_getLength(upvalueArray)) {
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -920,13 +904,13 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					break;
 				}
 			}
-			duckLisp_object_t *upvalue_pointer = dl_null;
+			duckVM_object_t *upvalue_pointer = dl_null;
 			if ((dl_size_t) ptrdiff1 == duckVM->upvalue_stack.elements_length) {
 				/* *Recursion* Capture upvalue we are about to push. This should only happen once. */
 				recursive = dl_true;
 				/* Our upvalue definitely doesn't exist yet. */
-				duckLisp_object_t upvalue;
-				upvalue.type = duckLisp_object_type_upvalue;
+				duckVM_object_t upvalue;
+				upvalue.type = duckVM_object_type_upvalue;
 				upvalue.value.upvalue.type = duckVM_upvalue_type_stack_index;  /* Lie for now. */
 				upvalue.value.upvalue.value.stack_index = ptrdiff1;
 				e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
@@ -940,17 +924,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				/* Break push_scope abstraction. */
 				e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
 				/* Upvalue stack slot exists now, so insert the new UV. */
-				DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1) = upvalue_pointer;
+				DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_object_t *, ptrdiff1) = upvalue_pointer;
 			}
 			else if (ptrdiff1 < 0) {
 				/* Capture upvalue in currently executing function. */
 				ptrdiff1 = -(ptrdiff1 + 1);
-				duckLisp_object_t upvalue;
-				upvalue.type = duckLisp_object_type_upvalue;
+				duckVM_object_t upvalue;
+				upvalue.type = duckVM_object_type_upvalue;
 				upvalue.value.upvalue.type = duckVM_upvalue_type_heap_upvalue;
 				/* Link new upvalue to upvalue from current context. */
 				upvalue.value.upvalue.value.heap_upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-				                                                                  duckLisp_object_t **)[ptrdiff1];
+				                                                                  duckVM_object_t **)[ptrdiff1];
 				e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 				if (e) {
 					eError = duckVM_error_pushRuntime(duckVM,
@@ -969,8 +953,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					break;
 				}
 				if (upvalue_pointer == dl_null) {
-					duckLisp_object_t upvalue;
-					upvalue.type = duckLisp_object_type_upvalue;
+					duckVM_object_t upvalue;
+					upvalue.type = duckVM_object_type_upvalue;
 					upvalue.value.upvalue.type = duckVM_upvalue_type_stack_index;
 					upvalue.value.upvalue.value.stack_index = ptrdiff1;
 					e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
@@ -982,9 +966,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					}
 					// Is this a bug? I'm not confident that this element exists.
 					/* Keep reference to upvalue on stack so that we know where to release the object to. */
-					DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1) = upvalue_pointer;
+					DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_object_t *, ptrdiff1) = upvalue_pointer;
 				}
-				if (upvalue_pointer->type != duckLisp_object_type_upvalue) {
+				if (upvalue_pointer->type != duckVM_object_type_upvalue) {
 					e = dl_error_shouldntHappen;
 					eError = duckVM_error_pushRuntime(duckVM,
 					                                  DL_STR("duckVM_execute->push-closure: Captured object is not an upvalue."));
@@ -993,7 +977,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 			if (e) break;
-			object1.value.closure.upvalue_array->value.upvalue_array.upvalues[k] = upvalue_pointer;
+			duckVM_upvalueArray_getUpvalues(upvalueArray)[k] = upvalue_pointer;
 		}
 		if (e) break;
 		if (!recursive) {
@@ -1006,15 +990,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			}
 		}
-		/* e = stack_push(duckVM, &object1); */
-		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object1;
+		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t) = object1;
 
 		break;
 
 	case duckLisp_instruction_pushGlobal8:
 		{
 			ptrdiff1 = *(ip++);
-			duckLisp_object_t *global;
+			duckVM_object_t *global;
 			e = duckVM_global_get(duckVM, &global, ptrdiff1);
 			if (e) {
 				e = dl_error_invalidValue;
@@ -1059,19 +1042,19 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				e = dl_error_invalidValue;
 				break;
 			}
-			duckLisp_object_t *upvalue = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckLisp_object_t *, ptrdiff1);
+			duckVM_object_t *upvalue = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_object_t *, ptrdiff1);
 			if (upvalue != dl_null) {
-				if (upvalue->type != duckLisp_object_type_upvalue) {
+				if (upvalue->type != duckVM_object_type_upvalue) {
 					eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->release-upvalues: Captured object is not an upvalue."));
 					if (!e) e = eError;
 					break;
 				}
-				duckLisp_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, ptrdiff1);
+				duckVM_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckVM_object_t, ptrdiff1);
 				e = duckVM_gclist_pushObject(duckVM, &upvalue->value.upvalue.value.heap_object, *object);
 				if (e) break;
 				upvalue->value.upvalue.type = duckVM_upvalue_type_heap_object;
 				/* Render the original object unusable. */
-				object->type = duckLisp_object_type_list;
+				object->type = duckVM_object_type_list;
 				object->value.list = dl_null;
 			}
 		}
@@ -1108,8 +1091,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
-			duckLisp_object_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-			                                                    duckLisp_object_t **)[ptrdiff1];
+			duckVM_object_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+			                                                    duckVM_object_t **)[ptrdiff1];
 			if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 				e = dl_array_set(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
 				if (e) break;
@@ -1138,7 +1121,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = duckVM_gclist_pushObject(duckVM,
 			                             &objectPtr1,
 			                             DL_ARRAY_GETADDRESS(duckVM->stack,
-			                                                 duckLisp_object_t,
+			                                                 duckVM_object_t,
 			                                                 duckVM->stack.elements_length - ptrdiff1));
 			if (e) break;
 			e = duckVM_global_set(duckVM, objectPtr1, ptrdiff2);
@@ -1158,10 +1141,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		while (object1.type == duckLisp_object_type_composite) {
+		while (object1.type == duckVM_object_type_composite) {
 			object1 = *object1.value.composite->value.internalComposite.function;
 		}
-		if (object1.type == duckLisp_object_type_function) {
+		if (object1.type == duckVM_object_type_function) {
 			e = object1.value.function.callback(duckVM);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM,
@@ -1171,7 +1154,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 			break;
 		}
-		else if (object1.type != duckLisp_object_type_closure) {
+		else if (object1.type != duckVM_object_type_closure) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->funcall: Object is not a callback or closure."));
@@ -1195,39 +1178,39 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			   stack. */
 			/* First push the new object on the stack to register it with the collector. */
 			object2.value.list = dl_null;
-			object2.type = duckLisp_object_type_list;
+			object2.type = duckVM_object_type_list;
 			e = stack_push(duckVM, &object2);
 			if (e) break;
 			object3.value.list = dl_null;
-			object3.type = duckLisp_object_type_list;
+			object3.type = duckVM_object_type_list;
 			e = stack_push(duckVM, &object3);
 			if (e) break;
 			dl_size_t args_length = (uint8 - object1.value.closure.arity);
-			duckLisp_object_t *lastConsPtr = dl_null;
+			duckVM_object_t *lastConsPtr = dl_null;
 			DL_DOTIMES(k, args_length) {
-				duckLisp_object_t cons;
-				duckLisp_object_t *consPtr = dl_null;
-				duckLisp_object_t object;
-				duckLisp_object_t *objectPtr = dl_null;
+				duckVM_object_t cons;
+				duckVM_object_t *consPtr = dl_null;
+				duckVM_object_t object;
+				duckVM_object_t *objectPtr = dl_null;
 				/* Reverse order, because lisp lists are backwards. */
 				object = DL_ARRAY_GETADDRESS(duckVM->stack,
-				                             duckLisp_object_t,
+				                             duckVM_object_t,
 				                             duckVM->stack.elements_length - 3 - k);
 				e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
 				if (e) break;
-				cons.type = duckLisp_object_type_cons;
+				cons.type = duckVM_object_type_cons;
 				cons.value.cons.car = objectPtr;
 				cons.value.cons.cdr = lastConsPtr;
 				/* Make visible to collector before allocating another. */
 				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
+				                    duckVM_object_t,
 				                    duckVM->stack.elements_length - 1).value.list = objectPtr;
 				e = duckVM_gclist_pushObject(duckVM, &consPtr, cons);
 				if (e) break;
 				/* Make visible to collector before allocating another. The object just created is linked in the
 				   cons. */
 				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
+				                    duckVM_object_t,
 				                    duckVM->stack.elements_length - 2).value.list = consPtr;
 				lastConsPtr = consPtr;
 			}
@@ -1238,7 +1221,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			/* Copy the list to the proper position. */
 			object2.value.list = lastConsPtr;
 			DL_ARRAY_GETADDRESS(duckVM->stack,
-			                    duckLisp_object_t,
+			                    duckVM_object_t,
 			                    (duckVM->stack.elements_length - 1 - args_length)) = object2;
 			/* Pop all objects other than the list. */
 			e = stack_pop_multiple(duckVM, args_length);
@@ -1276,26 +1259,26 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		while (object1.type == duckLisp_object_type_composite) {
+		while (object1.type == duckVM_object_type_composite) {
 			object1 = *object1.value.composite->value.internalComposite.function;
 		}
-		if (object1.type != duckLisp_object_type_closure) {
+		if (object1.type != duckVM_object_type_closure) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Applied object is not a closure."));
 			if (eError) e = eError;
 			break;
 		}
-		duckLisp_object_t rest;
+		duckVM_object_t rest;
 		e = stack_pop(duckVM, &rest);
 		if (e) break;
-		if (rest.type != duckLisp_object_type_list) {
+		if (rest.type != duckVM_object_type_list) {
 			e = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Last argument is not a list."));
 			e = dl_error_invalidValue;
 			break;
 		}
 		while ((uint8 < object1.value.closure.arity) && (rest.value.list != dl_null)) {
-			if ((rest.value.list->type != duckLisp_object_type_cons)
-			    || rest.value.list->type != duckLisp_object_type_cons) {
+			if ((rest.value.list->type != duckVM_object_type_cons)
+			    || rest.value.list->type != duckVM_object_type_cons) {
 				e = dl_error_invalidValue;
 				eError = duckVM_error_pushRuntime(duckVM,
 				                                  DL_STR("duckVM_execute->apply: Object pointed to by list root is not a list."));
@@ -1324,39 +1307,39 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			   stack. */
 			/* First push the new object on the stack to register it with the collector. */
 			object2.value.list = rest.value.list;
-			object2.type = duckLisp_object_type_list;
+			object2.type = duckVM_object_type_list;
 			e = stack_push(duckVM, &object2);
 			if (e) break;
 			object3.value.list = dl_null;
-			object3.type = duckLisp_object_type_list;
+			object3.type = duckVM_object_type_list;
 			e = stack_push(duckVM, &object3);
 			if (e) break;
 			dl_size_t args_length = (uint8 - object1.value.closure.arity);
-			duckLisp_object_t *lastConsPtr = rest.value.list;
+			duckVM_object_t *lastConsPtr = rest.value.list;
 			DL_DOTIMES(k, args_length) {
-				duckLisp_object_t cons;
-				duckLisp_object_t *consPtr = dl_null;
-				duckLisp_object_t object;
-				duckLisp_object_t *objectPtr = dl_null;
+				duckVM_object_t cons;
+				duckVM_object_t *consPtr = dl_null;
+				duckVM_object_t object;
+				duckVM_object_t *objectPtr = dl_null;
 				/* Reverse order, because lisp lists are backwards. */
 				object = DL_ARRAY_GETADDRESS(duckVM->stack,
-				                             duckLisp_object_t,
+				                             duckVM_object_t,
 				                             duckVM->stack.elements_length - 3 - k);
 				e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
 				if (e) break;
-				cons.type = duckLisp_object_type_cons;
+				cons.type = duckVM_object_type_cons;
 				cons.value.cons.car = objectPtr;
 				cons.value.cons.cdr = lastConsPtr;
 				/* Make visible to collector before allocating another. */
 				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
+				                    duckVM_object_t,
 				                    duckVM->stack.elements_length - 1).value.list = objectPtr;
 				e = duckVM_gclist_pushObject(duckVM, &consPtr, cons);
 				if (e) break;
 				/* Make visible to collector before allocating another. The object just created is linked in the
 				   cons. */
 				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckLisp_object_t,
+				                    duckVM_object_t,
 				                    duckVM->stack.elements_length - 2).value.list = consPtr;
 				lastConsPtr = consPtr;
 			}
@@ -1367,7 +1350,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			/* Copy the list to the proper position. */
 			object2.value.list = lastConsPtr;
 			DL_ARRAY_GETADDRESS(duckVM->stack,
-			                    duckLisp_object_t,
+			                    duckVM_object_t,
 			                    (duckVM->stack.elements_length - 1 - args_length)) = object2;
 			/* Pop all objects other than the list. */
 			e = stack_pop_multiple(duckVM, args_length);
@@ -1440,7 +1423,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_ccall8:
 		// I should probably delete this and have `funcall` handle callbacks.
 		{
-			duckLisp_object_t *global;
+			duckVM_object_t *global;
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			e = duckVM_global_get(duckVM, &global, ptrdiff1);
 			if (e) {
@@ -1517,31 +1500,31 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (e) break;
 		{
 			dl_bool_t truthy = dl_false;
-			if (object1.type == duckLisp_object_type_bool) {
+			if (object1.type == duckVM_object_type_bool) {
 				truthy = object1.value.boolean;
 			}
-			else if (object1.type == duckLisp_object_type_integer) {
+			else if (object1.type == duckVM_object_type_integer) {
 				truthy = object1.value.integer != 0;
 			}
-			else if (object1.type == duckLisp_object_type_float) {
+			else if (object1.type == duckVM_object_type_float) {
 				truthy = object1.value.floatingPoint != 0.0;
 			}
-			else if (object1.type == duckLisp_object_type_symbol) {
+			else if (object1.type == duckVM_object_type_symbol) {
 				truthy = dl_true;
 			}
-			else if (object1.type == duckLisp_object_type_list) {
+			else if (object1.type == duckVM_object_type_list) {
 				truthy = object1.value.list != dl_null;
 			}
-			else if (object1.type == duckLisp_object_type_closure) {
+			else if (object1.type == duckVM_object_type_closure) {
 				truthy = dl_true;
 			}
-			else if (object1.type == duckLisp_object_type_function) {
+			else if (object1.type == duckVM_object_type_function) {
 				truthy = dl_true;
 			}
-			else if (object1.type == duckLisp_object_type_string) {
+			else if (object1.type == duckVM_object_type_string) {
 				truthy = dl_true;
 			}
-			else if (object1.type == duckLisp_object_type_vector) {
+			else if (object1.type == duckVM_object_type_vector) {
 				truthy = ((object1.value.vector.internal_vector != dl_null)
 				          && ((dl_size_t) object1.value.vector.offset
 				              < object1.value.vector.internal_vector->value.internal_vector.length));
@@ -1623,21 +1606,21 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_vector:
-			object1.type = duckLisp_object_type_bool;
+		case duckVM_object_type_vector:
+			object1.type = duckVM_object_type_bool;
 			object1.value.boolean = object1.value.vector.internal_vector == dl_null;
 			break;
-		case duckLisp_object_type_list:
-			object1.type = duckLisp_object_type_bool;
+		case duckVM_object_type_list:
+			object1.type = duckVM_object_type_bool;
 			object1.value.boolean = object1.value.list == dl_null;
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			object1.value.integer = !object1.value.integer;
 			break;
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			object1.value.floatingPoint = !object1.value.floatingPoint;
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			object1.value.boolean = !object1.value.boolean;
 			break;
 		default:
@@ -1665,54 +1648,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint *= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint *= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint *= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer * object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer *= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer *= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean * object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean * object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean *= object2.value.boolean;
 				break;
 			default:
@@ -1737,54 +1720,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint *= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint *= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint *= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer * object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer *= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer *= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean * object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean * object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean *= object2.value.boolean;
 				break;
 			default:
@@ -1806,54 +1789,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint *= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint *= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint *= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer * object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer *= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer *= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean * object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean * object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean *= object2.value.boolean;
 				break;
 			default:
@@ -1883,54 +1866,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint /= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint /= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint /= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer / object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer /= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer /= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean / object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean / object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean /= object2.value.boolean;
 				break;
 			default:
@@ -1955,54 +1938,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint /= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint /= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint /= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer / object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer /= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer /= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean / object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean / object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean /= object2.value.boolean;
 				break;
 			default:
@@ -2024,54 +2007,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint /= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint /= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint /= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer / object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer /= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer /= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean / object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean / object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean /= object2.value.boolean;
 				break;
 			default:
@@ -2116,18 +2099,18 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint += object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint += object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint += object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
@@ -2137,19 +2120,19 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer + object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer += object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer += object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
@@ -2159,17 +2142,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean + object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean + object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean += object2.value.boolean;
 				break;
 			default:
@@ -2206,54 +2189,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint -= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint -= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint -= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer - object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer -= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer -= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean - object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean - object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean -= object2.value.boolean;
 				break;
 			default:
@@ -2278,54 +2261,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint -= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint -= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint -= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer - object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer -= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer -= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean - object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean - object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean -= object2.value.boolean;
 				break;
 			default:
@@ -2347,54 +2330,54 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint -= object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.floatingPoint -= object2.value.integer;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.floatingPoint -= object2.value.boolean;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.integer - object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				/* Type already set. */
 				object1.value.integer -= object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.integer -= object2.value.boolean;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
 			default:
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.floatingPoint = object1.value.boolean - object2.value.floatingPoint;
-				object1.type = duckLisp_object_type_float;
+				object1.type = duckVM_object_type_float;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.integer = object1.value.boolean - object2.value.integer;
-				object1.type = duckLisp_object_type_integer;
+				object1.type = duckVM_object_type_integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean -= object2.value.boolean;
 				break;
 			default:
@@ -2424,15 +2407,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.boolean;
 				break;
 			default:
@@ -2440,15 +2423,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.integer > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.integer > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.integer > object2.value.boolean;
 				break;
 			default:
@@ -2456,15 +2439,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.boolean > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.boolean > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.boolean > object2.value.boolean;
 				break;
 			default:
@@ -2476,7 +2459,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			goto cleanup;
 		}
-		object1.type = duckLisp_object_type_bool;
+		object1.type = duckVM_object_type_bool;
 		e = stack_push(duckVM, &object1);
 		if (e) break;
 		break;
@@ -2490,15 +2473,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.boolean;
 				break;
 			default:
@@ -2506,15 +2489,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.integer > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.integer > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.integer > object2.value.boolean;
 				break;
 			default:
@@ -2522,15 +2505,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.boolean > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.boolean > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.boolean > object2.value.boolean;
 				break;
 			default:
@@ -2542,7 +2525,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			goto cleanup;
 		}
-		object1.type = duckLisp_object_type_bool;
+		object1.type = duckVM_object_type_bool;
 		e = stack_push(duckVM, &object1);
 		break;
 	case duckLisp_instruction_greater8:
@@ -2553,15 +2536,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.floatingPoint > object2.value.boolean;
 				break;
 			default:
@@ -2569,15 +2552,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.integer > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.integer > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.integer > object2.value.boolean;
 				break;
 			default:
@@ -2585,15 +2568,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.boolean > object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.boolean > object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.boolean > object2.value.boolean;
 				break;
 			default:
@@ -2605,7 +2588,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			goto cleanup;
 		}
-		object1.type = duckLisp_object_type_bool;
+		object1.type = duckVM_object_type_bool;
 		e = stack_push(duckVM, &object1);
 		break;
 
@@ -2639,27 +2622,27 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_list:
+		case duckVM_object_type_list:
 			switch (object2.type) {
-			case duckLisp_object_type_list:
+			case duckVM_object_type_list:
 				object1.value.boolean = object1.value.list == object2.value.list;
 				break;
 			default:
 				object1.value.boolean = dl_false;
 			}
 			break;
-		case duckLisp_object_type_symbol:
+		case duckVM_object_type_symbol:
 			switch (object2.type) {
-			case duckLisp_object_type_symbol:
+			case duckVM_object_type_symbol:
 				object1.value.boolean = object1.value.symbol.id == object2.value.symbol.id;
 				break;
 			default:
 				object1.value.boolean = dl_false;
 			}
 			break;
-		case duckLisp_object_type_string:
+		case duckVM_object_type_string:
 			switch (object2.type) {
-			case duckLisp_object_type_string:
+			case duckVM_object_type_string:
 				if ((object1.value.string.length - object1.value.string.offset == 0)
 				    && (object2.value.string.length - object2.value.string.offset == 0)) {
 					object1.value.boolean = dl_true;
@@ -2683,36 +2666,36 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				object1.value.boolean = dl_false;
 			}
 			break;
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.floatingPoint == object2.value.floatingPoint;
 				break;
 			default:
 				object1.value.boolean = dl_false;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.integer == object2.value.integer;
 				break;
 			default:
 				object1.value.boolean = dl_false;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.boolean == object2.value.boolean;
 				break;
 			default:
 				object1.value.boolean = dl_false;
 			}
 			break;
-		case duckLisp_object_type_vector:
+		case duckVM_object_type_vector:
 			switch (object2.type) {
-			case duckLisp_object_type_vector:
+			case duckVM_object_type_vector:
 				object1.value.boolean = ((object1.value.vector.internal_vector == object2.value.vector.internal_vector)
 				                         && (object1.value.vector.offset == object2.value.vector.offset));
 				break;
@@ -2720,9 +2703,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				object1.value.boolean = dl_false;
 			}
 			break;
-		case duckLisp_object_type_type:
+		case duckVM_object_type_type:
 			switch (object2.type) {
-			case duckLisp_object_type_type:
+			case duckVM_object_type_type:
 				object1.value.boolean = (object1.value.type == object2.value.type);
 				break;
 			default:
@@ -2733,7 +2716,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			goto cleanup;
 		}
-		object1.type = duckLisp_object_type_bool;
+		object1.type = duckVM_object_type_bool;
 		e = stack_push(duckVM, &object1);
 		break;
 
@@ -2752,15 +2735,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.boolean;
 				break;
 			default:
@@ -2768,15 +2751,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.integer < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.integer < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.integer < object2.value.boolean;
 				break;
 			default:
@@ -2784,15 +2767,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.boolean < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.boolean < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.boolean < object2.value.boolean;
 				break;
 			default:
@@ -2804,7 +2787,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			goto cleanup;
 		}
-		object1.type = duckLisp_object_type_bool;
+		object1.type = duckVM_object_type_bool;
 		e = stack_push(duckVM, &object1);
 		if (e) break;
 		break;
@@ -2818,15 +2801,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.boolean;
 				break;
 			default:
@@ -2834,15 +2817,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.integer < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.integer < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.integer < object2.value.boolean;
 				break;
 			default:
@@ -2850,15 +2833,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.boolean < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.boolean < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.boolean < object2.value.boolean;
 				break;
 			default:
@@ -2870,7 +2853,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			goto cleanup;
 		}
-		object1.type = duckLisp_object_type_bool;
+		object1.type = duckVM_object_type_bool;
 		e = stack_push(duckVM, &object1);
 		break;
 	case duckLisp_instruction_less8:
@@ -2881,15 +2864,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		switch (object1.type) {
-		case duckLisp_object_type_float:
+		case duckVM_object_type_float:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.floatingPoint < object2.value.boolean;
 				break;
 			default:
@@ -2897,15 +2880,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_integer:
+		case duckVM_object_type_integer:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.integer < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.integer < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.integer < object2.value.boolean;
 				break;
 			default:
@@ -2913,15 +2896,15 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				goto cleanup;
 			}
 			break;
-		case duckLisp_object_type_bool:
+		case duckVM_object_type_bool:
 			switch (object2.type) {
-			case duckLisp_object_type_float:
+			case duckVM_object_type_float:
 				object1.value.boolean = object1.value.boolean < object2.value.floatingPoint;
 				break;
-			case duckLisp_object_type_integer:
+			case duckVM_object_type_integer:
 				object1.value.boolean = object1.value.boolean < object2.value.integer;
 				break;
-			case duckLisp_object_type_bool:
+			case duckVM_object_type_bool:
 				object1.value.boolean = object1.value.boolean < object2.value.boolean;
 				break;
 			default:
@@ -2933,7 +2916,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_error_invalidValue;
 			goto cleanup;
 		}
-		object1.type = duckLisp_object_type_bool;
+		object1.type = duckVM_object_type_bool;
 		e = stack_push(duckVM, &object1);
 		break;
 
@@ -2968,16 +2951,16 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 		/* Push dummy cons first so that it can't get collected. */
-		cons1.type = duckLisp_object_type_cons;
+		cons1.type = duckVM_object_type_cons;
 		cons1.value.cons.car = dl_null;
 		cons1.value.cons.cdr = dl_null;
-		object3.type = duckLisp_object_type_list;
+		object3.type = duckVM_object_type_list;
 		e = duckVM_gclist_pushObject(duckVM, &object3.value.list, cons1);
 		if (e) break;
 		e = stack_push(duckVM, &object3);
 		if (e) break;
 		/* Create the elements of the cons. */
-		if (object1.type == duckLisp_object_type_list) {
+		if (object1.type == duckVM_object_type_list) {
 			object3.value.list->value.cons.car = object1.value.list;
 		}
 		else {
@@ -2985,7 +2968,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			if (e) break;
 			object3.value.list->value.cons.car = objectPtr1;
 		}
-		if (object2.type == duckLisp_object_type_list) {
+		if (object2.type == duckVM_object_type_list) {
 			object3.value.list->value.cons.cdr = object2.value.list;
 		}
 		else {
@@ -2993,7 +2976,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			if (e) break;
 			object3.value.list->value.cons.cdr = objectPtr2;
 		}
-		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object3;
+		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t) = object3;
 		break;
 
 	case duckLisp_instruction_vector32:
@@ -3006,13 +2989,13 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_vector8:
 		size1 = *(ip++) + (size1 << 8);
 
-		object1.type = duckLisp_object_type_vector;
+		object1.type = duckVM_object_type_vector;
 		object1.value.vector.offset = 0;
 		object1.value.vector.internal_vector = dl_null;
 
 		{
-			duckLisp_object_t internal_vector;
-			internal_vector.type = duckLisp_object_type_internalVector;
+			duckVM_object_t internal_vector;
+			internal_vector.type = duckVM_object_type_internalVector;
 			internal_vector.value.internal_vector.initialized = dl_false;
 			internal_vector.value.internal_vector.length = size1;
 			e = duckVM_gclist_pushObject(duckVM, &object1.value.vector.internal_vector, internal_vector);
@@ -3059,7 +3042,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
 		if (e) break;
 		object1.value.vector.internal_vector->value.internal_vector.initialized = dl_true;
-		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object1;
+		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t) = object1;
 		break;
 
 	case duckLisp_instruction_makeVector32:
@@ -3096,7 +3079,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_integer) {
+		if (object1.type != duckVM_object_type_integer) {
 			e = dl_error_invalidValue;
 			break;
 		}
@@ -3114,13 +3097,13 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
 		if (e) break;
 
-		object1.type = duckLisp_object_type_vector;
+		object1.type = duckVM_object_type_vector;
 		object1.value.vector.offset = 0;
 		object1.value.vector.internal_vector = dl_null;
 
 		{
-			duckLisp_object_t internal_vector;
-			internal_vector.type = duckLisp_object_type_internalVector;
+			duckVM_object_t internal_vector;
+			internal_vector.type = duckVM_object_type_internalVector;
 			internal_vector.value.internal_vector.initialized = dl_false;
 			internal_vector.value.internal_vector.length = size1;
 			e = duckVM_gclist_pushObject(duckVM, &object1.value.vector.internal_vector, internal_vector);
@@ -3143,7 +3126,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
 		if (e) break;
 		object1.value.vector.internal_vector->value.internal_vector.initialized = dl_true;
-		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t) = object1;
+		DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t) = object1;
 		break;
 
 	case duckLisp_instruction_getVecElt32:
@@ -3183,7 +3166,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if ((object1.type != duckLisp_object_type_vector) && (object1.type != duckLisp_object_type_string)) {
+		if ((object1.type != duckVM_object_type_vector) && (object1.type != duckVM_object_type_string)) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->get-vector-element: dl_array_get failed."));
@@ -3201,7 +3184,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
 		if (e) break;
-		if (object2.type != duckLisp_object_type_integer) {
+		if (object2.type != duckVM_object_type_integer) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->get-vector-element: dl_array_get failed."));
@@ -3209,7 +3192,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			break;
 		}
 
-		if (object1.type == duckLisp_object_type_vector) {
+		if (object1.type == duckVM_object_type_vector) {
 			ptrdiff1 = object2.value.integer;
 			if ((ptrdiff1 < 0)
 			    || ((dl_size_t) (ptrdiff1 + object1.value.vector.offset)
@@ -3223,7 +3206,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			object2 = *object1.value.vector.internal_vector->value.internal_vector.values[object1.value.vector.offset
 			                                                                              + ptrdiff1];
 		}
-		else if (object1.type == duckLisp_object_type_string) {
+		else if (object1.type == duckVM_object_type_string) {
 			ptrdiff1 = object2.value.integer;
 			if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 >= object1.value.string.length - object1.value.string.offset)) {
 				e = dl_error_invalidValue;
@@ -3232,7 +3215,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (!e) e = eError;
 				break;
 			}
-			object2.type = duckLisp_object_type_integer;
+			object2.type = duckVM_object_type_integer;
 			object2.value.integer = (object1.value.string.internalString
 			                         ->value.internalString.value[object1.value.string.offset
 			                                                      + ptrdiff1]);
@@ -3296,7 +3279,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_vector) {
+		if (object1.type != duckVM_object_type_vector) {
 			e = dl_error_invalidValue;
 			break;
 		}
@@ -3308,7 +3291,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
 		if (e) break;
-		if (object2.type != duckLisp_object_type_integer) {
+		if (object2.type != duckVM_object_type_integer) {
 			e = dl_error_invalidValue;
 			break;
 		}
@@ -3352,21 +3335,21 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type == duckLisp_object_type_list) {
+		if (object1.type == duckVM_object_type_list) {
 			if (object1.value.list == dl_null) {
-				object2.type = duckLisp_object_type_list;
+				object2.type = duckVM_object_type_list;
 				object2.value.list = dl_null;
 			}
 			else {
-				if (object1.value.list->type == duckLisp_object_type_cons) {
-					duckLisp_object_t *cdr = object1.value.list->value.cons.cdr;
+				if (object1.value.list->type == duckVM_object_type_cons) {
+					duckVM_object_t *cdr = object1.value.list->value.cons.cdr;
 					if (cdr == dl_null) {
-						object2.type = duckLisp_object_type_list;
+						object2.type = duckVM_object_type_list;
 						object2.value.list = dl_null;
 					}
 					/* cdr can be a cons or something else. */
-					else if (cdr->type == duckLisp_object_type_cons) {
-						object2.type = duckLisp_object_type_list;
+					else if (cdr->type == duckVM_object_type_cons) {
+						object2.type = duckVM_object_type_list;
 						object2.value.list = cdr;
 					}
 					else {
@@ -3382,14 +3365,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 		}
-		else if (object1.type == duckLisp_object_type_vector) {
+		else if (object1.type == duckVM_object_type_vector) {
 			if (object1.value.vector.internal_vector == dl_null) {
-				object2.type = duckLisp_object_type_vector;
+				object2.type = duckVM_object_type_vector;
 				object2.value.vector.internal_vector = dl_null;
 			}
 			else {
-				if (object1.value.vector.internal_vector->type == duckLisp_object_type_internalVector) {
-					object2.type = duckLisp_object_type_vector;
+				if (object1.value.vector.internal_vector->type == duckVM_object_type_internalVector) {
+					object2.type = duckVM_object_type_vector;
 					if ((object1.value.vector.internal_vector->value.internal_vector.length == 0)
 					    /* -1 because we are going to try to get the cdr, which is the next element after. */
 					    || ((dl_size_t) object1.value.vector.offset
@@ -3408,14 +3391,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 		}
-		else if (object1.type == duckLisp_object_type_string) {
+		else if (object1.type == duckVM_object_type_string) {
 			if (object1.value.string.internalString == dl_null) {
-				object2.type = duckLisp_object_type_string;
+				object2.type = duckVM_object_type_string;
 				object2.value.string.internalString = dl_null;
 			}
 			else {
-				if (object1.value.string.internalString->type == duckLisp_object_type_internalString) {
-					object2.type = duckLisp_object_type_string;
+				if (object1.value.string.internalString->type == duckVM_object_type_internalString) {
+					object2.type = duckVM_object_type_string;
 					if ((object1.value.string.length == 0)
 					    /* -1 because we are going to try to get the cdr, which is the next element after. */
 					    || ((dl_size_t) object1.value.string.offset >= object1.value.string.length - 1)) {
@@ -3460,21 +3443,21 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type == duckLisp_object_type_list) {
+		if (object1.type == duckVM_object_type_list) {
 			if (object1.value.list == dl_null) {
-				object2.type = duckLisp_object_type_list;
+				object2.type = duckVM_object_type_list;
 				object2.value.list = dl_null;
 			}
 			else {
-				if (object1.value.list->type == duckLisp_object_type_cons) {
-					duckLisp_object_t *car = object1.value.list->value.cons.car;
+				if (object1.value.list->type == duckVM_object_type_cons) {
+					duckVM_object_t *car = object1.value.list->value.cons.car;
 					if (car == dl_null) {
-						object2.type = duckLisp_object_type_list;
+						object2.type = duckVM_object_type_list;
 						object2.value.list = dl_null;
 					}
 					/* car can be a cons or something else. */
-					else if (car->type == duckLisp_object_type_cons) {
-						object2.type = duckLisp_object_type_list;
+					else if (car->type == duckVM_object_type_cons) {
+						object2.type = duckVM_object_type_list;
 						object2.value.list = car;
 					}
 					else {
@@ -3489,17 +3472,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 		}
-		else if (object1.type == duckLisp_object_type_vector) {
+		else if (object1.type == duckVM_object_type_vector) {
 			if (object1.value.vector.internal_vector == dl_null) {
-				object2.type = duckLisp_object_type_vector;
+				object2.type = duckVM_object_type_vector;
 				object2.value.vector.internal_vector = dl_null;
 			}
 			else {
-				if (object1.value.vector.internal_vector->type == duckLisp_object_type_internalVector) {
+				if (object1.value.vector.internal_vector->type == duckVM_object_type_internalVector) {
 					if ((object1.value.vector.internal_vector->value.internal_vector.length == 0)
 					    || ((dl_size_t) object1.value.vector.offset
 					        >= object1.value.vector.internal_vector->value.internal_vector.length)) {
-						object2.type = duckLisp_object_type_vector;
+						object2.type = duckVM_object_type_vector;
 						object2.value.vector.internal_vector = dl_null;
 					}
 					else {
@@ -3513,20 +3496,20 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 		}
-		else if (object1.type == duckLisp_object_type_string) {
+		else if (object1.type == duckVM_object_type_string) {
 			if (object1.value.string.internalString == dl_null) {
-				object2.type = duckLisp_object_type_string;
+				object2.type = duckVM_object_type_string;
 				object2.value.string.internalString = dl_null;
 			}
 			else {
-				if (object1.value.string.internalString->type == duckLisp_object_type_internalString) {
+				if (object1.value.string.internalString->type == duckVM_object_type_internalString) {
 					if ((object1.value.string.length == 0)
 					    || ((dl_size_t) object1.value.string.offset >= object1.value.string.length)) {
-						object2.type = duckLisp_object_type_string;
+						object2.type = duckVM_object_type_string;
 						object2.value.string.internalString = dl_null;
 					}
 					else {
-						object2.type = duckLisp_object_type_integer;
+						object2.type = duckVM_object_type_integer;
 						object2.value.integer = (object1.value.string.internalString
 						                         ->value.internalString.value[object1.value.string.offset]);
 					}
@@ -3575,8 +3558,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 
-		if ((object2.type == duckLisp_object_type_list) && (object2.value.list != dl_null)) {
-			if (object1.type == duckLisp_object_type_list) {
+		if ((object2.type == duckVM_object_type_list) && (object2.value.list != dl_null)) {
+			if (object1.type == duckVM_object_type_list) {
 				if (object1.value.list == dl_null) object2.value.list->value.cons.car = dl_null;
 				else object2.value.list->value.cons.car = object1.value.list;
 			}
@@ -3586,7 +3569,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				object2.value.list->value.cons.car = objectPtr1;
 			}
 		}
-		else if ((object2.type == duckLisp_object_type_vector)
+		else if ((object2.type == duckVM_object_type_vector)
 		         && (object2.value.vector.internal_vector != dl_null)) {
 			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 			if (e) break;
@@ -3631,8 +3614,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 
-		if ((object2.type == duckLisp_object_type_list) && (object2.value.list != dl_null)) {
-			if (object1.type == duckLisp_object_type_list) {
+		if ((object2.type == duckVM_object_type_list) && (object2.value.list != dl_null)) {
+			if (object1.type == duckVM_object_type_list) {
 				if (object1.value.list == dl_null) object2.value.list->value.cons.cdr = dl_null;
 				else object2.value.list->value.cons.cdr = object1.value.list;
 			}
@@ -3642,11 +3625,11 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				object2.value.list->value.cons.cdr = objectPtr1;
 			}
 		}
-		else if ((object2.type == duckLisp_object_type_vector)
+		else if ((object2.type == duckVM_object_type_vector)
 		         && (object2.value.vector.internal_vector != dl_null)
-		         && (((object1.type == duckLisp_object_type_vector)
+		         && (((object1.type == duckVM_object_type_vector)
 		              && (object1.value.vector.internal_vector == dl_null))
-		             || ((object1.type == duckLisp_object_type_list)
+		             || ((object1.type == duckVM_object_type_list)
 		                 && (object1.value.list == dl_null)))) {
 			object2.value.vector.internal_vector->value.internal_vector.length = object2.value.vector.offset;
 		}
@@ -3669,16 +3652,16 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		object2.type = duckLisp_object_type_bool;
-		if (object1.type == duckLisp_object_type_list) {
+		object2.type = duckVM_object_type_bool;
+		if (object1.type == duckVM_object_type_list) {
 			object2.value.boolean = (object1.value.list == dl_null);
 		}
-		else if (object1.type == duckLisp_object_type_vector) {
+		else if (object1.type == duckVM_object_type_vector) {
 			object2.value.boolean = !((object1.value.vector.internal_vector != dl_null)
 			                          && ((dl_size_t) object1.value.vector.offset
 			                              < object1.value.vector.internal_vector->value.internal_vector.length));
 		}
-		else if (object1.type == duckLisp_object_type_string) {
+		else if (object1.type == duckVM_object_type_string) {
 			object2.value.boolean = !((object1.value.string.internalString != dl_null)
 			                          && ((dl_size_t) object1.value.string.offset < object1.value.string.length));
 		}
@@ -3700,8 +3683,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		object2.type = duckLisp_object_type_type;
-		object2.value.type = ((object1.type == duckLisp_object_type_composite)
+		object2.type = duckVM_object_type_type;
+		object2.value.type = ((object1.type == duckVM_object_type_composite)
 		                      ? object1.value.composite->value.internalComposite.type
 		                      : object1.type);
 		e = stack_push(duckVM, &object2);
@@ -3709,7 +3692,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		break;
 
 	case duckLisp_instruction_makeType:
-		object1.type = duckLisp_object_type_type;
+		object1.type = duckVM_object_type_type;
 		object1.value.type = duckVM->nextUserType++;
 		e = stack_push(duckVM, &object1);
 		if (e) break;
@@ -3768,14 +3751,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_type) {
+		if (object1.type != duckVM_object_type_type) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->make-instance: `type` argument must have type `type`."));
 			if (!e) e = eError;
 			break;
 		}
-		if (object1.value.type < duckLisp_object_type_last) {
+		if (object1.value.type < duckVM_object_type_last) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->make-instance: Invalid instance type."));
@@ -3805,10 +3788,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 
 		{
 			dl_size_t type = object1.value.type;
-			object1.type = duckLisp_object_type_internalComposite;
+			object1.type = duckVM_object_type_internalComposite;
 			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
 			if (e) break;
-			object1.type = duckLisp_object_type_composite;
+			object1.type = duckVM_object_type_composite;
 			object1.value.composite = objectPtr1;
 			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
 			if (e) break;
@@ -3834,7 +3817,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_composite) {
+		if (object1.type != duckVM_object_type_composite) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->composite-value: Argument must be a composite type."));
@@ -3856,7 +3839,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_composite) {
+		if (object1.type != duckVM_object_type_composite) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->composite-function: Argument must be a composite type."));
@@ -3897,7 +3880,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 
-		if (object1.type != duckLisp_object_type_composite) {
+		if (object1.type != duckVM_object_type_composite) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->set-composite-value: First argument must be a composite type."));
@@ -3940,7 +3923,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		e = dl_array_get(&duckVM->stack, &object2, duckVM->stack.elements_length - ptrdiff2);
 		if (e) break;
 
-		if (object1.type != duckLisp_object_type_composite) {
+		if (object1.type != duckVM_object_type_composite) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->set-composite-function: First argument must be a composite type."));
@@ -3965,14 +3948,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		{
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			object2.type = duckLisp_object_type_integer;
-			if (object1.type == duckLisp_object_type_vector) {
+			object2.type = duckVM_object_type_integer;
+			if (object1.type == duckVM_object_type_vector) {
 				object2.value.integer = (object1.value.vector.internal_vector
 				                         ? (object1.value.vector.internal_vector->value.internal_vector.length
 				                            - object1.value.vector.offset)
 				                         : 0);
 			}
-			else if (object1.type == duckLisp_object_type_string) {
+			else if (object1.type == duckVM_object_type_string) {
 				object2.value.integer = object1.value.string.length - object1.value.string.offset;
 			}
 			else {
@@ -3999,14 +3982,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_symbol) {
+		if (object1.type != duckVM_object_type_symbol) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->symbol-string: Argument must be a symbol."));
 			if (eError) e = eError;
 			break;
 		}
-		object2.type = duckLisp_object_type_string;
+		object2.type = duckVM_object_type_string;
 		object2.value.string.internalString = object1.value.symbol.internalString;
 		object2.value.string.offset = 0;
 		object2.value.string.length = object1.value.symbol.internalString->value.internalString.value_length;
@@ -4026,14 +4009,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_symbol) {
+		if (object1.type != duckVM_object_type_symbol) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->symbol-id: Argument must be a symbol."));
 			if (eError) e = eError;
 			break;
 		}
-		object2.type = duckLisp_object_type_integer;
+		object2.type = duckVM_object_type_integer;
 		object2.value.integer = object1.value.symbol.id;
 		e = stack_push(duckVM, &object2);
 		if (e) break;
@@ -4053,14 +4036,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			dl_size_t string_length = 0;
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
-			if (object1.type == duckLisp_object_type_vector) {
+			if (object1.type == duckVM_object_type_vector) {
 				dl_size_t vector_length = object1.value.vector.internal_vector->value.internal_vector.length;
 				string_length = vector_length - object1.value.vector.offset;
 				e = DL_MALLOC(duckVM->memoryAllocation, &string, string_length, dl_uint8_t);
 				if (e) break;
 				for (dl_ptrdiff_t i = object1.value.vector.offset; (dl_size_t) i < vector_length; i++) {
-					duckLisp_object_t *element = object1.value.vector.internal_vector->value.internal_vector.values[i];
-					if (element->type != duckLisp_object_type_integer) {
+					duckVM_object_t *element = object1.value.vector.internal_vector->value.internal_vector.values[i];
+					if (element->type != duckVM_object_type_integer) {
 						e = dl_error_invalidValue;
 						eError = duckVM_error_pushRuntime(duckVM,
 						                                  DL_STR("duckVM_execute->make-string: All elements of vector must be integers."));
@@ -4073,17 +4056,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					string[i - object1.value.vector.offset] = element->value.integer;
 				}
 			}
-			else if (object1.type == duckLisp_object_type_list) {
+			else if (object1.type == duckVM_object_type_list) {
 				dl_array_t string_array;
 				/**/ dl_array_init(&string_array, duckVM->memoryAllocation, sizeof(char), dl_array_strategy_double);
 				objectPtr1 = object1.value.list;
 				while (objectPtr1 != dl_null) {
-					if (objectPtr1->type == duckLisp_object_type_list) {
+					if (objectPtr1->type == duckVM_object_type_list) {
 						objectPtr1 = objectPtr1->value.list;
 					}
-					else if (objectPtr1->type == duckLisp_object_type_cons) {
-						duckLisp_object_t *car = objectPtr1->value.cons.car;
-						if (car->type != duckLisp_object_type_integer) {
+					else if (objectPtr1->type == duckVM_object_type_cons) {
+						duckVM_object_t *car = objectPtr1->value.cons.car;
+						if (car->type != duckVM_object_type_integer) {
 							e = dl_error_invalidValue;
 							eError = duckVM_error_pushRuntime(duckVM,
 							                                  DL_STR("duckVM_execute->make-string: All list elements must be integers."));
@@ -4124,7 +4107,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (eError) e = eError;
 				break;
 			}
-			object1.type = duckLisp_object_type_internalString;
+			object1.type = duckVM_object_type_internalString;
 			object1.value.internalString.value = string;
 			object1.value.internalString.value_length = string_length;
 			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
@@ -4135,7 +4118,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 			e = DL_FREE(duckVM->memoryAllocation, &string);
 			if (e) break;
-			object1.type = duckLisp_object_type_string;
+			object1.type = duckVM_object_type_string;
 			object1.value.string.internalString = objectPtr1;
 			object1.value.string.offset = 0;
 			object1.value.string.length = string_length;
@@ -4181,7 +4164,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_string) {
+		if (object1.type != duckVM_object_type_string) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
@@ -4199,7 +4182,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
 		if (e) break;
-		if (object2.type != duckLisp_object_type_string) {
+		if (object2.type != duckVM_object_type_string) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
@@ -4207,7 +4190,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			break;
 		}
 
-		object3.type = duckLisp_object_type_internalString;
+		object3.type = duckVM_object_type_internalString;
 		object3.value.internalString.value = (object1.value.string.internalString->value.internalString.value
 		                                      + object1.value.string.offset);
 		object3.value.internalString.value_length = object1.value.string.length;
@@ -4225,7 +4208,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		                          (object2.value.string.internalString->value.internalString.value
 		                           + object2.value.string.offset),
 		                          object2.value.string.length);
-		object3.type = duckLisp_object_type_string;
+		object3.type = duckVM_object_type_string;
 		object3.value.string.offset = 0;
 		object3.value.string.length = objectPtr1->value.internalString.value_length;
 		object3.value.string.internalString = objectPtr1;
@@ -4291,7 +4274,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if (object1.type != duckLisp_object_type_string) {
+		if (object1.type != duckVM_object_type_string) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->substring: dl_array_get failed."));
@@ -4309,7 +4292,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
 		if (e) break;
-		if (object2.type != duckLisp_object_type_integer) {
+		if (object2.type != duckVM_object_type_integer) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->substring: dl_array_get failed."));
@@ -4335,7 +4318,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		e = dl_array_get(&duckVM->stack, &object3, ptrdiff3);
 		if (e) break;
-		if (object3.type != duckLisp_object_type_integer) {
+		if (object3.type != duckVM_object_type_integer) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
@@ -4419,7 +4402,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		break;
 
 	case duckLisp_instruction_nil:
-		object1.type = duckLisp_object_type_list;
+		object1.type = duckVM_object_type_list;
 		object1.value.list = dl_null;
 		e = stack_push(duckVM, &object1);
 		if (e) break;
@@ -4437,7 +4420,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 }
 
 dl_error_t duckVM_execute(duckVM_t *duckVM,
-                          duckLisp_object_t *return_value,
+                          duckVM_object_t *return_value,
                           dl_uint8_t *bytecode,
                           dl_size_t bytecode_length) {
 	dl_error_t e = dl_error_ok;
@@ -4445,10 +4428,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 
 	duckVM_halt_mode_t halt = duckVM_halt_mode_run;
 	/* Why a reference to bytecode? So it can be switched out with other bytecodes by `duckVM_executeInstruction`. */
-	duckLisp_object_t *bytecodeObject;
+	duckVM_object_t *bytecodeObject;
 	{
-		duckLisp_object_t temp;
-		temp.type = duckLisp_object_type_bytecode;
+		duckVM_object_t temp;
+		temp.type = duckVM_object_type_bytecode;
 		temp.value.bytecode.bytecode = bytecode;
 		temp.value.bytecode.bytecode_length = bytecode_length;
 		e = duckVM_gclist_pushObject(duckVM, &bytecodeObject, temp);
@@ -4473,11 +4456,11 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 			/* Don't pop anything here so that the compiler can predict the starting stack length for the next run. */
 			if (duckVM->stack.elements_length == 0) {
 				/* Return nil if nothing on stack. */
-				return_value->type = duckLisp_object_type_list;
+				return_value->type = duckVM_object_type_list;
 				return_value->value.list = dl_null;
 			}
 			else {
-				*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckLisp_object_t);
+				*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t);
 			}
 		}
 		else {
@@ -4489,111 +4472,16 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 	return e;
 }
 
-/* dl_error_t duckVM_funcall(duckVM_t *duckVM, */
-/*                           duckLisp_object_t *return_value, */
-/*                           dl_uint8_t *bytecode, */
-/*                           duckLisp_object_t *closure) { */
-/* 	dl_error_t e = dl_error_ok; */
-/* 	dl_error_t eError = dl_error_ok; */
-
-/* 	if ((closure->type == duckLisp_object_type_function) */
-/* 	    && (closure->value.function.callback != dl_null)) { */
-/* 		e = closure->value.function.callback(duckVM); */
-/* 	} */
-/* 	else if (closure->type == duckLisp_object_type_closure) { */
-/* 		/\* Assume the stack is empty. *\/ */
-
-/* 		/\* Hack: Will tell the VM to return to this single char of bytecode which will exit the VM. *\/ */
-/* 		unsigned char ret = duckLisp_instruction_return0; */
-
-/* 		e = stack_push(duckVM, closure); */
-/* 		if (e) goto l_cleanup; */
-
-/* 		/\* Call. *\/ */
-/* 		e = call_stack_push(duckVM, */
-/* 		                    &ret,  /\* Hack: See above. *\/ */
-/* 		                    closure->value.closure.upvalue_array->value.upvalue_array.upvalues, */
-/* 		                    closure->value.closure.upvalue_array->value.upvalue_array.length); */
-/* 		if (e) goto l_cleanup; */
-/* 		/\* Hack:  *\/ */
-/* 		dl_uint8_t *ip = &bytecode[closure->value.closure.name]; */
-/* 		dl_bool_t halt = dl_false; */
-/* 		do { */
-/* 			e = duckVM_executeInstruction(duckVM, &bytecode, &ip, &halt); */
-/* 		} while (!e && !halt); */
-
-/* 		if (e) { */
-/* 			puts("VM ERROR"); */
-/* 			printf("ip 0x%llX\n", (dl_size_t) (ip - bytecode)); */
-/* 			printf("*ip 0x%X\n", *ip); */
-/* 		} */
-/* 		else { */
-/* 			if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM); */
-/* 			e = stack_pop(duckVM, return_value); */
-/* 		} */
-/* 	} */
-/* 	else { */
-/* 		e = dl_error_invalidValue; */
-/* 		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_funcall: Object is not a closure..")); */
-/* 		if (!e) e = eError; */
-/* 		goto l_cleanup; */
-/* 	} */
-
-/*  l_cleanup: */
-/* 	if (e) { */
-/* 		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_funcall: Failed.")); */
-/* 		if (!e) e = eError; */
-/* 	} */
-
-/* 	return e; */
-/* } */
-
-/* dl_error_t duckVM_callLocal(duckVM_t *duckVM, duckLisp_object_t *return_value, dl_ptrdiff_t function_index) { */
-/* 	dl_error_t e = dl_error_ok; */
-
-/* 	duckLisp_object_t functionObject; */
-
-/* 	// Allow addressing relative to the top of the stack with negative indices. */
-/* 	if (function_index < 0) { */
-/* 		function_index = duckVM->stack.elements_length + function_index; */
-/* 	} */
-/* 	if ((function_index < 0) || ((dl_size_t) function_index  >= duckVM->stack.elements_length)) { */
-/* 		e = dl_error_invalidValue; */
-/* 		goto l_cleanup; */
-/* 	} */
-
-/* 	functionObject = DL_ARRAY_GETADDRESS(duckVM->stack, duckLisp_object_t, function_index); */
-/* 	if (functionObject.type != duckLisp_object_type_function) { */
-/* 		// Push runtime error. */
-/* 		e = dl_error_invalidValue; */
-/* 		goto l_cleanup; */
-/* 	} */
-
-/* 	if (functionObject.value.function.callback != dl_null) { */
-/* 		e = functionObject.value.function.callback(duckVM); */
-/* 	} */
-/* 	else if (functionObject.value.function.bytecode != dl_null) { */
-/* 		e = duckVM_execute(duckVM, return_value, functionObject.value.function.bytecode, functionObject.value.function.); */
-/* 	} */
-/* 	else { */
-/* 		e = dl_error_invalidValue; */
-/* 	} */
-
-/* 	l_cleanup: */
-
-/* 	return e; */
-/* } */
-
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (*callback)(duckVM_t *)) {
 	dl_error_t e = dl_error_ok;
 
-	duckLisp_object_t object;
-	dl_memclear(&object, sizeof(duckLisp_object_t));
-	object.type = duckLisp_object_type_function;
+	duckVM_object_t object;
+	dl_memclear(&object, sizeof(duckVM_object_t));
+	object.type = duckVM_object_type_function;
 	object.value.function.callback = callback;
 
 	{
-		duckLisp_object_t *objectPointer = dl_null;
+		duckVM_object_t *objectPointer = dl_null;
 		e = duckVM_gclist_pushObject(duckVM, &objectPointer, object);
 		if (e) goto l_cleanup;
 		e = duckVM_global_set(duckVM, objectPointer, key);
@@ -4628,7 +4516,7 @@ dl_error_t duckVM_garbageCollect(duckVM_t *duckVM) {
 /* 	} */
 /* } */
 
-dl_error_t duckVM_pop(duckVM_t *duckVM, duckLisp_object_t *object) {
+dl_error_t duckVM_pop(duckVM_t *duckVM, duckVM_object_t *object) {
 	return stack_pop(duckVM, object);
 }
 
@@ -4636,15 +4524,12 @@ dl_error_t duckVM_popAll(duckVM_t *duckVM) {
 	return stack_pop_multiple(duckVM, duckVM->stack.elements_length);
 }
 
-dl_error_t duckVM_push(duckVM_t *duckVM, duckLisp_object_t *object) {
+dl_error_t duckVM_push(duckVM_t *duckVM, duckVM_object_t *object) {
 	return stack_push(duckVM, object);
 }
 
-dl_error_t duckVM_pushNil(duckVM_t *duckVM) {
-	duckLisp_object_t object;
-	object.type = duckLisp_object_type_list;
-	object.value.list = dl_null;
-	return stack_push(duckVM, &object);
+dl_error_t duckVM_allocateHeapObject(duckVM_t *duckVM, duckVM_object_t **heapObjectOut, duckVM_object_t objectIn) {
+	return duckVM_gclist_pushObject(duckVM, heapObjectOut, objectIn);
 }
 
 dl_error_t duckVM_softReset(duckVM_t *duckVM) {
@@ -4665,15 +4550,586 @@ dl_error_t duckVM_softReset(duckVM_t *duckVM) {
 	return e;
 }
 
-/* dl_error_t duckVM_pushReturn(duckVM_t *duckVM, duckLisp_object_t object) { */
-/* 	dl_error_t e = dl_error_ok; */
-
-/* 	e = dl_array_pushElement(&duckVM->stack, (void *) &object); */
-/* 	duckVM->frame_pointer++; */
-
-/* 	return e; */
-/* } */
-
-dl_error_t duckVM_makeGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckLisp_object_t *object) {
+dl_error_t duckVM_makeGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_object_t *object) {
 	return duckVM_global_set(duckVM, object, key);
+}
+
+
+dl_error_t duckVM_pushBoolean(duckVM_t *duckVM, const dl_bool_t boolean) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_bool;
+	object.value.boolean = boolean;
+	return duckVM_push(duckVM, &object);
+}
+
+dl_error_t duckVM_pushInteger(duckVM_t *duckVM, const dl_ptrdiff_t integer) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_integer;
+	object.value.integer = integer;
+	return duckVM_push(duckVM, &object);
+}
+
+dl_error_t duckVM_pushFloat(duckVM_t *duckVM, const double floatingPoint) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_float;
+	object.value.floatingPoint = floatingPoint;
+	return duckVM_push(duckVM, &object);
+}
+
+dl_error_t duckVM_pushNil(duckVM_t *duckVM) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_list;
+	object.value.list = dl_null;
+	return stack_push(duckVM, &object);
+}
+
+
+duckVM_object_t duckVM_object_makeBoolean(dl_bool_t boolean) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_bool;
+	o.value.boolean = boolean;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeInteger(dl_ptrdiff_t integer) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_integer;
+	o.value.integer = integer;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeFloat(double floatingPoint) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_float;
+	o.value.floatingPoint = floatingPoint;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeInternalString(dl_uint8_t *value, dl_size_t length) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_internalString;
+	o.value.internalString.value = value;
+	o.value.internalString.value_length = length;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeString(duckVM_object_t *internalString, dl_ptrdiff_t offset, dl_size_t length) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_string;
+	o.value.string.internalString = internalString;
+	o.value.string.offset = offset;
+	o.value.string.length = length;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeSymbol(dl_size_t id, duckVM_object_t *internalStringObject) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_symbol;
+	o.value.symbol.internalString = internalStringObject;
+	o.value.symbol.id = id;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeFunction(dl_error_t (*callback)(duckVM_t *)) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_function;
+	o.value.function.callback = callback;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeClosure(dl_ptrdiff_t name,
+                                         duckVM_object_t *bytecode,
+                                         duckVM_object_t *upvalueArray,
+                                         dl_uint8_t arity,
+                                         dl_bool_t variadic) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_closure;
+	o.value.closure.name = name;
+	o.value.closure.bytecode = bytecode;
+	o.value.closure.upvalue_array = upvalueArray;
+	o.value.closure.arity = arity;
+	o.value.closure.variadic = variadic;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeList(duckVM_object_t *cons) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_list;
+	o.value.list = cons;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeCons(duckVM_object_t *car, duckVM_object_t *cdr) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_cons;
+	o.value.cons.car = car;
+	o.value.cons.cdr = cdr;
+	return o;
+}
+
+/* No `makeUpvalueObject` because C function calls can't handle unions well. */
+
+duckVM_object_t duckVM_object_makeUpvalueArray(duckVM_object_t **upvalues, dl_size_t length) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_upvalueArray;
+	o.value.upvalue_array.upvalues = upvalues;
+	o.value.upvalue_array.length = length;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeInternalVector(duckVM_object_t **values, dl_size_t length, dl_bool_t initialized) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_internalVector;
+	o.value.internal_vector.values = values;
+	o.value.internal_vector.length = length;
+	o.value.internal_vector.initialized = initialized;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeVector(duckVM_object_t *internalVector, dl_ptrdiff_t offset) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_vector;
+	o.value.vector.internal_vector = internalVector;
+	o.value.vector.offset = offset;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeBytecode(dl_uint8_t *bytecode, dl_size_t length) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_bytecode;
+	o.value.bytecode.bytecode = bytecode;
+	o.value.bytecode.bytecode_length = length;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeInternalComposite(dl_size_t compositeType,
+                                                   duckVM_object_t *value,
+                                                   duckVM_object_t *function) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_internalComposite;
+	o.value.internalComposite.type = compositeType;
+	o.value.internalComposite.value = value;
+	o.value.internalComposite.function = function;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeComposite(duckVM_object_t *internalComposite) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_composite;
+	o.value.composite = internalComposite;
+	return o;
+}
+
+duckVM_object_t duckVM_object_makeUser(void *data,
+                                      dl_error_t (*destructor)(duckVM_gclist_t *, struct duckVM_object_s *)) {
+	duckVM_object_t o;
+	o.type = duckVM_object_type_user;
+	o.value.user.data = data;
+	o.value.user.destructor = destructor;
+	return o;
+}
+
+
+dl_bool_t duckVM_object_getBoolean(duckVM_object_t object) {
+	return object.value.boolean;
+}
+
+dl_ptrdiff_t duckVM_object_getInteger(duckVM_object_t object) {
+	return object.value.integer;
+}
+
+double duckVM_object_getFloat(duckVM_object_t object) {
+	return object.value.floatingPoint;
+}
+
+duckVM_string_t duckVM_object_getString(duckVM_object_t object) {
+	return object.value.string;
+}
+
+duckVM_internalString_t duckVM_object_getInternalString(duckVM_object_t object) {
+	return object.value.internalString;
+}
+
+duckVM_list_t duckVM_object_getList(duckVM_object_t object) {
+	return object.value.list;
+}
+
+duckVM_cons_t duckVM_object_getCons(duckVM_object_t object) {
+	return object.value.cons;
+}
+
+duckVM_symbol_t duckVM_object_getSymbol(duckVM_object_t object) {
+	return object.value.symbol;
+}
+
+duckVM_function_t duckVM_object_getFunction(duckVM_object_t object) {
+	return object.value.function;
+}
+
+duckVM_upvalue_t duckVM_object_getUpvalue(duckVM_object_t object) {
+	return object.value.upvalue;
+}
+
+duckVM_upvalueArray_t duckVM_object_getUpvalueArray(duckVM_object_t object) {
+	return object.value.upvalue_array;
+}
+
+duckVM_closure_t duckVM_object_getClosure(duckVM_object_t object) {
+	return object.value.closure;
+}
+
+duckVM_vector_t duckVM_object_getVector(duckVM_object_t object) {
+	return object.value.vector;
+}
+
+duckVM_internalVector_t duckVM_object_getInternalVector(duckVM_object_t object) {
+	return object.value.internal_vector;
+}
+
+duckVM_bytecode_t duckVM_object_getBytecode(duckVM_object_t object) {
+	return object.value.bytecode;
+}
+
+dl_size_t duckVM_object_getType(duckVM_object_t object) {
+	return object.value.type;
+}
+
+duckVM_composite_t duckVM_object_getComposite(duckVM_object_t object) {
+	return object.value.composite;
+}
+
+duckVM_internalComposite_t duckVM_object_getInternalComposite(duckVM_object_t object) {
+	return object.value.internalComposite;
+}
+
+duckVM_user_t duckVM_object_getUser(duckVM_object_t object) {
+	return object.value.user;
+}
+
+
+dl_uint8_t *duckVM_internalString_getValue(duckVM_internalString_t internalString) {
+	return internalString.value;
+}
+
+dl_size_t duckVM_internalString_getLength(duckVM_internalString_t internalString) {
+	return internalString.value_length;
+}
+
+duckVM_object_t *duckVM_string_getInternalStringObject(duckVM_string_t string) {
+	return string.internalString;
+}
+
+dl_error_t duckVM_string_getInternalString(duckVM_string_t string, duckVM_internalString_t *internalString) {
+	duckVM_object_t *internalStringObject = duckVM_string_getInternalStringObject(string);
+	if (internalStringObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	*internalString = duckVM_object_getInternalString(*internalStringObject);
+	return dl_error_ok;
+}
+
+dl_ptrdiff_t duckVM_string_getOffset(duckVM_string_t string) {
+	return string.offset;
+}
+
+dl_size_t duckVM_string_getLength(duckVM_string_t string) {
+	return string.length - string.offset;
+}
+
+dl_error_t duckVM_string_getElement(duckVM_string_t string, dl_uint8_t *byte, dl_ptrdiff_t index) {
+	duckVM_internalString_t internalString;
+	dl_error_t e = duckVM_string_getInternalString(string, &internalString);
+	if (e) return e;
+	*byte = duckVM_internalString_getValue(internalString)[index];
+	return e;
+}
+
+dl_size_t duckVM_symbol_getId(duckVM_symbol_t symbol) {
+	return symbol.id;
+}
+
+duckVM_object_t *duckVM_symbol_getInternalStringObject(duckVM_symbol_t symbol) {
+	return symbol.internalString;
+}
+
+dl_error_t duckVM_symbol_getInternalString(duckVM_symbol_t symbol, duckVM_internalString_t *internalString) {
+	dl_error_t e = dl_error_ok;
+	duckVM_object_t *internalStringObject = duckVM_symbol_getInternalStringObject(symbol);
+	if (internalStringObject == dl_null) {
+		e = dl_error_nullPointer;
+		return e;
+	}
+	*internalString = duckVM_object_getInternalString(*internalStringObject);
+	return e;
+}
+
+dl_error_t (*duckVM_function_getCallback(duckVM_function_t function))(duckVM_t *) {
+	return function.callback;
+}
+
+dl_ptrdiff_t duckVM_closure_getName(duckVM_closure_t closure) {
+	return closure.name;
+}
+
+duckVM_object_t *duckVM_closure_getBytecodeObject(duckVM_closure_t closure) {
+	return closure.bytecode;
+}
+
+dl_error_t duckVM_closure_getBytecode(duckVM_closure_t closure, duckVM_bytecode_t *bytecode) {
+	dl_error_t e = dl_error_ok;
+	duckVM_object_t *bytecodeObject = duckVM_closure_getBytecodeObject(closure);
+	if (bytecodeObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	*bytecode = duckVM_object_getBytecode(*bytecodeObject);
+	return e;
+}
+
+duckVM_object_t *duckVM_closure_getUpvalueArrayObject(duckVM_closure_t closure) {
+	return closure.upvalue_array;
+}
+
+dl_error_t duckVM_closure_getUpvalueArray(duckVM_closure_t closure, duckVM_upvalueArray_t *upvalueArray) {
+	dl_error_t e = dl_error_ok;
+	duckVM_object_t *upvalueArrayObject = duckVM_closure_getUpvalueArrayObject(closure);
+	if (upvalueArrayObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	*upvalueArray = duckVM_object_getUpvalueArray(*upvalueArrayObject);
+	return e;
+}
+
+dl_uint8_t duckVM_closure_getArity(duckVM_closure_t closure) {
+	return closure.arity;
+}
+
+dl_bool_t duckVM_closure_getVariadic(duckVM_closure_t closure) {
+	return closure.variadic;
+}
+
+duckVM_object_t *duckVM_list_getConsObject(duckVM_list_t list) {
+	return list;
+}
+
+dl_error_t duckVM_list_getCons(duckVM_list_t list, duckVM_cons_t *cons) {
+	duckVM_object_t *consObject = duckVM_list_getConsObject(list);
+	if (consObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	*cons = duckVM_object_getCons(*consObject);
+	return dl_error_ok;
+}
+
+duckVM_object_t *duckVM_cons_getCar(duckVM_cons_t cons) {
+	return cons.car;
+}
+
+duckVM_object_t *duckVM_cons_getCdr(duckVM_cons_t cons) {
+	return cons.cdr;
+}
+
+duckVM_upvalue_type_t duckVM_upvalue_getType(duckVM_upvalue_t upvalue) {
+	return upvalue.type;
+}
+
+dl_ptrdiff_t duckVM_upvalue_getStackIndex(duckVM_upvalue_t upvalue) {
+	return upvalue.value.stack_index;
+}
+
+duckVM_object_t *duckVM_upvalue_getHeapObject(duckVM_upvalue_t upvalue) {
+	return upvalue.value.heap_object;
+}
+
+duckVM_object_t *duckVM_upvalue_getHeapUpvalueObject(duckVM_upvalue_t upvalue) {
+	return upvalue.value.heap_upvalue;
+}
+
+dl_error_t duckVM_upvalue_getHeapUpvalue(duckVM_upvalue_t upvalue, duckVM_upvalue_t *heapUpvalue) {
+	duckVM_object_t *heapUpvalueObject = duckVM_upvalue_getHeapUpvalueObject(upvalue);
+	if (heapUpvalueObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	*heapUpvalue = duckVM_object_getUpvalue(*heapUpvalueObject);
+	return dl_error_ok;
+}
+
+duckVM_object_t *duckVM_upvalue_getValue(duckVM_t *duckVM, duckVM_upvalue_t upvalue) {
+	duckVM_upvalue_type_t type = duckVM_upvalue_getType(upvalue);
+	return (type == duckVM_upvalue_type_stack_index
+	        ? &DL_ARRAY_GETADDRESS(duckVM->stack, duckVM_object_t, upvalue.value.stack_index)
+	        : type == duckVM_upvalue_type_heap_object
+	        ? upvalue.value.heap_object
+	        : upvalue.value.heap_upvalue);
+}
+
+duckVM_object_t **duckVM_upvalueArray_getUpvalues(duckVM_upvalueArray_t upvalueArray) {
+	return upvalueArray.upvalues;
+}
+
+dl_size_t duckVM_upvalueArray_getLength(duckVM_upvalueArray_t upvalueArray) {
+	return upvalueArray.length;
+}
+
+dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_upvalueArray_t upvalueArray,
+                                          duckVM_object_t **upvalueObject,
+                                          dl_ptrdiff_t index) {
+	if ((dl_size_t) index >= duckVM_upvalueArray_getLength(upvalueArray)) {
+		return dl_error_invalidValue;
+	}
+	*upvalueObject = upvalueArray.upvalues[index];
+	return dl_error_ok;
+}
+
+duckVM_object_t **duckVM_internalVector_getValues(duckVM_internalVector_t internalVector) {
+	return internalVector.values;
+}
+
+dl_size_t duckVM_internalVector_getLength(duckVM_internalVector_t internalVector) {
+	return internalVector.length;
+}
+
+dl_bool_t duckVM_internalVector_getInitialized(duckVM_internalVector_t internalVector) {
+	return internalVector.initialized;
+}
+
+dl_error_t duckVM_internalVector_getElement(duckVM_internalVector_t internalVector,
+                                            duckVM_object_t **object,
+                                            dl_ptrdiff_t index) {
+	if ((dl_size_t) index >= duckVM_internalVector_getLength(internalVector)) {
+		return dl_error_invalidValue;
+	}
+	*object = internalVector.values[index];
+	return dl_error_ok;
+}
+
+duckVM_object_t *duckVM_vector_getInternalVectorObject(duckVM_vector_t vector) {
+	return vector.internal_vector;
+}
+
+dl_error_t duckVM_vector_getInternalVector(duckVM_vector_t vector, duckVM_internalVector_t *internalVector) {
+	duckVM_object_t *internalVectorObject = duckVM_vector_getInternalVectorObject(vector);
+	if (internalVectorObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	*internalVector = duckVM_object_getInternalVector(*internalVectorObject);
+	return dl_error_ok;
+}
+
+dl_ptrdiff_t duckVM_vector_getOffset(duckVM_vector_t vector) {
+	return vector.offset;
+}
+
+dl_error_t duckVM_vector_getLength(duckVM_vector_t vector, dl_size_t *length) {
+	duckVM_internalVector_t internalVector;
+	dl_error_t e = duckVM_vector_getInternalVector(vector, &internalVector);
+	if (e) return e;
+	*length = duckVM_internalVector_getLength(internalVector) - duckVM_vector_getOffset(vector);
+	return e;
+}
+
+dl_error_t duckVM_vector_getElement(duckVM_vector_t vector,
+                                    duckVM_object_t **object,
+                                    dl_ptrdiff_t index) {
+	dl_error_t e = dl_error_ok;
+
+	dl_size_t length;
+	e = duckVM_vector_getLength(vector, &length);
+	if (e) return e;
+	if ((dl_size_t) index >= length) {
+		e = dl_error_invalidValue;
+		return e;
+	}
+	dl_ptrdiff_t offset = duckVM_vector_getOffset(vector);
+	duckVM_internalVector_t internalVector;
+	e = duckVM_vector_getInternalVector(vector, &internalVector);
+	if (e) return e;
+	*object = duckVM_internalVector_getValues(internalVector)[offset + index];
+
+	return e;
+}
+
+dl_uint8_t *duckVM_bytecode_getBytecode(duckVM_bytecode_t bytecode) {
+	return bytecode.bytecode;
+}
+
+dl_size_t duckVM_bytecode_getLength(duckVM_bytecode_t bytecode) {
+	return bytecode.bytecode_length;
+}
+
+dl_error_t duckVM_bytecode_getElement(duckVM_bytecode_t bytecode, dl_uint8_t *byte, dl_ptrdiff_t index) {
+	dl_error_t e = dl_error_ok;
+	if ((dl_size_t) index >= duckVM_bytecode_getLength(bytecode)) {
+		return dl_error_invalidValue;
+	}
+	*byte = duckVM_bytecode_getBytecode(bytecode)[index];
+	return e;
+}
+
+dl_size_t duckVM_internalComposite_getType(duckVM_internalComposite_t internalComposite) {
+	return internalComposite.type;
+}
+
+duckVM_object_t *duckVM_internalComposite_getValueObject(duckVM_internalComposite_t internalComposite) {
+	return internalComposite.value;
+}
+
+duckVM_object_t *duckVM_internalComposite_getFunctionObject(duckVM_internalComposite_t internalComposite) {
+	return internalComposite.function;
+}
+
+duckVM_object_t *duckVM_composite_getInternalCompositeObject(duckVM_composite_t composite) {
+	return composite;
+}
+
+dl_error_t duckVM_composite_getInternalComposite(duckVM_composite_t composite,
+                                                 duckVM_internalComposite_t *internalComposite) {
+	dl_error_t e = dl_error_ok;
+
+	duckVM_object_t *internalCompositeObject = duckVM_composite_getInternalCompositeObject(composite);
+	if (internalCompositeObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	*internalComposite = duckVM_object_getInternalComposite(*internalCompositeObject);
+
+	return e;
+}
+
+dl_error_t duckVM_composite_getType(duckVM_composite_t composite, dl_size_t *type) {
+	dl_error_t e = dl_error_ok;
+	duckVM_internalComposite_t internalComposite;
+	e = duckVM_composite_getInternalComposite(composite, &internalComposite);
+	if (e) return e;
+	*type = duckVM_internalComposite_getType(internalComposite);
+	return e;
+}
+
+dl_error_t duckVM_composite_getValueObject(duckVM_composite_t composite, duckVM_object_t **value) {
+	dl_error_t e = dl_error_ok;
+	duckVM_internalComposite_t internalComposite;
+	e = duckVM_composite_getInternalComposite(composite, &internalComposite);
+	if (e) return e;
+	*value = duckVM_internalComposite_getValueObject(internalComposite);
+	return e;
+}
+
+dl_error_t duckVM_composite_getFunctionObject(duckVM_composite_t composite, duckVM_object_t **function) {
+	dl_error_t e = dl_error_ok;
+	duckVM_internalComposite_t internalComposite;
+	e = duckVM_composite_getInternalComposite(composite, &internalComposite);
+	if (e) return e;
+	*function = duckVM_internalComposite_getFunctionObject(internalComposite);
+	return e;
+}
+
+void *duckVM_user_getData(duckVM_user_t user) {
+	return user.data;
+}
+
+dl_error_t (*duckVM_user_getDestructor(duckVM_user_t user))(duckVM_gclist_t *, struct duckVM_object_s *) {
+	return user.destructor;
+}
+
+
+duckVM_object_type_t duckVM_typeOf(const duckVM_object_t object) {
+	return object.type;
 }

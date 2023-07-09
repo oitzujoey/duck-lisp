@@ -4864,18 +4864,18 @@ dl_error_t duckLisp_generator_noscope2(duckLisp_t *duckLisp,
 	return duckLisp_generator_noscope(duckLisp, compileState, assembly, &subExpression);
 }
 
-dl_size_t duckLisp_consList_length(duckLisp_object_t *cons) {
+dl_size_t duckLisp_consList_length(duckVM_object_t *cons) {
 	dl_size_t length = 0;
 	while (cons != dl_null) {
 		if (cons->value.cons.cdr == dl_null) {
 			cons = dl_null;
 			length++;
 		}
-		else if (cons->value.cons.cdr->type == duckLisp_object_type_list) {
+		else if (cons->value.cons.cdr->type == duckVM_object_type_list) {
 			cons = cons->value.cons.cdr->value.list;
 			length++;
 		}
-		else if (cons->value.cons.cdr->type == duckLisp_object_type_cons) {
+		else if (cons->value.cons.cdr->type == duckVM_object_type_cons) {
 			cons = cons->value.cons.cdr;
 			length++;
 		}
@@ -4888,7 +4888,7 @@ dl_size_t duckLisp_consList_length(duckLisp_object_t *cons) {
 
 dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
-                                  duckLisp_object_t *cons) {
+                                  duckVM_object_t *cons) {
 	dl_error_t e = dl_error_ok;
 
 	/* (cons a b) */
@@ -4910,7 +4910,7 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 				                           cons->value.cons.car);
 				if (e) goto cleanup;
 			}
-			else if (cons->value.cons.car->type == duckLisp_object_type_cons) {
+			else if (cons->value.cons.car->type == duckVM_object_type_cons) {
 				e = duckLisp_consToExprAST(duckLisp,
 				                           &ast->value.expression.compoundExpressions[j],
 				                           cons->value.cons.car);
@@ -4927,11 +4927,11 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 				cons = cons->value.cons.cdr;
 				j++;
 			}
-			else if (cons->value.cons.cdr->type == duckLisp_object_type_cons) {
+			else if (cons->value.cons.cdr->type == duckVM_object_type_cons) {
 				cons = cons->value.cons.cdr;
 				j++;
 			}
-			else if (cons->value.cons.cdr->type == duckLisp_object_type_list) {
+			else if (cons->value.cons.cdr->type == duckVM_object_type_list) {
 				cons = cons->value.cons.cdr->value.list;
 				j++;
 			}
@@ -4956,7 +4956,7 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
-                                  duckLisp_object_t *cons) {
+                                  duckVM_object_t *cons) {
 	dl_error_t e = dl_error_ok;
 
 	/* (cons a b) */
@@ -4982,7 +4982,7 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 		ast->value.expression.compoundExpressions[op].value.identifier.value_length = sizeof("__cons") - 1;
 		ast->value.expression.compoundExpressions[op].type = duckLisp_ast_type_identifier;
 
-		if ((cons->value.cons.car == dl_null) || (cons->value.cons.car->type == duckLisp_object_type_cons)) {
+		if ((cons->value.cons.car == dl_null) || (cons->value.cons.car->type == duckVM_object_type_cons)) {
 			e = duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[car], cons->value.cons.car);
 			if (e) goto cleanup;
 		}
@@ -4993,7 +4993,7 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 			                         dl_false);
 			if (e) goto cleanup;
 		}
-		if ((cons->value.cons.cdr == dl_null) || (cons->value.cons.cdr->type == duckLisp_object_type_cons)) {
+		if ((cons->value.cons.cdr == dl_null) || (cons->value.cons.cdr->type == duckVM_object_type_cons)) {
 			e = duckLisp_consToConsAST(duckLisp, &ast->value.expression.compoundExpressions[cdr], cons->value.cons.cdr);
 			if (e) goto cleanup;
 		}
@@ -5017,25 +5017,25 @@ dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
                                 duckLisp_ast_compoundExpression_t *ast,
-                                duckLisp_object_t *object,
+                                duckVM_object_t *object,
                                 dl_bool_t useExprs) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
 	switch (object->type) {
-	case duckLisp_object_type_bool:
+	case duckVM_object_type_bool:
 		ast->value.boolean.value = object->value.boolean;
 		ast->type = duckLisp_ast_type_bool;
 		break;
-	case duckLisp_object_type_integer:
+	case duckVM_object_type_integer:
 		ast->value.integer.value = object->value.integer;
 		ast->type = duckLisp_ast_type_int;
 		break;
-	case duckLisp_object_type_float:
+	case duckVM_object_type_float:
 		ast->value.floatingPoint.value = object->value.floatingPoint;
 		ast->type = duckLisp_ast_type_float;
 		break;
-	case duckLisp_object_type_string:
+	case duckVM_object_type_string:
 		ast->value.string.value_length = object->value.string.length - object->value.string.offset;
 		if (object->value.string.length - object->value.string.offset) {
 			e = dl_malloc(duckLisp->memoryAllocation,
@@ -5052,7 +5052,7 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		}
 		ast->type = duckLisp_ast_type_string;
 		break;
-	case duckLisp_object_type_list:
+	case duckVM_object_type_list:
 		if (useExprs) {
 			e = duckLisp_consToExprAST(duckLisp, ast, object->value.list);
 		}
@@ -5060,7 +5060,7 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 			e = duckLisp_consToConsAST(duckLisp, ast, object->value.list);
 		}
 		break;
-	case duckLisp_object_type_symbol:
+	case duckVM_object_type_symbol:
 		ast->value.identifier.value_length = object->value.symbol.internalString->value.internalString.value_length;
 		e = dl_malloc(duckLisp->memoryAllocation,
 		              (void **) &ast->value.identifier.value,
@@ -5071,16 +5071,16 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 		                          object->value.symbol.internalString->value.internalString.value_length);
 		ast->type = duckLisp_ast_type_identifier;
 		break;
-	case duckLisp_object_type_function:
+	case duckVM_object_type_function:
 		e = dl_error_invalidValue;
 		break;
-	case duckLisp_object_type_closure:
+	case duckVM_object_type_closure:
 		e = dl_error_invalidValue;
 		eError = duckLisp_error_pushRuntime(duckLisp,
 		                                    DL_STR("objectToAST: Attempted to convert closure to expression."));
 		if (!e) e = eError;
 		break;
-	case duckLisp_object_type_type:
+	case duckVM_object_type_type:
 		ast->value.integer.value = object->value.type;
 		ast->type = duckLisp_ast_type_int;
 		break;
@@ -5112,7 +5112,7 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 	                   duckLisp->memoryAllocation,
 	                   sizeof(dl_uint8_t),
 	                   dl_array_strategy_double);
-	duckLisp_object_t returnValue;
+	duckVM_object_t returnValue;
 	duckLisp_ast_expression_t subExpression;
 	duckLisp_ast_compoundExpression_t returnCompoundExpression;
 	dl_uint8_t yieldInstruction = duckLisp_instruction_yield;
@@ -7290,7 +7290,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	dl_array_t bytecode;  /* dl_array_t:dl_uint8_t */
-	duckLisp_object_t return_value;
+	duckVM_object_t return_value;
 	duckLisp_ast_compoundExpression_t ast;
 	duckLisp_instruction_t yieldInstruction = duckLisp_instruction_yield;
 	duckLisp_subCompileState_t *lastSubCompileState = compileState->currentCompileState;
@@ -10566,8 +10566,8 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	dl_error_t eError = dl_error_ok;
 
 	duckLisp_t *duckLisp = duckVM->duckLisp;
-	duckLisp_object_t object;
-	duckLisp_object_t *objectPointer;
+	duckVM_object_t object;
+	duckVM_object_t *objectPointer;
 	duckLisp_ast_identifier_t identifier;
 
 	e = duckLisp_gensym(duckLisp, &identifier);
@@ -10576,12 +10576,12 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	e = duckLisp_symbol_create(duckLisp, identifier.value, identifier.value_length);
 	if (e) goto cleanup;
 
-	object.type = duckLisp_object_type_internalString;
+	object.type = duckVM_object_type_internalString;
 	object.value.internalString.value_length = identifier.value_length;
 	object.value.internalString.value = (dl_uint8_t *) identifier.value;
-	e = duckVM_gclist_pushObject(duckVM, &objectPointer, object);
+	e = duckVM_allocateHeapObject(duckVM, &objectPointer, object);
 	if (e) goto cleanup;
-	object.type = duckLisp_object_type_symbol;
+	object.type = duckVM_object_type_symbol;
 	object.value.symbol.id = duckLisp_symbol_nameToValue(duckLisp, identifier.value, identifier.value_length);
 	object.value.symbol.internalString = objectPointer;
 	e = duckVM_push(duckVM, &object);

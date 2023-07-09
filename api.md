@@ -114,7 +114,7 @@ if (e) {
 And finally, run the bytecode.
 
 ```c
-duckLisp_object_t returnValue;
+duckVM_object_t returnValue;
 dl_error_t runtimeError = duckVM_execute(&duckVM, &returnValue, bytecode, bytecode_length);
 if (runtimeError) {
     printf("VM execution failed.\n");
@@ -132,7 +132,7 @@ if (runtimeError) {
     goto cleanup;
 }
 
-if (returnValue.type != duckLisp_object_type_integer) {
+if (returnValue.type != duckVM_object_type_integer) {
     printf("Returned object is not an integer.\n");
     e = dl_error_invalidValue;
     goto cleanup;

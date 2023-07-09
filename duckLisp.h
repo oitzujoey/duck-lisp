@@ -666,13 +666,13 @@ dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
-                                  duckLisp_object_t *cons);
+                                  duckVM_object_t *cons);
 dl_error_t duckLisp_consToConsAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
-                                  duckLisp_object_t *cons);
+                                  duckVM_object_t *cons);
 dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
                                 duckLisp_ast_compoundExpression_t *ast,
-                                duckLisp_object_t *object,
+                                duckVM_object_t *object,
                                 dl_bool_t useExprs);
 
 

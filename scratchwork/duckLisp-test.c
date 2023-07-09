@@ -62,7 +62,7 @@ dl_bool_t g_disassemble = dl_false;
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM);
 
 
-dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckLisp_object_t *cons) {
+dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckVM_object_t *cons) {
 	dl_error_t e = dl_error_ok;
 
 	if (cons == dl_null) {
@@ -72,7 +72,7 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckLisp_object_t *c
 		if (cons->value.cons.car == dl_null) {
 			printf("nil");
 		}
-		else if (cons->value.cons.car->type == duckLisp_object_type_cons) {
+		else if (cons->value.cons.car->type == duckVM_object_type_cons) {
 			printf("(");
 			e = duckLispDev_callback_printCons(duckVM, cons->value.cons.car);
 			if (e) goto cleanup;
@@ -89,7 +89,7 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckLisp_object_t *c
 
 
 		if ((cons->value.cons.cdr == dl_null)
-		    || (cons->value.cons.cdr->type == duckLisp_object_type_cons)) {
+		    || (cons->value.cons.cdr->type == duckVM_object_type_cons)) {
 			if (cons->value.cons.cdr != dl_null) {
 				printf(" ");
 				e = duckLispDev_callback_printCons(duckVM, cons->value.cons.cdr);
@@ -115,36 +115,36 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckLisp_object_t *c
 dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 
-	duckLisp_object_t object;
+	duckVM_object_t object;
 
 	// e = duckVM_getArg(duckVM, &string, 0);
 	e = duckVM_pop(duckVM, &object);
 	if (e) goto cleanup;
 
 	switch (object.type) {
-	case duckLisp_object_type_symbol:
+	case duckVM_object_type_symbol:
 		for (dl_size_t i = 0; i < object.value.symbol.internalString->value.internalString.value_length; i++) {
 			putchar(object.value.symbol.internalString->value.internalString.value[i]);
 		}
 		printf("→%llu", object.value.symbol.id);
 		break;
-	case duckLisp_object_type_string:
+	case duckVM_object_type_string:
 		if (object.value.string.internalString) {
 			for (dl_size_t i = object.value.string.offset; i < object.value.string.length; i++) {
 				putchar(object.value.string.internalString->value.internalString.value[i]);
 			}
 		}
 		break;
-	case duckLisp_object_type_integer:
+	case duckVM_object_type_integer:
 		printf("%lli", object.value.integer);
 		break;
-	case duckLisp_object_type_float:
+	case duckVM_object_type_float:
 		printf("%f\n", object.value.floatingPoint);
 		break;
-	case duckLisp_object_type_bool:
+	case duckVM_object_type_bool:
 		printf("%s", object.value.boolean ? "true" : "false");
 		break;
-	case duckLisp_object_type_list:
+	case duckVM_object_type_list:
 		if (object.value.list == dl_null) {
 			printf("nil");
 		}
@@ -155,7 +155,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			if (object.value.list->value.cons.car == dl_null) {
 				printf("(nil)");
 			}
-			else if (object.value.list->value.cons.car->type == duckLisp_object_type_cons) {
+			else if (object.value.list->value.cons.car->type == duckVM_object_type_cons) {
 				printf("(");
 				e = duckLispDev_callback_printCons(duckVM, object.value.list->value.cons.car);
 				if (e) goto cleanup;
@@ -172,7 +172,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 
 			if (object.value.list->value.cons.cdr == dl_null) {
 			}
-			else if (object.value.list->value.cons.cdr->type == duckLisp_object_type_cons) {
+			else if (object.value.list->value.cons.cdr->type == duckVM_object_type_cons) {
 				if (object.value.list->value.cons.cdr != dl_null) {
 					printf(" ");
 					e = duckLispDev_callback_printCons(duckVM, object.value.list->value.cons.cdr);
@@ -192,18 +192,18 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			printf(")");
 		}
 		break;
-	case duckLisp_object_type_closure:
+	case duckVM_object_type_closure:
 		printf("(closure %lli", object.value.closure.name);
 		DL_DOTIMES(k, object.value.closure.upvalue_array->value.upvalue_array.length) {
-			duckLisp_object_t *uv = object.value.closure.upvalue_array->value.upvalue_array.upvalues[k];
+			duckVM_object_t *uv = object.value.closure.upvalue_array->value.upvalue_array.upvalues[k];
 			putchar(' ');
 			if (uv == dl_null) {
 				putchar('$');
 				continue;
 			}
 			if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
-				duckLisp_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
-				                                               duckLisp_object_t,
+				duckVM_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
+				                                               duckVM_object_t,
 				                                               uv->value.upvalue.value.stack_index);
 				e = duckVM_push(duckVM, &object);
 				if (e) goto cleanup;
@@ -227,7 +227,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 				if (uv->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 					e = duckVM_push(duckVM,
 					                &DL_ARRAY_GETADDRESS(duckVM->stack,
-					                                     duckLisp_object_t,
+					                                     duckVM_object_t,
 					                                     uv->value.upvalue.value.stack_index));
 					if (e) goto cleanup;
 					e = duckLispDev_callback_print(duckVM);
@@ -247,13 +247,13 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		}
 		printf(")");
 		break;
-	case duckLisp_object_type_vector:
+	case duckVM_object_type_vector:
 		printf("[");
 		if (object.value.vector.internal_vector != dl_null) {
 			for (dl_ptrdiff_t k = object.value.vector.offset;
 			     (dl_size_t) k < object.value.vector.internal_vector->value.internal_vector.length;
 			     k++) {
-				duckLisp_object_t *value = object.value.vector.internal_vector->value.internal_vector.values[k];
+				duckVM_object_t *value = object.value.vector.internal_vector->value.internal_vector.values[k];
 				if (k != object.value.vector.offset) putchar(' ');
 				e = duckVM_push(duckVM, value);
 				if (e) goto cleanup;
@@ -265,10 +265,10 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		}
 		printf("]");
 		break;
-	case duckLisp_object_type_type:
+	case duckVM_object_type_type:
 		printf("<%llu>", object.value.type);
 		break;
-	case duckLisp_object_type_composite:
+	case duckVM_object_type_composite:
 		printf("(make-instance <%llu> ", object.value.composite->value.internalComposite.type);
 		e = duckVM_push(duckVM, object.value.composite->value.internalComposite.value);
 		if (e) goto cleanup;
@@ -326,7 +326,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 	unsigned char *bytecode = NULL;
 	dl_size_t bytecode_length;
 	duckVM_t duckVM = {0};
-	duckLisp_object_t return_value;
+	duckVM_object_t return_value;
 
 	memory = malloc(duckLispMemory_size);
 	if (memory == NULL) {
@@ -371,7 +371,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 		goto cleanup;
 	}
 
-	if (return_value.type == duckLisp_object_type_bool) {
+	if (return_value.type == duckVM_object_type_bool) {
 		if (return_value.value.boolean) {
 			printf(COLOR_GREEN "PASS" COLOR_NORMAL " %s\n" , fileBaseName);
 		}
