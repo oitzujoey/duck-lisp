@@ -5130,6 +5130,6 @@ dl_error_t (*duckVM_user_getDestructor(duckVM_user_t user))(duckVM_gclist_t *, s
 }
 
 
-duckVM_object_type_t duckVM_typeOf(const duckVM_object_t object) {
+duckVM_object_type_t duckVM_typeOf(duckVM_object_t object) {
 	return object.type;
 }

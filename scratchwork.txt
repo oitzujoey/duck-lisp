@@ -2052,6 +2052,12 @@ Label instructions in the HLA actually help with peephole optimizations. If I'm 
 If I wanted a `save-lisp-and-die`, then I would need to dump all the stacks, the heap, and the bytecodes. All pointers would need to be converted to indices.
 
 
+The new FFI provides some more consistent error handling.
+The new FFI is inconsistent. There are only a few small inconsistencies though, and at least half of those are useful functions.
+Lua has only a few data types and functions.
+I can make up for some of this mess through documentation.
+
+
 Next step:
 
 Defer:
