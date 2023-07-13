@@ -4787,10 +4787,6 @@ dl_error_t duckVM_symbol_getInternalString(duckVM_symbol_t symbol, duckVM_intern
 	return e;
 }
 
-dl_error_t (*duckVM_function_getCallback(duckVM_function_t function))(duckVM_t *) {
-	return function.callback;
-}
-
 dl_error_t duckVM_closure_getBytecode(duckVM_closure_t closure, duckVM_bytecode_t *bytecode) {
 	dl_error_t e = dl_error_ok;
 	duckVM_object_t *bytecodeObject = closure.bytecode;
@@ -4834,15 +4830,6 @@ dl_error_t duckVM_list_getCons(duckVM_list_t list, duckVM_cons_t *cons) {
 		return dl_error_nullPointer;
 	}
 	*cons = duckVM_object_getCons(*consObject);
-	return dl_error_ok;
-}
-
-dl_error_t duckVM_upvalue_getHeapUpvalue(duckVM_upvalue_t upvalue, duckVM_upvalue_t *heapUpvalue) {
-	duckVM_object_t *heapUpvalueObject = upvalue.value.heap_upvalue;
-	if (heapUpvalueObject == dl_null) {
-		return dl_error_nullPointer;
-	}
-	*heapUpvalue = duckVM_object_getUpvalue(*heapUpvalueObject);
 	return dl_error_ok;
 }
 

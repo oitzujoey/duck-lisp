@@ -331,14 +331,13 @@ dl_error_t duckVM_symbol_getInternalString(duckVM_symbol_t symbol, duckVM_intern
 
 dl_error_t duckVM_closure_getBytecode(duckVM_closure_t closure, duckVM_bytecode_t *bytecode);
 dl_error_t duckVM_closure_getUpvalueArray(duckVM_closure_t closure, duckVM_upvalueArray_t *upvalueArray);
+/* Will follow the chain of upvalues to the end to return the object. */
 dl_error_t duckVM_closure_getUpvalue(duckVM_t *duckVM,
                                      duckVM_closure_t closure,
                                      duckVM_object_t *object,
                                      dl_ptrdiff_t index);
 
 dl_error_t duckVM_list_getCons(duckVM_list_t list, duckVM_cons_t *cons);
-
-dl_error_t duckVM_upvalue_getHeapUpvalue(duckVM_upvalue_t upvalue, duckVM_upvalue_t *heapUpvalue);
 
 dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_t *duckVM,
                                           duckVM_upvalueArray_t upvalueArray,
