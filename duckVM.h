@@ -58,8 +58,7 @@ typedef struct duckVM_s {
 	/* I'm lazy and I don't want to bother with correct GC. */
 	struct duckVM_object_s *currentBytecode;
 	dl_array_t upvalue_stack;  /* duckVM_upvalue_t * */
-	dl_array_t upvalue_array_call_stack;  /* duckVM_object_t ** */
-	dl_array_t upvalue_array_length_call_stack;  /* dl_size_t */
+	dl_array_t upvalue_array_call_stack;  /* duckVM_upvalueArray_t */
 	/* Addressed by symbol number. */
 	dl_array_t globals;  /* duckVM_object_t * */
 	dl_array_t globals_map;  /* dl_ptrdiff_t */
@@ -325,79 +324,43 @@ duckVM_object_t duckVM_object_makeUser(void *data,
 /* Data accessors. Some of these directly fetch internal objects from external objects, but in exchange return an error
    value. */
 
-dl_uint8_t *duckVM_internalString_getValue(duckVM_internalString_t internalString);
-dl_size_t duckVM_internalString_getLength(duckVM_internalString_t internalString);
-
-duckVM_object_t *duckVM_string_getInternalStringObject(duckVM_string_t string);
 dl_error_t duckVM_string_getInternalString(duckVM_string_t string, duckVM_internalString_t *internalString);
-dl_ptrdiff_t duckVM_string_getOffset(duckVM_string_t string);
-dl_size_t duckVM_string_getLength(duckVM_string_t string);
 dl_error_t duckVM_string_getElement(duckVM_string_t string, dl_uint8_t *byte, dl_ptrdiff_t index);
 
-dl_size_t duckVM_symbol_getId(duckVM_symbol_t symbol);
-duckVM_object_t *duckVM_symbol_getInternalStringObject(duckVM_symbol_t symbol);
 dl_error_t duckVM_symbol_getInternalString(duckVM_symbol_t symbol, duckVM_internalString_t *internalString);
 
-dl_error_t (*duckVM_function_getCallback(duckVM_function_t function))(duckVM_t *);
-
-dl_ptrdiff_t duckVM_closure_getName(duckVM_closure_t closure);
-duckVM_object_t *duckVM_closure_getBytecodeObject(duckVM_closure_t closure);
 dl_error_t duckVM_closure_getBytecode(duckVM_closure_t closure, duckVM_bytecode_t *bytecode);
-duckVM_object_t *duckVM_closure_getUpvalueArrayObject(duckVM_closure_t closure);
 dl_error_t duckVM_closure_getUpvalueArray(duckVM_closure_t closure, duckVM_upvalueArray_t *upvalueArray);
-dl_uint8_t duckVM_closure_getArity(duckVM_closure_t closure);
-dl_bool_t duckVM_closure_getVariadic(duckVM_closure_t closure);
+dl_error_t duckVM_closure_getUpvalue(duckVM_t *duckVM,
+                                     duckVM_closure_t closure,
+                                     duckVM_object_t *object,
+                                     dl_ptrdiff_t index);
 
-duckVM_object_t *duckVM_list_getConsObject(duckVM_list_t list);
 dl_error_t duckVM_list_getCons(duckVM_list_t list, duckVM_cons_t *cons);
 
-duckVM_object_t *duckVM_cons_getCar(duckVM_cons_t cons);
-duckVM_object_t *duckVM_cons_getCdr(duckVM_cons_t cons);
-
-duckVM_upvalue_type_t duckVM_upvalue_getType(duckVM_upvalue_t upvalue);
-dl_ptrdiff_t duckVM_upvalue_getStackIndex(duckVM_upvalue_t upvalue);
-duckVM_object_t *duckVM_upvalue_getHeapObject(duckVM_upvalue_t upvalue);
-duckVM_object_t *duckVM_upvalue_getHeapUpvalueObject(duckVM_upvalue_t upvalue);
 dl_error_t duckVM_upvalue_getHeapUpvalue(duckVM_upvalue_t upvalue, duckVM_upvalue_t *heapUpvalue);
-duckVM_object_t *duckVM_upvalue_getValue(duckVM_t *duckVM, duckVM_upvalue_t upvalue);
 
-duckVM_object_t **duckVM_upvalueArray_getUpvalues(duckVM_upvalueArray_t upvalueArray);
-dl_size_t duckVM_upvalueArray_getLength(duckVM_upvalueArray_t upvalueArray);
-dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_upvalueArray_t upvalueArray,
-                                          duckVM_object_t **upvalueObject,
+dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_t *duckVM,
+                                          duckVM_upvalueArray_t upvalueArray,
+                                          duckVM_object_t *object,
                                           dl_ptrdiff_t index);
 
-duckVM_object_t **duckVM_internalVector_getValues(duckVM_internalVector_t internalVector);
-dl_size_t duckVM_internalVector_getLength(duckVM_internalVector_t internalVector);
-dl_bool_t duckVM_internalVector_getInitialized(duckVM_internalVector_t internalVector);
 dl_error_t duckVM_internalVector_getElement(duckVM_internalVector_t internalVector,
                                             duckVM_object_t **object,
                                             dl_ptrdiff_t index);
-duckVM_object_t *duckVM_vector_getInternalVectorObject(duckVM_vector_t vector);
 
 dl_error_t duckVM_vector_getInternalVector(duckVM_vector_t vector, duckVM_internalVector_t *internalVector);
-dl_ptrdiff_t duckVM_vector_getOffset(duckVM_vector_t vector);
 dl_error_t duckVM_vector_getLength(duckVM_vector_t vector, dl_size_t *length);
 dl_error_t duckVM_vector_getElement(duckVM_vector_t vector,
                                     duckVM_object_t **object,
                                     dl_ptrdiff_t index);
 
-dl_uint8_t *duckVM_bytecode_getBytecode(duckVM_bytecode_t bytecode);
-dl_size_t duckVM_bytecode_getLength(duckVM_bytecode_t bytecode);
 dl_error_t duckVM_bytecode_getElement(duckVM_bytecode_t bytecode, dl_uint8_t *byte, dl_ptrdiff_t index);
 
-dl_size_t duckVM_internalComposite_getType(duckVM_internalComposite_t internalComposite);
-duckVM_object_t *duckVM_internalComposite_getValueObject(duckVM_internalComposite_t internalComposite);
-duckVM_object_t *duckVM_internalComposite_getFunctionObject(duckVM_internalComposite_t internalComposite);
-
-duckVM_object_t *duckVM_composite_getInternalCompositeObject(duckVM_composite_t composite);
 dl_error_t duckVM_composite_getInternalComposite(duckVM_composite_t composite,
                                                  duckVM_internalComposite_t *internalComposite);
 dl_error_t duckVM_composite_getType(duckVM_composite_t composite, dl_size_t *type);
 dl_error_t duckVM_composite_getValueObject(duckVM_composite_t composite, duckVM_object_t **value);
 dl_error_t duckVM_composite_getFunctionObject(duckVM_composite_t composite, duckVM_object_t **function);
-
-void *duckVM_user_getData(duckVM_user_t user);
-dl_error_t (*duckVM_user_getDestructor(duckVM_user_t user))(duckVM_gclist_t *, struct duckVM_object_s *);
 
 #endif /* DUCKVM_H */

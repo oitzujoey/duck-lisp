@@ -78,8 +78,8 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM, duckVM_object_t *con
 	}
 	else {
 		duckVM_cons_t cons = duckVM_object_getCons(*consObject);
-		duckVM_object_t *carObject = duckVM_cons_getCar(cons);
-		duckVM_object_t *cdrObject = duckVM_cons_getCdr(cons);
+		duckVM_object_t *carObject = cons.car;
+		duckVM_object_t *cdrObject = cons.cdr;
 		if (carObject == dl_null) {
 			printf("nil");
 		}
@@ -137,10 +137,10 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		duckVM_internalString_t internalString;
 		e = duckVM_symbol_getInternalString(symbol, &internalString);
 		if (e) break;
-		for (dl_size_t i = 0; i < duckVM_internalString_getLength(internalString); i++) {
-			putchar(duckVM_internalString_getValue(internalString)[i]);
+		for (dl_size_t i = 0; i < internalString.value_length; i++) {
+			putchar(internalString.value[i]);
 		}
-		printf("→%llu", duckVM_symbol_getId(symbol));
+		printf("→%llu", symbol.id);
 	}
 		break;
 	case duckVM_object_type_string: {
@@ -148,8 +148,8 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		duckVM_internalString_t internalString;
 		e = duckVM_string_getInternalString(string, &internalString);
 		if (e) break;
-		for (dl_size_t i = duckVM_string_getOffset(string); i < duckVM_string_getLength(string); i++) {
-			putchar(duckVM_internalString_getValue(internalString)[i]);
+		for (dl_size_t i = string.offset; i < string.length; i++) {
+			putchar(internalString.value[i]);
 		}
 	}
 		break;
@@ -171,8 +171,8 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			duckVM_cons_t cons;
 			e = duckVM_list_getCons(list, &cons);
 			if (e) break;
-			duckVM_object_t *carObject = duckVM_cons_getCar(cons);
-			duckVM_object_t *cdrObject = duckVM_cons_getCdr(cons);
+			duckVM_object_t *carObject = cons.car;
+			duckVM_object_t *cdrObject = cons.cdr;
 			printf("(");
 
 			if (carObject == dl_null) {
@@ -221,20 +221,20 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		duckVM_upvalueArray_t upvalueArray;
 		e = duckVM_closure_getUpvalueArray(closure, &upvalueArray);
 		if (e) break;
-		printf("(closure %lli", duckVM_closure_getName(closure));
-		DL_DOTIMES(k, duckVM_upvalueArray_getLength(upvalueArray)) {
-			duckVM_object_t *upvalueObject = duckVM_upvalueArray_getUpvalues(upvalueArray)[k];
+		printf("(closure %lli", closure.name);
+		DL_DOTIMES(k, upvalueArray.length) {
+			duckVM_object_t *upvalueObject = upvalueArray.upvalues[k];
 			putchar(' ');
 			if (upvalueObject == dl_null) {
 				putchar('$');
 				continue;
 			}
 			duckVM_upvalue_t upvalue = duckVM_object_getUpvalue(*upvalueObject);
-			duckVM_upvalue_type_t upvalueType = duckVM_upvalue_getType(upvalue);
+			duckVM_upvalue_type_t upvalueType = upvalue.type;
 			if (upvalueType == duckVM_upvalue_type_stack_index) {
 				duckVM_object_t object = DL_ARRAY_GETADDRESS(duckVM->stack,
 				                                             duckVM_object_t,
-				                                             duckVM_upvalue_getStackIndex(upvalue));
+				                                             upvalue.value.stack_index);
 				e = duckVM_push(duckVM, &object);
 				if (e) goto cleanup;
 				e = duckLispDev_callback_print(duckVM);
@@ -243,7 +243,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 				if (e) goto cleanup;
 			}
 			else if (upvalueType == duckVM_upvalue_type_heap_object) {
-				e = duckVM_push(duckVM, duckVM_upvalue_getHeapObject(upvalue));
+				e = duckVM_push(duckVM, upvalue.value.heap_object);
 				if (e) goto cleanup;
 				e = duckLispDev_callback_print(duckVM);
 				if (e) goto cleanup;
@@ -252,13 +252,13 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			}
 			else {
 				while (upvalueType == duckVM_upvalue_type_heap_upvalue) {
-					upvalueObject = duckVM_upvalue_getHeapUpvalueObject(upvalue);
+					upvalueObject = upvalue.value.heap_upvalue;
 				}
 				if (upvalueType == duckVM_upvalue_type_stack_index) {
 					e = duckVM_push(duckVM,
 					                &DL_ARRAY_GETADDRESS(duckVM->stack,
 					                                     duckVM_object_t,
-					                                     duckVM_upvalue_getStackIndex(upvalue)));
+					                                     upvalue.value.stack_index));
 					if (e) goto cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto cleanup;
@@ -266,7 +266,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 					if (e) goto cleanup;
 				}
 				else if (upvalueType == duckVM_upvalue_type_heap_object) {
-					e = duckVM_push(duckVM, duckVM_upvalue_getHeapObject(upvalue));
+					e = duckVM_push(duckVM, upvalue.value.heap_object);
 					if (e) goto cleanup;
 					e = duckLispDev_callback_print(duckVM);
 					if (e) goto cleanup;
@@ -284,14 +284,14 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		e = duckVM_vector_getInternalVector(vector, &internalVector);
 		if (e) break;
 		printf("[");
-		if (duckVM_vector_getInternalVectorObject(vector) != dl_null) {
+		if (vector.internal_vector != dl_null) {
 			for (dl_ptrdiff_t k = vector.offset;
-			     (dl_size_t) k < duckVM_internalVector_getLength(internalVector);
+			     (dl_size_t) k < internalVector.length;
 			     k++) {
 				duckVM_object_t *value = dl_null;
 				e = duckVM_internalVector_getElement(internalVector, &value, k);
 				if (e) break;
-				if (k != duckVM_vector_getOffset(vector)) putchar(' ');
+				if (k != vector.offset) putchar(' ');
 				e = duckVM_push(duckVM, value);
 				if (e) goto cleanup;
 				e = duckLispDev_callback_print(duckVM);
@@ -311,15 +311,15 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		duckVM_internalComposite_t internalComposite;
 		e = duckVM_composite_getInternalComposite(composite, &internalComposite);
 		if (e) break;
-		printf("(make-instance <%llu> ", duckVM_internalComposite_getType(internalComposite));
-		e = duckVM_push(duckVM, duckVM_internalComposite_getValueObject(internalComposite));
+		printf("(make-instance <%llu> ", internalComposite.type);
+		e = duckVM_push(duckVM, internalComposite.value);
 		if (e) goto cleanup;
 		e = duckLispDev_callback_print(duckVM);
 		if (e) goto cleanup;
 		e = duckVM_pop(duckVM, dl_null);
 		if (e) goto cleanup;
 		printf(" ");
-		e = duckVM_push(duckVM, duckVM_internalComposite_getFunctionObject(internalComposite));
+		e = duckVM_push(duckVM, internalComposite.function);
 		if (e) goto cleanup;
 		e = duckLispDev_callback_print(duckVM);
 		if (e) goto cleanup;

@@ -403,14 +403,10 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->upvalue_array_call_stack,
 	                   duckVM->memoryAllocation,
-	                   sizeof(duckVM_object_t **),
+	                   sizeof(duckVM_upvalueArray_t),
 	                   dl_array_strategy_fit);
 	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, dl_null);
 	if (e) goto cleanup;
-	/**/ dl_array_init(&duckVM->upvalue_array_length_call_stack,
-	                   duckVM->memoryAllocation,
-	                   sizeof(dl_size_t),
-	                   dl_array_strategy_fit);
 	/**/ dl_array_init(&duckVM->globals,
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckVM_object_t *),
@@ -436,7 +432,6 @@ void duckVM_quit(duckVM_t *duckVM) {
 	duckVM->currentBytecode = dl_null;
 	e = duckVM_gclist_garbageCollect(duckVM);
 	e = dl_array_quit(&duckVM->upvalue_array_call_stack);
-	/**/ dl_array_quit(&duckVM->upvalue_array_length_call_stack);
 	/**/ duckVM_gclist_quit(&duckVM->gclist);
 	/**/ dl_memclear(&duckVM->errors, sizeof(dl_array_t));
 	(void) e;
@@ -485,17 +480,15 @@ static dl_error_t stack_pop_multiple(duckVM_t *duckVM, dl_size_t pops) {
 static dl_error_t call_stack_push(duckVM_t *duckVM,
                                   dl_uint8_t *ip,
                                   duckVM_object_t *bytecode,
-                                  duckVM_object_t **upvalues,
-                                  dl_size_t upvalues_length) {
+                                  duckVM_upvalueArray_t *upvalueArray) {
 	dl_error_t e = dl_error_ok;
 	duckVM_callFrame_t frame;
 	frame.ip = ip;
 	frame.bytecode = bytecode;
 	e = dl_array_pushElement(&duckVM->call_stack, &frame);
 	if (e) goto cleanup;
-	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, &upvalues);
+	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, upvalueArray);
 	if (e) goto cleanup;
-	e = dl_array_pushElement(&duckVM->upvalue_array_length_call_stack, &upvalues_length);
  cleanup:
 	if (e) {
 		dl_error_t eError = duckVM_error_pushRuntime(duckVM, DL_STR("call_stack_push: Failed."));
@@ -512,8 +505,6 @@ static dl_error_t call_stack_pop(duckVM_t *duckVM, dl_uint8_t **ip, duckVM_objec
 	*ip = frame.ip;
 	*bytecode = frame.bytecode;
 	e = dl_array_popElement(&duckVM->upvalue_array_call_stack, dl_null);
-	if (e) goto cleanup;
-	e = dl_array_popElement(&duckVM->upvalue_array_length_call_stack, dl_null);
  cleanup:
 	if (e && (e != dl_error_bufferUnderflow)) {
 		dl_error_t eError = duckVM_error_pushRuntime(duckVM, DL_STR("call_stack_pop: Failed."));
@@ -746,7 +737,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (!e) e = eError;
 				break;
 			}
-			duckVM_object_t **upvalueArray = dl_null;
+			duckVM_upvalueArray_t upvalueArray;
 			e = dl_array_getTop(&duckVM->upvalue_array_call_stack, &upvalueArray);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM,
@@ -754,41 +745,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (!e) e = eError;
 				break;
 			}
-			duckVM_upvalue_t upvalue = duckVM_object_getUpvalue(*upvalueArray[ptrdiff1]);
-			if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_stack_index) {
-				e = dl_array_get(&duckVM->stack, &object1, duckVM_upvalue_getStackIndex(upvalue));
-				if (e) {
-					eError = duckVM_error_pushRuntime(duckVM,
-					                                  DL_STR("duckVM_execute->push-upvalue: dl_array_get failed."));
-					if (!e) e = eError;
-					break;
-				}
-			}
-			else if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_heap_object) {
-				object1 = *duckVM_upvalue_getHeapObject(upvalue);
-			}
-			else if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_heap_upvalue) {
-				while (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_heap_upvalue) {
-					e = duckVM_upvalue_getHeapUpvalue(upvalue, &upvalue);
-					if (e) break;
-				}
-				if (duckVM_upvalue_getType(upvalue) == duckVM_upvalue_type_stack_index) {
-					e = dl_array_get(&duckVM->stack, &object1, duckVM_upvalue_getStackIndex(upvalue));
-					if (e) {
-						eError = duckVM_error_pushRuntime(duckVM,
-						                                  DL_STR("duckVM_execute->push-upvalue: dl_array_get failed."));
-						if (!e) e = eError;
-						break;
-					}
-				}
-				else {
-					object1 = *duckVM_upvalue_getHeapObject(upvalue);
-				}
-			}
-			else {
-				e = dl_error_invalidValue;
+			e = duckVM_upvalueArray_getUpvalue(duckVM, upvalueArray, &object1, ptrdiff1);
+			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM,
-				                                  DL_STR("duckVM_execute->push-upvalue: Upvalue type is corrupted."));
+				                                  DL_STR("duckVM_execute->push-upvalue: duckVM_upvalueArray_getUpvalue failed."));
 				if (!e) e = eError;
 				break;
 			}
@@ -852,7 +812,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		size1 = *(ip++) + (size1 << 8);
 		size1 = *(ip++) + (size1 << 8);
 
-		object1.value.closure.name += ptr1 - duckVM_bytecode_getBytecode(duckVM_object_getBytecode(*bytecode));
+		object1.value.closure.name += ptr1 - duckVM_object_getBytecode(*bytecode).bytecode;
 
 		/* This could also point to a static version instead since this array is never changed
 		   and multiple closures could use the same array. */
@@ -869,8 +829,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		duckVM_upvalueArray_t upvalueArray;
 		e = duckVM_closure_getUpvalueArray(duckVM_object_getClosure(object1), &upvalueArray);
 		if (e) break;
-		DL_DOTIMES(k, duckVM_upvalueArray_getLength(upvalueArray)) {
-			duckVM_upvalueArray_getUpvalues(upvalueArray)[k] = dl_null;
+		DL_DOTIMES(k, upvalueArray.length) {
+			upvalueArray.upvalues[k] = dl_null;
 		}
 		/* Immediately push on stack so that the GC can see it. Allocating upvalues could trigger a GC. */
 		e = dl_array_pushElement(&duckVM->stack, &object1);
@@ -883,7 +843,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 
 		dl_bool_t recursive = dl_false;
 
-		DL_DOTIMES(k, duckVM_upvalueArray_getLength(upvalueArray)) {
+		DL_DOTIMES(k, upvalueArray.length) {
 			ptrdiff1 = *(ip++);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
@@ -933,8 +893,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				upvalue.type = duckVM_object_type_upvalue;
 				upvalue.value.upvalue.type = duckVM_upvalue_type_heap_upvalue;
 				/* Link new upvalue to upvalue from current context. */
-				upvalue.value.upvalue.value.heap_upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-				                                                                  duckVM_object_t **)[ptrdiff1];
+				upvalue.value.upvalue.value.heap_upvalue = (DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
+				                                                                   duckVM_upvalueArray_t)
+				                                            .upvalues[ptrdiff1]);
 				e = duckVM_gclist_pushObject(duckVM, &upvalue_pointer, upvalue);
 				if (e) {
 					eError = duckVM_error_pushRuntime(duckVM,
@@ -977,7 +938,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 			}
 			if (e) break;
-			duckVM_upvalueArray_getUpvalues(upvalueArray)[k] = upvalue_pointer;
+			upvalueArray.upvalues[k] = upvalue_pointer;
 		}
 		if (e) break;
 		if (!recursive) {
@@ -1092,7 +1053,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff2);
 			if (e) break;
 			duckVM_object_t *upvalue = DL_ARRAY_GETTOPADDRESS(duckVM->upvalue_array_call_stack,
-			                                                    duckVM_object_t **)[ptrdiff1];
+			                                                  duckVM_upvalueArray_t).upvalues[ptrdiff1];
 			if (upvalue->value.upvalue.type == duckVM_upvalue_type_stack_index) {
 				e = dl_array_set(&duckVM->stack, &object1, upvalue->value.upvalue.value.stack_index);
 				if (e) break;
@@ -1237,11 +1198,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 		}
 		/* Call. */
-		e = call_stack_push(duckVM,
-		                    ip,
-		                    bytecode,
-		                    object1.value.closure.upvalue_array->value.upvalue_array.upvalues,
-		                    object1.value.closure.upvalue_array->value.upvalue_array.length);
+		e = call_stack_push(duckVM, ip, bytecode, &object1.value.closure.upvalue_array->value.upvalue_array);
 		if (e) break;
 		bytecode = object1.value.closure.bytecode;
 		ip = &bytecode->value.bytecode.bytecode[object1.value.closure.name];
@@ -1264,7 +1221,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		if (object1.type != duckVM_object_type_closure) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->apply: Applied object is not a closure."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->apply: Applied object is not a closure."));
 			if (eError) e = eError;
 			break;
 		}
@@ -1363,11 +1321,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 		}
 		/* Call. */
-		e = call_stack_push(duckVM,
-		                    ip,
-		                    bytecode,
-		                    object1.value.closure.upvalue_array->value.upvalue_array.upvalues,
-		                    object1.value.closure.upvalue_array->value.upvalue_array.length);
+		e = call_stack_push(duckVM, ip, bytecode, &object1.value.closure.upvalue_array->value.upvalue_array);
 		if (e) break;
 		bytecode = object1.value.closure.bytecode;
 		ip = &bytecode->value.bytecode.bytecode[object1.value.closure.name];
@@ -1384,7 +1338,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_call8:
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		ptrdiff2 = *(ip++);
-		call_stack_push(duckVM, ip, bytecode, dl_null, 0);
+		call_stack_push(duckVM, ip, bytecode, dl_null);
 		if (e) break;
 		if (opcode == duckLisp_instruction_call32) {
 			if (ptrdiff1 & 0x80000000ULL) {
@@ -4538,8 +4492,6 @@ dl_error_t duckVM_softReset(duckVM_t *duckVM) {
 	if (e) goto cleanup;
 	e = dl_array_popElements(&duckVM->upvalue_array_call_stack, dl_null, duckVM->call_stack.elements_length);
 	if (e) goto cleanup;
-	e = dl_array_popElements(&duckVM->upvalue_array_length_call_stack, dl_null, duckVM->call_stack.elements_length);
-	if (e) goto cleanup;
 	e = dl_array_popElements(&duckVM->call_stack, dl_null, duckVM->call_stack.elements_length);
 	if (e) goto cleanup;
  cleanup:
@@ -4807,20 +4759,8 @@ duckVM_user_t duckVM_object_getUser(duckVM_object_t object) {
 }
 
 
-dl_uint8_t *duckVM_internalString_getValue(duckVM_internalString_t internalString) {
-	return internalString.value;
-}
-
-dl_size_t duckVM_internalString_getLength(duckVM_internalString_t internalString) {
-	return internalString.value_length;
-}
-
-duckVM_object_t *duckVM_string_getInternalStringObject(duckVM_string_t string) {
-	return string.internalString;
-}
-
 dl_error_t duckVM_string_getInternalString(duckVM_string_t string, duckVM_internalString_t *internalString) {
-	duckVM_object_t *internalStringObject = duckVM_string_getInternalStringObject(string);
+	duckVM_object_t *internalStringObject = string.internalString;
 	if (internalStringObject == dl_null) {
 		return dl_error_nullPointer;
 	}
@@ -4828,33 +4768,17 @@ dl_error_t duckVM_string_getInternalString(duckVM_string_t string, duckVM_intern
 	return dl_error_ok;
 }
 
-dl_ptrdiff_t duckVM_string_getOffset(duckVM_string_t string) {
-	return string.offset;
-}
-
-dl_size_t duckVM_string_getLength(duckVM_string_t string) {
-	return string.length - string.offset;
-}
-
 dl_error_t duckVM_string_getElement(duckVM_string_t string, dl_uint8_t *byte, dl_ptrdiff_t index) {
 	duckVM_internalString_t internalString;
 	dl_error_t e = duckVM_string_getInternalString(string, &internalString);
 	if (e) return e;
-	*byte = duckVM_internalString_getValue(internalString)[index];
+	*byte = internalString.value[index];
 	return e;
-}
-
-dl_size_t duckVM_symbol_getId(duckVM_symbol_t symbol) {
-	return symbol.id;
-}
-
-duckVM_object_t *duckVM_symbol_getInternalStringObject(duckVM_symbol_t symbol) {
-	return symbol.internalString;
 }
 
 dl_error_t duckVM_symbol_getInternalString(duckVM_symbol_t symbol, duckVM_internalString_t *internalString) {
 	dl_error_t e = dl_error_ok;
-	duckVM_object_t *internalStringObject = duckVM_symbol_getInternalStringObject(symbol);
+	duckVM_object_t *internalStringObject = symbol.internalString;
 	if (internalStringObject == dl_null) {
 		e = dl_error_nullPointer;
 		return e;
@@ -4867,17 +4791,9 @@ dl_error_t (*duckVM_function_getCallback(duckVM_function_t function))(duckVM_t *
 	return function.callback;
 }
 
-dl_ptrdiff_t duckVM_closure_getName(duckVM_closure_t closure) {
-	return closure.name;
-}
-
-duckVM_object_t *duckVM_closure_getBytecodeObject(duckVM_closure_t closure) {
-	return closure.bytecode;
-}
-
 dl_error_t duckVM_closure_getBytecode(duckVM_closure_t closure, duckVM_bytecode_t *bytecode) {
 	dl_error_t e = dl_error_ok;
-	duckVM_object_t *bytecodeObject = duckVM_closure_getBytecodeObject(closure);
+	duckVM_object_t *bytecodeObject = closure.bytecode;
 	if (bytecodeObject == dl_null) {
 		return dl_error_nullPointer;
 	}
@@ -4885,13 +4801,9 @@ dl_error_t duckVM_closure_getBytecode(duckVM_closure_t closure, duckVM_bytecode_
 	return e;
 }
 
-duckVM_object_t *duckVM_closure_getUpvalueArrayObject(duckVM_closure_t closure) {
-	return closure.upvalue_array;
-}
-
 dl_error_t duckVM_closure_getUpvalueArray(duckVM_closure_t closure, duckVM_upvalueArray_t *upvalueArray) {
 	dl_error_t e = dl_error_ok;
-	duckVM_object_t *upvalueArrayObject = duckVM_closure_getUpvalueArrayObject(closure);
+	duckVM_object_t *upvalueArrayObject = closure.upvalue_array;
 	if (upvalueArrayObject == dl_null) {
 		return dl_error_nullPointer;
 	}
@@ -4899,20 +4811,25 @@ dl_error_t duckVM_closure_getUpvalueArray(duckVM_closure_t closure, duckVM_upval
 	return e;
 }
 
-dl_uint8_t duckVM_closure_getArity(duckVM_closure_t closure) {
-	return closure.arity;
-}
+dl_error_t duckVM_closure_getUpvalue(duckVM_t *duckVM,
+                                     duckVM_closure_t closure,
+                                     duckVM_object_t *object,
+                                     dl_ptrdiff_t index) {
+	if (object == dl_null) return dl_error_nullPointer;
 
-dl_bool_t duckVM_closure_getVariadic(duckVM_closure_t closure) {
-	return closure.variadic;
-}
-
-duckVM_object_t *duckVM_list_getConsObject(duckVM_list_t list) {
-	return list;
+	duckVM_object_t *upvalueArrayObject = closure.upvalue_array;
+	if (upvalueArrayObject == dl_null) {
+		return dl_error_nullPointer;
+	}
+	if (upvalueArrayObject->type != duckVM_object_type_upvalueArray) {
+		return dl_error_invalidValue;
+	}
+	duckVM_upvalueArray_t upvalueArray = upvalueArrayObject->value.upvalue_array;
+	return duckVM_upvalueArray_getUpvalue(duckVM, upvalueArray, object, index);
 }
 
 dl_error_t duckVM_list_getCons(duckVM_list_t list, duckVM_cons_t *cons) {
-	duckVM_object_t *consObject = duckVM_list_getConsObject(list);
+	duckVM_object_t *consObject = list;
 	if (consObject == dl_null) {
 		return dl_error_nullPointer;
 	}
@@ -4920,32 +4837,8 @@ dl_error_t duckVM_list_getCons(duckVM_list_t list, duckVM_cons_t *cons) {
 	return dl_error_ok;
 }
 
-duckVM_object_t *duckVM_cons_getCar(duckVM_cons_t cons) {
-	return cons.car;
-}
-
-duckVM_object_t *duckVM_cons_getCdr(duckVM_cons_t cons) {
-	return cons.cdr;
-}
-
-duckVM_upvalue_type_t duckVM_upvalue_getType(duckVM_upvalue_t upvalue) {
-	return upvalue.type;
-}
-
-dl_ptrdiff_t duckVM_upvalue_getStackIndex(duckVM_upvalue_t upvalue) {
-	return upvalue.value.stack_index;
-}
-
-duckVM_object_t *duckVM_upvalue_getHeapObject(duckVM_upvalue_t upvalue) {
-	return upvalue.value.heap_object;
-}
-
-duckVM_object_t *duckVM_upvalue_getHeapUpvalueObject(duckVM_upvalue_t upvalue) {
-	return upvalue.value.heap_upvalue;
-}
-
 dl_error_t duckVM_upvalue_getHeapUpvalue(duckVM_upvalue_t upvalue, duckVM_upvalue_t *heapUpvalue) {
-	duckVM_object_t *heapUpvalueObject = duckVM_upvalue_getHeapUpvalueObject(upvalue);
+	duckVM_object_t *heapUpvalueObject = upvalue.value.heap_upvalue;
 	if (heapUpvalueObject == dl_null) {
 		return dl_error_nullPointer;
 	}
@@ -4953,61 +4846,54 @@ dl_error_t duckVM_upvalue_getHeapUpvalue(duckVM_upvalue_t upvalue, duckVM_upvalu
 	return dl_error_ok;
 }
 
-duckVM_object_t *duckVM_upvalue_getValue(duckVM_t *duckVM, duckVM_upvalue_t upvalue) {
-	duckVM_upvalue_type_t type = duckVM_upvalue_getType(upvalue);
-	return (type == duckVM_upvalue_type_stack_index
-	        ? &DL_ARRAY_GETADDRESS(duckVM->stack, duckVM_object_t, upvalue.value.stack_index)
-	        : type == duckVM_upvalue_type_heap_object
-	        ? upvalue.value.heap_object
-	        : upvalue.value.heap_upvalue);
-}
-
-duckVM_object_t **duckVM_upvalueArray_getUpvalues(duckVM_upvalueArray_t upvalueArray) {
-	return upvalueArray.upvalues;
-}
-
-dl_size_t duckVM_upvalueArray_getLength(duckVM_upvalueArray_t upvalueArray) {
-	return upvalueArray.length;
-}
-
-dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_upvalueArray_t upvalueArray,
-                                          duckVM_object_t **upvalueObject,
+dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_t *duckVM,
+                                          duckVM_upvalueArray_t upvalueArray,
+                                          duckVM_object_t *object,
                                           dl_ptrdiff_t index) {
-	if ((dl_size_t) index >= duckVM_upvalueArray_getLength(upvalueArray)) {
-		return dl_error_invalidValue;
+	dl_error_t e = dl_error_ok;
+
+	if (object == dl_null) return dl_error_nullPointer;
+
+	duckVM_object_t *upvalueObject = upvalueArray.upvalues[index];
+
+	/* Follow the chain of upvalues. */
+	dl_bool_t found = dl_false;
+	duckVM_upvalue_t upvalue;
+	do {
+		if (upvalueObject == dl_null) return dl_error_nullPointer;
+		if (upvalueObject->type != duckVM_object_type_upvalue) return dl_error_invalidValue;
+		upvalue = upvalueObject->value.upvalue;
+		if (upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+			upvalueObject = upvalue.value.heap_upvalue;
+		}
+		else {
+			found = dl_true;
+		}
+	} while (!found);
+
+	/* Get the object. */
+	if (upvalue.type == duckVM_upvalue_type_stack_index) {
+		e = dl_array_get(&duckVM->stack, object, upvalue.value.stack_index);
+		if (e) return e;
 	}
-	*upvalueObject = upvalueArray.upvalues[index];
+	else if (upvalue.type == duckVM_upvalue_type_heap_object) {
+		*object = *upvalue.value.heap_object;
+	}
 	return dl_error_ok;
-}
-
-duckVM_object_t **duckVM_internalVector_getValues(duckVM_internalVector_t internalVector) {
-	return internalVector.values;
-}
-
-dl_size_t duckVM_internalVector_getLength(duckVM_internalVector_t internalVector) {
-	return internalVector.length;
-}
-
-dl_bool_t duckVM_internalVector_getInitialized(duckVM_internalVector_t internalVector) {
-	return internalVector.initialized;
 }
 
 dl_error_t duckVM_internalVector_getElement(duckVM_internalVector_t internalVector,
                                             duckVM_object_t **object,
                                             dl_ptrdiff_t index) {
-	if ((dl_size_t) index >= duckVM_internalVector_getLength(internalVector)) {
+	if ((dl_size_t) index >= internalVector.length) {
 		return dl_error_invalidValue;
 	}
 	*object = internalVector.values[index];
 	return dl_error_ok;
 }
 
-duckVM_object_t *duckVM_vector_getInternalVectorObject(duckVM_vector_t vector) {
-	return vector.internal_vector;
-}
-
 dl_error_t duckVM_vector_getInternalVector(duckVM_vector_t vector, duckVM_internalVector_t *internalVector) {
-	duckVM_object_t *internalVectorObject = duckVM_vector_getInternalVectorObject(vector);
+	duckVM_object_t *internalVectorObject = vector.internal_vector;
 	if (internalVectorObject == dl_null) {
 		return dl_error_nullPointer;
 	}
@@ -5015,15 +4901,11 @@ dl_error_t duckVM_vector_getInternalVector(duckVM_vector_t vector, duckVM_intern
 	return dl_error_ok;
 }
 
-dl_ptrdiff_t duckVM_vector_getOffset(duckVM_vector_t vector) {
-	return vector.offset;
-}
-
 dl_error_t duckVM_vector_getLength(duckVM_vector_t vector, dl_size_t *length) {
 	duckVM_internalVector_t internalVector;
 	dl_error_t e = duckVM_vector_getInternalVector(vector, &internalVector);
 	if (e) return e;
-	*length = duckVM_internalVector_getLength(internalVector) - duckVM_vector_getOffset(vector);
+	*length = internalVector.length - vector.offset;
 	return e;
 }
 
@@ -5039,53 +4921,29 @@ dl_error_t duckVM_vector_getElement(duckVM_vector_t vector,
 		e = dl_error_invalidValue;
 		return e;
 	}
-	dl_ptrdiff_t offset = duckVM_vector_getOffset(vector);
+	dl_ptrdiff_t offset = vector.offset;
 	duckVM_internalVector_t internalVector;
 	e = duckVM_vector_getInternalVector(vector, &internalVector);
 	if (e) return e;
-	*object = duckVM_internalVector_getValues(internalVector)[offset + index];
+	*object = internalVector.values[offset + index];
 
 	return e;
-}
-
-dl_uint8_t *duckVM_bytecode_getBytecode(duckVM_bytecode_t bytecode) {
-	return bytecode.bytecode;
-}
-
-dl_size_t duckVM_bytecode_getLength(duckVM_bytecode_t bytecode) {
-	return bytecode.bytecode_length;
 }
 
 dl_error_t duckVM_bytecode_getElement(duckVM_bytecode_t bytecode, dl_uint8_t *byte, dl_ptrdiff_t index) {
 	dl_error_t e = dl_error_ok;
-	if ((dl_size_t) index >= duckVM_bytecode_getLength(bytecode)) {
+	if ((dl_size_t) index >= bytecode.bytecode_length) {
 		return dl_error_invalidValue;
 	}
-	*byte = duckVM_bytecode_getBytecode(bytecode)[index];
+	*byte = bytecode.bytecode[index];
 	return e;
-}
-
-dl_size_t duckVM_internalComposite_getType(duckVM_internalComposite_t internalComposite) {
-	return internalComposite.type;
-}
-
-duckVM_object_t *duckVM_internalComposite_getValueObject(duckVM_internalComposite_t internalComposite) {
-	return internalComposite.value;
-}
-
-duckVM_object_t *duckVM_internalComposite_getFunctionObject(duckVM_internalComposite_t internalComposite) {
-	return internalComposite.function;
-}
-
-duckVM_object_t *duckVM_composite_getInternalCompositeObject(duckVM_composite_t composite) {
-	return composite;
 }
 
 dl_error_t duckVM_composite_getInternalComposite(duckVM_composite_t composite,
                                                  duckVM_internalComposite_t *internalComposite) {
 	dl_error_t e = dl_error_ok;
 
-	duckVM_object_t *internalCompositeObject = duckVM_composite_getInternalCompositeObject(composite);
+	duckVM_object_t *internalCompositeObject = composite;
 	if (internalCompositeObject == dl_null) {
 		return dl_error_nullPointer;
 	}
@@ -5099,7 +4957,7 @@ dl_error_t duckVM_composite_getType(duckVM_composite_t composite, dl_size_t *typ
 	duckVM_internalComposite_t internalComposite;
 	e = duckVM_composite_getInternalComposite(composite, &internalComposite);
 	if (e) return e;
-	*type = duckVM_internalComposite_getType(internalComposite);
+	*type = internalComposite.type;
 	return e;
 }
 
@@ -5108,7 +4966,7 @@ dl_error_t duckVM_composite_getValueObject(duckVM_composite_t composite, duckVM_
 	duckVM_internalComposite_t internalComposite;
 	e = duckVM_composite_getInternalComposite(composite, &internalComposite);
 	if (e) return e;
-	*value = duckVM_internalComposite_getValueObject(internalComposite);
+	*value = internalComposite.value;
 	return e;
 }
 
@@ -5117,16 +4975,8 @@ dl_error_t duckVM_composite_getFunctionObject(duckVM_composite_t composite, duck
 	duckVM_internalComposite_t internalComposite;
 	e = duckVM_composite_getInternalComposite(composite, &internalComposite);
 	if (e) return e;
-	*function = duckVM_internalComposite_getFunctionObject(internalComposite);
+	*function = internalComposite.function;
 	return e;
-}
-
-void *duckVM_user_getData(duckVM_user_t user) {
-	return user.data;
-}
-
-dl_error_t (*duckVM_user_getDestructor(duckVM_user_t user))(duckVM_gclist_t *, struct duckVM_object_s *) {
-	return user.destructor;
 }
 
 
