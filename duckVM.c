@@ -391,30 +391,30 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 	duckVM->memoryAllocation = memoryAllocation;
 	duckVM->currentBytecode = dl_null;
 	duckVM->nextUserType = duckVM_object_type_last;
-	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_fit);
-	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckVM_object_t), dl_array_strategy_fit);
+	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_double);
+	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckVM_object_t), dl_array_strategy_double);
 	/**/ dl_array_init(&duckVM->call_stack,
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckVM_callFrame_t),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 	/**/ dl_array_init(&duckVM->upvalue_stack,
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckVM_object_t *),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 	/**/ dl_array_init(&duckVM->upvalue_array_call_stack,
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckVM_upvalueArray_t),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 	e = dl_array_pushElement(&duckVM->upvalue_array_call_stack, dl_null);
 	if (e) goto cleanup;
 	/**/ dl_array_init(&duckVM->globals,
 	                   duckVM->memoryAllocation,
 	                   sizeof(duckVM_object_t *),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 	/**/ dl_array_init(&duckVM->globals_map,
 	                   duckVM->memoryAllocation,
 	                   sizeof(dl_ptrdiff_t),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxObjects);
 	if (e) goto cleanup;
 
@@ -4402,7 +4402,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 
 	if (e) {
 		puts("VM ERROR");
-		printf("ip 0x%llX\n", (dl_size_t) (ip - bytecode));
+		printf("ip 0x%lX\n", (dl_size_t) (ip - bytecode));
 		printf("*ip 0x%X\n", *ip);
 	}
 	else if (return_value != dl_null) {

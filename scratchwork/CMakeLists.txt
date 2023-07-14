@@ -13,6 +13,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIRECTORY}")
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+option(USE_DUCKLIB_MALLOC "Use DuckLib's memory allocator" OFF)
+option(USE_STDLIB "Replace DuckLib functions with standard library equivalents" ON)
 
 add_subdirectory(.. build-lisp)
 
@@ -33,6 +35,14 @@ else()
   target_compile_options(trie-dev PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
   target_compile_options(sort-test PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
   target_compile_options(duckLisp-test PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
+endif()
+
+if(USE_DUCKLIB_MALLOC)
+  add_definitions(-DUSE_DUCKLIB_MALLOC)
+endif()
+
+if(USE_STDLIB)
+  add_definitions(-DUSE_STDLIB)
 endif()
 
 target_link_libraries(memory-dev PUBLIC DuckLib ubsan)

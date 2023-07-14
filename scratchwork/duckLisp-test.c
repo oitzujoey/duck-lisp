@@ -126,7 +126,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		for (dl_size_t i = 0; i < object.value.symbol.internalString->value.internalString.value_length; i++) {
 			putchar(object.value.symbol.internalString->value.internalString.value[i]);
 		}
-		printf("→%llu", object.value.symbol.id);
+		printf("→%lu", object.value.symbol.id);
 		break;
 	case duckVM_object_type_string:
 		if (object.value.string.internalString) {
@@ -136,7 +136,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		}
 		break;
 	case duckVM_object_type_integer:
-		printf("%lli", object.value.integer);
+		printf("%li", object.value.integer);
 		break;
 	case duckVM_object_type_float:
 		printf("%f\n", object.value.floatingPoint);
@@ -193,7 +193,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		}
 		break;
 	case duckVM_object_type_closure:
-		printf("(closure %lli", object.value.closure.name);
+		printf("(closure %li", object.value.closure.name);
 		DL_DOTIMES(k, object.value.closure.upvalue_array->value.upvalue_array.length) {
 			duckVM_object_t *uv = object.value.closure.upvalue_array->value.upvalue_array.upvalues[k];
 			putchar(' ');
@@ -266,10 +266,10 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		printf("]");
 		break;
 	case duckVM_object_type_type:
-		printf("<%llu>", object.value.type);
+		printf("<%lu>", object.value.type);
 		break;
 	case duckVM_object_type_composite:
-		printf("(make-instance <%llu> ", object.value.composite->value.internalComposite.type);
+		printf("(make-instance <%lu> ", object.value.composite->value.internalComposite.type);
 		e = duckVM_push(duckVM, object.value.composite->value.internalComposite.value);
 		if (e) goto cleanup;
 		e = duckLispDev_callback_print(duckVM);

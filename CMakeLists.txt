@@ -36,6 +36,14 @@ target_include_directories(DuckLib PUBLIC
 set_target_properties(DuckLib PROPERTIES
                       POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}
                       )
+
+if(USE_DUCKLIB_MALLOC)
+  add_definitions(-DUSE_DUCKLIB_MALLOC)
+endif()
+
+if(USE_STDLIB)
+  add_definitions(-DUSE_STDLIB)
+endif()
                       
 target_compile_definitions(DuckLib PUBLIC "EXPORTING_DUCKLIB")
 

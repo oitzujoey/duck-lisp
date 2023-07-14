@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 							printf("Failed: Malloc byte %u:%zu/%zu = %u while dl_malloc byte %u:%zu/%zu = %u\n",
 								   randomNumbers[1], j, memories_lengths[randomNumbers[1]], malloc_memories[randomNumbers[1]][j],
 								randomNumbers[1], j, memories_lengths[randomNumbers[1]], memories[randomNumbers[1]][j]);
-							dl_memory_printMemoryAllocation(memoryAllocation);
+							/* dl_memory_printMemoryAllocation(memoryAllocation); */
 							goto l_cleanup;
 						}
 					}
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 					printf("0x%llX\n", (long long) memoryAllocation.memory);
 					printf("%llu %u %u %u\n", i, randomNumbers[0], randomNumbers[1], randomNumbers[2]);
 					printf("dl_realloc: Out of memory. (%s)\n", dl_errorString[error]);
-					dl_memory_printMemoryAllocation(memoryAllocation);
+					/* dl_memory_printMemoryAllocation(memoryAllocation); */
 					goto l_cleanup;
 				}
 				malloc_memories[randomNumbers[1]] = realloc(malloc_memories[randomNumbers[1]], randomNumbers[2]);
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
 					printf("0x%llX\n", (unsigned long long) memoryAllocation.memory);
 					printf("%llu %u %u %u\n", i, randomNumbers[0], randomNumbers[1], randomNumbers[2]);
 					printf("dl_malloc: Out of memory. (%s)\n", dl_errorString[error]);
-					dl_memory_printMemoryAllocation(memoryAllocation);
+					/* dl_memory_printMemoryAllocation(memoryAllocation); */
 					goto l_cleanup;
 				}
 				malloc_memories[randomNumbers[1]] = malloc(randomNumbers[2]);
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
 						printf("Failed: Malloc byte %u:%zu/%zu = %u while dl_malloc byte %u:%zu/%zu = %u\n",
 							randomNumbers[1], j, memories_lengths[randomNumbers[1]], malloc_memories[randomNumbers[1]][j],
 							randomNumbers[1], j, memories_lengths[randomNumbers[1]], memories[randomNumbers[1]][j]);
-						dl_memory_printMemoryAllocation(memoryAllocation);
+						/* dl_memory_printMemoryAllocation(memoryAllocation); */
 						goto l_cleanup;
 					}
 				}
@@ -151,12 +151,12 @@ int main(int argc, char *argv[]) {
 				free(malloc_memories[randomNumbers[1]]); malloc_memories[randomNumbers[1]] = NULL;
 			}
 			
-			error = dl_memory_checkHealth(memoryAllocation);
+			/* error = dl_memory_checkHealth(memoryAllocation); */
 			if (error) {
 				printf("0x%llX\n", (unsigned long long) memoryAllocation.memory);
 				printf("%llu %u %u %u\n", i, randomNumbers[0], randomNumbers[1], randomNumbers[2]);
 				printf("dl_memory_checkHealth: Health check failed. (%s)\n", dl_errorString[error]);
-				dl_memory_printMemoryAllocation(memoryAllocation);
+				/* dl_memory_printMemoryAllocation(memoryAllocation); */
 				goto l_cleanup;
 			}
 		}

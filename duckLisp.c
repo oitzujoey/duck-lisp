@@ -1021,7 +1021,7 @@ static dl_error_t ast_generate_int(duckLisp_t *duckLisp,
 static void ast_print_int(duckLisp_t duckLisp, duckLisp_ast_integer_t integer) {
 	(void) duckLisp;
 
-	printf("%lli", integer.value);
+	printf("%li", integer.value);
 }
 
 
@@ -10674,7 +10674,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	/* No error */ dl_array_init(&duckLisp->errors,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_error_t),
-	                             dl_array_strategy_fit);
+	                             dl_array_strategy_double);
 	/* /\* No error *\/ dl_array_init(&duckLisp->stack, */
 	/*                              &duckLisp->memoryAllocation, */
 	/*                              sizeof(duckLisp_object_t), */
@@ -10783,11 +10783,11 @@ void duckLisp_subCompileState_init(dl_memoryAllocation_t *memoryAllocation,
 	/**/ dl_array_init(&subCompileState->scope_stack,
 	                   memoryAllocation,
 	                   sizeof(duckLisp_scope_t),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 	/**/ dl_array_init(&subCompileState->assembly,
 	                   memoryAllocation,
 	                   sizeof(duckLisp_instructionObject_t),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 }
 
 dl_error_t duckLisp_subCompileState_quit(duckLisp_subCompileState_t *subCompileState) {

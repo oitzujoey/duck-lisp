@@ -140,7 +140,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		for (dl_size_t i = 0; i < internalString.value_length; i++) {
 			putchar(internalString.value[i]);
 		}
-		printf("→%llu", symbol.id);
+		printf("→%lu", symbol.id);
 	}
 		break;
 	case duckVM_object_type_string: {
@@ -154,7 +154,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	}
 		break;
 	case duckVM_object_type_integer:
-		printf("%lli", duckVM_object_getInteger(object));
+		printf("%li", duckVM_object_getInteger(object));
 		break;
 	case duckVM_object_type_float:
 		printf("%f\n", duckVM_object_getFloat(object));
@@ -221,7 +221,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		duckVM_upvalueArray_t upvalueArray;
 		e = duckVM_closure_getUpvalueArray(closure, &upvalueArray);
 		if (e) break;
-		printf("(closure %lli", closure.name);
+		printf("(closure %li", closure.name);
 		DL_DOTIMES(k, upvalueArray.length) {
 			duckVM_object_t *upvalueObject = upvalueArray.upvalues[k];
 			putchar(' ');
@@ -304,14 +304,14 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	}
 		break;
 	case duckVM_object_type_type:
-		printf("<%llu>", duckVM_object_getType(object));
+		printf("<%lu>", duckVM_object_getType(object));
 		break;
 	case duckVM_object_type_composite: {
 		duckVM_composite_t composite = duckVM_object_getComposite(object);
 		duckVM_internalComposite_t internalComposite;
 		e = duckVM_composite_getInternalComposite(composite, &internalComposite);
 		if (e) break;
-		printf("(make-instance <%llu> ", internalComposite.type);
+		printf("(make-instance <%lu> ", internalComposite.type);
 		e = duckVM_push(duckVM, internalComposite.value);
 		if (e) goto cleanup;
 		e = duckLispDev_callback_print(duckVM);
@@ -353,13 +353,13 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 	DL_DOTIMES(i, duckVM->stack.elements_length) {
 		dl_error_t e = dl_array_get(&duckVM->stack, &tempObject, i);
 		if (e) goto cleanup;
-		printf("%lli: ", i);
+		printf("%li: ", i);
 		switch (duckVM_typeOf(tempObject)) {
 		case duckVM_object_type_bool:
 			puts(tempObject.value.boolean ? "true" : "false");
 			break;
 		case duckVM_object_type_integer:
-			printf("%lli\n", tempObject.value.integer);
+			printf("%li\n", tempObject.value.integer);
 			break;
 		case duckVM_object_type_float:
 			printf("%f\n", tempObject.value.floatingPoint);
@@ -371,7 +371,7 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			for (dl_size_t i = 0; i < tempObject.value.symbol.internalString->value.internalString.value_length; i++) {
 				putchar(tempObject.value.symbol.internalString->value.internalString.value[i]);
 			}
-			printf("→%llu", tempObject.value.symbol.id);
+			printf("→%lu", tempObject.value.symbol.id);
 			putchar('\n');
 			break;
 		case duckVM_object_type_string:
@@ -440,7 +440,7 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			putchar('\n');
 			break;
 		case duckVM_object_type_closure:
-			printf("(closure %lli", tempObject.value.closure.name);
+			printf("(closure %li", tempObject.value.closure.name);
 			DL_DOTIMES(k, tempObject.value.closure.upvalue_array->value.upvalue_array.length) {
 				duckVM_object_t *uv = tempObject.value.closure.upvalue_array->value.upvalue_array.upvalues[k];
 				putchar(' ');
@@ -511,7 +511,7 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 		printf("]\n");
 			break;
 		case duckVM_object_type_type:
-			printf("::%llu\n", tempObject.value.type);
+			printf("::%lu\n", tempObject.value.type);
 			break;
 		default:
 			printf("Bad object type %u.\n", tempObject.type);
@@ -531,7 +531,9 @@ dl_error_t duckLispDev_callback_printUpvalueStack(duckVM_t *duckVM) {
 	duckVM_object_t *tempObjectPointer = dl_null;
 	duckVM_object_t tempObject;
 
-	printf("Call stack depth: %llu    Upvalue array call stack depth: %llu\n", duckVM->call_stack.elements_length, duckVM->upvalue_array_call_stack.elements_length);
+	printf("Call stack depth: %lu    Upvalue array call stack depth: %lu\n",
+	       duckVM->call_stack.elements_length,
+	       duckVM->upvalue_array_call_stack.elements_length);
 
 	DL_DOTIMES(i, duckVM->upvalue_stack.elements_length) {
 		dl_error_t e = dl_array_get(&duckVM->upvalue_stack, &tempObjectPointer, i);
@@ -539,7 +541,7 @@ dl_error_t duckLispDev_callback_printUpvalueStack(duckVM_t *duckVM) {
 		if (tempObjectPointer == dl_null) {
 			continue;
 		}
-		printf("%lli: ", i);
+		printf("%li: ", i);
 		tempObject = *tempObjectPointer;
 		if (tempObject.type == duckVM_object_type_none) continue;
 		switch (tempObject.type) {
@@ -1159,10 +1161,10 @@ int eval(duckLisp_t *duckLisp,
 	                                &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
 	                                sourceCode.elements_length);
 
-	e = dl_memory_checkHealth(*duckLisp->memoryAllocation);
-	if (e) {
-		printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
-	}
+	/* e = dl_memory_checkHealth(*duckLisp->memoryAllocation); */
+	/* if (e) { */
+	/* 	printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]); */
+	/* } */
 
 	printf(COLOR_CYAN);
 
@@ -1456,7 +1458,7 @@ int main(int argc, char *argv[]) {
 				       "A runtime error has occured. Use (print-stack) to inspect the stack, or press\n"
 				       "RET to pop a stack frame."
 				       COLOR_NORMAL);
-				printf("\n%llu", duckVM.stack.elements_length);
+				printf("\n%lu", duckVM.stack.elements_length);
 			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
@@ -1468,12 +1470,12 @@ int main(int argc, char *argv[]) {
 
 			puts(COLOR_CYAN);
 			/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
-			printf("Compiler memory usage: %llu/%llu (%llu%%)\n",
+			printf("Compiler memory usage: %lu/%lu (%lu%%)\n",
 			       tempDlSize,
 			       duckLisp.memoryAllocation->size,
 			       100*tempDlSize/duckLisp.memoryAllocation->size);
 			/**/ dl_memory_usage(&tempDlSize, *duckVM.memoryAllocation);
-			printf("VM memory usage: %llu/%llu (%llu%%)\n",
+			printf("VM memory usage: %lu/%lu (%lu%%)\n",
 			       tempDlSize,
 			       duckVM.memoryAllocation->size,
 			       100*tempDlSize/duckVM.memoryAllocation->size);
@@ -1487,11 +1489,11 @@ int main(int argc, char *argv[]) {
 	puts(COLOR_CYAN);
 	if (d.duckVM_init) {
 		/**/ dl_memory_usage(&tempDlSize, *duckVM.memoryAllocation);
-		printf("(duckVM) Current memory use: %llu/%llu (%llu%%)\n",
+		printf("(duckVM) Current memory use: %lu/%lu (%lu%%)\n",
 			   tempDlSize,
 			   duckVM.memoryAllocation->size,
 			   100*tempDlSize/duckVM.memoryAllocation->size);
-		printf("(duckVM) Max memory used:    %llu/%llu (%llu%%)\n",
+		printf("(duckVM) Max memory used:    %lu/%lu (%lu%%)\n",
 			   duckVM.memoryAllocation->max_used,
 			   duckVM.memoryAllocation->size,
 			   100*duckVM.memoryAllocation->max_used/duckVM.memoryAllocation->size);
@@ -1506,11 +1508,11 @@ int main(int argc, char *argv[]) {
 	if (d.duckLisp_init) {
 		puts("");
 		/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
-		printf("(duckLisp) Current memory use: %llu/%llu (%llu%%)\n",
+		printf("(duckLisp) Current memory use: %lu/%lu (%lu%%)\n",
 			   tempDlSize,
 			   duckLisp.memoryAllocation->size,
 			   100*tempDlSize/duckLisp.memoryAllocation->size);
-		printf("(duckLisp) Max memory used:    %llu/%llu (%llu%%)\n",
+		printf("(duckLisp) Max memory used:    %lu/%lu (%lu%%)\n",
 			   duckLisp.memoryAllocation->max_used,
 			   duckLisp.memoryAllocation->size,
 			   100*duckLisp.memoryAllocation->max_used/duckLisp.memoryAllocation->size);

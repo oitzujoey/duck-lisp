@@ -99,28 +99,28 @@ int main(int argc, char *argv[]) {
 		dl_string_compare_partial(&equal, words[i].string, DL_STR("moment"));
 		e = dl_trie_insert(&trie, words[i].string, words[i].length, index++);
 		if (e) {
-			fprintf(stderr, "Could not insert keyword and index into trie. [%lli] (%s)\n", index-1, dl_errorString[e]);
+			fprintf(stderr, "Could not insert keyword and index into trie. [%li] (%s)\n", index-1, dl_errorString[e]);
 			goto l_cleanup;
 		}
 	}
 	
 	// /**/ dl_trie_print(trie);
-	/**/ dl_trie_print_compact(trie);
+	/* /\**\/ dl_trie_print_compact(trie); */
 	
 	dl_trie_find(trie, &index, DL_STR("hair"));
-	printf("index %lli\n", index);
+	printf("index %li\n", index);
 	dl_trie_find(trie, &index, DL_STR(""));
-	printf("index %lli\n", index);
+	printf("index %li\n", index);
 	dl_trie_find(trie, &index, DL_STR("me"));
-	printf("index %lli\n", index);
+	printf("index %li\n", index);
 	dl_trie_find(trie, &index, DL_STR("mother"));
-	printf("index %lli\n", index);
+	printf("index %li\n", index);
 	dl_trie_find(trie, &index, DL_STR("memory"));
-	printf("index %lli\n", index);
+	printf("index %li\n", index);
 	dl_trie_find(trie, &index, DL_STR("moment"));
-	printf("index %lli\n", index);
+	printf("index %li\n", index);
 	dl_trie_find(trie, &index, DL_STR("f"));
-	printf("index %lli\n", index);
+	printf("index %li\n", index);
 	
 	l_cleanup:
 	
