@@ -110,12 +110,12 @@ typedef struct {
 
 /* Should never appear on the stack */
 typedef struct {
-	duckVM_upvalue_type_t type;
 	union {
 		dl_ptrdiff_t stack_index;
 		struct duckVM_object_s *heap_object;
 		struct duckVM_object_s *heap_upvalue;
 	} value;
+	duckVM_upvalue_type_t type;
 } duckVM_upvalue_t;
 
 /* Should never appear on the stack */
