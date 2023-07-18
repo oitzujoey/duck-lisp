@@ -256,7 +256,7 @@ dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
 */
 
 dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression);
-static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
+static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
                                                   const char *source,
                                                   const dl_size_t source_length,
                                                   duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -264,43 +264,63 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
                                                   dl_bool_t throwErrors);
 dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 
-static dl_bool_t cst_isIdentifierSymbol(const char character) {
-	/* switch (character) { */
-	/* case '~': */
-	/* case '`': */
-	/* case '!': */
-	/* case '@': */
-	/* case '$': */
-	/* case '%': */
-	/* case '^': */
-	/* case '&': */
-	/* case '*': */
-	/* case '_': */
-	/* case '-': */
-	/* case '+': */
-	/* case '=': */
-	/* case '[': */
-	/* case '{': */
-	/* case ']': */
-	/* case '}': */
-	/* case '|': */
-	/* case '\\': */
-	/* case ':': */
-	/* case ';': */
-	/* case '<': */
-	/* case ',': */
-	/* case '>': */
-	/* case '.': */
-	/* case '?': */
-	/* case '/': */
-	/*		*result = dl_true; */
-	/*		break; */
-	/* default: */
-	/*		*result = dl_false; */
-	/* } */
-	return (!dl_string_isSpace(character)
-	        && (character != '(')
-	        && (character != ')'));
+static dl_bool_t isIdentifierSymbol(const char character) {
+	if (dl_string_isSpace(character)) return dl_false;
+	switch (character) {
+	case '(': /* Fall through */
+	case ')': /* Fall through */
+	case ';':
+		return dl_false;
+	default:
+		return dl_true;
+	}
+}
+
+
+/* Does not consume the line endings. */
+static dl_error_t parse_comment(duckLisp_t *duckLisp,
+                                const char *source,
+                                const dl_size_t source_length,
+                                duckLisp_ast_compoundExpression_t *compoundExpression,
+                                dl_ptrdiff_t *index,
+                                dl_bool_t throwErrors) {
+	(void) duckLisp;
+	(void) compoundExpression;
+	(void) throwErrors;
+
+	dl_ptrdiff_t start_index = *index;
+	dl_ptrdiff_t stop_index = start_index;
+
+	if (source[stop_index] != ';') {
+		return dl_error_invalidValue;
+	}
+
+	while ((stop_index < (dl_ptrdiff_t) source_length)
+	       && (source[stop_index] != '\r')
+	       && (source[stop_index] != '\n')) stop_index++;
+
+	*index = stop_index;
+
+	return dl_error_ok;
+}
+
+dl_error_t parse_irrelevant(duckLisp_t *duckLisp,
+                            const char *source,
+                            const dl_size_t source_length,
+                            duckLisp_ast_compoundExpression_t *compoundExpression,
+                            dl_ptrdiff_t *index,
+                            dl_bool_t throwErrors) {
+	(void) duckLisp;
+	(void) compoundExpression;
+	(void) throwErrors;
+	dl_ptrdiff_t indexCopy = *index;
+	while (dl_true) {
+		while (dl_string_isSpace(source[indexCopy])) indexCopy++;
+		dl_error_t e = parse_comment(dl_null, source, source_length, dl_null, &indexCopy, dl_false);
+		if (e) break;
+	}
+	*index = indexCopy;
+	return dl_error_ok;
 }
 
 
@@ -322,7 +342,7 @@ static dl_error_t ast_expression_quit(duckLisp_t *duckLisp, duckLisp_ast_express
 	return e;
 }
 
-static dl_error_t ast_generate_expression(duckLisp_t *duckLisp,
+static dl_error_t parse_expression(duckLisp_t *duckLisp,
                                           const char *source,
                                           const dl_size_t source_length,
                                           duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -355,11 +375,10 @@ static dl_error_t ast_generate_expression(duckLisp_t *duckLisp,
 	}
 
 	indexCopy++;
-	/* if (source[indexCopy + 1] == ')') */
 	while ((source[indexCopy] != ')') && (indexCopy < (dl_ptrdiff_t) source_length)) {
 		duckLisp_ast_compoundExpression_t subCompoundExpression;
 		dl_ptrdiff_t subIndex = indexCopy;
-		e = ast_generate_compoundExpression(duckLisp,
+		e = parse_compoundExpression(duckLisp,
 		                                    source,
 		                                    source_length,
 		                                    &subCompoundExpression,
@@ -381,7 +400,7 @@ static dl_error_t ast_generate_expression(duckLisp_t *duckLisp,
 		expression.compoundExpressions_length++;
 
 		indexCopy = subIndex;
-		while (dl_string_isSpace(source[indexCopy])) indexCopy++;
+		(void) parse_irrelevant(dl_null, source, source_length, dl_null, &indexCopy, dl_false);
 	}
 	indexCopy++;
 
@@ -441,7 +460,7 @@ static dl_error_t ast_identifier_quit(duckLisp_t *duckLisp, duckLisp_ast_identif
 	return e;
 }
 
-static dl_error_t ast_generate_identifier(duckLisp_t *duckLisp,
+static dl_error_t parse_identifier(duckLisp_t *duckLisp,
                                           const char *source,
                                           const dl_size_t source_length,
                                           duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -466,7 +485,7 @@ static dl_error_t ast_generate_identifier(duckLisp_t *duckLisp,
 
 	tempBool = dl_string_isAlpha(source[indexCopy]);
 	if (!tempBool) {
-		tempBool = cst_isIdentifierSymbol(source[indexCopy]);
+		tempBool = isIdentifierSymbol(source[indexCopy]);
 		if (!tempBool) {
 			eError = duckLisp_error_pushSyntax(duckLisp,
 			                                   DL_STR("Expected a alpha or allowed symbol in identifier."),
@@ -481,7 +500,7 @@ static dl_error_t ast_generate_identifier(duckLisp_t *duckLisp,
 	while ((indexCopy < (dl_ptrdiff_t) source_length)
 	       && (dl_string_isAlpha(source[indexCopy])
 	           || dl_string_isDigit(source[indexCopy])
-	           || cst_isIdentifierSymbol(source[indexCopy]))) {
+	           || isIdentifierSymbol(source[indexCopy]))) {
 		indexCopy++;
 	}
 	stop_index = indexCopy;
@@ -529,7 +548,7 @@ static void ast_bool_quit(duckLisp_t *duckLisp, duckLisp_ast_bool_t *boolean) {
 	boolean->value = dl_false;
 }
 
-static dl_error_t ast_generate_bool(duckLisp_t *duckLisp,
+static dl_error_t parse_bool(duckLisp_t *duckLisp,
                                     const char *source,
                                     const dl_size_t source_length,
                                     duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -616,7 +635,7 @@ static void ast_int_quit(duckLisp_t *duckLisp, duckLisp_ast_integer_t *integer) 
 	integer->value = 0;
 }
 
-static dl_error_t ast_generate_int(duckLisp_t *duckLisp,
+static dl_error_t parse_int(duckLisp_t *duckLisp,
                                    const char *source,
                                    const dl_size_t source_length,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -669,7 +688,7 @@ static dl_error_t ast_generate_int(duckLisp_t *duckLisp,
 	}
 
 	while ((indexCopy < (dl_ptrdiff_t) source_length)
-	       && cst_isIdentifierSymbol(source[indexCopy])) {
+	       && isIdentifierSymbol(source[indexCopy])) {
 		if (hexadecimal) {
 			tempBool = dl_string_isHexadecimalDigit(source[indexCopy]);
 		}
@@ -724,7 +743,7 @@ static void ast_float_quit(duckLisp_t *duckLisp, duckLisp_ast_float_t *floatingP
 	floatingPoint->value = 0.0;
 }
 
-static dl_error_t ast_generate_float(duckLisp_t *duckLisp,
+static dl_error_t parse_float(duckLisp_t *duckLisp,
                                      const char *source,
                                      const dl_size_t source_length,
                                      duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -782,7 +801,7 @@ static dl_error_t ast_generate_float(duckLisp_t *duckLisp,
 		indexCopy++;
 
 		while ((indexCopy < (dl_ptrdiff_t) source_length)
-		       && cst_isIdentifierSymbol(source[indexCopy])
+		       && isIdentifierSymbol(source[indexCopy])
 		       && (dl_string_toLower(source[indexCopy]) != 'e')) {
 
 			tempBool = dl_string_isDigit(source[indexCopy]);
@@ -808,7 +827,7 @@ static dl_error_t ast_generate_float(duckLisp_t *duckLisp,
 		indexCopy++;
 
 		while ((indexCopy < (dl_ptrdiff_t) source_length)
-		       && cst_isIdentifierSymbol(source[indexCopy])
+		       && isIdentifierSymbol(source[indexCopy])
 		       && (dl_string_toLower(source[indexCopy]) != 'e')
 		       && (source[indexCopy] != '.')) {
 
@@ -837,7 +856,7 @@ static dl_error_t ast_generate_float(duckLisp_t *duckLisp,
 		}
 
 		while ((indexCopy < (dl_ptrdiff_t) source_length)
-		       && cst_isIdentifierSymbol(source[indexCopy])
+		       && isIdentifierSymbol(source[indexCopy])
 		       && (dl_string_toLower(source[indexCopy]) != 'e')) {
 			if (!dl_string_isDigit(source[indexCopy])) {
 				eError = duckLisp_error_pushSyntax(duckLisp,
@@ -889,7 +908,7 @@ static dl_error_t ast_generate_float(duckLisp_t *duckLisp,
 		indexCopy++;
 
 		while ((indexCopy < (dl_ptrdiff_t) source_length)
-		       && cst_isIdentifierSymbol(source[indexCopy])) {
+		       && isIdentifierSymbol(source[indexCopy])) {
 			if (!dl_string_isDigit(source[indexCopy])) {
 				eError = duckLisp_error_pushSyntax(duckLisp,
 				                                   DL_STR("Expected a digit in exponent of float."),
@@ -918,10 +937,8 @@ static dl_error_t ast_generate_float(duckLisp_t *duckLisp,
 	compoundExpression->type = duckLisp_ast_type_float;
 	compoundExpression->value.floatingPoint = floatingPoint;
 	*index = stop_index;
-	printf("FLOAT: %e\n", compoundExpression->value.floatingPoint.value);
 
- cleanup:
-	return e;
+ cleanup: return e;
 }
 
 static void ast_print_float(duckLisp_t duckLisp, duckLisp_ast_float_t floatingPoint) {
@@ -949,7 +966,7 @@ static dl_error_t ast_string_quit(duckLisp_t *duckLisp, duckLisp_ast_string_t *s
 	return e;
 }
 
-static dl_error_t ast_generate_string(duckLisp_t *duckLisp,
+static dl_error_t parse_string(duckLisp_t *duckLisp,
                                       const char *source,
                                       const dl_size_t source_length,
                                       duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -1121,7 +1138,7 @@ dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compou
 	return e;
 }
 
-static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
+static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
                                                   const char *source,
                                                   const dl_size_t source_length,
                                                   duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -1144,15 +1161,15 @@ static dl_error_t ast_generate_compoundExpression(duckLisp_t *duckLisp,
 	} readerStruct_t;
 
 	readerStruct_t readerStruct[] = {
-		{.reader = ast_generate_bool,       .type = duckLisp_ast_type_bool},
-		{.reader = ast_generate_int,        .type = duckLisp_ast_type_int},
-		{.reader = ast_generate_float,      .type = duckLisp_ast_type_float},
-		{.reader = ast_generate_string,     .type = duckLisp_ast_type_string},
-		{.reader = ast_generate_identifier, .type = duckLisp_ast_type_identifier},
-		{.reader = ast_generate_expression, .type = duckLisp_ast_type_expression},
+		{.reader = parse_bool,       .type = duckLisp_ast_type_bool},
+		{.reader = parse_int,        .type = duckLisp_ast_type_int},
+		{.reader = parse_float,      .type = duckLisp_ast_type_float},
+		{.reader = parse_string,     .type = duckLisp_ast_type_string},
+		{.reader = parse_identifier, .type = duckLisp_ast_type_identifier},
+		{.reader = parse_expression, .type = duckLisp_ast_type_expression},
 	};
 
-	while (dl_string_isSpace(source[indexCopy])) indexCopy++;
+	(void) parse_irrelevant(dl_null, source, source_length, dl_null, &indexCopy, dl_false);
 	DL_DOTIMES(i, sizeof(readerStruct)/sizeof(readerStruct_t)) {
 		dl_ptrdiff_t localIndex = indexCopy;
 		e = readerStruct[i].reader(duckLisp, source, source_length, compoundExpression, &localIndex, dl_false);
@@ -1206,7 +1223,7 @@ dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compou
 }
 
 
-dl_error_t duckLisp_ast_append(duckLisp_t *duckLisp,
+dl_error_t duckLisp_read(duckLisp_t *duckLisp,
                                const char *source,
                                const dl_size_t source_length,
                                duckLisp_ast_compoundExpression_t *ast,
@@ -1215,40 +1232,12 @@ dl_error_t duckLisp_ast_append(duckLisp_t *duckLisp,
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
-	/* Trim whitespace off the end. */
-	dl_size_t sub_source_length = source_length;
-	while (sub_source_length > 0) {
-		/**/ ;
-		if (dl_string_isSpace(source[sub_source_length - 1])) {
-			--sub_source_length;
-		}
-		else {
-			break;
-		}
-	}
-
-	e = ast_generate_compoundExpression(duckLisp, source, sub_source_length, ast, &index, throwErrors);
+	e = parse_compoundExpression(duckLisp, source, source_length, ast, &index, throwErrors);
 	if (e) {
 		eError = duckLisp_error_pushSyntax(duckLisp, DL_STR("Error converting CST to AST."), 0, throwErrors);
 		e = eError ? eError : dl_error_invalidValue;
 		goto cleanup;
 	}
-
- cleanup:
-	return e;
-}
-
-dl_error_t duckLisp_read(duckLisp_t *duckLisp,
-                         const char *source,
-                         const dl_size_t source_length,
-                         duckLisp_ast_compoundExpression_t *ast,
-                         const dl_ptrdiff_t index,
-                         dl_array_t *errors) {
-	dl_error_t e = dl_error_ok;
-	(void) errors;
-
-	e = duckLisp_ast_append(duckLisp, source, source_length, ast, index, dl_true);
-	if (e) goto cleanup;
 
  cleanup:
 	return e;
@@ -10137,16 +10126,10 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 
 	duckLisp->memoryAllocation = memoryAllocation;
 
-	// /* No error */ cst_expression_init(&duckLisp->cst);
-	// /* No error */ ast_expression_init(&duckLisp->ast);
 	/* No error */ dl_array_init(&duckLisp->errors,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_error_t),
 	                             dl_array_strategy_double);
-	/* /\* No error *\/ dl_array_init(&duckLisp->stack, */
-	/*                              &duckLisp->memoryAllocation, */
-	/*                              sizeof(duckLisp_object_t), */
-	/*                              dl_array_strategy_double); */
 	/* No error */ dl_array_init(&duckLisp->generators_stack,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
@@ -10300,7 +10283,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	/* Parse. */
 
-	e = duckLisp_ast_append(duckLisp, source, source_length, &ast, index, dl_true);
+	e = duckLisp_read(duckLisp, source, source_length, &ast, index, dl_true);
 	if (e) goto cleanup;
 
 	/* printf("AST: "); */

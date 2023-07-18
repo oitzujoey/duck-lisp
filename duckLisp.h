@@ -518,7 +518,7 @@ typedef struct duckLisp_instructionObject_s {
 
 void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression);
 dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression);
-dl_error_t duckLisp_ast_append(duckLisp_t *duckLisp,
+dl_error_t duckLisp_read(duckLisp_t *duckLisp,
                                const char *source,
                                const dl_size_t source_length,
                                duckLisp_ast_compoundExpression_t *ast,

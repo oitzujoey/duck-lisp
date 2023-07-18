@@ -1067,7 +1067,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* puts(COLOR_NORMAL); */
 
-	e = duckLisp_ast_append(duckLisp, sourceCode.elements, sourceCode.elements_length, &ast, 0, dl_true);
+	e = duckLisp_read(duckLisp, sourceCode.elements, sourceCode.elements_length, &ast, 0, dl_true);
 	if (e) goto cFileName_cleanup;
 
 	/* printf(COLOR_YELLOW); */
