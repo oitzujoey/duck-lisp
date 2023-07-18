@@ -1005,8 +1005,6 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	char tempChar = '\0';
 	dl_array_t sourceCode; /* dl_array_t:char */
 	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
-	duckLisp_cst_compoundExpression_t cst;
-	/**/ cst_compoundExpression_init(&cst);
 	duckLisp_ast_compoundExpression_t ast;
 	/**/ ast_compoundExpression_init(&ast);
 
@@ -1069,13 +1067,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* puts(COLOR_NORMAL); */
 
-	e = duckLisp_cst_append(duckLisp, sourceCode.elements, sourceCode.elements_length, &cst, 0, dl_true);
-	if (e) goto cFileName_cleanup;
-
-	e = duckLisp_ast_append(duckLisp, sourceCode.elements, &ast, &cst, 0, dl_true);
-	if (e) goto cFileName_cleanup;
-
-	e = cst_compoundExpression_quit(duckLisp, &cst);
+	e = duckLisp_ast_append(duckLisp, sourceCode.elements, sourceCode.elements_length, &ast, 0, dl_true);
 	if (e) goto cFileName_cleanup;
 
 	/* printf(COLOR_YELLOW); */
