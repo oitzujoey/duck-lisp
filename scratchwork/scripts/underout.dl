@@ -2,11 +2,12 @@
 (print "<underout.dl>\n")
 (include "../scripts/library.dl")
 
-(comment Under-Out
-		 `new-deck' generates a new deck of cards.
-		 `pseudo-shuffle' shoves a specified number of cards under the deck and then places the top card on a new deck.
-		 `find-cycles' determines which cards move where during a shuffle.
-		 `calculate-identity-shuffle' calculates how many times the deck must be shuffled to place it back in its original state.)
+;; Under-Out
+;; `new-deck' generates a new deck of cards.
+;; `pseudo-shuffle' shoves a specified number of cards under the deck and then places the top card on a new deck.
+;; `find-cycles' determines which cards move where during a shuffle.
+;; `calculate-identity-shuffle' calculates how many times the deck must be shuffled to place it back in its original
+;; state.
 
 (defun new-deck (size)
   (print "* <new-deck ") (print size) (println ">")
@@ -40,7 +41,7 @@
   (var deck-length (length deck))
   (var search-area scratch-shuffled-deck)
   (while search-area
-	(comment " Find the next element that has not been touched. This is the start of the next loop. ")
+	;; Find the next element that has not been touched. This is the start of the next loop.
 	(while (and search-area
 				(null? (car search-area)))
       (pop search-area))
@@ -52,7 +53,7 @@
 	   (var endcard (car search-area))
 	   (setq cycle (cons endcard cycle))
 	   (set-car search-area ())
-	   (comment " Trace the cycle. ")
+	   ;; Trace the cycle.
 	   (println "  Tracing cycle…")
 	   (var next-position-cons (nthcdr (first cycle) scratch-shuffled-deck))
 	   (var next-position (car next-position-cons))
@@ -61,7 +62,7 @@
 		 (setq cycle (cons next-position cycle))
 		 (setq next-position-cons (nthcdr (first cycle) scratch-shuffled-deck))
 		 (setq next-position (car next-position-cons)))
-	   (comment " Move to the next cycle. ")
+	   ;; Move to the next cycle.
 	   (println "    Finished trace.")
 	   (setq cycles (cons cycle (cdr cycles)))
 	   (to cycle-number (1+))
@@ -75,7 +76,7 @@
   (var lengths ())
   (dolist cycle cycles
 	      (setq lengths (cons (length cycle) lengths)))
-  (comment " Initialize `total` with a safe value that will not effect the rest of the calculation. ")
+  ;; Initialize `total` with a safe value that will not effect the rest of the calculation.
   (println "Calculating LCM…")
   (var total (first lengths))
   (dolist length lengths
