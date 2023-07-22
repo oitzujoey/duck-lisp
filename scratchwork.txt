@@ -2064,14 +2064,11 @@ Defer:
 
 Todo:
     Fix C API
-    Rewrite parser
     Clean up memory
     Fix error handling?
-	Profile.
     Optimization?
+        Rewrite memory allocator?
 	Clean up.
-    library: composite types?
-    library: multiple dispatch?
     Hash tables?
 	Create Hidey-Chess branch and add required functions.
 	Clean up.

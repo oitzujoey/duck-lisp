@@ -9,7 +9,6 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 * First class functions and lexical scope
 * Common Lisp-like macros
 * UTF-8 compatible
-* User created keywords
 * C FFI
 * Split compiler and VM
 * Tested on x64 (Linux) and ARM (Linux)
@@ -19,7 +18,6 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 
 * Independent of the standard library
 * Independent of OS
-* Independent of processor architecture
 
 ### Quirks
 
@@ -52,21 +50,6 @@ To build with shared libraries, configure the project with `cmake .. -DBUILD_SHA
 Examples can be found in the scratchwork directory.
 
 ### Running
-
-```bash
-# Fuzz the memory allocator. Perform 10 tests.
-./memory-dev 10
-```
-
-```bash
-# Populate a trie from an array and print it.
-./trie-dev
-```
-
-```bash
-# Benchmark some sorts.
-./sort-test
-```
 
 ```bash
 # Run duck-lisp language tests.
@@ -104,4 +87,4 @@ Examples on how to extend the language can be found in `duckLisp-dev.c`.
 
 ## Is it any good?
 
-Um…
+Sure…
