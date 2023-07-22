@@ -653,6 +653,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        duckLisp_ast_expression_t *expression,
                                        dl_ptrdiff_t *index);
 
+dl_error_t duckLisp_instructionObject_quit(duckLisp_t *duckLisp, duckLisp_instructionObject_t *instruction);
 dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *bytecode,
