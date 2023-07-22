@@ -165,7 +165,8 @@ There are two literal boolean values: `true` and `false`.
 
 The minimum and maximum integer values an object can contain is unspecified.
 
-Literal integer values are defined by this regex: `-?[0-9]+`
+Literal decimal integer values are defined by this regex: `-?[0-9]+`  
+Literal hexadecimal integer values are defined by this regex: `-0[xX]?[0-9]+`
 
 ### Floats
 

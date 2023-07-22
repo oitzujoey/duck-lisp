@@ -460,6 +460,8 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 	dl_ptrdiff_t stop_index = start_index;
 	dl_bool_t tempBool;
 	dl_bool_t hexadecimal = dl_false;
+	duckLisp_ast_integer_t integer;
+	integer.value = 0;
 
 	if (indexCopy >= (dl_ptrdiff_t) source_length) {
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -501,31 +503,32 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 		if ((source[indexCopy - 1] == '0') && ((source[indexCopy] == 'x') || (source[indexCopy] == 'X'))) {
 			indexCopy++;
 			hexadecimal = dl_true;
+
+			if (!dl_string_isHexadecimalDigit(source[indexCopy])) {
+				eError = duckLisp_error_pushSyntax(duckLisp,
+				                                   DL_STR("Expected a digit in integer."),
+				                                   start_index,
+				                                   indexCopy,
+				                                   throwErrors);
+				e = eError ? eError : dl_error_invalidValue;
+				goto cleanup;
+			}
+			indexCopy++;
 		}
 	}
 
-	while ((indexCopy < (dl_ptrdiff_t) source_length)
-	       && isIdentifierSymbol(source[indexCopy])) {
+	while (indexCopy < (dl_ptrdiff_t) source_length) {
 		if (hexadecimal) {
 			tempBool = dl_string_isHexadecimalDigit(source[indexCopy]);
 		}
 		else {
 			tempBool = dl_string_isDigit(source[indexCopy]);
 		}
-		if (!tempBool) {
-			eError = duckLisp_error_pushSyntax(duckLisp,
-			                                   DL_STR("Encountered non-digit in integer."),
-			                                   start_index,
-			                                   indexCopy,
-			                                   throwErrors);
-			e = eError ? eError : dl_error_invalidValue;
-			goto cleanup;
-		}
+		if (!tempBool) break;
 		indexCopy++;
 	}
 	stop_index = indexCopy;
 
-	duckLisp_ast_integer_t integer;
 	e = dl_string_toPtrdiff(&integer.value, &source[start_index], stop_index - start_index);
 	if (e) {
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -541,8 +544,7 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 	compoundExpression->value.integer = integer;
 	*index = stop_index;
 
- cleanup:
-	return e;
+ cleanup: return e;
 }
 
 static void ast_print_int(duckLisp_t duckLisp, duckLisp_ast_integer_t integer) {
@@ -575,6 +577,7 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 	dl_ptrdiff_t indexCopy = start_index;
 	dl_ptrdiff_t stop_index = start_index;
 	dl_bool_t tempBool;
+	dl_bool_t hasDecimalPointOrExponent = dl_false;
 
 	if (indexCopy >= (dl_ptrdiff_t) source_length) {
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -602,6 +605,7 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 
 	/* Try .1 */
 	if (source[indexCopy] == '.') {
+		hasDecimalPointOrExponent = dl_true;
 		indexCopy++;
 
 		if (indexCopy >= (dl_ptrdiff_t) source_length) {
@@ -631,20 +635,11 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 		       && (dl_string_toLower(source[indexCopy]) != 'e')) {
 
 			tempBool = dl_string_isDigit(source[indexCopy]);
-			if (!tempBool) {
-				eError = duckLisp_error_pushSyntax(duckLisp,
-				                                   DL_STR("Expected digit in float."),
-				                                   start_index,
-				                                   indexCopy,
-				                                   throwErrors);
-				e = eError ? eError : dl_error_invalidValue;
-				goto cleanup;
-			}
-
+			if (!tempBool) break;
 			indexCopy++;
 		}
 	}
-	/* Try 1.2, 1., and 1 */
+	/* Try 1.2 and 1. */
 	else {
 		if (!dl_string_isDigit(source[indexCopy])) {
 			eError = duckLisp_error_pushSyntax(duckLisp,
@@ -663,20 +658,12 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 		       && (source[indexCopy] != '.')) {
 
 			tempBool = dl_string_isDigit(source[indexCopy]);
-			if (!tempBool) {
-				eError = duckLisp_error_pushSyntax(duckLisp,
-				                                   DL_STR("Expected digit in float."),
-				                                   start_index,
-				                                   indexCopy,
-				                                   throwErrors);
-				e = eError ? eError : dl_error_invalidValue;
-				goto cleanup;
-			}
-
+			if (!tempBool) break;
 			indexCopy++;
 		}
 
 		if (source[indexCopy] == '.') {
+			hasDecimalPointOrExponent = dl_true;
 			indexCopy++;
 
 			if (indexCopy >= (dl_ptrdiff_t) source_length) {
@@ -690,22 +677,14 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 		while ((indexCopy < (dl_ptrdiff_t) source_length)
 		       && isIdentifierSymbol(source[indexCopy])
 		       && (dl_string_toLower(source[indexCopy]) != 'e')) {
-			if (!dl_string_isDigit(source[indexCopy])) {
-				eError = duckLisp_error_pushSyntax(duckLisp,
-				                                   DL_STR("Expected a digit in float."),
-				                                   start_index,
-				                                   indexCopy,
-				                                   throwErrors);
-				e = eError ? eError : dl_error_invalidValue;
-				goto cleanup;
-			}
-
+			if (!dl_string_isDigit(source[indexCopy])) break;
 			indexCopy++;
 		}
 	}
 
 	/* …e3 */
 	if (dl_string_toLower(source[indexCopy]) == 'e') {
+		hasDecimalPointOrExponent = dl_true;
 		indexCopy++;
 
 		if (indexCopy >= (dl_ptrdiff_t) source_length) {
@@ -745,19 +724,16 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 
 		while ((indexCopy < (dl_ptrdiff_t) source_length)
 		       && isIdentifierSymbol(source[indexCopy])) {
-			if (!dl_string_isDigit(source[indexCopy])) {
-				eError = duckLisp_error_pushSyntax(duckLisp,
-				                                   DL_STR("Expected a digit in exponent of float."),
-				                                   start_index,
-				                                   indexCopy,
-				                                   throwErrors);
-				e = eError ? eError : dl_error_invalidValue;
-				goto cleanup;
-			}
-
+			if (!dl_string_isDigit(source[indexCopy])) break;
 			indexCopy++;
 		}
 	}
+
+	if (!hasDecimalPointOrExponent) {
+		e = dl_error_invalidValue;
+		goto cleanup;
+	}
+
 	stop_index = indexCopy;
 
 	duckLisp_ast_float_t floatingPoint;
@@ -1011,8 +987,8 @@ static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
 
 	readerStruct_t readerStruct[] = {
 		{.reader = parse_bool,       .type = duckLisp_ast_type_bool},
-		{.reader = parse_int,        .type = duckLisp_ast_type_int},
 		{.reader = parse_float,      .type = duckLisp_ast_type_float},
+		{.reader = parse_int,        .type = duckLisp_ast_type_int},
 		{.reader = parse_string,     .type = duckLisp_ast_type_string},
 		{.reader = parse_identifier, .type = duckLisp_ast_type_identifier},
 		{.reader = parse_expression, .type = duckLisp_ast_type_expression},
