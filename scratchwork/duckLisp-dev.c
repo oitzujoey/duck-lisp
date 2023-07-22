@@ -157,7 +157,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		printf("%li", duckVM_object_getInteger(object));
 		break;
 	case duckVM_object_type_float:
-		printf("%f\n", duckVM_object_getFloat(object));
+		printf("%f", duckVM_object_getFloat(object));
 		break;
 	case duckVM_object_type_bool:
 		printf("%s", duckVM_object_getBoolean(object) ? "true" : "false");
