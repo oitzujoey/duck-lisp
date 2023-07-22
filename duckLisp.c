@@ -9243,9 +9243,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
                                const char *source,
                                const dl_size_t source_length) {
 	dl_error_t e = dl_error_ok;
-	// struct {
-	//		dl_bool_t duckLispMemory;
-	// } d = {0};
+	dl_error_t eError = dl_error_ok;
 
 	dl_ptrdiff_t index = -1;
 	duckLisp_ast_compoundExpression_t ast;
@@ -9288,9 +9286,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	e = duckLisp_compileState_quit(&compileState);
 	if (e) goto cleanup;
 
-	e = ast_compoundExpression_quit(duckLisp, &ast);
-	if (e) goto cleanup;
-
 	*bytecode = ((unsigned char*) bytecodeArray.elements);
 	*bytecode_length = bytecodeArray.elements_length;
 
@@ -9298,6 +9293,9 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	if (e) {
 		*bytecode_length = 0;
 	}
+
+	eError = ast_compoundExpression_quit(duckLisp, &ast);
+	if (eError) e = eError;
 
 	return e;
 }

@@ -152,13 +152,20 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 	}
 
 	indexCopy++;
-	while (source[indexCopy] != ')') {
+	while (dl_true) {
 		duckLisp_ast_compoundExpression_t subCompoundExpression;
 		dl_ptrdiff_t subIndex = indexCopy;
 		if (indexCopy >= (dl_ptrdiff_t) source_length) {
 			e = dl_error_invalidValue;
+			/* Definitely an error. Always push the error. */
+			eError = duckLisp_error_pushSyntax(duckLisp,
+			                                   DL_STR("Unmatched parenthesis."),
+			                                   indexCopy,
+			                                   dl_true);
+			if (eError) e = eError;
 			goto cleanup;
 		}
+		if (source[indexCopy] == ')') break;
 		e = parse_compoundExpression(duckLisp,
 		                                    source,
 		                                    source_length,
@@ -185,11 +192,12 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 	}
 	indexCopy++;
 
-	compoundExpression->type = duckLisp_ast_type_expression;
-	compoundExpression->value.expression = expression;
 	*index = indexCopy;
 
  cleanup:
+	compoundExpression->type = duckLisp_ast_type_expression;
+	compoundExpression->value.expression = expression;
+
 	return e;
 }
 
