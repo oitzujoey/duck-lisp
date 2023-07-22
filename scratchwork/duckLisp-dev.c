@@ -946,7 +946,7 @@ dl_error_t duckLispDev_callback_writeFile(duckVM_t *duckVM) {
 	return e;
 }
 
-dl_error_t print_errors(dl_array_t *errors, dl_array_t *sourceCode){
+dl_error_t print_errors(dl_memoryAllocation_t *memoryAllocation, dl_array_t *errors, dl_array_t *sourceCode){
 	dl_error_t e = dl_error_ok;
 	dl_bool_t firstLoop = dl_true;
 	while (errors->elements_length > 0) {
@@ -965,7 +965,7 @@ dl_error_t print_errors(dl_array_t *errors, dl_array_t *sourceCode){
 		putchar('\n');
 
 		if (error.index == -1) {
-			continue;
+			goto whileCleanup;
 		}
 
 		if (sourceCode) {
@@ -985,6 +985,11 @@ dl_error_t print_errors(dl_array_t *errors, dl_array_t *sourceCode){
 
 			puts(COLOR_NORMAL);
 		}
+
+	whileCleanup:
+		e = DL_FREE(memoryAllocation, &error.message);
+		if (e) break;
+		error.message_length = 0;
 	}
 	return e;
 }
@@ -1195,7 +1200,7 @@ int eval(duckLisp_t *duckLisp,
 		printf(COLOR_RED "Error loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
 	}
 
-	e = print_errors(&duckLisp->errors, &sourceCode);
+	e = print_errors(duckLisp->memoryAllocation, &duckLisp->errors, &sourceCode);
 	if (e) goto cleanup;
 	/* printf(COLOR_CYAN); */
 	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
@@ -1228,7 +1233,7 @@ int eval(duckLisp_t *duckLisp,
 	/* puts(COLOR_CYAN "VM: {" COLOR_NORMAL); */
 
 	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
-	e = print_errors(&duckVM->errors, dl_null);
+	e = print_errors(duckVM->memoryAllocation, &duckVM->errors, dl_null);
 	if (e) goto cleanup;
 	if (runtimeError) {
 		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[runtimeError]);

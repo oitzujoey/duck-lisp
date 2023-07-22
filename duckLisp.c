@@ -7177,6 +7177,8 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 	if (type != dl_null) *type = temp_type;
 
  cleanup:
+	eError = dl_array_quit(&eString);
+	if (eError) e = eError;
 	return e;
 }
 
@@ -7325,6 +7327,8 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 	}
 
  cleanup:
+	eError = dl_array_quit(&eString);
+	if (eError) e = eError;
 	return e;
 }
 
@@ -10195,6 +10199,11 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 		            &DL_ARRAY_GETADDRESS(duckLisp->symbols_array, duckLisp_ast_identifier_t, i).value);
 	}
 	e = dl_array_quit(&duckLisp->symbols_array);
+	DL_DOTIMES(i, duckLisp->errors.elements_length) {
+		e = DL_FREE(duckLisp->memoryAllocation,
+		            &DL_ARRAY_GETADDRESS(duckLisp->errors, duckLisp_error_t, i).message);
+	}
+	e = dl_array_quit(&duckLisp->errors);
 	(void) e;
 }
 

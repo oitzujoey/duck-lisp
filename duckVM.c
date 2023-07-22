@@ -437,7 +437,11 @@ void duckVM_quit(duckVM_t *duckVM) {
 	e = duckVM_gclist_garbageCollect(duckVM);
 	e = dl_array_quit(&duckVM->upvalue_array_call_stack);
 	/**/ duckVM_gclist_quit(&duckVM->gclist);
-	/**/ dl_memclear(&duckVM->errors, sizeof(dl_array_t));
+	DL_DOTIMES(i, duckVM->errors.elements_length) {
+		e = DL_FREE(duckVM->memoryAllocation,
+		            &DL_ARRAY_GETADDRESS(duckVM->errors, duckLisp_error_t, i).message);
+	}
+	e = dl_array_quit(&duckVM->errors);
 	(void) e;
 }
 
