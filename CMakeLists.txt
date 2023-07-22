@@ -49,7 +49,9 @@ endif()
 if(USE_STDLIB)
   add_definitions(-DUSE_STDLIB)
 endif()
-                      
+
+# add_definitions(-DNO_OPTIMIZE_JUMPS)
+
 target_compile_definitions(DuckLib PUBLIC "EXPORTING_DUCKLIB")
 
 target_link_libraries(DuckLisp PUBLIC DuckLib ubsan)

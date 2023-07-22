@@ -129,16 +129,6 @@ typedef enum {
 } duckLisp_functionType_t;
 
 typedef struct {
-	dl_ptrdiff_t source;
-	dl_bool_t absolute;
-} duckLisp_label_source_t;
-
-typedef struct {
-	dl_ptrdiff_t target;
-	dl_array_t sources; /* dl_array_t:duckLisp_label_source_t */
-} duckLisp_label_t;
-
-typedef struct {
 	/* All variable names in the current scope are stored here. */
 	dl_trie_t locals_trie;   /* Points to stack objects. */
 

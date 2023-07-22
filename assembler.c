@@ -24,14 +24,14 @@ dl_error_t duckLisp_instructionObject_quit(duckLisp_t *duckLisp, duckLisp_instru
 
 /* This is only to be used after the bytecode has been fully assembled. */
 typedef struct {
-	/* If this is an array index to a linked list element, incrementing the link address will not necessarily
-	   increment */
-	/* this variable. */
+	/* If this is an array index to a linked list element (the bytecode linked list), incrementing the link address will
+	   not necessarily increment this variable. This is important to keep in mind since the list elements are part of an
+	   array. This is the *array* index, not the *list* index. */
 	dl_ptrdiff_t source;  /* Points to the array (not list) index. */
 	dl_ptrdiff_t target;  /* Points to the array (not list) index. */
 	dl_uint8_t size;  /* Can hold values 1-4. */
-	dl_bool_t forward;  /* True if a forward reference. */
-	dl_bool_t absolute;  /* Indicates an absolute address, which is always 32 bits. */
+	dl_bool_t forward;  /* True if a forward reference. Otherwise this is a backward reference. */
+	dl_bool_t absolute;  /* Indicates an absolute address, which is always 32 bits. i.e. Do not mung. */
 } jumpLink_t;
 
 typedef struct {
@@ -62,7 +62,7 @@ int jumpLink_less(const void *l, const void *r, const void *context) {
 	   assigned to (label l2). This *should* be fine, but Hoare Quicksort messes with
 	   the order when indexing the links. To force an explicit order, we append an
 	   extra bit that is set to make the comparison think that labels are larger than
-	   the equivalent goto.
+	   the goto which has the same address.
 	*/
 	const jumpLink_t *links = linkArray->links;
 	const dl_ptrdiff_t left = ((left_pointer->type == jumpLinkPointers_type_target)
@@ -74,6 +74,15 @@ int jumpLink_less(const void *l, const void *r, const void *context) {
 	return left - right;
 }
 
+
+/* This function has three major parts.
+   1. Remove redundant instructions.
+   2. Create a mapping of jumps and branches to target labels.
+   3. Assemble to a preliminary bytecode. Jumps and branches do not have an address at this point. Jumps are a single
+      byte long at this point. The opcode used by jumps is "jump32".
+   4. Attempt to shrink the size of the jump and branch instructions. Use "jump16" or "jump8" if possible. Likely the
+      very definition of "premature optimization", but I like it.
+   5. Insert relative jump and branch targets according to the size of the opcode. */
 dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *bytecode,
@@ -86,14 +95,25 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	dl_ptrdiff_t tempPtrdiff = -1;
 
 	typedef struct {
+		dl_ptrdiff_t source;
+		dl_bool_t absolute;
+	} duckLisp_label_source_t;
+
+	typedef struct {
+		dl_ptrdiff_t target;
+		dl_array_t sources; /* dl_array_t:duckLisp_label_source_t */
+	} duckLisp_label_t;
+
+	typedef struct {
 		dl_uint8_t byte;
 		dl_ptrdiff_t next;
 		dl_ptrdiff_t prev;
 	} byteLink_t;
 
-	dl_array_t bytecodeList; /* byteLink_t */
+	linkArray_t linkArray = {0};
+	dl_array_t bytecodeList;  /* byteLink_t */
 	/**/ dl_array_init(&bytecodeList, duckLisp->memoryAllocation, sizeof(byteLink_t), dl_array_strategy_double);
-	dl_array_t currentArgs; /* unsigned char */
+	dl_array_t currentArgs;  /* unsigned char */
 	/**/ dl_array_init(&currentArgs, duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
 
 	byteLink_t tempByteLink;
@@ -105,6 +125,21 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	                             dl_array_strategy_double);
 
 	/* Push-pop peephole optimization */
+	/* A push followed by an immediate pop is redundant. There is no reason for that sequence to exist. Delete the two
+	   instructions. */
+	/* One worry here is that in the final bytecode, it is impossible to tell if the second of any two sequential
+	   instructions is the target of a branch.
+
+	   add8 1 2 3
+	   pop8 1     <-- target of a branch.
+
+	   Fortunately this is not a problem when working with high-level assembly. It actually looks like this:
+
+	   add 1 2 3
+	   label 12
+	   pop 1
+
+	   So as long as the label is in between the two instructions, this algorithm will work fine. */
 
 	DL_DOTIMES(i, assembly->elements_length) {
 		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i);
@@ -149,6 +184,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			                                                                   i + 1);
 			duckLisp_instructionClass_t nextClass = nextInstruction.instructionClass;
 			if (nextClass == duckLisp_instructionClass_pop) {
+				/* Preprocessor conditional for debug */
 #if 0
 				switch (class) {
 				case duckLisp_instructionClass_nil:
@@ -213,6 +249,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	}
 
 	/* Create label links. */
+	/* The links have one pointer to the target instruction, which is always a label instruction.
+	   The links have a bunch of other pointers to the branch instructions for that label. These are always jump or
+	   branch instructions. */
 
 	DL_DOTIMES(i, compileState->currentCompileState->label_number) {
 		duckLisp_label_t label;
@@ -225,8 +264,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 	}
 
+	/* Assemble high-level assembly to jump target-less bytecode. */
+
 	byteLink_t currentInstruction;
-	linkArray_t linkArray = {0};
 	currentInstruction.prev = -1;
 	for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly->elements_length; j++) {
 		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, j);
@@ -2091,6 +2131,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				continue;
 			}
 
+#ifndef NO_OPTIMIZE_JUMPS
 			switch (instruction.instructionClass) {
 			case duckLisp_instructionClass_pushVaClosure:
 				currentInstruction.byte = duckLisp_instruction_pushVaClosure8;
@@ -2111,17 +2152,44 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				e = dl_error_invalidValue;
 				goto cleanup;
 			}
+#else
+			switch (instruction.instructionClass) {
+			case duckLisp_instructionClass_pushVaClosure:
+				currentInstruction.byte = duckLisp_instruction_pushVaClosure32;
+				break;
+			case duckLisp_instructionClass_pushClosure:
+				currentInstruction.byte = duckLisp_instruction_pushClosure32;
+				break;
+			case duckLisp_instructionClass_call:
+				currentInstruction.byte = duckLisp_instruction_call32;
+				break;
+			case duckLisp_instructionClass_jump:
+				currentInstruction.byte = duckLisp_instruction_jump32;
+				break;
+			case duckLisp_instructionClass_brnz:
+				currentInstruction.byte = duckLisp_instruction_brnz32;
+				break;
+			default:
+				e = dl_error_invalidValue;
+				goto cleanup;
+			}
+
+			byte_length = 4;
+			e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+			if (e) goto cleanup;
+			index += byte_length;
+#endif
 
 			if ((instruction.instructionClass == duckLisp_instructionClass_brnz)
 			    || (instruction.instructionClass == duckLisp_instructionClass_call)) {
 				/* br?? also have a pop argument. Insert that. */
-				e = dl_array_pushElements(&currentArgs, dl_null, 1);
-				if (e) {
-					goto cleanup;
+				byte_length = 1;
+				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+				if (e) goto cleanup;
+				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, index + n) = args[1].value.integer & 0xFFU;
 				}
-				for (dl_ptrdiff_t n = 0; (dl_size_t) n < 1; n++) {
-					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = args[1].value.integer & 0xFFU;
-				}
+				index += byte_length;
 			}
 			else if ((instruction.instructionClass == duckLisp_instructionClass_pushClosure)
 			         || (instruction.instructionClass == duckLisp_instructionClass_pushVaClosure)) {
@@ -2210,7 +2278,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 		}
 		}
 
-		/* Write instruction. */
+		/* Write instruction to linked list of bytecode. */
 		if (bytecodeList.elements_length > 0) {
 			DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = bytecodeList.elements_length;
 		}
@@ -2235,16 +2303,8 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 		DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = -1;
 	}
 
-	/* { */
-	/* 	dl_size_t tempDlSize; */
-	/* 	/\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* 	printf("Compiler memory usage (post assembly): %llu/%llu (%llu%%)\n", */
-	/* 	       tempDlSize, */
-	/* 	       duckLisp->memoryAllocation->size, */
-	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* } */
-
 	/* Resolve jumps here. */
+	/* Each entry points to an entry in the linked list */
 
 	if (linkArray.links_length) {
 		e = dl_malloc(duckLisp->memoryAllocation,
@@ -2272,10 +2332,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				if (e) goto cleanup;
 			}
 		}
-
-		/* putchar('\n'); */
-
-#if 1
+	}
+#ifndef NO_OPTIMIZE_JUMPS
+	if (linkArray.links_length) {
 		/* Address has been set.
 		   Target has been set.*/
 
@@ -2391,6 +2450,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				newLinkArray.links[index] = link;
 			}
 		} while (offset != 0);
+
+		e = dl_free(duckLisp->memoryAllocation, (void *) &jumpLinkPointers);
+		if (e) goto cleanup;
 		/* putchar('\n'); */
 
 		/* printf("old: "); */
@@ -2465,64 +2527,41 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			if (array_end) DL_ARRAY_GETADDRESS(bytecodeList, byteLink_t, bytecodeList.elements_length - 1).next = -1;
 		}
 
-#endif
-
-		/* { */
-		/* 	dl_size_t tempDlSize; */
-		/* 	/\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-		/* 	printf("Compiler memory usage (mid fixups): %llu/%llu (%llu%%)\n\n", */
-		/* 	       tempDlSize, */
-		/* 	       duckLisp->memoryAllocation->size, */
-		/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
-		/* } */
-
-		// Clean up, clean up, everybody do your share…
+		/* Clean up, clean up, everybody do your share… */
 		e = dl_free(duckLisp->memoryAllocation, (void *) &newLinkArray.links);
 		if (e) goto cleanup;
+
 		e = dl_free(duckLisp->memoryAllocation, (void *) &linkArray.links);
 		if (e) goto cleanup;
-		e = dl_free(duckLisp->memoryAllocation, (void *) &jumpLinkPointers);
-		if (e) goto cleanup;
 	} /* End address space optimization. */
+#else
+	if (linkArray.links_length) {
+		const dl_uint8_t addressSize = 4;
+		for (dl_ptrdiff_t i = 0; (dl_size_t) i < linkArray.links_length; i++) {
+			const dl_ptrdiff_t source = linkArray.links[i].source;
+			const dl_ptrdiff_t address = ((linkArray.links[i].absolute)
+			                              ? linkArray.links[i].target
+			                              : (linkArray.links[i].target - (source + addressSize)));
+			for (dl_uint8_t j = 0; j < addressSize; j++) {
+				const dl_uint8_t byte = (address >> 8*(addressSize - j - 1)) & 0xFFU;
+				DL_ARRAY_GETADDRESS(bytecodeList, byteLink_t, source + j).byte = byte;
+			}
+		}
+	}
+#endif
 
-	// Adjust the opcodes for the address size and set address.
-	// i.e. rewrite the whole instruction.
+	/* Adjust the opcodes for the address size and set address. */
+	/* i.e. rewrite the whole instruction. */
 
-	/* { */
-	/* 	dl_size_t tempDlSize; */
-	/* 	/\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* 	printf("Compiler memory usage (post fixups): %llu/%llu (%llu%%)\n\n", */
-	/* 	       tempDlSize, */
-	/* 	       duckLisp->memoryAllocation->size, */
-	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* } */
-
-	// Convert bytecodeList to array.
+	/* Convert bytecodeList to array. */
 	if (bytecodeList.elements_length > 0) {
 		tempByteLink.next = 0;
 		while (tempByteLink.next != -1) {
-			/* if (tempByteLink.next == 193) break; */
 			tempByteLink = DL_ARRAY_GETADDRESS(bytecodeList, byteLink_t, tempByteLink.next);
 			e = dl_array_pushElement(bytecode, &tempByteLink.byte);
 			if (e) goto cleanup;
 		}
 	}
-
-	/* // Push a return instruction. */
-	/* dl_uint8_t tempChar = duckLisp_instruction_return0; */
-	/* e = dl_array_pushElement(bytecode, &tempChar); */
-	/* if (e) { */
-	/* 	goto l_cleanup; */
-	/* } */
-
-	/* { */
-	/* 	dl_size_t tempDlSize; */
-	/* 	/\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* 	printf("Compiler memory usage (post bytecode write): %llu/%llu (%llu%%)\n", */
-	/* 	       tempDlSize, */
-	/* 	       duckLisp->memoryAllocation->size, */
-	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* } */
 
  cleanup:
 	eError = dl_array_quit(&currentArgs);
