@@ -518,13 +518,17 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 	}
 
 	while (indexCopy < (dl_ptrdiff_t) source_length) {
+		if (!isIdentifierSymbol(source[indexCopy])) break;
 		if (hexadecimal) {
 			tempBool = dl_string_isHexadecimalDigit(source[indexCopy]);
 		}
 		else {
 			tempBool = dl_string_isDigit(source[indexCopy]);
 		}
-		if (!tempBool) break;
+		if (!tempBool) {
+			e = dl_error_invalidValue;
+			goto cleanup;
+		}
 		indexCopy++;
 	}
 	stop_index = indexCopy;
