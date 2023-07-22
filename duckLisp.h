@@ -534,7 +534,7 @@ dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp,
 void DECLSPEC duckLisp_quit(duckLisp_t *duckLisp);
 
 void DECLSPEC duckLisp_compileState_init(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState);
-dl_error_t DECLSPEC duckLisp_compileState_quit(duckLisp_compileState_t *compileState);
+dl_error_t DECLSPEC duckLisp_compileState_quit(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState);
 
 dl_error_t DECLSPEC duckLisp_error_pushRuntime(duckLisp_t *duckLisp,
                                                const char *message,
