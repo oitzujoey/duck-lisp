@@ -2284,7 +2284,9 @@ dl_error_t duckLisp_emit_label(duckLisp_t *duckLisp,
   ==========
 */
 
-/* `gensym` creates a label that is unlikely to ever be used. */
+static dl_error_t assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly);
+
+    /* `gensym` creates a label that is unlikely to ever be used. */
 dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *identifier) {
 	dl_error_t e = dl_error_ok;
 
@@ -6343,8 +6345,10 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 		dl_ptrdiff_t prev;
 	} byteLink_t;
 
-	dl_array_t bytecodeList; // byteLink_t
+	dl_array_t bytecodeList; /* byteLink_t */
 	/**/ dl_array_init(&bytecodeList, duckLisp->memoryAllocation, sizeof(byteLink_t), dl_array_strategy_double);
+	dl_array_t currentArgs; /* unsigned char */
+	/**/ dl_array_init(&currentArgs, duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
 
 	byteLink_t tempByteLink;
 
@@ -6476,10 +6480,8 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	}
 
 	byteLink_t currentInstruction;
-	dl_array_t currentArgs; /* unsigned char */
 	linkArray_t linkArray = {0};
 	currentInstruction.prev = -1;
-	/**/ dl_array_init(&currentArgs, duckLisp->memoryAllocation, sizeof(unsigned char), dl_array_strategy_double);
 	for (dl_ptrdiff_t j = 0; (dl_size_t) j < assembly->elements_length; j++) {
 		duckLisp_instructionObject_t instruction = DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, j);
 		/* This is OK because there is no chance of reallocating the args array. */
@@ -8777,6 +8779,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	/* } */
 
  cleanup:
+	eError = dl_array_quit(&currentArgs);
+	if (eError) e = eError;
+
 	eError = dl_array_quit(&bytecodeList);
 	if (eError) e = eError;
 
