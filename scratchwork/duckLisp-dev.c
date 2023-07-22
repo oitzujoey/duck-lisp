@@ -1244,6 +1244,26 @@ int eval(duckLisp_t *duckLisp,
 		goto cleanupBytecode;
 	}
 
+#ifdef USE_DATALOGGING
+	puts("");
+	printf("instructions generated: %lu\n", duckLisp->datalog.total_instructions_generated);
+	printf("bytes generated: %lu\n", duckLisp->datalog.total_bytes_generated);
+	if (duckLisp->datalog.total_instructions_generated > 0) {
+		printf("average bytes per instruction: %3.2f\n",
+		       ((double) duckLisp->datalog.total_bytes_generated
+		        / (double) duckLisp->datalog.total_instructions_generated));
+	}
+	printf("jump size optimization -- bytes removed: %lu -- percent improvement: %3.2f%%\n",
+	       duckLisp->datalog.jumpsize_bytes_removed,
+	       (100.0
+	        * (double) duckLisp->datalog.jumpsize_bytes_removed / (double) duckLisp->datalog.total_bytes_generated));
+	printf("push-pop optimization -- instructions removed: %lu -- percent improvement: %3.2f%%\n",
+	       duckLisp->datalog.pushpop_instructions_removed,
+	       (100.0
+	        * ((double) duckLisp->datalog.pushpop_instructions_removed
+	           / (double) duckLisp->datalog.total_instructions_generated)));
+#endif /* USE_DATALOGGING */
+
  cleanupBytecode:
 	eError = dl_free(duckLisp->memoryAllocation, (void **) &bytecode);
 	if (!e) e = eError;

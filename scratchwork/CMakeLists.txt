@@ -15,6 +15,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIRECTORY}")
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 option(USE_DUCKLIB_MALLOC "Use DuckLib's memory allocator" OFF)
 option(USE_STDLIB "Replace DuckLib functions with standard library equivalents" ON)
+option(NO_OPTIMIZE_JUMPS "Disable minimization of jump and branch instruction size" OFF)
+option(NO_OPTIMIZE_PUSHPOPS "Disable deletion of redundant push-pop instruction sequences" OFF)
+option(USE_DATALOGGING "Add an extra field in \"duckLisp_t\" called \"duckLisp_datalog_t\" to track performance" OFF)
+
 
 add_subdirectory(.. build-lisp)
 
@@ -43,6 +47,18 @@ endif()
 
 if(USE_STDLIB)
   add_definitions(-DUSE_STDLIB)
+endif()
+
+if(NO_OPTIMIZE_JUMPS)
+  add_definitions(-DNO_OPTIMIZE_JUMPS)
+endif()
+
+if(NO_OPTIMIZE_PUSHPOPS)
+  add_definitions(-DNO_OPTIMIZE_PUSHPOPS)
+endif()
+
+if(USE_DATALOGGING)
+  add_definitions(-DUSE_DATALOGGING)
 endif()
 
 target_link_libraries(memory-dev PUBLIC DuckLib ubsan)

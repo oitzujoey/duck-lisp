@@ -6492,7 +6492,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
                          dl_size_t maxComptimeVmObjects) {
 	dl_error_t error = dl_error_ok;
 
-	// All language-defined generators go here.
+	/* All language-defined generators go here. */
 	struct {
 		const char *name;
 		const dl_size_t name_length;
@@ -6561,6 +6561,13 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	};
 
 	duckLisp->memoryAllocation = memoryAllocation;
+
+#ifdef USE_DATALOGGING
+	duckLisp->datalog.total_bytes_generated = 0;
+	duckLisp->datalog.total_instructions_generated = 0;
+	duckLisp->datalog.jumpsize_bytes_removed = 0;
+	duckLisp->datalog.pushpop_instructions_removed = 0;
+#endif /* USE_DATALOGGING */
 
 	/* No error */ dl_array_init(&duckLisp->errors,
 	                             duckLisp->memoryAllocation,

@@ -50,7 +50,17 @@ if(USE_STDLIB)
   add_definitions(-DUSE_STDLIB)
 endif()
 
-# add_definitions(-DNO_OPTIMIZE_JUMPS)
+if(NO_OPTIMIZE_JUMPS)
+  add_definitions(-DNO_OPTIMIZE_JUMPS)
+endif()
+
+if(NO_OPTIMIZE_PUSHPOPS)
+  add_definitions(-DNO_OPTIMIZE_PUSHPOPS)
+endif()
+
+if(USE_DATALOGGING)
+  add_definitions(-DUSE_DATALOGGING)
+endif()
 
 target_compile_definitions(DuckLib PUBLIC "EXPORTING_DUCKLIB")
 

@@ -124,6 +124,11 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	                             sizeof(duckLisp_label_t),
 	                             dl_array_strategy_double);
 
+#ifdef USE_DATALOGGING
+	duckLisp->datalog.total_instructions_generated += assembly->elements_length;
+#endif /* USE_DATALOGGING */
+
+#ifndef NO_OPTIMIZE_PUSHPOPS
 	/* Push-pop peephole optimization */
 	/* A push followed by an immediate pop is redundant. There is no reason for that sequence to exist. Delete the two
 	   instructions. */
@@ -240,6 +245,10 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 					nextInstruction.instructionClass = duckLisp_instructionClass_internalNop;
 					DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i) = instruction;
 					DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i + 1) = nextInstruction;
+
+#ifdef USE_DATALOGGING
+	duckLisp->datalog.pushpop_instructions_removed += 2;
+#endif /* USE_DATALOGGING */
 				}
 				else {
 					DL_ARRAY_GETADDRESS(nextInstruction.args, duckLisp_instructionArgClass_t, 0) = pops;
@@ -247,6 +256,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			}
 		}
 	}
+#endif /* NO_OPTIMIZE_PUSHPOPS */
 
 	/* Create label links. */
 	/* The links have one pointer to the target instruction, which is always a label instruction.
@@ -2524,6 +2534,10 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				previous = bytecodeList.elements_length - 1;
 			}
 
+#ifdef USE_DATALOGGING
+				duckLisp->datalog.jumpsize_bytes_removed += 4 - newLinkArray.links[i].size;
+#endif /* USE_DATALOGGING */
+
 			if (array_end) DL_ARRAY_GETADDRESS(bytecodeList, byteLink_t, bytecodeList.elements_length - 1).next = -1;
 		}
 
@@ -2564,6 +2578,11 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	}
 
  cleanup:
+
+#ifdef USE_DATALOGGING
+	duckLisp->datalog.total_bytes_generated += bytecode->elements_length;
+#endif /* USE_DATALOGGING */
+
 	eError = dl_array_quit(&currentArgs);
 	if (eError) e = eError;
 
