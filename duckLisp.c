@@ -6452,6 +6452,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 					e = instructionObject_quit(duckLisp, &nextInstruction);
 					if (e) goto cleanup;
 					nextInstruction.instructionClass = duckLisp_instructionClass_internalNop;
+					DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i) = instruction;
 					DL_ARRAY_GETADDRESS(*assembly, duckLisp_instructionObject_t, i + 1) = nextInstruction;
 				}
 				else {
