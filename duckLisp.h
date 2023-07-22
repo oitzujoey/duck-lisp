@@ -112,7 +112,8 @@ Variables
 typedef struct {
 	const char *message;
 	dl_size_t message_length;
-	dl_ptrdiff_t index;
+	dl_ptrdiff_t end_index;
+	dl_ptrdiff_t start_index;
 	// dl_size_t line;
 	// dl_size_t offset;
 } duckLisp_error_t;

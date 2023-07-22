@@ -58,25 +58,18 @@ dl_error_t duckLisp_error_pushRuntime(duckLisp_t *duckLisp, const char *message,
 	duckLisp_error_t error;
 
 	e = dl_malloc(duckLisp->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 	e = dl_memcopy((void *) error.message, (void *) message, message_length * sizeof(char));
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
 	error.message_length = message_length;
-	error.index = -1;
+	error.start_index = -1;
+	error.end_index = -1;
 
 	e = dl_array_pushElement(&duckLisp->errors, &error);
-	if (e) {
-		goto l_cleanup;
-	}
+	if (e) goto cleanup;
 
- l_cleanup:
-
-	return e;
+ cleanup: return e;
 }
 
 dl_error_t duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp,

@@ -964,7 +964,7 @@ dl_error_t print_errors(dl_memoryAllocation_t *memoryAllocation, dl_array_t *err
 		printf(COLOR_NORMAL);
 		putchar('\n');
 
-		if (error.index == -1) {
+		if ((error.start_index == -1) || error.end_index == -1) {
 			goto whileCleanup;
 		}
 
@@ -978,10 +978,13 @@ dl_error_t print_errors(dl_memoryAllocation_t *memoryAllocation, dl_array_t *err
 			}
 
 			puts(COLOR_RED);
-			for (dl_ptrdiff_t i = /* duckLisp->source.elements_length - sourceCode.elements_length */0; i < error.index; i++) {
+			for (dl_ptrdiff_t i = 0; i < error.start_index; i++) {
 				putchar(' ');
 			}
-			puts("^");
+			for (dl_ptrdiff_t i = error.start_index; i < error.end_index; i++) {
+				putchar('^');
+			}
+			putchar('\n');
 
 			puts(COLOR_NORMAL);
 		}

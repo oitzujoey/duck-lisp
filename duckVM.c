@@ -41,7 +41,8 @@ dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const
 	if (e) goto cleanup;
 
 	error.message_length = message_length;
-	error.index = -1;
+	error.start_index = -1;
+	error.end_index = -1;
 
 	e = dl_array_pushElement(&duckVM->errors, &error);
 	if (e) goto cleanup;
