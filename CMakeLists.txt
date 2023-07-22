@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
-add_library(DuckLisp duckLisp.c compiler-debug.c duckVM.c)
+add_library(DuckLisp
+  duckLisp.c
+  parser.c
+  compiler-debug.c
+  duckVM.c)
 
 target_include_directories(DuckLisp
 	INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
