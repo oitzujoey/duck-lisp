@@ -23,8 +23,9 @@ SOFTWARE.
 */
 
 #include "duckLisp.h"
-#include "DuckLib/string.h"
 #include "generators.h"
+#include "DuckLib/string.h"
+#include "parser.h"
 #include "emitters.h"
 
 dl_error_t duckLisp_generator_nullaryArithmeticOperator(duckLisp_t *duckLisp,

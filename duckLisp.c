@@ -29,6 +29,7 @@ SOFTWARE.
 #include "DuckLib/string.h"
 #include "DuckLib/sort.h"
 #include "DuckLib/trie.h"
+#include "parser.h"
 #include "emitters.h"
 #include "generators.h"
 #include <stdio.h>

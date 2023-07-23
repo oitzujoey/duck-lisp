@@ -27,10 +27,10 @@ SOFTWARE.
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
-#include "../DuckLib/core.h"
 #include "../duckLisp.h"
 #include "../duckVM.h"
 #include "../DuckLib/sort.h"
+#include "../parser.h"
 
 
 #define COLOR_NORMAL    "\x1B[0m"
