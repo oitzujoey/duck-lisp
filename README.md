@@ -88,6 +88,7 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 "api.md" contains the C API documentation. (incomplete)  
 
 "duckLisp.h" contains everything needed for normal usage of the compiler.  
+"parser.h" contains declarations for the reader.  
 "emitters.h" contains declarations for emitters for all special forms.  
 "generators.h" contains declarations for generators for all special forms.  
 "duckVM.h" contains everything needed usage of the VM.  
@@ -100,7 +101,7 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 "compiler-debug.c" contains a single 7500 line function that disassembles bytecode.  
 "duckVM.c" contains the VM.  
 
-Typical usage of the language only requires including "duckLisp.h" and "duckVM.h". Adding new user-defined generators that generate bytecode requires "emitters.h". Some user-defined generators may want to call existing generators which can be called by including "generators.h".
+Typical usage of the language only requires including "duckLisp.h" and "duckVM.h". Adding new user-defined generators that generate bytecode requires "emitters.h". Some user-defined generators may want to call existing generators which can be called by including "generators.h". Reader function declarations can be found in "parser.h".
 
 Examples on how to extend the language can be found in `duckLisp-dev.c`.
 
