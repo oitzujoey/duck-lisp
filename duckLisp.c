@@ -1707,3 +1707,112 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
  cleanup:
 	return e;
 }
+
+dl_error_t serialize_errors(dl_memoryAllocation_t *memoryAllocation,
+                            dl_array_t *errorString,
+                            dl_array_t *errors,
+                            dl_array_t *sourceCode) {
+	dl_error_t e = dl_error_ok;
+
+	(void) dl_array_init(errorString, memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	char tempChar;
+	dl_bool_t firstLoop = dl_true;
+	while (errors->elements_length > 0) {
+		if (!firstLoop) {
+			tempChar = '\n';
+			e = dl_array_pushElement(errorString, &tempChar);
+			if (e) goto cleanup;
+		}
+		firstLoop = dl_false;
+
+		duckLisp_error_t error;  /* Compile errors */
+		e = dl_array_popElement(errors, (void *) &error);
+		if (e) break;
+
+		e = dl_array_pushElements(errorString, error.message, error.message_length);
+		if (e) goto cleanup;
+		tempChar = '\n';
+		e = dl_array_pushElement(errorString, &tempChar);
+		if (e) goto cleanup;
+
+		if (error.start_index == -1) {
+			goto whileCleanup;
+		}
+
+		if (sourceCode) {
+			dl_ptrdiff_t line = 1;
+			dl_ptrdiff_t start_column = 0;
+			dl_ptrdiff_t end_column = 0;
+			dl_ptrdiff_t column0Index = 0;
+
+			DL_DOTIMES(i, error.start_index) {
+				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
+					line++;
+					start_column = 0;
+					column0Index = i + 1;
+				}
+				else {
+					start_column++;
+				}
+			}
+			end_column = start_column;
+			for (dl_ptrdiff_t i = column0Index + start_column; i < (dl_ptrdiff_t) sourceCode->elements_length; i++) {
+				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
+					break;
+				}
+				end_column++;
+			}
+			e = dl_array_pushElements(errorString, error.fileName, error.fileName_length);
+			if (e) goto cleanup;
+			tempChar = ':';
+			e = dl_array_pushElement(errorString, &tempChar);
+			if (e) goto cleanup;
+			e = dl_string_fromPtrdiff(errorString, line);
+			if (e) goto cleanup;
+			tempChar = ':';
+			e = dl_array_pushElement(errorString, &tempChar);
+			if (e) goto cleanup;
+			e = dl_string_fromPtrdiff(errorString, start_column);
+			if (e) goto cleanup;
+			/* dl_string_ */
+			tempChar = '\n';
+			e = dl_array_pushElement(errorString, &tempChar);
+			if (e) goto cleanup;
+			e = dl_array_pushElements(errorString,
+			                          (char *) sourceCode->elements + column0Index,
+			                          end_column);
+			if (e) goto cleanup;
+
+			tempChar = '\n';
+			e = dl_array_pushElement(errorString, &tempChar);
+			if (e) goto cleanup;
+			DL_DOTIMES(i, start_column) {
+					tempChar = ' ';
+					e = dl_array_pushElement(errorString, &tempChar);
+					if (e) goto cleanup;
+			}
+			if (error.end_index == -1) {
+				tempChar = '^';
+				e = dl_array_pushElement(errorString, &tempChar);
+				if (e) goto cleanup;
+			}
+			else {
+				for (dl_ptrdiff_t i = error.start_index; i < error.end_index; i++) {
+					tempChar = '^';
+					e = dl_array_pushElement(errorString, &tempChar);
+					if (e) goto cleanup;
+				}
+			}
+			tempChar = '\n';
+			e = dl_array_pushElement(errorString, &tempChar);
+			if (e) goto cleanup;
+		}
+
+	whileCleanup:
+		e = DL_FREE(memoryAllocation, &error.message);
+		if (e) break;
+		error.message_length = 0;
+	}
+ cleanup:return e;
+}

@@ -31,6 +31,7 @@ SOFTWARE.
 #include "../duckVM.h"
 #include "../DuckLib/sort.h"
 #include "../parser.h"
+#include "DuckLib/string.h"
 
 
 #define COLOR_NORMAL    "\x1B[0m"
@@ -946,80 +947,6 @@ dl_error_t duckLispDev_callback_writeFile(duckVM_t *duckVM) {
 	return e;
 }
 
-dl_error_t print_errors(dl_memoryAllocation_t *memoryAllocation, dl_array_t *errors, dl_array_t *sourceCode){
-	dl_error_t e = dl_error_ok;
-	dl_bool_t firstLoop = dl_true;
-	while (errors->elements_length > 0) {
-		if (!firstLoop) putchar('\n');
-		firstLoop = dl_false;
-
-		duckLisp_error_t error;  /* Compile errors */
-		e = dl_array_popElement(errors, (void *) &error);
-		if (e) break;
-
-		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
-			putchar(error.message[i]);
-		}
-		putchar('\n');
-
-		if (error.start_index == -1) {
-			goto whileCleanup;
-		}
-
-		if (sourceCode) {
-			dl_ptrdiff_t line = 1;
-			dl_ptrdiff_t start_column = 0;
-			dl_ptrdiff_t end_column = 0;
-			dl_ptrdiff_t column0Index = 0;
-
-			DL_DOTIMES(i, error.start_index) {
-				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
-					line++;
-					start_column = 0;
-					column0Index = i + 1;
-				}
-				else {
-					start_column++;
-				}
-			}
-			end_column = start_column;
-			for (dl_ptrdiff_t i = column0Index + start_column; i < (dl_ptrdiff_t) sourceCode->elements_length; i++) {
-				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
-					break;
-				}
-				end_column++;
-			}
-			DL_DOTIMES(i, error.fileName_length) putchar(error.fileName[i]);
-			printf(":%li:%li\n", line, start_column);
-			DL_DOTIMES(i, end_column) {
-				putchar(DL_ARRAY_GETADDRESS(*sourceCode, char, column0Index + i));
-			}
-
-			puts("");
-			DL_DOTIMES(i, start_column) {
-				putchar(' ');
-			}
-			if (error.end_index == -1) {
-				putchar('^');
-			}
-			else {
-				for (dl_ptrdiff_t i = error.start_index; i < error.end_index; i++) {
-					putchar('^');
-				}
-			}
-			putchar('\n');
-
-			puts(COLOR_NORMAL);
-		}
-
-	whileCleanup:
-		e = DL_FREE(memoryAllocation, &error.message);
-		if (e) break;
-		error.message_length = 0;
-	}
-	return e;
-}
-
 dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
                                          duckLisp_compileState_t *compileState,
                                          dl_array_t *assembly,
@@ -1237,8 +1164,18 @@ int eval(duckLisp_t *duckLisp,
 		printf(COLOR_RED "Error loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
 	}
 
-	e = print_errors(duckLisp->memoryAllocation, &duckLisp->errors, &sourceCode);
-	if (e) goto cleanup;
+	{
+		dl_array_t errorString;
+		e = serialize_errors(duckLisp->memoryAllocation, &errorString, &duckLisp->errors, &sourceCode);
+		if (e) goto cleanup;
+		printf(COLOR_RED);
+		DL_DOTIMES(i, errorString.elements_length) {
+			putchar(((char *) errorString.elements)[i]);
+		}
+		printf(COLOR_NORMAL);
+		e = dl_array_quit(&errorString);
+		if (e) goto cleanup;
+	}
 	/* printf(COLOR_CYAN); */
 	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
 	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
@@ -1270,7 +1207,18 @@ int eval(duckLisp_t *duckLisp,
 	/* puts(COLOR_CYAN "VM: {" COLOR_NORMAL); */
 
 	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
-	e = print_errors(duckVM->memoryAllocation, &duckVM->errors, dl_null);
+	{
+		dl_array_t errorString;
+		e = serialize_errors(duckVM->memoryAllocation, &errorString, &duckVM->errors, dl_null);
+		if (e) goto cleanup;
+		printf(COLOR_RED);
+		DL_DOTIMES(i, errorString.elements_length) {
+			putchar(((char *) errorString.elements)[i]);
+		}
+		printf(COLOR_NORMAL);
+		e = dl_array_quit(&errorString);
+		if (e) goto cleanup;
+	}
 	if (e) goto cleanup;
 	if (runtimeError) {
 		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[runtimeError]);

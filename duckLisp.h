@@ -720,8 +720,6 @@ dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp,
                                              duckLisp_compileState_t *compileState,
                                              const char *name,
                                              const dl_size_t name_length);
-// dl_error_t duckLisp_pushObject(duckLisp_t *duckLisp, const char *name, const
-// dl_size_t name_length, const duckLisp_object_t object);
 dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
                                            duckLisp_compileState_t *compileState,
                                            const duckLisp_ast_identifier_t name,
@@ -740,10 +738,11 @@ dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp,
                                            dl_error_t (*callback)(duckVM_t *),
                                            const char *name,
                                            const dl_size_t name_length);
-// dl_error_t duckLisp_pushGenerator(duckLisp_t *duckLisp, const char *name,
-// const dl_size_t name_length,
-//                                   const dl_error_t(*generator)(duckLisp_t*,
-//                                   const duckLisp_ast_expression_t));
+
+dl_error_t serialize_errors(dl_memoryAllocation_t *memoryAllocation,
+                            dl_array_t *errorString,
+                            dl_array_t *errors,
+                            dl_array_t *sourceCode);
 
 char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uint8_t *bytecode, const dl_size_t length);
 
