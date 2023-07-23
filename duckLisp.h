@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021 Joseph Herguth
+Copyright (c) 2021, 2022, 2023 Joseph Herguth
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -555,10 +555,44 @@ dl_error_t DECLSPEC duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
                                                      duckLisp_ast_compoundExpression_t astCompoundExpression,
                                                      const duckLisp_ast_type_t type);
 
+dl_error_t duckLisp_scope_getTop(duckLisp_t *duckLisp,
+                                 duckLisp_subCompileState_t *subCompileState,
+                                 duckLisp_scope_t *scope);
+dl_error_t duckLisp_scope_getMacroFromName(duckLisp_subCompileState_t *subCompileState,
+                                           dl_ptrdiff_t *index,
+                                           const char *name,
+                                           const dl_size_t name_length);
 dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_subCompileState_t *subCompileState,
                                                 dl_ptrdiff_t *index,
                                                 const char *name,
                                                 const dl_size_t name_length);
+dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
+                                                    duckLisp_subCompileState_t *subCompileState,
+                                                    dl_bool_t *found,
+                                                    dl_ptrdiff_t *index,
+                                                    dl_ptrdiff_t *scope_index,
+                                                    const char *name,
+                                                    const dl_size_t name_length);
+dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
+                                     duckLisp_subCompileState_t *subCompileState,
+                                     duckLisp_functionType_t *functionType,
+                                     dl_ptrdiff_t *index,
+                                     const char *name,
+                                     const dl_size_t name_length);
+dl_error_t duckLisp_scope_getLabelFromName(duckLisp_subCompileState_t *subCompileState,
+                                           dl_ptrdiff_t *index,
+                                           const char *name,
+                                           dl_size_t name_length);
+
+void duckLisp_localsLength_increment(duckLisp_compileState_t *compileState);
+void duckLisp_localsLength_decrement(duckLisp_compileState_t *compileState);
+dl_size_t duckLisp_localsLength_get(duckLisp_compileState_t *compileState);
+
+dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *identifier);
+dl_error_t duckLisp_register_label(duckLisp_t *duckLisp,
+                                   duckLisp_subCompileState_t *subCompileState,
+                                   char *name,
+                                   const dl_size_t name_length);
 
 dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
