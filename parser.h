@@ -28,10 +28,12 @@ SOFTWARE.
 void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression);
 dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression);
 dl_error_t duckLisp_read(duckLisp_t *duckLisp,
-                               const char *source,
-                               const dl_size_t source_length,
-                               duckLisp_ast_compoundExpression_t *ast,
-                               dl_ptrdiff_t index,
-                               dl_bool_t throwErrors);
+                         const char *fileName,
+                         const dl_size_t fileName_length,
+                         const char *source,
+                         const dl_size_t source_length,
+                         duckLisp_ast_compoundExpression_t *ast,
+                         dl_ptrdiff_t index,
+                         dl_bool_t throwErrors);
 dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 #endif /* DUCKLISP_PARSER_H */

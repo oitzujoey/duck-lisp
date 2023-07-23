@@ -103,7 +103,7 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 
 Typical usage of the language only requires including "duckLisp.h" and "duckVM.h". Adding new user-defined generators that generate bytecode requires "emitters.h". Some user-defined generators may want to call existing generators which can be called by including "generators.h". Reader function declarations can be found in "parser.h".
 
-Examples on how to extend the language can be found in `duckLisp-dev.c`.
+Examples on how to extend the language can be found in `scratchwork/duckLisp-dev.c`.
 
 ## Is it any good?
 

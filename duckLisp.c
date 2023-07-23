@@ -1507,7 +1507,9 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
                                unsigned char **bytecode,
                                dl_size_t *bytecode_length,
                                const char *source,
-                               const dl_size_t source_length) {
+                               const dl_size_t source_length,
+                               const char *fileName,
+                               const dl_size_t fileName_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -1527,7 +1529,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	/* Parse. */
 
-	e = duckLisp_read(duckLisp, source, source_length, &ast, index, dl_true);
+	e = duckLisp_read(duckLisp, fileName, fileName_length, source, source_length, &ast, index, dl_true);
 	if (e) goto cleanup;
 
 	/* printf("AST: "); */

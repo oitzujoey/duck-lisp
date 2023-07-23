@@ -957,32 +957,55 @@ dl_error_t print_errors(dl_memoryAllocation_t *memoryAllocation, dl_array_t *err
 		e = dl_array_popElement(errors, (void *) &error);
 		if (e) break;
 
-		printf(COLOR_RED);
 		for (dl_ptrdiff_t i = 0; (dl_size_t) i < error.message_length; i++) {
 			putchar(error.message[i]);
 		}
-		printf(COLOR_NORMAL);
 		putchar('\n');
 
-		if ((error.start_index == -1) || error.end_index == -1) {
+		if (error.start_index == -1) {
 			goto whileCleanup;
 		}
 
 		if (sourceCode) {
-			printf(COLOR_CYAN);
-			for (dl_ptrdiff_t i = 0; (dl_size_t) i < sourceCode->elements_length; i++) {
-				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n')
-					putchar(' ');
-				else
-					putchar(DL_ARRAY_GETADDRESS(*sourceCode, char, i));
+			dl_ptrdiff_t line = 1;
+			dl_ptrdiff_t start_column = 0;
+			dl_ptrdiff_t end_column = 0;
+			dl_ptrdiff_t column0Index = 0;
+
+			DL_DOTIMES(i, error.start_index) {
+				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
+					line++;
+					start_column = 0;
+					column0Index = i + 1;
+				}
+				else {
+					start_column++;
+				}
+			}
+			end_column = start_column;
+			for (dl_ptrdiff_t i = column0Index + start_column; i < (dl_ptrdiff_t) sourceCode->elements_length; i++) {
+				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
+					break;
+				}
+				end_column++;
+			}
+			DL_DOTIMES(i, error.fileName_length) putchar(error.fileName[i]);
+			printf(":%li:%li\n", line, start_column);
+			DL_DOTIMES(i, end_column) {
+				putchar(DL_ARRAY_GETADDRESS(*sourceCode, char, column0Index + i));
 			}
 
-			puts(COLOR_RED);
-			for (dl_ptrdiff_t i = 0; i < error.start_index; i++) {
+			puts("");
+			DL_DOTIMES(i, start_column) {
 				putchar(' ');
 			}
-			for (dl_ptrdiff_t i = error.start_index; i < error.end_index; i++) {
+			if (error.end_index == -1) {
 				putchar('^');
+			}
+			else {
+				for (dl_ptrdiff_t i = error.start_index; i < error.end_index; i++) {
+					putchar('^');
+				}
 			}
 			putchar('\n');
 
@@ -1075,7 +1098,14 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
 	/* puts(COLOR_NORMAL); */
 
-	e = duckLisp_read(duckLisp, sourceCode.elements, sourceCode.elements_length, &ast, 0, dl_true);
+	e = duckLisp_read(duckLisp,
+	                  fileName.value,
+	                  fileName.value_length,
+	                  sourceCode.elements,
+	                  sourceCode.elements_length,
+	                  &ast,
+	                  0,
+	                  dl_true);
 	if (e) goto cFileName_cleanup;
 
 	/* printf(COLOR_YELLOW); */
@@ -1120,7 +1150,9 @@ int eval(duckLisp_t *duckLisp,
          duckVM_t *duckVM,
          duckVM_object_t *return_value,
          const char *source,
-         const dl_size_t source_length) {
+         const dl_size_t source_length,
+         const char *fileName,
+         const dl_size_t fileName_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -1159,7 +1191,9 @@ int eval(duckLisp_t *duckLisp,
 	                                &bytecode,
 	                                &bytecode_length,
 	                                &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
-	                                sourceCode.elements_length);
+	                                sourceCode.elements_length,
+	                                fileName,
+	                                fileName_length);
 
 	/* e = dl_memory_checkHealth(*duckLisp->memoryAllocation); */
 	/* if (e) { */
@@ -1308,7 +1342,13 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 		goto cleanup;
 	}
 
-	e = eval(duckLisp, duckVM, return_value, sourceCode.elements, sourceCode.elements_length);
+	e = eval(duckLisp,
+	         duckVM,
+	         return_value,
+	         sourceCode.elements,
+	         sourceCode.elements_length,
+	         filename,
+	         strlen(filename));
 
  cleanup:
 
@@ -1459,7 +1499,7 @@ int main(int argc, char *argv[]) {
 	if (argc == 2) {
 		FILE *sourceFile = fopen(argv[1], "r");
 		if (sourceFile == NULL) {
-			e = eval(&duckLisp, &duckVM, dl_null, argv[1], strlen(argv[1]));
+			e = eval(&duckLisp, &duckVM, dl_null, argv[1], strlen(argv[1]), DL_STR("<ARGV>"));
 		}
 		else {
 			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, argv[1]);
@@ -1482,7 +1522,7 @@ int main(int argc, char *argv[]) {
 			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			e = eval(&duckLisp, &duckVM, &return_value, line, length);
+			e = eval(&duckLisp, &duckVM, &return_value, line, length, DL_STR("<REPL>"));
 			free(line); line = NULL;
 			e = duckVM_push(&duckVM, &return_value);
 			e = duckLispDev_callback_print(&duckVM);

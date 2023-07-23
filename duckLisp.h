@@ -114,8 +114,8 @@ typedef struct {
 	dl_size_t message_length;
 	dl_ptrdiff_t end_index;
 	dl_ptrdiff_t start_index;
-	// dl_size_t line;
-	// dl_size_t offset;
+	const char *fileName;
+	dl_size_t fileName_length;
 } duckLisp_error_t;
 
 typedef enum {
@@ -701,7 +701,9 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
                                unsigned char **bytecode,
                                dl_size_t *bytecode_length,
                                const char *source,
-                               const dl_size_t source_length);
+                               const dl_size_t source_length,
+                               const char *fileName,
+                               const dl_size_t fileName_length);
 
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,

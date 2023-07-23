@@ -347,7 +347,13 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 		goto cleanup;
 	}
 
-	e = duckLisp_loadString(&duckLisp, &bytecode, &bytecode_length, text, text_length);
+	e = duckLisp_loadString(&duckLisp,
+	                        &bytecode,
+	                        &bytecode_length,
+	                        text,
+	                        text_length,
+	                        fileBaseName,
+	                        strlen(fileBaseName));
 	if (e) {
 		puts(COLOR_YELLOW "Compilation failed" COLOR_NORMAL);
 
