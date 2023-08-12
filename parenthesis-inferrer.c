@@ -577,7 +577,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				                     dl_array_strategy_double);
 				e = dl_array_pushElement(&newExpression, compoundExpression);
 				if (e) goto expressionCleanup;
-				printf("localIndex %zi\n", localIndex);
 				DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
 					if ((dl_size_t) localIndex >= expression->compoundExpressions_length) {
 						e = dl_error_invalidValue;
@@ -610,7 +609,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						if (eError) e = eError;
 					}
 					puts("}");
-					printf("localIndex %zi\n", localIndex);
 				}
 				if (type.type.value.expression.variadic) {
 					puts("&rest {");
@@ -640,7 +638,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
 							if (eError) e = eError;
 						}
 						puts("}");
-						printf("localIndex %zi\n", localIndex);
 					}
 					puts("}");
 				}
@@ -656,17 +653,13 @@ static dl_error_t inferArgument(inferrerState_t *state,
 					ce.value.expression.compoundExpressions_length = newExpression.elements_length;
 					ce.value.expression.compoundExpressions = newExpression.elements;
 					expression->compoundExpressions[startLocalIndex] = ce;
-					printf("startLocalIndex %zi  length %zu  newLength %zu\n",
-					       startLocalIndex,
-					       expression->compoundExpressions_length,
-					       newLength);
 					DL_DOTIMES(n, expression->compoundExpressions_length - startLocalIndex - newLength - 1) {
 						(expression->compoundExpressions[startLocalIndex + n + 1]
 						 = expression->compoundExpressions[startLocalIndex + newLength + n + 1]);
 					}
 					expression->compoundExpressions_length -= newLength;
 					localIndex = startLocalIndex + 1;
-					printf("expression: ");
+					printf("EXPRESSION: ");
 					DL_DOTIMES(m, newExpression.elements_length) {
 						duckLisp_ast_compoundExpression_t ce;
 						e = dl_array_get(&newExpression, &ce, m);
@@ -674,7 +667,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						putchar(' ');
 					}
 					puts("");
-					printf("original expression: ");
+					printf("ORIGINAL EXPRESSION: ");
 					DL_DOTIMES(m, expression->compoundExpressions_length) {
 						ast_print_compoundExpression(state->duckLisp, expression->compoundExpressions[m]);
 						putchar(' ');
@@ -712,7 +705,6 @@ static dl_error_t inferArguments(inferrerState_t *state,
 	dl_error_t e = dl_error_ok;
 
 	while ((dl_size_t) index < expression->compoundExpressions_length) {
-		printf("index %zi\n", index);
 		/* Run inference on the current identifier. */
 		dl_ptrdiff_t startIndex = index;
 		e = inferArgument(state, expression, &index, infer);
@@ -794,13 +786,6 @@ static dl_error_t infer_expression(inferrerState_t *state,
 	           Syntax error. Return.
 	         Is `__declare`? — Done
 	           Run `__declare` interpreter. — Done
-	   Argument inference:
-	     Fetch default number of arguments. — Done
-	     For each argument: — Done
-	       Identifier? — Done
-	         Run argument inference. — Done
-	       Other? — Done
-	         Run compound expression inference. — Done
 
 	   TODO: declarator scripts
 	         type check
