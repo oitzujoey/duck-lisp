@@ -537,58 +537,95 @@ static dl_error_t inferArgument(inferrerState_t *state,
 	dl_ptrdiff_t localIndex = *index;
 	dl_ptrdiff_t startLocalIndex = localIndex;
 	dl_size_t newLength = 0;
-	while ((dl_size_t) localIndex < expression->compoundExpressions_length) {
-		duckLisp_ast_compoundExpression_t *compoundExpression = expression->compoundExpressions + localIndex;
-		localIndex++;
-		if (compoundExpression->type == duckLisp_ast_type_identifier) {
-			
-			DL_DOTIMES(i, compoundExpression->value.identifier.value_length) {
-				putchar(compoundExpression->value.identifier.value[i]);
+	if ((dl_size_t) localIndex >= expression->compoundExpressions_length) {
+		e = dl_error_invalidValue;
+		goto cleanup;
+	}
+	duckLisp_ast_compoundExpression_t *compoundExpression = expression->compoundExpressions + localIndex;
+	localIndex++;
+	if (compoundExpression->type == duckLisp_ast_type_identifier) {
+		
+		DL_DOTIMES(i, compoundExpression->value.identifier.value_length) {
+			putchar(compoundExpression->value.identifier.value[i]);
+		}
+		putchar('\n');
+		
+		inferrerType_t type;
+		dl_bool_t found = dl_false;
+		e = findDeclaration(state, &found, &type, compoundExpression->value.identifier);
+		if (e) goto cleanup;
+
+		if (found && infer) {
+			/* Declared */
+			puts("Declared");
+			if (type.bytecode_length > 0) {
+				/* Execute bytecode */
 			}
+
+			ast_print_compoundExpression(state->duckLisp, *compoundExpression);
+			printf("::");
+			inferrerTypeSignature_print(type.type);
 			putchar('\n');
-			
-			inferrerType_t type;
-			dl_bool_t found = dl_false;
-			e = findDeclaration(state, &found, &type, compoundExpression->value.identifier);
-			if (e) goto cleanup;
 
-			if (found && infer) {
-				/* Declared */
-				puts("Declared");
-				if (type.bytecode_length > 0) {
-					/* Execute bytecode */
-				}
-
-				ast_print_compoundExpression(state->duckLisp, *compoundExpression);
-				printf("::");
-				inferrerTypeSignature_print(type.type);
-				putchar('\n');
-
-				if (type.type.type == inferrerTypeSignature_type_symbol) {
-					/* Do nothing. */
-					break;
-				}
-				else {
-					dl_array_t newExpression;
-					(void) dl_array_init(&newExpression,
-					                     state->memoryAllocation,
-					                     sizeof(duckLisp_ast_compoundExpression_t),
-					                     dl_array_strategy_double);
-					e = dl_array_pushElement(&newExpression, compoundExpression);
-					if (e) goto expressionCleanup;
+			if (type.type.type == inferrerTypeSignature_type_expression) {
+				dl_array_t newExpression;
+				(void) dl_array_init(&newExpression,
+				                     state->memoryAllocation,
+				                     sizeof(duckLisp_ast_compoundExpression_t),
+				                     dl_array_strategy_double);
+				e = dl_array_pushElement(&newExpression, compoundExpression);
+				if (e) goto expressionCleanup;
+				printf("localIndex %zi\n", localIndex);
+				DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
+					if ((dl_size_t) localIndex >= expression->compoundExpressions_length) {
+						e = dl_error_invalidValue;
+						(eError
+						 = duckLisp_error_pushInference(state,
+						                                DL_STR("To few arguments for declared identifier.")));
+						if (eError) e = eError;
+						goto expressionCleanup;
+					}
+					puts("{");
+					printf("type ");
+					inferrerTypeSignature_t argSignature = type.type.value.expression.positionalSignatures[l];
+					inferrerTypeSignature_print(argSignature);
+					putchar('\n');
+					if (argSignature.type == inferrerTypeSignature_type_symbol) {
+						dl_ptrdiff_t lastIndex = localIndex;
+						e = inferArgument(state,
+						                  expression,
+						                  &localIndex,
+						                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
+						if (e) goto expressionCleanup;
+						e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
+						if (e) goto expressionCleanup;
+						newLength++;
+					}
+					else {
+						(eError
+						 = duckLisp_error_pushInference(state,
+						                                DL_STR("Nested expression types are not yet supported.")));
+						if (eError) e = eError;
+					}
+					puts("}");
 					printf("localIndex %zi\n", localIndex);
-					DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
+				}
+				if (type.type.value.expression.variadic) {
+					puts("&rest {");
+					inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
+					printf("type ");
+					inferrerTypeSignature_print(argSignature);
+					putchar('\n');
+					DL_DOTIMES(l, type.type.value.expression.defaultRestLength) {
 						puts("{");
-						printf("type ");
-						inferrerTypeSignature_t argSignature = type.type.value.expression.positionalSignatures[l];
-						inferrerTypeSignature_print(argSignature);
-						putchar('\n');
 						if (argSignature.type == inferrerTypeSignature_type_symbol) {
 							dl_ptrdiff_t lastIndex = localIndex;
 							e = inferArgument(state,
 							                  expression,
 							                  &localIndex,
-							                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
+							                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
+							                   ? infer
+							                   : dl_false));
 							if (e) goto expressionCleanup;
 							e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
 							if (e) goto expressionCleanup;
@@ -603,94 +640,62 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						puts("}");
 						printf("localIndex %zi\n", localIndex);
 					}
-					if (type.type.value.expression.variadic) {
-						puts("&rest {");
-						inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
-						printf("type ");
-						inferrerTypeSignature_print(argSignature);
-						putchar('\n');
-						DL_DOTIMES(l, type.type.value.expression.defaultRestLength) {
-							puts("{");
-							if (argSignature.type == inferrerTypeSignature_type_symbol) {
-								dl_ptrdiff_t lastIndex = localIndex;
-								e = inferArgument(state,
-								                  expression,
-								                  &localIndex,
-								                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
-								                   ? infer
-								                   : dl_false));
-								if (e) goto expressionCleanup;
-								e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
-								if (e) goto expressionCleanup;
-								newLength++;
-							}
-							else {
-								(eError
-								 = duckLisp_error_pushInference(state,
-								                                DL_STR("Nested expression types are not yet supported.")));
-								if (eError) e = eError;
-							}
-							puts("}");
-							printf("localIndex %zi\n", localIndex);
-						}
-						puts("}");
-					}
-
-				expressionCleanup:
-					if (e) {
-						eError = dl_array_quit(&newExpression);
-						if (eError) e = eError;
-					}
-					else {
-						duckLisp_ast_compoundExpression_t ce;
-						ce.type = duckLisp_ast_type_expression;
-						ce.value.expression.compoundExpressions_length = newExpression.elements_length;
-						ce.value.expression.compoundExpressions = newExpression.elements;
-						expression->compoundExpressions[startLocalIndex] = ce;
-						printf("startLocalIndex %zi  length %zu  newLength %zu\n",
-						       startLocalIndex,
-						       expression->compoundExpressions_length,
-						       newLength);
-						DL_DOTIMES(n, expression->compoundExpressions_length - startLocalIndex - newLength - 1) {
-							(expression->compoundExpressions[startLocalIndex + n + 1]
-							 = expression->compoundExpressions[startLocalIndex + newLength + n + 1]);
-						}
-						expression->compoundExpressions_length -= newLength;
-						localIndex = startLocalIndex + 1;
-						printf("expression: ");
-						DL_DOTIMES(m, newExpression.elements_length) {
-							duckLisp_ast_compoundExpression_t ce;
-							e = dl_array_get(&newExpression, &ce, m);
-							ast_print_compoundExpression(state->duckLisp, ce);
-							putchar(' ');
-						}
-						puts("");
-						printf("original expression: ");
-						DL_DOTIMES(m, expression->compoundExpressions_length) {
-							ast_print_compoundExpression(state->duckLisp, expression->compoundExpressions[m]);
-							putchar(' ');
-						}
-						puts("");
-					}
-					if (e) goto cleanup;
+					puts("}");
 				}
-				break;
+
+			expressionCleanup:
+				if (e) {
+					eError = dl_array_quit(&newExpression);
+					if (eError) e = eError;
+				}
+				else {
+					duckLisp_ast_compoundExpression_t ce;
+					ce.type = duckLisp_ast_type_expression;
+					ce.value.expression.compoundExpressions_length = newExpression.elements_length;
+					ce.value.expression.compoundExpressions = newExpression.elements;
+					expression->compoundExpressions[startLocalIndex] = ce;
+					printf("startLocalIndex %zi  length %zu  newLength %zu\n",
+					       startLocalIndex,
+					       expression->compoundExpressions_length,
+					       newLength);
+					DL_DOTIMES(n, expression->compoundExpressions_length - startLocalIndex - newLength - 1) {
+						(expression->compoundExpressions[startLocalIndex + n + 1]
+						 = expression->compoundExpressions[startLocalIndex + newLength + n + 1]);
+					}
+					expression->compoundExpressions_length -= newLength;
+					localIndex = startLocalIndex + 1;
+					printf("expression: ");
+					DL_DOTIMES(m, newExpression.elements_length) {
+						duckLisp_ast_compoundExpression_t ce;
+						e = dl_array_get(&newExpression, &ce, m);
+						ast_print_compoundExpression(state->duckLisp, ce);
+						putchar(' ');
+					}
+					puts("");
+					printf("original expression: ");
+					DL_DOTIMES(m, expression->compoundExpressions_length) {
+						ast_print_compoundExpression(state->duckLisp, expression->compoundExpressions[m]);
+						putchar(' ');
+					}
+					puts("");
+				}
+				if (e) goto cleanup;
 			}
 			else {
-				/* Undeclared */
-				puts("Undeclared");
-				e = infer_compoundExpression(state, compoundExpression, infer);
-				if (e) goto cleanup;
-				break;
+				/* Symbol: Do nothing */
 			}
-
 		}
 		else {
-			puts("Other");
+			/* Undeclared */
+			puts("Undeclared");
 			e = infer_compoundExpression(state, compoundExpression, infer);
 			if (e) goto cleanup;
-			break;
 		}
+	}
+	else {
+		puts("Other");
+		e = infer_compoundExpression(state, compoundExpression, infer);
+		if (e) goto cleanup;
 	}
 	*index = localIndex;
 
