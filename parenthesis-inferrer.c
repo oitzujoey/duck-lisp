@@ -539,6 +539,8 @@ static dl_error_t inferArgument(inferrerState_t *state,
 	dl_size_t newLength = 0;
 	if ((dl_size_t) localIndex >= expression->compoundExpressions_length) {
 		e = dl_error_invalidValue;
+		eError = duckLisp_error_pushInference(state, DL_STR("To few arguments for declared identifier."));
+		if (eError) e = eError;
 		goto cleanup;
 	}
 	duckLisp_ast_compoundExpression_t *compoundExpression = expression->compoundExpressions + localIndex;
