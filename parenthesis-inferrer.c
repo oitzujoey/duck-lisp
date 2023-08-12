@@ -592,9 +592,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
 							if (e) goto expressionCleanup;
 							e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
 							if (e) goto expressionCleanup;
-							/* expression->compoundExpressions[lastIndex].type = duckLisp_ast_type_expression; */
-							/* expression->compoundExpressions[lastIndex].value.expression.compoundExpressions_length = 0; */
-							/* expression->compoundExpressions[lastIndex].value.expression.compoundExpressions = dl_null; */
 							newLength++;
 						}
 						else {
@@ -608,13 +605,31 @@ static dl_error_t inferArgument(inferrerState_t *state,
 					}
 					if (type.type.value.expression.variadic) {
 						puts("&rest {");
+						inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
+						printf("type ");
+						inferrerTypeSignature_print(argSignature);
+						putchar('\n');
 						DL_DOTIMES(l, type.type.value.expression.defaultRestLength) {
 							puts("{");
-							printf("type ");
-							inferrerTypeSignature_print(*type.type.value.expression.restSignature);
-							putchar('\n');
-							e = inferArgument(state, expression, &localIndex, infer);
-							if (e) goto expressionCleanup;
+							if (argSignature.type == inferrerTypeSignature_type_symbol) {
+								dl_ptrdiff_t lastIndex = localIndex;
+								e = inferArgument(state,
+								                  expression,
+								                  &localIndex,
+								                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
+								                   ? infer
+								                   : dl_false));
+								if (e) goto expressionCleanup;
+								e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
+								if (e) goto expressionCleanup;
+								newLength++;
+							}
+							else {
+								(eError
+								 = duckLisp_error_pushInference(state,
+								                                DL_STR("Nested expression types are not yet supported.")));
+								if (eError) e = eError;
+							}
 							puts("}");
 							printf("localIndex %zi\n", localIndex);
 						}
