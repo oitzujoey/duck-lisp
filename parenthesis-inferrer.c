@@ -536,6 +536,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 
 	dl_ptrdiff_t localIndex = *index;
 	dl_ptrdiff_t startLocalIndex = localIndex;
+	dl_size_t newLength = 0;
 	while ((dl_size_t) localIndex < expression->compoundExpressions_length) {
 		duckLisp_ast_compoundExpression_t *compoundExpression = expression->compoundExpressions + localIndex;
 		localIndex++;
@@ -591,9 +592,10 @@ static dl_error_t inferArgument(inferrerState_t *state,
 							if (e) goto expressionCleanup;
 							e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
 							if (e) goto expressionCleanup;
-							expression->compoundExpressions[lastIndex].type = duckLisp_ast_type_expression;
-							expression->compoundExpressions[lastIndex].value.expression.compoundExpressions_length = 0;
-							expression->compoundExpressions[lastIndex].value.expression.compoundExpressions = dl_null;
+							/* expression->compoundExpressions[lastIndex].type = duckLisp_ast_type_expression; */
+							/* expression->compoundExpressions[lastIndex].value.expression.compoundExpressions_length = 0; */
+							/* expression->compoundExpressions[lastIndex].value.expression.compoundExpressions = dl_null; */
+							newLength++;
 						}
 						else {
 							(eError
@@ -630,11 +632,24 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						ce.value.expression.compoundExpressions_length = newExpression.elements_length;
 						ce.value.expression.compoundExpressions = newExpression.elements;
 						expression->compoundExpressions[startLocalIndex] = ce;
+						DL_DOTIMES(n, expression->compoundExpressions_length - startLocalIndex) {
+							(expression->compoundExpressions[startLocalIndex + n + 1]
+							 = expression->compoundExpressions[startLocalIndex + newLength + n + 1]);
+						}
+						expression->compoundExpressions_length -= newLength;
+						localIndex = startLocalIndex + 1;
+						printf("startLocalIndex %zi  length %zu\n", startLocalIndex, expression->compoundExpressions_length);
 						printf("expression: ");
 						DL_DOTIMES(m, newExpression.elements_length) {
 							duckLisp_ast_compoundExpression_t ce;
 							e = dl_array_get(&newExpression, &ce, m);
 							ast_print_compoundExpression(state->duckLisp, ce);
+							putchar(' ');
+						}
+						puts("");
+						printf("original expression: ");
+						DL_DOTIMES(m, expression->compoundExpressions_length) {
+							ast_print_compoundExpression(state->duckLisp, expression->compoundExpressions[m]);
 							putchar(' ');
 						}
 						puts("");
@@ -674,7 +689,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		goto cleanup;
 	}
 
-	duckLisp_ast_expression_t expression = compoundExpression->value.expression;
+	duckLisp_ast_expression_t *expression = &compoundExpression->value.expression;
 
 	/* Expression inference:
 	     Find first value. — Done
@@ -709,14 +724,13 @@ static dl_error_t infer_expression(inferrerState_t *state,
 	   modifying it?
 	*/
 
-	dl_size_t length = expression.compoundExpressions_length;
-	if (length == 0) {
+	if (expression->compoundExpressions_length == 0) {
 		/* OK. Is a Nil. */
 		goto cleanup;
 	}
 
 	/* This pointer is weak. */
-	duckLisp_ast_compoundExpression_t *head = expression.compoundExpressions;
+	duckLisp_ast_compoundExpression_t *head = expression->compoundExpressions;
 
 	if (head->type == duckLisp_ast_type_callback) {
 		/* Don't type-check. */
@@ -727,9 +741,9 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		{
 			dl_ptrdiff_t index = 1;
 			dl_size_t inferredLength = index;
-			while ((dl_size_t) index < expression.compoundExpressions_length) {
+			while ((dl_size_t) index < expression->compoundExpressions_length) {
 				/* Run inference on the current identifier. */
-				e = inferArgument(state, &expression, &index, infer);
+				e = inferArgument(state, expression, &index, infer);
 				if (e) goto cleanup;
 				inferredLength++;
 			}
@@ -759,9 +773,9 @@ static dl_error_t infer_expression(inferrerState_t *state,
 			{
 				dl_ptrdiff_t index = 1;
 				dl_size_t inferredLength = index;
-				while ((dl_size_t) index < expression.compoundExpressions_length) {
+				while ((dl_size_t) index < expression->compoundExpressions_length) {
 					/* Run inference on the current identifier. */
-					e = inferArgument(state, &expression, &index, infer);
+					e = inferArgument(state, expression, &index, infer);
 					if (e) goto cleanup;
 					inferredLength++;
 				}
@@ -783,15 +797,16 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		{
 			dl_ptrdiff_t index = 0;
 			dl_size_t inferredLength = 0;
-			while ((dl_size_t) index < expression.compoundExpressions_length) {
+			while ((dl_size_t) index < expression->compoundExpressions_length) {
+				printf("index %zi\n", index);
 				/* Run inference on the current identifier. */
 				dl_ptrdiff_t startIndex = index;
-				e = inferArgument(state, &expression, &index, infer);
+				e = inferArgument(state, expression, &index, infer);
 				if (e) goto cleanup;
 				inferredLength++;
 
 				// `__declare` interpreter
-				duckLisp_ast_compoundExpression_t ce = expression.compoundExpressions[startIndex];
+				duckLisp_ast_compoundExpression_t ce = expression->compoundExpressions[startIndex];
 				if ((ce.type == duckLisp_ast_type_expression)
 				    && ((ce.value.expression.compoundExpressions_length == 3)
 				        || (ce.value.expression.compoundExpressions_length == 4))

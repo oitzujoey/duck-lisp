@@ -1,8 +1,10 @@
 ;; This is such a hack! XD
-(#__defmacro #__declare (#identifier #type #&rest #script-body) ())
+(__defmacro #__declare (identifier type &rest script-body) ())
 
 __declare print (I)
 __declare __quote (L)
+__declare __+ (I I)
 
 print "Hello!\n"
 print __quote print
+print __+ __+ 1 2 __+ 3 4
