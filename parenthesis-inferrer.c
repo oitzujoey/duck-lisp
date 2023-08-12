@@ -647,13 +647,16 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						ce.value.expression.compoundExpressions_length = newExpression.elements_length;
 						ce.value.expression.compoundExpressions = newExpression.elements;
 						expression->compoundExpressions[startLocalIndex] = ce;
-						DL_DOTIMES(n, expression->compoundExpressions_length - startLocalIndex) {
+						printf("startLocalIndex %zi  length %zu  newLength %zu\n",
+						       startLocalIndex,
+						       expression->compoundExpressions_length,
+						       newLength);
+						DL_DOTIMES(n, expression->compoundExpressions_length - startLocalIndex - newLength - 1) {
 							(expression->compoundExpressions[startLocalIndex + n + 1]
 							 = expression->compoundExpressions[startLocalIndex + newLength + n + 1]);
 						}
 						expression->compoundExpressions_length -= newLength;
 						localIndex = startLocalIndex + 1;
-						printf("startLocalIndex %zi  length %zu\n", startLocalIndex, expression->compoundExpressions_length);
 						printf("expression: ");
 						DL_DOTIMES(m, newExpression.elements_length) {
 							duckLisp_ast_compoundExpression_t ce;
@@ -694,6 +697,65 @@ static dl_error_t inferArgument(inferrerState_t *state,
  cleanup: return e;
 }
 
+/* Infer a single argument from the tokens/forms. */
+static dl_error_t inferArguments(inferrerState_t *state,
+                                 duckLisp_ast_expression_t *expression,
+                                 dl_ptrdiff_t index,
+                                 dl_bool_t infer) {
+	dl_error_t e = dl_error_ok;
+
+	while ((dl_size_t) index < expression->compoundExpressions_length) {
+		printf("index %zi\n", index);
+		/* Run inference on the current identifier. */
+		dl_ptrdiff_t startIndex = index;
+		e = inferArgument(state, expression, &index, infer);
+		if (e) goto cleanup;
+
+		/* `__declare` interpreter */
+		duckLisp_ast_compoundExpression_t ce = expression->compoundExpressions[startIndex];
+		if ((ce.type == duckLisp_ast_type_expression)
+		    && ((ce.value.expression.compoundExpressions_length == 3)
+		        || (ce.value.expression.compoundExpressions_length == 4))
+		    && (ce.value.expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)
+		    && (ce.value.expression.compoundExpressions[1].type == duckLisp_ast_type_identifier)) {
+			dl_bool_t result;
+			duckLisp_ast_identifier_t keyword = ce.value.expression.compoundExpressions[0].value.identifier;
+			duckLisp_ast_identifier_t identifier = ce.value.expression.compoundExpressions[1].value.identifier;
+			duckLisp_ast_compoundExpression_t typeAst = ce.value.expression.compoundExpressions[2];
+			(void) dl_string_compare(&result, DL_STR("__declare"), keyword.value, keyword.value_length);
+			if (result) {
+				inferrerType_t type;
+				inferrerScope_t scope;
+				(void) inferrerType_init(&type);
+
+				e = popDeclarationScope(state, &scope);
+				if (e) goto scopeCleanup;
+
+				e = inferrerTypeSignature_fromAst(state, &type.type, typeAst);
+				if (e) goto scopeCleanup;
+				e = dl_trie_insert(&scope.identifiersTrie,
+				                   identifier.value,
+				                   identifier.value_length,
+				                   scope.types.elements_length);
+				if (e) goto scopeCleanup;
+
+				type.bytecode = dl_null;
+				type.bytecode_length = 0;
+
+				e = dl_array_pushElement(&scope.types, &type);
+				if (e) goto scopeCleanup;
+				e = pushDeclarationScope(state, &scope);
+				if (e) goto scopeCleanup;
+			scopeCleanup:
+				if (e) goto cleanup;
+				inferrerTypeSignature_print(type.type);
+			}
+		}
+	}
+
+ cleanup: return e;
+}
+
 static dl_error_t infer_expression(inferrerState_t *state,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
                                    dl_bool_t infer) {
@@ -710,7 +772,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
 	     Find first value. — Done
 	     Isn't an identifier or callback? — Done
 	       Push scope. — Done
-	       Run argument inference.
+	       Run argument inference. — Done
 	       Pop scope. — Done
 	     Is a callback? — Done
 	       Run argument inference.
@@ -753,17 +815,8 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		if (e) goto cleanup;
 		/* Run argument inference */
 
-		{
-			dl_ptrdiff_t index = 1;
-			dl_size_t inferredLength = index;
-			while ((dl_size_t) index < expression->compoundExpressions_length) {
-				/* Run inference on the current identifier. */
-				e = inferArgument(state, expression, &index, infer);
-				if (e) goto cleanup;
-				inferredLength++;
-			}
-			(void) inferredLength;
-		}
+		e = inferArguments(state, expression, 1, infer);
+		if (e) goto cleanup;
 	}
 	else if (head->type == duckLisp_ast_type_identifier) {
 		/* This is a function call. It needs to be type checked. */
@@ -779,23 +832,15 @@ static dl_error_t infer_expression(inferrerState_t *state,
 			if (type.bytecode_length > 0) {
 				/* Execute bytecode */
 			}
-			/* #include <stdio.h> */
 			/* printf("length: %zu\n", type.type.value.expression.compoundExpressions_length); */
+			e = inferArguments(state, expression, 1, infer);
+			if (e) goto cleanup;
 		}
 		else {
 			/* Undeclared. */
 			/* Argument inference stuff goes here. */
-			{
-				dl_ptrdiff_t index = 1;
-				dl_size_t inferredLength = index;
-				while ((dl_size_t) index < expression->compoundExpressions_length) {
-					/* Run inference on the current identifier. */
-					e = inferArgument(state, expression, &index, infer);
-					if (e) goto cleanup;
-					inferredLength++;
-				}
-				(void) inferredLength;
-			}
+			e = inferArguments(state, expression, 1, infer);
+			if (e) goto cleanup;
 		}
 
 		(void) expressionIdentifier;
@@ -807,62 +852,9 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		e = pushDeclarationScope(state, &scope);
 		if (e) goto cleanup;
 
-		/* The function needs the whole expression. It is given the pointer to the current index.
-		 */
-		{
-			dl_ptrdiff_t index = 0;
-			dl_size_t inferredLength = 0;
-			while ((dl_size_t) index < expression->compoundExpressions_length) {
-				printf("index %zi\n", index);
-				/* Run inference on the current identifier. */
-				dl_ptrdiff_t startIndex = index;
-				e = inferArgument(state, expression, &index, infer);
-				if (e) goto cleanup;
-				inferredLength++;
-
-				// `__declare` interpreter
-				duckLisp_ast_compoundExpression_t ce = expression->compoundExpressions[startIndex];
-				if ((ce.type == duckLisp_ast_type_expression)
-				    && ((ce.value.expression.compoundExpressions_length == 3)
-				        || (ce.value.expression.compoundExpressions_length == 4))
-				    && (ce.value.expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)
-				    && (ce.value.expression.compoundExpressions[1].type == duckLisp_ast_type_identifier)) {
-					dl_bool_t result;
-					duckLisp_ast_identifier_t keyword = ce.value.expression.compoundExpressions[0].value.identifier;
-					duckLisp_ast_identifier_t identifier = ce.value.expression.compoundExpressions[1].value.identifier;
-					duckLisp_ast_compoundExpression_t typeAst = ce.value.expression.compoundExpressions[2];
-					(void) dl_string_compare(&result, DL_STR("__declare"), keyword.value, keyword.value_length);
-					if (result) {
-						inferrerType_t type;
-						inferrerScope_t scope;
-						(void) inferrerType_init(&type);
-
-						e = popDeclarationScope(state, &scope);
-						if (e) goto scopeCleanup;
-
-						e = inferrerTypeSignature_fromAst(state, &type.type, typeAst);
-						if (e) goto scopeCleanup;
-						e = dl_trie_insert(&scope.identifiersTrie,
-						                   identifier.value,
-						                   identifier.value_length,
-						                   scope.types.elements_length);
-						if (e) goto scopeCleanup;
-
-						type.bytecode = dl_null;
-						type.bytecode_length = 0;
-
-						e = dl_array_pushElement(&scope.types, &type);
-						if (e) goto scopeCleanup;
-						e = pushDeclarationScope(state, &scope);
-						if (e) goto scopeCleanup;
-					scopeCleanup:
-						if (e) goto cleanup;
-						inferrerTypeSignature_print(type.type);
-					}
-				}
-			}
-			(void) inferredLength;
-		}
+		/* The function needs the whole expression. It is given the pointer to the current index. */
+		e = inferArguments(state, expression, 0, infer);
+		if (e) goto cleanup;
 
 		e = popDeclarationScope(state, dl_null);
 		if (e) goto cleanup;
