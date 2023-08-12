@@ -6,21 +6,59 @@ __declare __quote (L)
 __declare __+ (I &rest 1 I)
 __declare __if (I I I)
 __declare __apply (I &rest 1 I)
+__declare __funcall (I &rest 1 I)
+__declare __lambda (L &rest 1 I)
+__declare __defun (L L &rest 1 I)
+__declare __car (I)
+__declare __cdr (I)
+__declare __cons (I I)
 
-(__defun + (a &rest b)
-         __if b
-         __+ a __apply self b
-         a)
+__defun + (a &rest b)
+        __if b
+             __+ a (__apply self b)
+             a
 __declare + (I &rest 1 I)
 
+__defun * (a &rest b)
+        __if b
+             (__* a (__apply self b))
+             a
+__declare * (I &rest 1 I)
+
 (__defun println (arg)
-         (print arg)
-         (print "\n")
+         print arg
+         print "\n"
          arg)
 __declare println (I)
 
-println "Hello!"
+__defun list (&rest args) args
+__declare list (&rest 1 I)
+
+__defun cons (a d) __cons a d
+__declare cons (I I)
+
+__defun car (c) __car c
+__declare car (I)
+
+__defun cdr (c) __cdr c
+__declare cdr (I)
+
+__defun funcall (f &rest args) __apply f args
+__declare funcall (I &rest 1 I)
+
+__defun map (f l)
+        __if l
+             cons (f car l)
+                  (funcall self f cdr l)
+             ()
+__declare map (I I)
+
+__defun reduce (f l) __apply f l
+__declare reduce (I I)
+
 println __quote print
 println + + 1 2
           + 3 4
 println (+ 1 2 3 4)
+println * 2 reduce #+ (list 1 2 3 4)
+println reduce #+ map __lambda (x) * 2 x (list 1 2 3 4)

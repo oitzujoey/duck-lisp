@@ -775,27 +775,29 @@ static dl_error_t infer_expression(inferrerState_t *state,
 	       Run argument inference. — Done
 	       Pop scope. — Done
 	     Is a callback? — Done
-	       Run argument inference.
+	       Run argument inference. — Done
 	     Is an identifier? — Done
 	       Isn't declared? — Done
-	         Run argument inference.
+	         Run argument inference. — Done
 	       Is declared? — Done
 	         Has declarator? — Done
 	           Run declarator.
-	         Run argument inference.
+	         Run argument inference. — Done
 	         Type doesn't match inferred form?
 	           Syntax error. Return.
-	         Is `__declare`?
-	           Run `__declare` interpreter.
+	         Is `__declare`? — Done
+	           Run `__declare` interpreter. — Done
 	   Argument inference:
-	     Fetch default number of arguments.
-	     For each argument:
-	       Expression?
-	         Run expression inference.
-	       Identifier?
-	         Run argument inference.
-	       Other?
-	         Continue.
+	     Fetch default number of arguments. — Done
+	     For each argument: — Done
+	       Identifier? — Done
+	         Run argument inference. — Done
+	       Other? — Done
+	         Run compound expression inference. — Done
+
+	   TODO: declarator scripts
+	         type check
+	         nested types
 
 	   Two functions can only be used if the right data structure exists. Or maybe I can copy the tree instead of
 	   modifying it?
