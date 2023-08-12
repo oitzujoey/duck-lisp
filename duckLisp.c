@@ -1504,6 +1504,9 @@ dl_error_t duckLisp_compileState_quit(duckLisp_t *duckLisp, duckLisp_compileStat
   Creates a function from a string in the current scope.
 */
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+                               const dl_bool_t parenthesisInferenceEnabled,
+#endif /* USE_PARENTHESIS_INFERENCE */
                                unsigned char **bytecode,
                                dl_size_t *bytecode_length,
                                const char *source,
@@ -1518,7 +1521,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	dl_array_t bytecodeArray;
 	dl_bool_t result = dl_false;
 
-	/**/ ast_compoundExpression_init(&ast);
+	/**/ duckLisp_ast_compoundExpression_init(&ast);
 
 	// Trim whitespace from the beginning of the file.
 	do {
@@ -1529,21 +1532,23 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	/* Parse. */
 
-	e = duckLisp_read(duckLisp, fileName, fileName_length, source, source_length, &ast, index, dl_true);
+	e = duckLisp_read(duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+	                  parenthesisInferenceEnabled,
+	                  10000,
+#endif /* USE_PARENTHESIS_INFERENCE */
+	                  fileName,
+	                  fileName_length,
+	                  source,
+	                  source_length,
+	                  &ast,
+	                  index,
+	                  dl_true);
 	if (e) goto cleanup;
 
 	/* printf("AST: "); */
 	/* e = ast_print_compoundExpression(*duckLisp, ast); putchar('\n'); */
 	if (e) goto cleanup;
-
-	/* { */
-	/* 	dl_size_t tempDlSize; */
-	/* 	/\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* 	printf("\nCompiler memory usage: %llu/%llu (%llu%%)", */
-	/* 	       tempDlSize, */
-	/* 	       duckLisp->memoryAllocation->size, */
-	/* 	       100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* } */
 
 	/* Compile AST to bytecode. */
 
@@ -1562,7 +1567,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 		*bytecode_length = 0;
 	}
 
-	eError = ast_compoundExpression_quit(duckLisp, &ast);
+	eError = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ast);
 	if (eError) e = eError;
 
 	return e;

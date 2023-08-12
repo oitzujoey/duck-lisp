@@ -1,0 +1,7 @@
+;; This is such a hack! XD
+(#__defmacro #__declare (#identifier #type #&rest #script-body) ())
+
+__declare print (I)
+
+print "Hello!\n"
+print (__quote #hello)

@@ -2058,23 +2058,167 @@ Lua has only a few data types and functions.
 I can make up for some of this mess through documentation.
 
 
-Next step:
+I could give each AST node a range to the source code. Handling macros is the hard part.
 
-Defer:
+
+Release
+    Fix bugs
+    Free memory
+    Improve compiler error reporting
+    Fix and document C API
+
+
+The parenthesis inferrer needs a DL instance to be able to declare identifiers while executing user-defined identifiers. The VM should be self-contained in the inferrer for simplicity, but it should still be extensible with user-defined generators and callbacks. I think the solution to this is to add a tree-walk interpreter similar to what the compiler has. `__declare` declares an identfier. `__inftime` executes DL code at inference-time. Both of these types of forms are deleted before inference is completed.
+
+__declare __lambda (L &rest I)
+__declare ` (I)
+__declare , (I)
+__declare ,@ (I)
+
+(__declare declare (L L &rest I 1)
+           (__lambda (identifier &rest tokens)
+                     (__var name (__elt tokens 0))
+                     (__var type (__elt tokens 1))
+                     (__var forms (__infer identifier tokens))
+                     (__var lambda (__elt forms 2))
+                     (__list name
+                             type
+                             lambda
+                             __quote c-scoped)))
+(__declare __var (L I)
+           (__lambda (identifier &rest tokens)
+                     (__var name (__elt tokens 0))
+                     (__list name
+                             __quote L
+                             __quote c-scoped)))
+(__declare __defun (L L L &rest I 1)
+           (__lambda (identifier &rest tokens)
+                     (__var name (__elt tokens 0))
+                     (__var type (__elt tokens 2))
+                     (__list name
+                             type
+                             __quote c-scoped)))
+(__declare __defmacro (L L L &rest I 1)
+           (__lambda (identifier &rest tokens)
+                     (__var name (__elt tokens 0))
+                     (__var type (__elt tokens 2))
+                     (__list name
+                             type
+                             __quote c-scoped)))
+(defmacro vars (&rest names) (&rest L 1)
+          ` (__noscope
+             ,@ (mapcar (__lambda (name) ` (__var , name ())) names)))
+(declare vars (L)
+         (__lambda (identifer &rest tokens)
+                   (mapcar (__lambda (node)
+                                     (__list node
+                                             __quote L
+                                             __quote c-scoped))
+                           nodes)))
+
+First lambda: The returned alist contains the new entries to add to the scope.
+Second lambda: The returned alist contains the names to delete from the scope.
+
+Subsequent declarations may overwrite earlier definitions.
+Nested declarations are simply shadowed.
+
+__declare L I
+__infer (__quote c-scoped) (__quote lisp-scoped)
+
+`__infer` is a little weird as a sort of recursion can occur.
+
+Two problems: How to handle forms like `let' and how to handle forms that declare forms.
+
+
+declare let (lambda (identifier &rest tokens)
+              (var bindings (first tokens))
+              (var body (rest tokens))
+              (var identifier-names (mapcar* (lambda (binding)
+                                               (var identifier (first binding))
+                                               (var body (rest binding))
+                                               (infer … body)
+                                               (push-declaration identifier 'L)
+                                               identifier)
+                                             bindings))
+              (infer … body)
+              (mapcar* (lambda (identifier)
+                         (pop-declaration identifier))
+                       identifier-names)
+              `(,identifier ,bindings ,@body))
+
+(let ((a 1)
+      (b + 2 3))
+  var c a
+  + c b)
+
+(declare let ((&rest (L I) 1) &rest I 1)
+         (lambda ()
+           ;; The bindings of the `let' statement is the first argument. It will be inferred using the type above.
+           (var bindings (__infer-and-get-next-argument))
+           ;; Create a new scope. All declarations in the scope will be deleted when the scope exits.
+           (__declaration-scope
+            (dolist binding bindings
+                    ;; Declare each new identifier in the `let' as a variable.
+                    (__declare-identifier (first binding) 'L))
+            ;; Infer body in scope.
+            (__infer-and-get-next-argument))))
+
+(declare defun (L L L &rest I 1)
+         (lambda ()
+           (var name (__infer-and-get-next-argument))
+           (var parameters (__infer-and-get-next-argument))
+           (var type (__infer-and-get-next-argument))
+           ;; `defun' defines `self' in order to allow recursion.
+           (__declaration-scope
+            (__declare-identifier 'self type)
+            (var body (__infer-and-get-next-argument)))
+           (__declare-identifier name type)))
+
+__declare L I
+__infer-and-get-next-argument __declaration-scope __declare-identifier
+
+
+
+"__declare" : '((L I &rest 1 I)
+                (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
+
+
+(__declare include (L)
+           (__infer-file (__infer-and-get-next-argument)))
+
+
+`duckLisp_read` is quite convenient. Next I should implement `astToInferrerType` so I can allocate an entire type tree in three or so lines.
+
+
+
+Next step: Update "language.md"
 
 Todo:
+    Add parenthesis inference?
+        Add callback parser
+        Write inferrer
+        Document inference algorithm
+    Fix bugs
+        Write lots of tests
     Fix C API
+    Document C API
+    Document everything else?
+        Write overview of compiler
+        Write overview of VM
     Clean up memory
     Fix error handling?
+        Fix generator error reporting.
+        Fix VM error reporting?
     Optimization?
+        Hash tables/Tries?
+        String interning?
         Rewrite memory allocator?
 	Clean up.
-    Hash tables?
 	Create Hidey-Chess branch and add required functions.
 	Clean up.
 
 How to design your compiler for macros:
-Assumptions: You want macros to be able to call function at compile-time.
+Assumptions: You want macros to be able to call functions at compile-time.
 Wrap compile time functions in a `comptime' keyword. Depending on what you want out of it, you may need to create a way for the VM to yield control midway through execution.
 
 Duck-lisp architecture:

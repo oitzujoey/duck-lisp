@@ -964,7 +964,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	dl_array_t sourceCode; /* dl_array_t:char */
 	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 	duckLisp_ast_compoundExpression_t ast;
-	/**/ ast_compoundExpression_init(&ast);
+	/**/ duckLisp_ast_compoundExpression_init(&ast);
 
 	/* Check arguments for call and type errors. */
 
@@ -1026,6 +1026,10 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* puts(COLOR_NORMAL); */
 
 	e = duckLisp_read(duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+	                  dl_true,
+	                  10000,
+#endif /* USE_PARENTHESIS_INFERENCE */
 	                  fileName.value,
 	                  fileName.value_length,
 	                  sourceCode.elements,
@@ -1050,7 +1054,7 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &ast.value.expression);
 	if (e) goto cFileName_cleanup;
 
-	e = ast_compoundExpression_quit(duckLisp, &ast);
+	e = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ast);
 	if (e) goto cFileName_cleanup;
 
 	/* printf(COLOR_YELLOW); */
@@ -1115,6 +1119,9 @@ int eval(duckLisp_t *duckLisp,
 	unsigned char *bytecode = dl_null;
 	dl_size_t bytecode_length = 0;
 	loadError = duckLisp_loadString(duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+	                                dl_true,
+#endif /* USE_PARENTHESIS_INFERENCE */
 	                                &bytecode,
 	                                &bytecode_length,
 	                                &DL_ARRAY_GETADDRESS(sourceCode, char, 0),

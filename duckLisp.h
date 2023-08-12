@@ -49,6 +49,7 @@ typedef enum {
 	duckLisp_ast_type_none = 0,
 	duckLisp_ast_type_expression,
 	duckLisp_ast_type_identifier,
+	duckLisp_ast_type_callback,
 	duckLisp_ast_type_string,
 	duckLisp_ast_type_float,
 	duckLisp_ast_type_int,
@@ -698,6 +699,9 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 dl_ptrdiff_t duckLisp_symbol_nameToValue(const duckLisp_t *duckLisp, const char *name, const dl_size_t name_length);
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+                               const dl_bool_t parenthesisInferenceEnabled,
+#endif /* USE_PARENTHESIS_INFERENCE */
                                unsigned char **bytecode,
                                dl_size_t *bytecode_length,
                                const char *source,
@@ -727,13 +731,13 @@ dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
 dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
                                             duckLisp_compileState_t *compileState,
                                             const duckLisp_ast_identifier_t name);
-dl_error_t DECLSPEC  duckLisp_addGenerator(duckLisp_t *duckLisp,
-                                           dl_error_t (*callback)(duckLisp_t*,
-                                                                  duckLisp_compileState_t *,
-                                                                  dl_array_t*,
-                                                                  duckLisp_ast_expression_t*),
-                                           const char *name,
-                                           const dl_size_t name_length);
+dl_error_t DECLSPEC duckLisp_addGenerator(duckLisp_t *duckLisp,
+                                          dl_error_t (*callback)(duckLisp_t*,
+                                                                 duckLisp_compileState_t *,
+                                                                 dl_array_t*,
+                                                                 duckLisp_ast_expression_t*),
+                                          const char *name,
+                                          const dl_size_t name_length);
 dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp,
                                            dl_error_t (*callback)(duckVM_t *),
                                            const char *name,

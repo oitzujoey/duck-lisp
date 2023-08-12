@@ -348,6 +348,9 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 	}
 
 	e = duckLisp_loadString(&duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+	                        dl_false,
+#endif /* USE_PARENTHESIS_INFERENCE */
 	                        &bytecode,
 	                        &bytecode_length,
 	                        text,

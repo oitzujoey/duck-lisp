@@ -1288,7 +1288,7 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 	                                        dl_true);
 	if (e) goto cleanup;
 
-	e = ast_compoundExpression_quit(duckLisp, &returnCompoundExpression);
+	e = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &returnCompoundExpression);
 	if (e) goto cleanup;
 
  cleanup:
@@ -3557,7 +3557,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
  cleanupAST:
 
-	eError = ast_compoundExpression_quit(duckLisp, &ast);
+	eError = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ast);
 	if (!e) e = eError;
 
  cleanupArrays:

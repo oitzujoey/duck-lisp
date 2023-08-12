@@ -18,6 +18,7 @@ option(USE_STDLIB "Replace DuckLib functions with standard library equivalents" 
 option(NO_OPTIMIZE_JUMPS "Disable minimization of jump and branch instruction size" OFF)
 option(NO_OPTIMIZE_PUSHPOPS "Disable deletion of redundant push-pop instruction sequences" OFF)
 option(USE_DATALOGGING "Add an extra field in \"duckLisp_t\" called \"duckLisp_datalog_t\" to track performance" OFF)
+option(USE_PARENTHESIS_INFERENCE "Enable optional parenthesis inference" OFF)
 
 
 add_subdirectory(.. build-lisp)
@@ -59,6 +60,10 @@ endif()
 
 if(USE_DATALOGGING)
   add_definitions(-DUSE_DATALOGGING)
+endif()
+
+if(USE_PARENTHESIS_INFERENCE)
+  add_definitions(-DUSE_PARENTHESIS_INFERENCE)
 endif()
 
 target_link_libraries(memory-dev PUBLIC DuckLib ubsan)

@@ -25,9 +25,14 @@ SOFTWARE.
 #ifndef DUCKLISP_PARSER_H
 #define DUCKLISP_PARSER_H
 #include "duckLisp.h"
-void ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression);
-dl_error_t ast_compoundExpression_quit(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression);
+void duckLisp_ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression);
+dl_error_t duckLisp_ast_compoundExpression_quit(dl_memoryAllocation_t *memoryAllocation,
+                                                duckLisp_ast_compoundExpression_t *compoundExpression);
 dl_error_t duckLisp_read(duckLisp_t *duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+                         const dl_bool_t parenthesisInferenceEnabled,
+                         const dl_size_t maxComptimeVmObjects,
+#endif /* USE_PARENTHESIS_INFERENCE */
                          const char *fileName,
                          const dl_size_t fileName_length,
                          const char *source,

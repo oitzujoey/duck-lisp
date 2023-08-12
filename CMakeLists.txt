@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 add_library(DuckLisp
   duckLisp.c
   parser.c
+  parenthesis-inferrer.c
   emitters.c
   generators.c
   assembler.c
@@ -62,6 +63,10 @@ endif()
 
 if(USE_DATALOGGING)
   add_definitions(-DUSE_DATALOGGING)
+endif()
+
+if(USE_PARENTHESIS_INFERENCE)
+  add_definitions(-DUSE_PARENTHESIS_INFERENCE)
 endif()
 
 target_compile_definitions(DuckLib PUBLIC "EXPORTING_DUCKLIB")
