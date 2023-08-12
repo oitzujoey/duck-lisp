@@ -551,7 +551,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 			e = findDeclaration(state, &found, &type, compoundExpression->value.identifier);
 			if (e) goto cleanup;
 
-			if (found) {
+			if (found && infer) {
 				/* Declared */
 				puts("Declared");
 				if (type.bytecode_length > 0) {
@@ -596,8 +596,9 @@ static dl_error_t inferArgument(inferrerState_t *state,
 							expression->compoundExpressions[lastIndex].value.expression.compoundExpressions = dl_null;
 						}
 						else {
-							eError = duckLisp_error_pushInference(state,
-							                                      DL_STR("Nested expression types are not yet supported."));
+							(eError
+							 = duckLisp_error_pushInference(state,
+							                                DL_STR("Nested expression types are not yet supported.")));
 							if (eError) e = eError;
 						}
 						puts("}");

@@ -2,6 +2,7 @@
 (#__defmacro #__declare (#identifier #type #&rest #script-body) ())
 
 __declare print (I)
+__declare __quote (L)
 
 print "Hello!\n"
-print (__quote #hello)
+print __quote print
