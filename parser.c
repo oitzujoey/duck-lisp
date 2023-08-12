@@ -1279,6 +1279,10 @@ dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compou
 	case duckLisp_ast_type_string:
 		/**/ ast_print_string(duckLisp, compoundExpression.value.string);
 		break;
+#ifdef USE_PARENTHESIS_INFERENCE
+	case duckLisp_ast_type_callback:
+		/* Fall through */
+#endif /* USE_PARENTHESIS_INFERENCE */
 	case duckLisp_ast_type_identifier:
 		/**/ ast_print_identifier(duckLisp, compoundExpression.value.identifier);
 		break;
