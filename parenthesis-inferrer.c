@@ -226,7 +226,8 @@ void inferrerTypeSignature_print(inferrerTypeSignature_t inferrerTypeSignature) 
 			inferrerTypeSignature_print(inferrerTypeSignature.value.expression.positionalSignatures[j]);
 		}
 		if (inferrerTypeSignature.value.expression.variadic) {
-			printf(" &rest %zu ", inferrerTypeSignature.value.expression.defaultRestLength);
+			if (inferrerTypeSignature.value.expression.positionalSignatures_length > 0) putchar(' ');
+			printf("&rest %zu ", inferrerTypeSignature.value.expression.defaultRestLength);
 			inferrerTypeSignature_print(*inferrerTypeSignature.value.expression.restSignature);
 		}
 		printf(")");
