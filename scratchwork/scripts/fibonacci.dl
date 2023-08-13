@@ -1,19 +1,19 @@
-(comment (include "../scripts/library.dl"))
+;; (include "../scripts/library.dl")
 
-(var a 0)
-(var b 1)
-(var c 0)
-(var i 0)
+(__var a 0)
+(__var b 1)
+(__var c 0)
+(__var i 0)
 
-(while (< i 10)
-  (print a)
-  (print "\n")
+(__while (__< i 10)
+         (print a)
+         (print "\n")
 
-  (setq c (+ a b))
-  (setq b a)
-  (setq a c)
-  
-  (setq i (+ i 1)))
+         (__setq c (__+ a b))
+         (__setq b a)
+         (__setq a c)
+
+         (__setq i (__+ i 1)))
 
 (print "Done")
 (print "\n")
