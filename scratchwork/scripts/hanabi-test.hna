@@ -32,7 +32,7 @@ __declare * (I &rest 1 I)
 __declare println (I)
 
 __defun list (&rest args) args
-__declare list (&rest 1 I)
+__declare list (&rest 0 I)
 
 __defun cons (a d) __cons a d
 __declare cons (I I)
@@ -62,3 +62,13 @@ println + + 1 2
 println (+ 1 2 3 4)
 println * 2 reduce #+ (list 1 2 3 4)
 println reduce #+ map __lambda (x) * 2 x (list 1 2 3 4)
+
+__defun f (a b) (cons a b)
+__declare f (I I)
+__defun g (a b) (cons a b)
+__declare g (L I)
+
+println f list 3
+println g list 3
+println (f list 3)
+println (g list 3)

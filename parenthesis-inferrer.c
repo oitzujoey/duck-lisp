@@ -335,7 +335,6 @@ static dl_error_t inferrerTypeSignature_fromAst(inferrerState_t *state,
 		(inferrerTypeSignature
 		 ->value.expression.positionalSignatures_length) = subInferrerTypeSignaturesArray.elements_length;
 		inferrerTypeSignature->value.expression.variadic = variadic;
-		printf("length %zu\n", subInferrerTypeSignaturesArray.elements_length);
 		expressionCleanup:
 		if (e) {
 			eError = dl_array_quit(&subInferrerTypeSignaturesArray);
@@ -559,7 +558,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
 
 		if (found && infer) {
 			/* Declared */
-			puts("Declared");
 			if (type.bytecode_length > 0) {
 				/* Execute bytecode */
 			}
@@ -582,15 +580,11 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						e = dl_error_invalidValue;
 						(eError
 						 = duckLisp_error_pushInference(state,
-						                                DL_STR("To few arguments for declared identifier.")));
+						                                DL_STR("Too few arguments for declared identifier.")));
 						if (eError) e = eError;
 						goto expressionCleanup;
 					}
-					puts("{");
-					printf("type ");
 					inferrerTypeSignature_t argSignature = type.type.value.expression.positionalSignatures[l];
-					inferrerTypeSignature_print(argSignature);
-					putchar('\n');
 					if (argSignature.type == inferrerTypeSignature_type_symbol) {
 						dl_ptrdiff_t lastIndex = localIndex;
 						e = inferArgument(state,
@@ -608,16 +602,10 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						                                DL_STR("Nested expression types are not yet supported.")));
 						if (eError) e = eError;
 					}
-					puts("}");
 				}
 				if (type.type.value.expression.variadic) {
-					puts("&rest {");
 					inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
-					printf("type ");
-					inferrerTypeSignature_print(argSignature);
-					putchar('\n');
 					DL_DOTIMES(l, type.type.value.expression.defaultRestLength) {
-						puts("{");
 						if (argSignature.type == inferrerTypeSignature_type_symbol) {
 							dl_ptrdiff_t lastIndex = localIndex;
 							e = inferArgument(state,
@@ -637,9 +625,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 							                                DL_STR("Nested expression types are not yet supported.")));
 							if (eError) e = eError;
 						}
-						puts("}");
 					}
-					puts("}");
 				}
 
 			expressionCleanup:
@@ -707,6 +693,7 @@ static dl_error_t inferArguments(inferrerState_t *state,
 	while ((dl_size_t) index < expression->compoundExpressions_length) {
 		/* Run inference on the current identifier. */
 		dl_ptrdiff_t startIndex = index;
+		/* The function needs the whole expression. It is given the pointer to the current index. */
 		e = inferArgument(state, expression, &index, infer);
 		if (e) goto cleanup;
 
@@ -759,6 +746,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
                                    dl_bool_t infer) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
 	if (!infer) {
 		/* OK */
@@ -768,24 +756,10 @@ static dl_error_t infer_expression(inferrerState_t *state,
 	duckLisp_ast_expression_t *expression = &compoundExpression->value.expression;
 
 	/* Expression inference:
-	     Find first value. — Done
-	     Isn't an identifier or callback? — Done
-	       Push scope. — Done
-	       Run argument inference. — Done
-	       Pop scope. — Done
-	     Is a callback? — Done
-	       Run argument inference. — Done
 	     Is an identifier? — Done
-	       Isn't declared? — Done
-	         Run argument inference. — Done
 	       Is declared? — Done
 	         Has declarator? — Done
 	           Run declarator.
-	         Run argument inference. — Done
-	         Type doesn't match inferred form?
-	           Syntax error. Return.
-	         Is `__declare`? — Done
-	           Run `__declare` interpreter. — Done
 
 	   TODO: declarator scripts
 	         type check
@@ -793,6 +767,11 @@ static dl_error_t infer_expression(inferrerState_t *state,
 
 	   Two functions can only be used if the right data structure exists. Or maybe I can copy the tree instead of
 	   modifying it?
+
+	   declare m (L I)
+	   m a 1  —  Infer
+	   (m a 1)  —  Check arity
+	   (#m a 1)  —  Untyped
 	*/
 
 	if (expression->compoundExpressions_length == 0) {
@@ -826,9 +805,67 @@ static dl_error_t infer_expression(inferrerState_t *state,
 			if (type.bytecode_length > 0) {
 				/* Execute bytecode */
 			}
-			/* printf("length: %zu\n", type.type.value.expression.compoundExpressions_length); */
-			e = inferArguments(state, expression, 1, infer);
-			if (e) goto cleanup;
+
+			dl_ptrdiff_t index = 1;
+			{
+				DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
+					if ((dl_size_t) index >= expression->compoundExpressions_length) {
+						e = dl_error_invalidValue;
+						(eError
+						 = duckLisp_error_pushInference(state,
+						                                DL_STR("Too few arguments for declared identifier.")));
+						if (eError) e = eError;
+						goto expressionCleanup;
+					}
+					inferrerTypeSignature_t argSignature = type.type.value.expression.positionalSignatures[l];
+					if (argSignature.type == inferrerTypeSignature_type_symbol) {
+						e = inferArgument(state,
+						                  expression,
+						                  &index,
+						                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
+						if (e) goto expressionCleanup;
+					}
+					else {
+						(eError
+						 = duckLisp_error_pushInference(state,
+						                                DL_STR("Nested expression types are not yet supported.")));
+						if (eError) e = eError;
+					}
+				}
+				if (type.type.value.expression.variadic) {
+					inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
+					while ((dl_size_t) index < expression->compoundExpressions_length) {
+						if (argSignature.type == inferrerTypeSignature_type_symbol) {
+							e = inferArgument(state,
+							                  expression,
+							                  &index,
+							                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
+							                   ? infer
+							                   : dl_false));
+							if (e) goto expressionCleanup;
+						}
+						else {
+							(eError
+							 = duckLisp_error_pushInference(state,
+							                                DL_STR("Nested expression types are not yet supported.")));
+							if (eError) e = eError;
+						}
+					}
+				}
+				else if ((dl_size_t) index > expression->compoundExpressions_length) {
+					e = dl_error_invalidValue;
+					eError = duckLisp_error_pushInference(state, DL_STR("Too few arguments for identifier."));
+					if (eError) e = eError;
+				}
+				else if ((dl_size_t) index < expression->compoundExpressions_length) {
+					e = dl_error_invalidValue;
+					eError = duckLisp_error_pushInference(state, DL_STR("Too many arguments for identifier."));
+					if (eError) e = eError;
+				}
+
+			expressionCleanup:
+				if (e) goto cleanup;
+			}
 		}
 		else {
 			/* Undeclared. */
@@ -846,7 +883,6 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		e = pushDeclarationScope(state, &scope);
 		if (e) goto cleanup;
 
-		/* The function needs the whole expression. It is given the pointer to the current index. */
 		e = inferArguments(state, expression, 0, infer);
 		if (e) goto cleanup;
 
@@ -995,6 +1031,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	e = infer_compoundExpression(&state, ast, dl_true);
 	if (e) goto cleanup;
 
+	printf("\nFINAL: ");
 	ast_print_compoundExpression(state.duckLisp, *ast);
 	puts("");
 

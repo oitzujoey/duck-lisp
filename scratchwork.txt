@@ -2190,6 +2190,17 @@ __infer-and-get-next-argument __declaration-scope __declare-identifier
 `duckLisp_read` is quite convenient. Next I should implement `astToInferrerType` so I can allocate an entire type tree in three or so lines.
 
 
+What every data structure should have:
+
+init(data)
+quit(data)
+string = serialize(data)
+
+And optionally:
+
+data = parse(string)
+
+
 
 Next step: Update "language.md"
 
