@@ -956,6 +956,15 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
+#ifdef USE_PARENTHESIS_INFERENCE
+	typedef enum {
+		filetype_dl,
+		filetype_hanabi
+	} filetype_t;
+	filetype_t filetype = filetype_dl;
+
+	duckLisp_ast_string_t hanabiExtension = {DL_STR(".hna")};
+#endif /* USE_PARENTHESIS_INFERENCE */
 	duckLisp_ast_string_t fileName;
 	char *cFileName = NULL;
 	FILE *sourceFile = NULL;
@@ -979,6 +988,17 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 
 	fileName.value = expression->compoundExpressions[1].value.string.value;
 	fileName.value_length = expression->compoundExpressions[1].value.string.value_length;
+
+#ifdef USE_PARENTHESIS_INFERENCE
+	if (fileName.value_length >= hanabiExtension.value_length) {
+		dl_bool_t result;
+		(void) dl_string_compare_partial(&result,
+		                                 fileName.value + fileName.value_length - hanabiExtension.value_length,
+		                                 hanabiExtension.value,
+		                                 hanabiExtension.value_length);
+		if (result) filetype = filetype_hanabi;
+	}
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 	printf(COLOR_YELLOW);
 	printf("(include \"");
@@ -1020,14 +1040,9 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 
 	/* Parse script. */
 
-	/* printf(COLOR_YELLOW); */
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("include: Pre parse memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* puts(COLOR_NORMAL); */
-
 	e = duckLisp_read(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
-	                  dl_true,
+	                  filetype == filetype_hanabi,
 	                  10000,
 #endif /* USE_PARENTHESIS_INFERENCE */
 	                  fileName.value,
@@ -1046,29 +1061,17 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* if (e) goto l_cFileName_cleanup; */
 	/* puts(COLOR_NORMAL); */
 
-	/* printf(COLOR_YELLOW); */
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("include: Pre compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* puts(COLOR_NORMAL); */
-
 	e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &ast.value.expression);
 	if (e) goto cFileName_cleanup;
 
 	e = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ast);
 	if (e) goto cFileName_cleanup;
 
-	/* printf(COLOR_YELLOW); */
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("include: Post compile memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* puts(COLOR_NORMAL); */
-
  cFileName_cleanup:
-
 	eError = dl_free(duckLisp->memoryAllocation, (void **) &cFileName);
 	if (eError) e = eError;
 
  cleanup:
-
 	/**/ dl_array_quit(&sourceCode);
 
 	eError = dl_array_quit(&eString);
@@ -1080,6 +1083,9 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 int eval(duckLisp_t *duckLisp,
          duckVM_t *duckVM,
          duckVM_object_t *return_value,
+#ifdef USE_PARENTHESIS_INFERENCE
+         const dl_bool_t parenthesisInferenceEnabled,
+#endif /* USE_PARENTHESIS_INFERENCE */
          const char *source,
          const dl_size_t source_length,
          const char *fileName,
@@ -1120,7 +1126,7 @@ int eval(duckLisp_t *duckLisp,
 	dl_size_t bytecode_length = 0;
 	loadError = duckLisp_loadString(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
-	                                dl_true,
+	                                parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
 	                                &bytecode,
 	                                &bytecode_length,
@@ -1271,12 +1277,34 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
+#ifdef USE_PARENTHESIS_INFERENCE
+	typedef enum {
+		filetype_dl,
+		filetype_hanabi
+	} filetype_t;
+	filetype_t filetype = filetype_dl;
+#endif /* USE_PARENTHESIS_INFERENCE */
+
 	char tempChar;
 	int tempInt;
+#ifdef USE_PARENTHESIS_INFERENCE
+	duckLisp_ast_string_t hanabiExtension = {DL_STR(".hna")};
+#endif /* USE_PARENTHESIS_INFERENCE */
+	size_t filename_length = strlen(filename);
 
 	dl_array_t sourceCode;
-
 	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+#ifdef USE_PARENTHESIS_INFERENCE
+	if (filename_length >= hanabiExtension.value_length) {
+		dl_bool_t result;
+		(void) dl_string_compare_partial(&result,
+		                                 filename + filename_length - hanabiExtension.value_length,
+		                                 hanabiExtension.value,
+		                                 hanabiExtension.value_length);
+		if (result) filetype = filetype_hanabi;
+	}
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 	/* Fetch script. */
 
@@ -1300,10 +1328,13 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 	e = eval(duckLisp,
 	         duckVM,
 	         return_value,
+#ifdef USE_PARENTHESIS_INFERENCE
+	         filetype == filetype_hanabi,
+#endif /* USE_PARENTHESIS_INFERENCE */
 	         sourceCode.elements,
 	         sourceCode.elements_length,
 	         filename,
-	         strlen(filename));
+	         filename_length);
 
  cleanup:
 
@@ -1454,7 +1485,7 @@ int main(int argc, char *argv[]) {
 	if (argc == 2) {
 		FILE *sourceFile = fopen(argv[1], "r");
 		if (sourceFile == NULL) {
-			e = eval(&duckLisp, &duckVM, dl_null, argv[1], strlen(argv[1]), DL_STR("<ARGV>"));
+			e = eval(&duckLisp, &duckVM, dl_null, dl_true, argv[1], strlen(argv[1]), DL_STR("<ARGV>"));
 		}
 		else {
 			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, argv[1]);
@@ -1477,7 +1508,7 @@ int main(int argc, char *argv[]) {
 			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			e = eval(&duckLisp, &duckVM, &return_value, line, length, DL_STR("<REPL>"));
+			e = eval(&duckLisp, &duckVM, &return_value, dl_true, line, length, DL_STR("<REPL>"));
 			free(line); line = NULL;
 			e = duckVM_push(&duckVM, &return_value);
 			e = duckLispDev_callback_print(&duckVM);
