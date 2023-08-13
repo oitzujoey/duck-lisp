@@ -159,6 +159,143 @@ static dl_error_t ast_expression_quit(dl_memoryAllocation_t *memoryAllocation, d
 	return e;
 }
 
+static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+                                          const dl_bool_t parenthesisInferenceEnabled,
+#endif /* USE_PARENTHESIS_INFERENCE */
+                                          const char *fileName,
+                                          const dl_size_t fileName_length,
+                                          const char *source,
+                                          const dl_size_t source_length,
+                                          duckLisp_ast_compoundExpression_t *compoundExpression,
+                                          dl_ptrdiff_t *index,
+                                          dl_bool_t throwErrors) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	dl_ptrdiff_t start_index = *index;
+	dl_ptrdiff_t indexCopy = start_index;
+
+	duckLisp_ast_expression_t expression;
+	dl_size_t expressionMemorySize = 0;
+	expression.compoundExpressions = dl_null;
+	expression.compoundExpressions_length = 0;
+
+	/* Basic syntax checks. Need space for two parentheses and the first character must be a parenthesis. */
+	if (indexCopy + 3 >= (dl_ptrdiff_t) source_length) {
+		eError = duckLisp_error_pushSyntax(duckLisp,
+		                                   DL_STR("Not an expression: file too short."),
+		                                   fileName,
+		                                   fileName_length,
+		                                   start_index,
+		                                   indexCopy,
+		                                   throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto cleanup;
+	}
+
+	if (!parenthesisInferenceEnabled) {
+		e = dl_error_invalidValue;
+		goto cleanup;
+	}
+
+	if (source[indexCopy] != '#') {
+		eError = duckLisp_error_pushSyntax(duckLisp,
+		                                   DL_STR("Expected first character to be '#'."),
+		                                   fileName,
+		                                   fileName_length,
+		                                   start_index,
+		                                   indexCopy,
+		                                   throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto cleanup;
+	}
+	start_index++;
+	indexCopy++;
+
+	if (source[indexCopy] != '(') {
+		eError = duckLisp_error_pushSyntax(duckLisp,
+		                                   DL_STR("Unbalanced parenthesis."),
+		                                   fileName,
+		                                   fileName_length,
+		                                   start_index,
+		                                   indexCopy,
+		                                   throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto cleanup;
+	}
+
+	indexCopy++;
+
+	if (indexCopy >= (dl_ptrdiff_t) source_length) {
+		eError = duckLisp_error_pushSyntax(duckLisp,
+		                                   DL_STR("Not an expression: file too short."),
+		                                   fileName,
+		                                   fileName_length,
+		                                   start_index,
+		                                   indexCopy,
+		                                   throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto cleanup;
+	}
+
+	while (dl_true) {
+		duckLisp_ast_compoundExpression_t subCompoundExpression;
+		dl_ptrdiff_t subIndex = indexCopy;
+		if (indexCopy >= (dl_ptrdiff_t) source_length) {
+			e = dl_error_invalidValue;
+			/* Definitely an error. Always push the error. */
+			eError = duckLisp_error_pushSyntax(duckLisp,
+			                                   DL_STR("Unmatched parenthesis."),
+			                                   fileName,
+			                                   fileName_length,
+			                                   -1,
+			                                   -1,
+			                                   dl_true);
+			if (eError) e = eError;
+			goto cleanup;
+		}
+		if (source[indexCopy] == ')') break;
+		e = parse_compoundExpression(duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+		                             parenthesisInferenceEnabled,
+#endif /* USE_PARENTHESIS_INFERENCE */
+		                             fileName,
+		                             fileName_length,
+		                             source,
+		                             source_length,
+		                             &subCompoundExpression,
+		                             &subIndex,
+		                             throwErrors);
+		if (e) goto cleanup;
+
+		dl_size_t newLength = expression.compoundExpressions_length + 1;
+		if (newLength > expressionMemorySize) {
+			expressionMemorySize = 2 * newLength;
+		}
+		e = DL_REALLOC(duckLisp->memoryAllocation,
+		               &expression.compoundExpressions,
+		               expressionMemorySize,
+		               duckLisp_ast_compoundExpression_t);
+		if (e) goto cleanup;
+
+		expression.compoundExpressions[expression.compoundExpressions_length] = subCompoundExpression;
+		expression.compoundExpressions_length++;
+
+		indexCopy = subIndex;
+		(void) parse_irrelevant(dl_null, source, source_length, dl_null, &indexCopy, dl_false);
+	}
+	indexCopy++;
+
+	*index = indexCopy;
+	puts("HERE");
+ cleanup:
+	compoundExpression->type = duckLisp_ast_type_literalExpression;
+	compoundExpression->value.expression = expression;
+
+	return e;
+}
+
 static dl_error_t parse_expression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                    const dl_bool_t parenthesisInferenceEnabled,
@@ -298,6 +435,11 @@ static dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_express
  cleanup: return e;
 }
 
+static dl_error_t ast_print_literalExpression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression) {
+	putchar('#');
+	return ast_print_expression(duckLisp, expression);
+}
+
 
 void ast_identifier_init(duckLisp_ast_identifier_t *identifier) {
 	identifier->value = dl_null;
@@ -401,6 +543,20 @@ static void ast_print_identifier(duckLisp_t duckLisp, duckLisp_ast_identifier_t 
 	(void) duckLisp;
 
 	putchar('\'');
+	if (identifier.value_length == 0) {
+		printf("{NULL}");
+		return;
+	}
+
+	for (dl_size_t i = 0; i < identifier.value_length; i++) {
+		putchar(identifier.value[i]);
+	}
+}
+
+static void ast_print_callback(duckLisp_t duckLisp, duckLisp_ast_identifier_t identifier) {
+	(void) duckLisp;
+
+	putchar('#');
 	if (identifier.value_length == 0) {
 		printf("{NULL}");
 		return;
@@ -1216,15 +1372,16 @@ static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
 	} readerStruct_t;
 
 	readerStruct_t readerStruct[] = {
-		{.reader = parse_bool,       .type = duckLisp_ast_type_bool},
-		{.reader = parse_float,      .type = duckLisp_ast_type_float},
-		{.reader = parse_int,        .type = duckLisp_ast_type_int},
-		{.reader = parse_string,     .type = duckLisp_ast_type_string},
+		{.reader = parse_bool,              .type = duckLisp_ast_type_bool},
+		{.reader = parse_float,             .type = duckLisp_ast_type_float},
+		{.reader = parse_int,               .type = duckLisp_ast_type_int},
+		{.reader = parse_string,            .type = duckLisp_ast_type_string},
 #ifdef USE_PARENTHESIS_INFERENCE
-		{.reader = parse_callback,   .type = duckLisp_ast_type_callback},
+		{.reader = parse_literalExpression, .type = duckLisp_ast_type_literalExpression},
+		{.reader = parse_callback,          .type = duckLisp_ast_type_callback},
 #endif /* USE_PARENTHESIS_INFERENCE */
-		{.reader = parse_identifier, .type = duckLisp_ast_type_identifier},
-		{.reader = parse_expression, .type = duckLisp_ast_type_expression},
+		{.reader = parse_identifier,        .type = duckLisp_ast_type_identifier},
+		{.reader = parse_expression,        .type = duckLisp_ast_type_expression},
 	};
 
 	(void) parse_irrelevant(dl_null,
@@ -1281,11 +1438,17 @@ dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compou
 		break;
 #ifdef USE_PARENTHESIS_INFERENCE
 	case duckLisp_ast_type_callback:
-		/* Fall through */
+		/**/ ast_print_callback(duckLisp, compoundExpression.value.identifier);
+		break;
 #endif /* USE_PARENTHESIS_INFERENCE */
 	case duckLisp_ast_type_identifier:
 		/**/ ast_print_identifier(duckLisp, compoundExpression.value.identifier);
 		break;
+#ifdef USE_PARENTHESIS_INFERENCE
+	case duckLisp_ast_type_literalExpression:
+		e = ast_print_literalExpression(duckLisp, compoundExpression.value.expression);
+		break;
+#endif /* USE_PARENTHESIS_INFERENCE */
 	case duckLisp_ast_type_expression:
 		e = ast_print_expression(duckLisp, compoundExpression.value.expression);
 		break;

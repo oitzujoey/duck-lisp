@@ -48,6 +48,7 @@ AST
 typedef enum {
 	duckLisp_ast_type_none = 0,
 	duckLisp_ast_type_expression,
+	duckLisp_ast_type_literalExpression,
 	duckLisp_ast_type_identifier,
 	duckLisp_ast_type_callback,
 	duckLisp_ast_type_string,

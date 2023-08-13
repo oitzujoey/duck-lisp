@@ -782,7 +782,18 @@ static dl_error_t infer_expression(inferrerState_t *state,
 	/* This pointer is weak. */
 	duckLisp_ast_compoundExpression_t *head = expression->compoundExpressions;
 
-	if (head->type == duckLisp_ast_type_callback) {
+	if (compoundExpression->type == duckLisp_ast_type_literalExpression) {
+		/* Don't type-check. */
+		e = infer_callback(state, head, dl_false);
+		if (e) goto cleanup;
+		/* Run argument inference */
+
+		e = inferArguments(state, expression, 1, dl_false);
+		if (e) goto cleanup;
+
+		compoundExpression->type = duckLisp_ast_type_expression;
+	}
+	else if (head->type == duckLisp_ast_type_callback) {
 		/* Don't type-check. */
 		e = infer_callback(state, head, dl_false);
 		if (e) goto cleanup;
@@ -921,6 +932,8 @@ static dl_error_t infer_compoundExpression(inferrerState_t *state,
 	case duckLisp_ast_type_callback:
 		e = infer_callback(state, compoundExpression, infer);
 		break;
+	case duckLisp_ast_type_literalExpression:
+		/* Fall through */
 	case duckLisp_ast_type_expression:
 		e = infer_expression(state, compoundExpression, infer);
 		break;

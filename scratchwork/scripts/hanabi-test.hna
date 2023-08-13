@@ -72,3 +72,18 @@ println f list 3
 println g list 3
 println (f list 3)
 println (g list 3)
+println #f list 3
+println #g list 3
+println (#f list 3)
+println (#g list 3)
+println #(f list 3)
+println #(g list 3)
+println ""
+println f (list list 3) 3
+println g (list list 3) 3
+println (f (list list 3) 3)
+println (g (list list 3) 3)
+println (#f (list list 3) 3)
+println (#g (list list 3) 3)
+println #(f (list list 3) 3)
+println #(g (list list 3) 3)
