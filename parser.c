@@ -288,7 +288,7 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 	indexCopy++;
 
 	*index = indexCopy;
-	puts("HERE");
+
  cleanup:
 	compoundExpression->type = duckLisp_ast_type_literalExpression;
 	compoundExpression->value.expression = expression;
