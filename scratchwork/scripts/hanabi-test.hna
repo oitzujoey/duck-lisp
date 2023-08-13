@@ -1,17 +1,7 @@
 ;; This is such a hack! XD
-(__defmacro #__declare (identifier type &rest script-body) ())
+(__defmacro __declare (identifier type &rest script-body) ())
 
 __declare print (I)
-__declare __quote (L)
-__declare __+ (I &rest 1 I)
-__declare __if (I I I)
-__declare __apply (I &rest 1 I)
-__declare __funcall (I &rest 1 I)
-__declare __lambda (L &rest 1 I)
-__declare __defun (L L &rest 1 I)
-__declare __car (I)
-__declare __cdr (I)
-__declare __cons (I I)
 
 __defun + (a &rest b)
         __if b

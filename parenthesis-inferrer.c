@@ -471,6 +471,46 @@ static dl_error_t findDeclaration(inferrerState_t *state,
  cleanup: return e;
 }
 
+static dl_error_t addDeclaration(inferrerState_t *state,
+                                 const char *name,
+                                 const dl_size_t name_length,
+                                 const char *typeString,
+                                 const dl_size_t typeString_length) {
+	dl_error_t e = dl_error_ok;
+
+	inferrerType_t type;
+	inferrerScope_t scope;
+	(void) inferrerType_init(&type);
+
+	e = popDeclarationScope(state, &scope);
+	if (e) goto cleanup;
+
+	{
+		duckLisp_ast_compoundExpression_t ast;
+		e = duckLisp_read(&state->duckLisp,
+		                  dl_false,
+		                  0,
+		                  DL_STR("<INFERRER>"),
+		                  typeString,
+		                  typeString_length,
+		                  &ast,
+		                  0,
+		                  dl_true);
+		if (e) goto cleanup;
+		e = inferrerTypeSignature_fromAst(state, &type.type, ast);
+		if (e) goto cleanup;
+	}
+	e = dl_trie_insert(&scope.identifiersTrie, name, name_length, scope.types.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElement(&scope.types, &type);
+	if (e) goto cleanup;
+
+	e = pushDeclarationScope(state, &scope);
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
 
 
 static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
@@ -1018,36 +1058,78 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	if (e) goto cleanup;
 
 	{
-		inferrerType_t type;
 		inferrerScope_t scope;
-
 		(void) inferrerScope_init(&scope, memoryAllocation);
-
-		(void) inferrerType_init(&type);
-		{
-			duckLisp_ast_compoundExpression_t ast;
-			e = duckLisp_read(&state.duckLisp,
-			                  dl_false,
-			                  0,
-			                  DL_STR("<INFERRER>"),
-			                  DL_STR("(L L &rest 0 I)"),
-			                  &ast,
-			                  0,
-			                  dl_true);
-			if (e) goto scopeCleanup;
-			e = inferrerTypeSignature_fromAst(&state, &type.type, ast);
-			if (e) goto scopeCleanup;
-		}
-		e = dl_trie_insert(&scope.identifiersTrie, DL_STR("__declare"), scope.types.elements_length);
-		if (e) goto scopeCleanup;
-		e = dl_array_pushElement(&scope.types, &type);
-		if (e) goto scopeCleanup;
-
 		e = pushDeclarationScope(&state, &scope);
-		if (e) goto scopeCleanup;
-	scopeCleanup:
 		if (e) goto cleanup;
 	}
+
+	{
+		struct {
+			char *name;
+			dl_size_t name_length;
+			char *typeString;
+			dl_size_t typeString_length;
+		} declarations[] = {{DL_STR("__declare"),                DL_STR("(L L &rest 0 I)")},
+		                    {DL_STR("__nop"),                    DL_STR("()")},
+		                    {DL_STR("__funcall"),                DL_STR("(I &rest 1 I)")},
+		                    {DL_STR("__apply"),                  DL_STR("(I &rest 1 I)")},
+		                    {DL_STR("__var"),                    DL_STR("(L I)")},
+		                    {DL_STR("__global"),                 DL_STR("(L I)")},
+		                    {DL_STR("__setq"),                   DL_STR("(L I)")},
+		                    {DL_STR("__not"),                    DL_STR("(I)")},
+		                    {DL_STR("__*"),                      DL_STR("(I I)")},
+		                    {DL_STR("__/"),                      DL_STR("(I I)")},
+		                    {DL_STR("__+"),                      DL_STR("(I I)")},
+		                    {DL_STR("__-"),                      DL_STR("(I I)")},
+		                    {DL_STR("__while"),                  DL_STR("(I &rest 1 I)")},
+		                    {DL_STR("__if"),                     DL_STR("(I I I)")},
+		                    {DL_STR("__when"),                   DL_STR("(I &rest 1 I)")},
+		                    {DL_STR("__unless"),                 DL_STR("(I &rest 1 I)")},
+		                    {DL_STR("__="),                      DL_STR("(I I)")},
+		                    {DL_STR("__<"),                      DL_STR("(I I)")},
+		                    {DL_STR("__>"),                      DL_STR("(I I)")},
+		                    {DL_STR("__defun"),                  DL_STR("(L L &rest 1 I)")},
+		                    {DL_STR("__lambda"),                 DL_STR("(L &rest 1 I)")},
+		                    {DL_STR("__defmacro"),               DL_STR("(L L &rest 1 I)")},
+		                    {DL_STR("__noscope"),                DL_STR("(&rest 0 I)")},
+		                    {DL_STR("__comptime"),               DL_STR("(&rest 0 I)")},
+		                    {DL_STR("__quote"),                  DL_STR("(L)")},
+		                    {DL_STR("__list"),                   DL_STR("(&rest 0 I)")},
+		                    {DL_STR("__vector"),                 DL_STR("(&rest 0 I)")},
+		                    {DL_STR("__make-vector"),            DL_STR("(I I)")},
+		                    {DL_STR("__get-vector-element"),     DL_STR("(I I)")},
+		                    {DL_STR("__set-vector-element"),     DL_STR("(I I I)")},
+		                    {DL_STR("__cons"),                   DL_STR("(I I)")},
+		                    {DL_STR("__car"),                    DL_STR("(I)")},
+		                    {DL_STR("__cdr"),                    DL_STR("(I)")},
+		                    {DL_STR("__set-car"),                DL_STR("(I I)")},
+		                    {DL_STR("__set-cdr"),                DL_STR("(I I)")},
+		                    {DL_STR("__null?"),                  DL_STR("(I)")},
+		                    {DL_STR("__type-of"),                DL_STR("(I)")},
+		                    {DL_STR("__make-type"),              DL_STR("()")},
+		                    {DL_STR("__make-instance"),          DL_STR("(I I I)")},
+		                    {DL_STR("__composite-value"),        DL_STR("(I)")},
+		                    {DL_STR("__composite-function"),     DL_STR("(I)")},
+		                    {DL_STR("__set-composite-value"),    DL_STR("(I I)")},
+		                    {DL_STR("__set-composite-function"), DL_STR("(I I)")},
+		                    {DL_STR("__make-string"),            DL_STR("(I)")},
+		                    {DL_STR("__concatenate"),            DL_STR("(I I)")},
+		                    {DL_STR("__substring"),              DL_STR("(I I I)")},
+		                    {DL_STR("__length"),                 DL_STR("(I)")},
+		                    {DL_STR("__symbol-string"),          DL_STR("(I)")},
+		                    {DL_STR("__symbol-id"),              DL_STR("(I)")},
+		                    {DL_STR("__error"),                  DL_STR("(I)")}};
+		DL_DOTIMES(i, sizeof(declarations)/sizeof(*declarations)) {
+			e = addDeclaration(&state,
+			                   declarations[i].name,
+			                   declarations[i].name_length,
+			                   declarations[i].typeString,
+			                   declarations[i].typeString_length);
+			if (e) goto cleanup;
+		}
+	}
+
 
 	e = infer_compoundExpression(&state, ast, dl_true);
 	if (e) goto cleanup;
