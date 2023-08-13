@@ -762,16 +762,16 @@ static dl_error_t infer_expression(inferrerState_t *state,
 	           Run declarator.
 
 	   TODO: declarator scripts
-	         type check
 	         nested types
 
 	   Two functions can only be used if the right data structure exists. Or maybe I can copy the tree instead of
 	   modifying it?
 
 	   declare m (L I)
-	   m a 1  —  Infer
-	   (m a 1)  —  Check arity
-	   (#m a 1)  —  Untyped
+	   m a 1  —  Infer, infer second arg
+	   (m a 1)  —  Check arity, infer second arg
+	   (#m a 1)  —  Untyped, infer both args
+	   #(m a 1)  —  Untyped, don't infer any args
 	*/
 
 	if (expression->compoundExpressions_length == 0) {
@@ -812,6 +812,14 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		if (e) goto cleanup;
 
 		if (found) {
+			/* lol */
+			if (type.type.type == inferrerTypeSignature_type_symbol) {
+				e = dl_error_invalidValue;
+				eError = duckLisp_error_pushInference(state, DL_STR("Cannot call an identifier."));
+				if (eError) e = eError;
+				goto cleanup;
+			}
+
 			/* Declared. */
 			if (type.bytecode_length > 0) {
 				/* Execute bytecode */
