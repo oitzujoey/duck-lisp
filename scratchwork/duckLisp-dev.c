@@ -54,7 +54,9 @@ SOFTWARE.
 #define B_COLOR_WHITE     "\x1B[47m"
 
 dl_bool_t g_disassemble = dl_false;
+#ifdef USE_PARENTHESIS_INFERENCE
 dl_bool_t g_hanabi = dl_true;
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 typedef enum {
 	duckLispDev_user_type_none,
@@ -620,10 +622,12 @@ dl_error_t duckLispDev_callback_toggleAssembly(duckVM_t *duckVM) {
 	return duckVM_pushNil(duckVM);
 }
 
+#ifdef USE_PARENTHESIS_INFERENCE
 dl_error_t duckLispDev_callback_toggleHanabi(duckVM_t *duckVM) {
 	g_hanabi = !g_hanabi;
 	return duckVM_pushNil(duckVM);
 }
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 int duckLispDev_callback_quicksort_hoare_less(const void *l, const void *r, const void *context) {
 	(void) context;
@@ -1394,7 +1398,9 @@ int main(int argc, char *argv[]) {
 		{DL_STR("print-stack"),     duckLispDev_callback_printStack},
 		{DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect},
 		{DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
+#ifdef USE_PARENTHESIS_INFERENCE
 		{DL_STR("inference"),       duckLispDev_callback_toggleHanabi},
+#endif /* USE_PARENTHESIS_INFERENCE */
 		{DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare},
 		{DL_STR("print-uv-stack"),  duckLispDev_callback_printUpvalueStack},
 		{DL_STR("open-file"),       duckLispDev_callback_openFile},
@@ -1492,7 +1498,15 @@ int main(int argc, char *argv[]) {
 	if (argc == 2) {
 		FILE *sourceFile = fopen(argv[1], "r");
 		if (sourceFile == NULL) {
-			e = eval(&duckLisp, &duckVM, dl_null, dl_true, argv[1], strlen(argv[1]), DL_STR("<ARGV>"));
+			e = eval(&duckLisp,
+			         &duckVM,
+			         dl_null,
+#ifdef USE_PARENTHESIS_INFERENCE
+			         dl_true,
+#endif /* USE_PARENTHESIS_INFERENCE */
+			         argv[1],
+			         strlen(argv[1]),
+			         DL_STR("<ARGV>"));
 		}
 		else {
 			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, argv[1]);
@@ -1504,7 +1518,9 @@ int main(int argc, char *argv[]) {
 		size_t buffer_length = 0;
 		ssize_t length = 0;
 		printf("(disassemble)  %s  Toggle disassembly of forms.\n", g_disassemble ? "[enabled] " : "[disabled]");
+#ifdef USE_PARENTHESIS_INFERENCE
 		printf("(inference)    %s  Toggle parenthesis inference.\n", g_hanabi ? "[enabled] " : "[disabled]");
+#endif /* USE_PARENTHESIS_INFERENCE */
 		while (1) {
 			duckVM_object_t return_value;
 			if (duckVM.stack.elements_length > 0) {
@@ -1516,7 +1532,15 @@ int main(int argc, char *argv[]) {
 			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			e = eval(&duckLisp, &duckVM, &return_value, g_hanabi, line, length, DL_STR("<REPL>"));
+			e = eval(&duckLisp,
+			         &duckVM,
+			         &return_value,
+#ifdef USE_PARENTHESIS_INFERENCE
+			         g_hanabi,
+#endif /* USE_PARENTHESIS_INFERENCE */
+			         line,
+			         length,
+			         DL_STR("<REPL>"));
 			free(line); line = NULL;
 			e = duckVM_push(&duckVM, &return_value);
 			e = duckLispDev_callback_print(&duckVM);

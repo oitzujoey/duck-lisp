@@ -65,6 +65,9 @@ typedef struct duckVM_s {
 	duckVM_gclist_t gclist;
 	dl_size_t nextUserType;
 	void *duckLisp;
+#ifdef USE_PARENTHESIS_INFERENCE
+	void *inferrerContext;
+#endif /* USE_PARENTHESIS_INFERENCE */
 } duckVM_t;
 
 

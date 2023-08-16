@@ -1413,7 +1413,7 @@ static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
 			/* Unexpected error */
 			goto cleanup;
 		}
-		if (duckLisp->errors.elements_length) break;
+		/* if (duckLisp->errors.elements_length) break; */
 	}
 	/* Error */
 

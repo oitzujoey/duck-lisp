@@ -586,6 +586,11 @@ dl_error_t duckLisp_register_label(duckLisp_t *duckLisp,
                                    char *name,
                                    const dl_size_t name_length);
 
+dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
+                                duckLisp_ast_compoundExpression_t *ast,
+                                duckVM_object_t *object,
+                                dl_bool_t useExprs);
+
 dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *assembly,

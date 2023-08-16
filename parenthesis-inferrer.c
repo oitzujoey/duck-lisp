@@ -132,6 +132,7 @@ typedef enum {
 } inferrerTypeSignature_type_t;
 
 typedef struct inferrerTypeSignature_s {
+	inferrerTypeSignature_type_t type;
 	union {
 		struct {
 			/* '(L L I) or '(L L &rest 2 I) or '((&rest 1 (L I)) &rest 1 I) &c. */
@@ -144,7 +145,6 @@ typedef struct inferrerTypeSignature_s {
 		/* 'I or 'L */
 		inferrerTypeSymbol_t symbol;
 	} value;
-	inferrerTypeSignature_type_t type;
 } inferrerTypeSignature_t;
 
 
@@ -162,11 +162,20 @@ typedef struct {
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
 	duckLisp_t duckLisp;
+	duckVM_t duckVM;
 	dl_array_t *errors;  /* dl_array_t:duckLisp_error_t */
 	const char *fileName;
 	dl_size_t fileName_length;
 	dl_array_t scopeStack;  /* dl_array_t:inferrerScope_t */
 } inferrerState_t;
+
+typedef struct {
+	inferrerState_t *state;
+	inferrerType_t type;
+	dl_ptrdiff_t *type_index;
+	duckLisp_ast_expression_t *expression;
+	dl_ptrdiff_t *expression_index;
+} vmContext_t;
 
 
 static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
@@ -412,6 +421,9 @@ static dl_error_t inferrerState_init(inferrerState_t *inferrerState,
 	inferrerState->memoryAllocation = ma;
 	e = duckLisp_init(&inferrerState->duckLisp, ma, maxComptimeVmObjects);
 	if (e) goto cleanup;
+	e = duckVM_init(&inferrerState->duckVM, ma, maxComptimeVmObjects);
+	if (e) goto cleanup;
+	inferrerState->duckVM.inferrerContext = inferrerState;
 	inferrerState->errors = errors;
 	inferrerState->fileName = fileName;
 	inferrerState->fileName_length = fileName_length;
@@ -432,6 +444,7 @@ static dl_error_t inferrerState_quit(inferrerState_t *s) {
 	s->fileName_length = 0;
 	s->fileName = dl_null;
 	s->errors = dl_null;
+	(void) duckVM_quit(&s->duckVM);
 	(void) duckLisp_quit(&s->duckLisp);
 	s->memoryAllocation = dl_null;
 	return e;
@@ -475,8 +488,9 @@ static dl_error_t findDeclaration(inferrerState_t *state,
 static dl_error_t addDeclaration(inferrerState_t *state,
                                  const char *name,
                                  const dl_size_t name_length,
-                                 const char *typeString,
-                                 const dl_size_t typeString_length) {
+                                 duckLisp_ast_compoundExpression_t typeAst,
+                                 dl_uint8_t *bytecode,
+                                 dl_size_t bytecode_length) {
 	dl_error_t e = dl_error_ok;
 
 	inferrerType_t type;
@@ -486,21 +500,10 @@ static dl_error_t addDeclaration(inferrerState_t *state,
 	e = popDeclarationScope(state, &scope);
 	if (e) goto cleanup;
 
-	{
-		duckLisp_ast_compoundExpression_t ast;
-		e = duckLisp_read(&state->duckLisp,
-		                  dl_false,
-		                  0,
-		                  DL_STR("<INFERRER>"),
-		                  typeString,
-		                  typeString_length,
-		                  &ast,
-		                  0,
-		                  dl_true);
-		if (e) goto cleanup;
-		e = inferrerTypeSignature_fromAst(state, &type.type, ast);
-		if (e) goto cleanup;
-	}
+	type.bytecode = bytecode;
+	type.bytecode_length = bytecode_length;
+	e = inferrerTypeSignature_fromAst(state, &type.type, typeAst);
+	if (e) goto cleanup;
 	e = dl_trie_insert(&scope.identifiersTrie, name, name_length, scope.types.elements_length);
 	if (e) goto cleanup;
 	e = dl_array_pushElement(&scope.types, &type);
@@ -586,16 +589,23 @@ static dl_error_t inferArgument(inferrerState_t *state,
 	duckLisp_ast_compoundExpression_t *compoundExpression = expression->compoundExpressions + localIndex;
 	localIndex++;
 	if (compoundExpression->type == duckLisp_ast_type_identifier) {
-		
-		DL_DOTIMES(i, compoundExpression->value.identifier.value_length) {
-			putchar(compoundExpression->value.identifier.value[i]);
-		}
-		putchar('\n');
-		
 		inferrerType_t type;
 		dl_bool_t found = dl_false;
 		e = findDeclaration(state, &found, &type, compoundExpression->value.identifier);
 		if (e) goto cleanup;
+
+		if (!infer) {
+			printf("\x1B[34m");
+		}
+		else if (found && infer) {
+			printf("\x1B[32m");
+		}
+		else {
+			printf("\x1B[31m");
+		}
+		DL_DOTIMES(i, compoundExpression->value.identifier.value_length) {
+			putchar(compoundExpression->value.identifier.value[i]);
+		}
 
 		if (found && infer) {
 			/* Declared */
@@ -603,10 +613,9 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				/* Execute bytecode */
 			}
 
-			ast_print_compoundExpression(state->duckLisp, *compoundExpression);
 			printf("::");
 			inferrerTypeSignature_print(type.type);
-			putchar('\n');
+			puts("\x1B[0m");
 
 			if (type.type.type == inferrerTypeSignature_type_expression) {
 				dl_array_t newExpression;
@@ -686,20 +695,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
 					}
 					expression->compoundExpressions_length -= newLength;
 					localIndex = startLocalIndex + 1;
-					printf("EXPRESSION: ");
-					DL_DOTIMES(m, newExpression.elements_length) {
-						duckLisp_ast_compoundExpression_t ce;
-						e = dl_array_get(&newExpression, &ce, m);
-						ast_print_compoundExpression(state->duckLisp, ce);
-						putchar(' ');
-					}
-					puts("");
-					printf("ORIGINAL EXPRESSION: ");
-					DL_DOTIMES(m, expression->compoundExpressions_length) {
-						ast_print_compoundExpression(state->duckLisp, expression->compoundExpressions[m]);
-						putchar(' ');
-					}
-					puts("");
 				}
 				if (e) goto cleanup;
 			}
@@ -708,18 +703,53 @@ static dl_error_t inferArgument(inferrerState_t *state,
 			}
 		}
 		else {
-			/* Undeclared */
-			puts("Undeclared");
-			e = infer_compoundExpression(state, compoundExpression, infer);
-			if (e) goto cleanup;
+			if (found) {
+				/* Inference disabled */
+				printf("::");
+				inferrerTypeSignature_print(type.type);
+				puts("\x1B[0m");
+				e = infer_compoundExpression(state, compoundExpression, infer);
+				if (e) goto cleanup;
+			}
+			else {
+				/* Undeclared */
+				puts("::Undeclared\x1B[0m");
+				e = infer_compoundExpression(state, compoundExpression, infer);
+				if (e) goto cleanup;
+			}
 		}
 	}
 	else {
-		puts("Other");
+		/* Anything not an identifier */
 		e = infer_compoundExpression(state, compoundExpression, infer);
 		if (e) goto cleanup;
 	}
 	*index = localIndex;
+
+ cleanup: return e;
+}
+
+			/* expr index
+			   type index
+			*/
+
+static dl_error_t runVm(inferrerState_t *state,
+                        inferrerType_t type,
+                        dl_ptrdiff_t *type_index,
+                        duckLisp_ast_expression_t *expression,
+                        dl_ptrdiff_t *expression_index) {
+	dl_error_t e = dl_error_ok;
+
+	vmContext_t context;
+	context.state = state;
+	context.type = type;
+	context.type_index = type_index;
+	context.expression = expression;
+	context.expression_index = expression_index;
+	state->duckVM.inferrerContext = &context;
+	/* puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length)); */
+	e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length);
+	if (e) goto cleanup;
 
  cleanup: return e;
 }
@@ -775,7 +805,6 @@ static dl_error_t inferArguments(inferrerState_t *state,
 				if (e) goto scopeCleanup;
 			scopeCleanup:
 				if (e) goto cleanup;
-				inferrerTypeSignature_print(type.type);
 			}
 		}
 	}
@@ -861,15 +890,19 @@ static dl_error_t infer_expression(inferrerState_t *state,
 				goto cleanup;
 			}
 
+			dl_ptrdiff_t expression_index = 1;
+			dl_ptrdiff_t type_index = 1;
+
 			/* Declared. */
 			if (type.bytecode_length > 0) {
-				/* Execute bytecode */
+				ast_print_compoundExpression(state->duckLisp, *head); puts("");
+				e = runVm(state, type, &type_index, expression, &expression_index);
+				if (e) goto cleanup;
 			}
 
-			dl_ptrdiff_t index = 1;
 			{
 				DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
-					if ((dl_size_t) index >= expression->compoundExpressions_length) {
+					if ((dl_size_t) expression_index >= expression->compoundExpressions_length) {
 						e = dl_error_invalidValue;
 						(eError
 						 = duckLisp_error_pushInference(state,
@@ -881,8 +914,8 @@ static dl_error_t infer_expression(inferrerState_t *state,
 					if (argSignature.type == inferrerTypeSignature_type_symbol) {
 						e = inferArgument(state,
 						                  expression,
-						                  &index,
-						                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
+						                  &expression_index,
+						                  (argSignature.value.symbol == inferrerTypeSymbol_I));
 						if (e) goto expressionCleanup;
 					}
 					else {
@@ -894,14 +927,12 @@ static dl_error_t infer_expression(inferrerState_t *state,
 				}
 				if (type.type.value.expression.variadic) {
 					inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
-					while ((dl_size_t) index < expression->compoundExpressions_length) {
+					while ((dl_size_t) expression_index < expression->compoundExpressions_length) {
 						if (argSignature.type == inferrerTypeSignature_type_symbol) {
 							e = inferArgument(state,
 							                  expression,
-							                  &index,
-							                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
-							                   ? infer
-							                   : dl_false));
+							                  &expression_index,
+							                  (argSignature.value.symbol == inferrerTypeSymbol_I));
 							if (e) goto expressionCleanup;
 						}
 						else {
@@ -912,12 +943,12 @@ static dl_error_t infer_expression(inferrerState_t *state,
 						}
 					}
 				}
-				else if ((dl_size_t) index > expression->compoundExpressions_length) {
+				else if ((dl_size_t) expression_index > expression->compoundExpressions_length) {
 					e = dl_error_invalidValue;
 					eError = duckLisp_error_pushInference(state, DL_STR("Too few arguments for identifier."));
 					if (eError) e = eError;
 				}
-				else if ((dl_size_t) index < expression->compoundExpressions_length) {
+				else if ((dl_size_t) expression_index < expression->compoundExpressions_length) {
 					e = dl_error_invalidValue;
 					eError = duckLisp_error_pushInference(state, DL_STR("Too many arguments for identifier."));
 					if (eError) e = eError;
@@ -997,34 +1028,153 @@ static dl_error_t infer_compoundExpression(inferrerState_t *state,
 
 
 static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
-	(void) vm;
-	return dl_error_ok;
+	puts("DECLARE");
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckVM_object_t identifierObject;
+	duckVM_object_t typeObject;
+	vmContext_t *context = vm->inferrerContext;
+	inferrerState_t *state = context->state;
+
+	e = duckVM_pop(vm, &identifierObject);
+	if (e) goto cleanup;
+	if ((identifierObject.type != duckVM_object_type_symbol)
+	    && (identifierObject.type != duckVM_object_type_string)) {
+		e = dl_error_invalidValue;
+		(eError
+		 = duckVM_error_pushRuntime(vm,
+		                            DL_STR("First argument of `__declare-identifier` should be an identifier or a string.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	e = duckVM_pop(vm, &typeObject);
+	if (e) goto cleanup;
+	if ((typeObject.type != duckVM_object_type_symbol)
+	    && (typeObject.type != duckVM_object_type_list)) {
+		e = dl_error_invalidValue;
+		(eError
+		 = duckVM_error_pushRuntime(vm,
+		                            DL_STR("Second argument of `__declare-identifier` should be a type signature.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	duckLisp_ast_compoundExpression_t typeAst;
+	e = duckLisp_objectToAST(&state->duckLisp, &typeAst, &typeObject, dl_true);
+	if (e) goto cleanup;
+
+	if (identifierObject.type == duckLisp_ast_type_identifier) {
+		duckVM_string_t identifierString = duckVM_object_getString(identifierObject);
+		duckVM_internalString_t identifierInternalString;
+		e = duckVM_string_getInternalString(identifierString, &identifierInternalString);
+		if (e) goto cleanup;
+		e = addDeclaration(state,
+		                   (char *) identifierInternalString.value + identifierString.offset,
+		                   identifierString.length - identifierString.offset,
+		                   typeAst,
+		                   dl_null,
+		                   0);
+	}
+	else {
+		duckVM_symbol_t identifierSymbol = duckVM_object_getSymbol(identifierObject);
+		duckVM_internalString_t identifierInternalString;
+		e = duckVM_symbol_getInternalString(identifierSymbol, &identifierInternalString);
+		if (e) goto cleanup;
+		e = addDeclaration(state,
+		                   (char *) identifierInternalString.value,
+		                   identifierInternalString.value_length,
+		                   typeAst,
+		                   dl_null,
+		                   0);
+	}
+	if (e) goto cleanup;
+
+ cleanup: return e;
 }
 
 static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
-	(void) vm;
-	return dl_error_ok;
+	puts("INFER");
+	
+	return duckVM_pushNil(vm);
 }
 
 static dl_error_t callback_pushScope(duckVM_t *vm) {
-	(void) vm;
-	return dl_error_ok;
+	puts("PUSH {");
+	inferrerScope_t scope;
+	vmContext_t *context = vm->inferrerContext;
+	(void) inferrerScope_init(&scope, context->state->memoryAllocation);
+	return pushDeclarationScope(context->state, &scope);
 }
 
 static dl_error_t callback_popScope(duckVM_t *vm) {
-	(void) vm;
-	return dl_error_ok;
+	puts("} POP");
+	vmContext_t *context = vm->inferrerContext;
+	return popDeclarationScope(context->state, dl_null);
 }
 
 static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
                                              duckLisp_compileState_t *compileState,
                                              dl_array_t *assembly,
                                              duckLisp_ast_expression_t *expression) {
-	(void) duckLisp;
-	(void) compileState;
-	(void) assembly;
-	(void) expression;
-	return dl_error_ok;
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	/* `(__declaration-scope ,@body) */
+	/* `((__push-declaration-scope)
+	     ,@body
+	     (__pop-declaration-scope)) */
+
+	duckLisp_ast_compoundExpression_t pushC;
+	pushC.type = duckLisp_ast_type_identifier;
+	pushC.value.identifier.value = "\0__push-declaration-scope";
+	pushC.value.identifier.value_length = sizeof("\0__push-declaration-scope")/sizeof(char) - 1;
+	duckLisp_ast_expression_t pushE;
+	pushE.compoundExpressions_length = 1;
+	pushE.compoundExpressions = &pushC;
+	duckLisp_ast_compoundExpression_t popC;
+	popC.type = duckLisp_ast_type_identifier;
+	popC.value.identifier.value = "\0__pop-declaration-scope";
+	popC.value.identifier.value_length = sizeof("\0__pop-declaration-scope")/sizeof(char) - 1;
+	duckLisp_ast_expression_t popE;
+	popE.compoundExpressions_length = 1;
+	popE.compoundExpressions = &popC;
+	duckLisp_ast_expression_t scopeE;
+	scopeE.compoundExpressions_length = 0;
+	e = DL_MALLOC(duckLisp->memoryAllocation,
+	              &scopeE.compoundExpressions,
+	              expression->compoundExpressions_length + 1,
+	              duckLisp_ast_compoundExpression_t);
+	if (e) goto cleanup;
+	scopeE.compoundExpressions_length = expression->compoundExpressions_length + 1;
+
+	scopeE.compoundExpressions[0].type = duckLisp_ast_type_expression;
+	scopeE.compoundExpressions[0].value.expression = pushE;
+	DL_DOTIMES(i, expression->compoundExpressions_length - 1) {
+		scopeE.compoundExpressions[i + 1] = expression->compoundExpressions[i + 1];
+	}
+	scopeE.compoundExpressions[scopeE.compoundExpressions_length - 1].type = duckLisp_ast_type_expression;
+	scopeE.compoundExpressions[scopeE.compoundExpressions_length - 1].value.expression = popE;
+	duckLisp_ast_compoundExpression_t scopeC;
+	scopeC.type = duckLisp_ast_type_expression;
+	scopeC.value.expression = scopeE;
+
+	ast_print_compoundExpression(*duckLisp, scopeC);
+
+	e = duckLisp_generator_expression(duckLisp,
+	                                  compileState,
+	                                  assembly,
+	                                  &scopeE);
+	if (e) goto cleanup;
+
+ cleanup:
+	if (scopeE.compoundExpressions_length > 0) {
+		eError = DL_FREE(duckLisp->memoryAllocation, &scopeE.compoundExpressions);
+		if (eError) e = eError;
+	}
+
+	return e;
 }
 
 
@@ -1035,6 +1185,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                             const dl_size_t fileName_length,
                             duckLisp_ast_compoundExpression_t *ast) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
 	inferrerState_t state;
 	e = inferrerState_init(&state, memoryAllocation, maxComptimeVmObjects, errors, fileName, fileName_length);
@@ -1052,6 +1203,9 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	};
 	DL_DOTIMES(i, sizeof(callbacks)/sizeof(*callbacks)) {
 		e = duckLisp_linkCFunction(&state.duckLisp, callbacks[i].callback, callbacks[i].name, callbacks[i].name_length);
+		if (e) goto cleanup;
+		dl_ptrdiff_t id = duckLisp_symbol_nameToValue(&state.duckLisp, callbacks[i].name, callbacks[i].name_length);
+		e = duckVM_linkCFunction(&state.duckVM, id, callbacks[i].callback);
 		if (e) goto cleanup;
 	}
 
@@ -1071,62 +1225,150 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 			dl_size_t name_length;
 			char *typeString;
 			dl_size_t typeString_length;
-		} declarations[] = {{DL_STR("__declare"),                DL_STR("(L L &rest 0 I)")},
-		                    {DL_STR("__nop"),                    DL_STR("()")},
-		                    {DL_STR("__funcall"),                DL_STR("(I &rest 1 I)")},
-		                    {DL_STR("__apply"),                  DL_STR("(I &rest 1 I)")},
-		                    {DL_STR("__var"),                    DL_STR("(L I)")},
-		                    {DL_STR("__global"),                 DL_STR("(L I)")},
-		                    {DL_STR("__setq"),                   DL_STR("(L I)")},
-		                    {DL_STR("__not"),                    DL_STR("(I)")},
-		                    {DL_STR("__*"),                      DL_STR("(I I)")},
-		                    {DL_STR("__/"),                      DL_STR("(I I)")},
-		                    {DL_STR("__+"),                      DL_STR("(I I)")},
-		                    {DL_STR("__-"),                      DL_STR("(I I)")},
-		                    {DL_STR("__while"),                  DL_STR("(I &rest 1 I)")},
-		                    {DL_STR("__if"),                     DL_STR("(I I I)")},
-		                    {DL_STR("__when"),                   DL_STR("(I &rest 1 I)")},
-		                    {DL_STR("__unless"),                 DL_STR("(I &rest 1 I)")},
-		                    {DL_STR("__="),                      DL_STR("(I I)")},
-		                    {DL_STR("__<"),                      DL_STR("(I I)")},
-		                    {DL_STR("__>"),                      DL_STR("(I I)")},
-		                    {DL_STR("__defun"),                  DL_STR("(L L &rest 1 I)")},
-		                    {DL_STR("__lambda"),                 DL_STR("(L &rest 1 I)")},
-		                    {DL_STR("__defmacro"),               DL_STR("(L L &rest 1 I)")},
-		                    {DL_STR("__noscope"),                DL_STR("(&rest 0 I)")},
-		                    {DL_STR("__comptime"),               DL_STR("(&rest 0 I)")},
-		                    {DL_STR("__quote"),                  DL_STR("(L)")},
-		                    {DL_STR("__list"),                   DL_STR("(&rest 0 I)")},
-		                    {DL_STR("__vector"),                 DL_STR("(&rest 0 I)")},
-		                    {DL_STR("__make-vector"),            DL_STR("(I I)")},
-		                    {DL_STR("__get-vector-element"),     DL_STR("(I I)")},
-		                    {DL_STR("__set-vector-element"),     DL_STR("(I I I)")},
-		                    {DL_STR("__cons"),                   DL_STR("(I I)")},
-		                    {DL_STR("__car"),                    DL_STR("(I)")},
-		                    {DL_STR("__cdr"),                    DL_STR("(I)")},
-		                    {DL_STR("__set-car"),                DL_STR("(I I)")},
-		                    {DL_STR("__set-cdr"),                DL_STR("(I I)")},
-		                    {DL_STR("__null?"),                  DL_STR("(I)")},
-		                    {DL_STR("__type-of"),                DL_STR("(I)")},
-		                    {DL_STR("__make-type"),              DL_STR("()")},
-		                    {DL_STR("__make-instance"),          DL_STR("(I I I)")},
-		                    {DL_STR("__composite-value"),        DL_STR("(I)")},
-		                    {DL_STR("__composite-function"),     DL_STR("(I)")},
-		                    {DL_STR("__set-composite-value"),    DL_STR("(I I)")},
-		                    {DL_STR("__set-composite-function"), DL_STR("(I I)")},
-		                    {DL_STR("__make-string"),            DL_STR("(I)")},
-		                    {DL_STR("__concatenate"),            DL_STR("(I I)")},
-		                    {DL_STR("__substring"),              DL_STR("(I I I)")},
-		                    {DL_STR("__length"),                 DL_STR("(I)")},
-		                    {DL_STR("__symbol-string"),          DL_STR("(I)")},
-		                    {DL_STR("__symbol-id"),              DL_STR("(I)")},
-		                    {DL_STR("__error"),                  DL_STR("(I)")}};
+			char *script;
+			dl_size_t script_length;
+		} declarations[] = {{DL_STR("__declare"), DL_STR("(L L &rest 0 I)"), dl_null, 0},
+		                    {DL_STR("__nop"), DL_STR("()"), dl_null, 0},
+		                    {DL_STR("__funcall"), DL_STR("(I &rest 1 I)"), dl_null, 0},
+		                    {DL_STR("__apply"), DL_STR("(I &rest 1 I)"), dl_null, 0},
+		                    {DL_STR("__var"),
+		                     DL_STR("(L I)"),
+		                     DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
+		                    {DL_STR("__global"), DL_STR("(L I)"), dl_null, 0},
+		                    {DL_STR("__setq"), DL_STR("(L I)"), dl_null, 0},
+		                    {DL_STR("__not"), DL_STR("(I)"), dl_null, 0},
+		                    {DL_STR("__*"), DL_STR("(I I)"), dl_null, 0},
+		                    {DL_STR("__/"), DL_STR("(I I)"), dl_null, 0},
+		                    {DL_STR("__+"), DL_STR("(I I)"), dl_null, 0},
+		                    {DL_STR("__-"), DL_STR("(I I)"), dl_null, 0},
+		                    {DL_STR("__while"), DL_STR("(I &rest 1 I)"), dl_null, 0},
+		                    {DL_STR("__if"), DL_STR("(I I I)"), dl_null, 0},
+		                    {DL_STR("__when"), DL_STR("(I &rest 1 I)"), dl_null, 0},
+		                    {DL_STR("__unless"), DL_STR("(I &rest 1 I)"), dl_null, 0},
+		                    {DL_STR("__="), DL_STR("(I I)"), dl_null, 0},
+		                    {DL_STR("__<"), DL_STR("(I I)"), dl_null, 0},
+		                    {DL_STR("__>"), DL_STR("(I I)"), dl_null, 0},
+		                    {DL_STR("__defun"),
+		                     DL_STR("(L L &rest 1 I)"),
+		                     DL_STR(" \
+( \
+ (__var name (__infer-and-get-next-argument)) \
+ (__var parameters (__infer-and-get-next-argument)) \
+ (__var type ()) \
+ ( \
+  (__var parameters parameters) \
+  (__while parameters \
+           (__setq type (__cons (__quote I) type)) \
+           (__setq parameters (__cdr parameters)))) \
+ (__declaration-scope \
+  (__while parameters \
+           (__declare-identifier (__car parameters) (__quote L)) \
+           (__setq parameters (__cdr parameters))) \
+  (__declare-identifier (__quote self) type) \
+  (__infer-and-get-next-argument) \
+  (__declare-identifier name type))) \
+")},
+		                    {DL_STR("__lambda"),
+		                     DL_STR("(L &rest 1 I)"),
+		                     DL_STR(" \
+( \
+ (__var parameters (__infer-and-get-next-argument)) \
+ (__var type ()) \
+ ( \
+  (__var parameters parameters) \
+  (__while parameters \
+           (__setq type (__cons (__quote I) type)) \
+           (__setq parameters (__cdr parameters)))) \
+ (__declaration-scope \
+  (__while parameters \
+           (__declare-identifier (__car parameters) (__quote L)) \
+           (__setq parameters (__cdr parameters))) \
+  (__declare-identifier (__quote self) type) \
+  (__infer-and-get-next-argument))) \
+")},
+		                    {DL_STR("__defmacro"),
+		                     DL_STR("(L L &rest 1 I)"),
+		                     DL_STR(" \
+( \
+ (__var name (__infer-and-get-next-argument)) \
+ (__var parameters (__infer-and-get-next-argument)) \
+ (__var type ()) \
+ ( \
+  (__var parameters parameters) \
+  (__while parameters \
+           (__setq type (__cons (__quote I) type)) \
+           (__setq parameters (__cdr parameters)))) \
+ (__declaration-scope \
+  (__while parameters \
+           (__declare-identifier (__car parameters) (__quote L)) \
+           (__setq parameters (__cdr parameters))) \
+  (__declare-identifier (__quote self) type) \
+  (__infer-and-get-next-argument) \
+  (__declare-identifier name type))) \
+")},
+		                    {DL_STR("__noscope"),                DL_STR("(&rest 0 I)"),     dl_null, 0},
+		                    {DL_STR("__comptime"),               DL_STR("(&rest 0 I)"),     dl_null, 0},
+		                    {DL_STR("__quote"),                  DL_STR("(L)"),             dl_null, 0},
+		                    {DL_STR("__list"),                   DL_STR("(&rest 0 I)"),     dl_null, 0},
+		                    {DL_STR("__vector"),                 DL_STR("(&rest 0 I)"),     dl_null, 0},
+		                    {DL_STR("__make-vector"),            DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__get-vector-element"),     DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__set-vector-element"),     DL_STR("(I I I)"),         dl_null, 0},
+		                    {DL_STR("__cons"),                   DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__car"),                    DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__cdr"),                    DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__set-car"),                DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__set-cdr"),                DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__null?"),                  DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__type-of"),                DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__make-type"),              DL_STR("()"),              dl_null, 0},
+		                    {DL_STR("__make-instance"),          DL_STR("(I I I)"),         dl_null, 0},
+		                    {DL_STR("__composite-value"),        DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__composite-function"),     DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__set-composite-value"),    DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__set-composite-function"), DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__make-string"),            DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__concatenate"),            DL_STR("(I I)"),           dl_null, 0},
+		                    {DL_STR("__substring"),              DL_STR("(I I I)"),         dl_null, 0},
+		                    {DL_STR("__length"),                 DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__symbol-string"),          DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__symbol-id"),              DL_STR("(I)"),             dl_null, 0},
+		                    {DL_STR("__error"),                  DL_STR("(I)"),             dl_null, 0}};
 		DL_DOTIMES(i, sizeof(declarations)/sizeof(*declarations)) {
+			duckLisp_ast_compoundExpression_t ast;
+			dl_uint8_t *bytecode = dl_null;
+			dl_size_t bytecode_length = 0;
+
+			e = duckLisp_read(&state.duckLisp,
+			                  dl_false,
+			                  0,
+			                  DL_STR("<INFERRER>"),
+			                  declarations[i].typeString,
+			                  declarations[i].typeString_length,
+			                  &ast,
+			                  0,
+			                  dl_true);
+			if (e) goto cleanup;
+
+			if (declarations[i].script_length > 0) {
+				/* These almost certainly can't be compiled with inference on. That would likely cause a recursive
+				   loop. */
+				e = duckLisp_loadString(&state.duckLisp,
+				                        dl_false,
+				                        &bytecode,
+				                        &bytecode_length,
+				                        declarations[i].script,
+				                        declarations[i].script_length,
+				                        fileName,
+				                        fileName_length);
+				if (e) goto cleanup;
+			}
 			e = addDeclaration(&state,
 			                   declarations[i].name,
 			                   declarations[i].name_length,
-			                   declarations[i].typeString,
-			                   declarations[i].typeString_length);
+			                   ast,
+			                   bytecode,
+			                   bytecode_length);
 			if (e) goto cleanup;
 		}
 	}
@@ -1139,8 +1381,18 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	ast_print_compoundExpression(state.duckLisp, *ast);
 	puts("");
 
-	e = inferrerState_quit(&state);
-	if (e) goto cleanup;
+ cleanup:
+	eError = dl_array_pushElements(errors, state.duckLisp.errors.elements, state.duckLisp.errors.elements_length);
+	if (eError) e = eError;
+	state.duckLisp.errors.elements = dl_null;
+	state.duckLisp.errors.elements_length = 0;
+	eError = dl_array_pushElements(errors, state.duckVM.errors.elements, state.duckVM.errors.elements_length);
+	if (eError) e = eError;
+	state.duckVM.errors.elements = dl_null;
+	state.duckVM.errors.elements_length = 0;
 
- cleanup: return e;
+	eError = inferrerState_quit(&state);
+	if (eError) e = eError;
+
+	return e;
 }
