@@ -47,11 +47,8 @@ Advanced option: `NO_OPTIMIZE_PUSHPOPS=ON`
 If you need maximum performance out of the compiler, then `USE_DATALOGGING=ON` might be helpful. `duckLisp-dev` is setup to print the data collected when this flag is enabled.
 
 ```bash
-git clone https://github.com/oitzujoey/duck-lisp
-cd duck-lisp/DuckLib
-git submodule init
-git submodule update
-cd ../scratchwork
+git clone --recurse-submodules https://github.com/oitzujoey/duck-lisp
+cd duck-lisp/scratchwork
 mkdir build && cd build
 cmake ..
 cmake --build .
