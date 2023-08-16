@@ -159,10 +159,9 @@ static dl_error_t ast_expression_quit(dl_memoryAllocation_t *memoryAllocation, d
 	return e;
 }
 
-static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
+static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
                                           const dl_bool_t parenthesisInferenceEnabled,
-#endif /* USE_PARENTHESIS_INFERENCE */
                                           const char *fileName,
                                           const dl_size_t fileName_length,
                                           const char *source,
@@ -295,6 +294,7 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 
 	return e;
 }
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 static dl_error_t parse_expression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
@@ -435,10 +435,12 @@ static dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_express
  cleanup: return e;
 }
 
+#ifdef USE_PARENTHESIS_INFERENCE
 static dl_error_t ast_print_literalExpression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression) {
 	putchar('#');
 	return ast_print_expression(duckLisp, expression);
 }
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 
 void ast_identifier_init(duckLisp_ast_identifier_t *identifier) {
@@ -553,6 +555,7 @@ static void ast_print_identifier(duckLisp_t duckLisp, duckLisp_ast_identifier_t 
 	}
 }
 
+#ifdef USE_PARENTHESIS_INFERENCE
 static void ast_print_callback(duckLisp_t duckLisp, duckLisp_ast_identifier_t identifier) {
 	(void) duckLisp;
 
@@ -567,7 +570,6 @@ static void ast_print_callback(duckLisp_t duckLisp, duckLisp_ast_identifier_t id
 	}
 }
 
-#ifdef USE_PARENTHESIS_INFERENCE
 static dl_error_t parse_callback(duckLisp_t *duckLisp,
                                  const dl_bool_t parenthesisInferenceEnabled,
                                  const char *fileName,

@@ -1492,7 +1492,15 @@ int main(int argc, char *argv[]) {
 	if (argc == 2) {
 		FILE *sourceFile = fopen(argv[1], "r");
 		if (sourceFile == NULL) {
-			e = eval(&duckLisp, &duckVM, dl_null, dl_true, argv[1], strlen(argv[1]), DL_STR("<ARGV>"));
+			e = eval(&duckLisp,
+			         &duckVM,
+			         dl_null,
+#ifdef USE_PARENTHESIS_INFERENCE
+			         dl_true,
+#endif /* USE_PARENTHESIS_INFERENCE */
+			         argv[1],
+			         strlen(argv[1]),
+			         DL_STR("<ARGV>"));
 		}
 		else {
 			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, argv[1]);
@@ -1516,7 +1524,15 @@ int main(int argc, char *argv[]) {
 			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			e = eval(&duckLisp, &duckVM, &return_value, g_hanabi, line, length, DL_STR("<REPL>"));
+			e = eval(&duckLisp,
+			         &duckVM,
+			         &return_value,
+#ifdef USE_PARENTHESIS_INFERENCE
+			         g_hanabi,
+#endif /* USE_PARENTHESIS_INFERENCE */
+			         line,
+			         length,
+			         DL_STR("<REPL>"));
 			free(line); line = NULL;
 			e = duckVM_push(&duckVM, &return_value);
 			e = duckLispDev_callback_print(&duckVM);

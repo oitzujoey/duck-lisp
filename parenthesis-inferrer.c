@@ -489,8 +489,10 @@ static dl_error_t addDeclaration(inferrerState_t *state,
 	{
 		duckLisp_ast_compoundExpression_t ast;
 		e = duckLisp_read(&state->duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
 		                  dl_false,
 		                  0,
+#endif /* USE_PARENTHESIS_INFERENCE */
 		                  DL_STR("<INFERRER>"),
 		                  typeString,
 		                  typeString_length,
