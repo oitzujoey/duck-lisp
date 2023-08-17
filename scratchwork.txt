@@ -2201,6 +2201,18 @@ And optionally:
 data = parse(string)
 
 
+Perhaps I can do inference first and a type check after?
+
+infer_expression
+    run VM
+    loop: inferArguments
+    typecheck
+inferArgument
+    infer/run VM
+    loop: infer_compoundExpression
+    typecheck
+
+
 
 Next step: Update "language.md"
 

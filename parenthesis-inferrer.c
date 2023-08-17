@@ -569,10 +569,36 @@ static dl_error_t infer_callback(inferrerState_t *state,
 }
 
 
+			/* expr index
+			   type index
+			*/
+
+/* static dl_error_t runVm(inferrerState_t *state, */
+/*                         inferrerType_t type, */
+/*                         dl_ptrdiff_t *type_index, */
+/*                         duckLisp_ast_expression_t *expression, */
+/*                         dl_ptrdiff_t *expression_index) { */
+/* 	dl_error_t e = dl_error_ok; */
+
+/* 	vmContext_t context; */
+/* 	context.state = state; */
+/* 	context.type = type; */
+/* 	context.type_index = type_index; */
+/* 	context.expression = expression; */
+/* 	context.expression_index = expression_index; */
+/* 	state->duckVM.inferrerContext = &context; */
+/* 	/\* puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length)); *\/ */
+/* 	/\* e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length); *\/ */
+/* 	if (e) goto cleanup; */
+
+/*  cleanup: return e; */
+/* } */
+
 /* Infer a single argument from the tokens/forms. */
 static dl_error_t inferArgument(inferrerState_t *state,
                                 duckLisp_ast_expression_t *expression,
                                 dl_ptrdiff_t *index,
+                                dl_bool_t parenthesized,
                                 dl_bool_t infer) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -617,14 +643,23 @@ static dl_error_t inferArgument(inferrerState_t *state,
 			inferrerTypeSignature_print(type.type);
 			puts("\x1B[0m");
 
+			/* if (type.bytecode_length > 0) { */
+			/* 	ast_print_compoundExpression(state->duckLisp, *head); puts(""); */
+			/* 	e = runVm(state, type, &type_index, expression, &expression_index); */
+			/* 	if (e) goto cleanup; */
+			/* } */
+
+			/* lol */
 			if (type.type.type == inferrerTypeSignature_type_expression) {
 				dl_array_t newExpression;
 				(void) dl_array_init(&newExpression,
 				                     state->memoryAllocation,
 				                     sizeof(duckLisp_ast_compoundExpression_t),
 				                     dl_array_strategy_double);
-				e = dl_array_pushElement(&newExpression, compoundExpression);
-				if (e) goto expressionCleanup;
+				if (!parenthesized) {
+					e = dl_array_pushElement(&newExpression, compoundExpression);
+					if (e) goto expressionCleanup;
+				}
 				DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
 					if ((dl_size_t) localIndex >= expression->compoundExpressions_length) {
 						e = dl_error_invalidValue;
@@ -640,11 +675,14 @@ static dl_error_t inferArgument(inferrerState_t *state,
 						e = inferArgument(state,
 						                  expression,
 						                  &localIndex,
+						                  dl_false,
 						                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
 						if (e) goto expressionCleanup;
-						e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
-						if (e) goto expressionCleanup;
-						newLength++;
+						if (!parenthesized) {
+							e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
+							if (e) goto expressionCleanup;
+							newLength++;
+						}
 					}
 					else {
 						(eError
@@ -655,19 +693,26 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				}
 				if (type.type.value.expression.variadic) {
 					inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
-					DL_DOTIMES(l, type.type.value.expression.defaultRestLength) {
+					for (dl_ptrdiff_t l = 0;
+					     (parenthesized
+					      ? ((dl_size_t) localIndex < expression->compoundExpressions_length)
+					      : ((dl_size_t) l < type.type.value.expression.defaultRestLength));
+					     l++) {
 						if (argSignature.type == inferrerTypeSignature_type_symbol) {
 							dl_ptrdiff_t lastIndex = localIndex;
 							e = inferArgument(state,
 							                  expression,
 							                  &localIndex,
+							                  dl_false,
 							                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
 							                   ? infer
 							                   : dl_false));
 							if (e) goto expressionCleanup;
-							e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
-							if (e) goto expressionCleanup;
-							newLength++;
+							if (!parenthesized) {
+								e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
+								if (e) goto expressionCleanup;
+								newLength++;
+							}
 						}
 						else {
 							(eError
@@ -682,6 +727,18 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				if (e) {
 					eError = dl_array_quit(&newExpression);
 					if (eError) e = eError;
+				}
+				else if (parenthesized) {
+					if ((dl_size_t) localIndex > expression->compoundExpressions_length) {
+						e = dl_error_invalidValue;
+						eError = duckLisp_error_pushInference(state, DL_STR("Too few arguments for identifier."));
+						if (eError) e = eError;
+					}
+					else if ((dl_size_t) localIndex < expression->compoundExpressions_length) {
+						e = dl_error_invalidValue;
+						eError = duckLisp_error_pushInference(state, DL_STR("Too many arguments for identifier."));
+						if (eError) e = eError;
+					}
 				}
 				else {
 					duckLisp_ast_compoundExpression_t ce;
@@ -698,8 +755,14 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				}
 				if (e) goto cleanup;
 			}
+			else if (parenthesized) {
+				e = dl_error_invalidValue;
+				eError = duckLisp_error_pushInference(state, DL_STR("Cannot call an identifier."));
+				if (eError) e = eError;
+				goto cleanup;
+			}
 			else {
-				/* Symbol: Do nothing */
+				/* Do nothing */
 			}
 		}
 		else {
@@ -729,31 +792,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
  cleanup: return e;
 }
 
-			/* expr index
-			   type index
-			*/
-
-static dl_error_t runVm(inferrerState_t *state,
-                        inferrerType_t type,
-                        dl_ptrdiff_t *type_index,
-                        duckLisp_ast_expression_t *expression,
-                        dl_ptrdiff_t *expression_index) {
-	dl_error_t e = dl_error_ok;
-
-	vmContext_t context;
-	context.state = state;
-	context.type = type;
-	context.type_index = type_index;
-	context.expression = expression;
-	context.expression_index = expression_index;
-	state->duckVM.inferrerContext = &context;
-	/* puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length)); */
-	e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length);
-	if (e) goto cleanup;
-
- cleanup: return e;
-}
-
 /* Infer a single argument from the tokens/forms. */
 static dl_error_t inferArguments(inferrerState_t *state,
                                  duckLisp_ast_expression_t *expression,
@@ -765,7 +803,7 @@ static dl_error_t inferArguments(inferrerState_t *state,
 		/* Run inference on the current identifier. */
 		dl_ptrdiff_t startIndex = index;
 		/* The function needs the whole expression. It is given the pointer to the current index. */
-		e = inferArgument(state, expression, &index, infer);
+		e = inferArgument(state, expression, &index, dl_false, infer);
 		if (e) goto cleanup;
 
 		/* `__declare` interpreter */
@@ -816,7 +854,6 @@ static dl_error_t infer_expression(inferrerState_t *state,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
                                    dl_bool_t infer) {
 	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
 
 	if (!infer) {
 		/* OK */
@@ -882,81 +919,19 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		if (e) goto cleanup;
 
 		if (found) {
-			/* lol */
-			if (type.type.type == inferrerTypeSignature_type_symbol) {
-				e = dl_error_invalidValue;
-				eError = duckLisp_error_pushInference(state, DL_STR("Cannot call an identifier."));
-				if (eError) e = eError;
-				goto cleanup;
-			}
-
-			dl_ptrdiff_t expression_index = 1;
-			dl_ptrdiff_t type_index = 1;
-
 			/* Declared. */
-			if (type.bytecode_length > 0) {
-				ast_print_compoundExpression(state->duckLisp, *head); puts("");
-				e = runVm(state, type, &type_index, expression, &expression_index);
-				if (e) goto cleanup;
-			}
 
-			{
-				DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
-					if ((dl_size_t) expression_index >= expression->compoundExpressions_length) {
-						e = dl_error_invalidValue;
-						(eError
-						 = duckLisp_error_pushInference(state,
-						                                DL_STR("Too few arguments for declared identifier.")));
-						if (eError) e = eError;
-						goto expressionCleanup;
-					}
-					inferrerTypeSignature_t argSignature = type.type.value.expression.positionalSignatures[l];
-					if (argSignature.type == inferrerTypeSignature_type_symbol) {
-						e = inferArgument(state,
-						                  expression,
-						                  &expression_index,
-						                  (argSignature.value.symbol == inferrerTypeSymbol_I));
-						if (e) goto expressionCleanup;
-					}
-					else {
-						(eError
-						 = duckLisp_error_pushInference(state,
-						                                DL_STR("Nested expression types are not yet supported.")));
-						if (eError) e = eError;
-					}
-				}
-				if (type.type.value.expression.variadic) {
-					inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
-					while ((dl_size_t) expression_index < expression->compoundExpressions_length) {
-						if (argSignature.type == inferrerTypeSignature_type_symbol) {
-							e = inferArgument(state,
-							                  expression,
-							                  &expression_index,
-							                  (argSignature.value.symbol == inferrerTypeSymbol_I));
-							if (e) goto expressionCleanup;
-						}
-						else {
-							(eError
-							 = duckLisp_error_pushInference(state,
-							                                DL_STR("Nested expression types are not yet supported.")));
-							if (eError) e = eError;
-						}
-					}
-				}
-				else if ((dl_size_t) expression_index > expression->compoundExpressions_length) {
-					e = dl_error_invalidValue;
-					eError = duckLisp_error_pushInference(state, DL_STR("Too few arguments for identifier."));
-					if (eError) e = eError;
-				}
-				else if ((dl_size_t) expression_index < expression->compoundExpressions_length) {
-					e = dl_error_invalidValue;
-					eError = duckLisp_error_pushInference(state, DL_STR("Too many arguments for identifier."));
-					if (eError) e = eError;
-				}
+			/* if (type.bytecode_length > 0) { */
+			/* 	ast_print_compoundExpression(state->duckLisp, *head); puts(""); */
+			/* 	e = runVm(state, type, &type_index, expression, &expression_index); */
+			/* 	if (e) goto cleanup; */
+			/* } */
 
-			expressionCleanup:
-				if (e) goto cleanup;
-			}
+			dl_ptrdiff_t expression_index = 0;
+			/* dl_ptrdiff_t type_index = 1; */
+
+			e = inferArgument(state, expression, &expression_index, dl_true, infer);
+			if (e) goto cleanup;
 		}
 		else {
 			/* Undeclared. */
@@ -964,8 +939,6 @@ static dl_error_t infer_expression(inferrerState_t *state,
 			e = inferArguments(state, expression, 1, infer);
 			if (e) goto cleanup;
 		}
-
-		(void) expressionIdentifier;
 	}
 	else {
 		/* This is a scope. */
