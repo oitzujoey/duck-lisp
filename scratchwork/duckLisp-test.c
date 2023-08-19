@@ -354,7 +354,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 	                        &bytecode,
 	                        &bytecode_length,
 	                        text,
-	                        text_length,
+	                        text_length - 1,
 	                        fileBaseName,
 	                        strlen(fileBaseName));
 	if (e) {
@@ -474,7 +474,7 @@ int main(int argc, char *argv[]) {
 
 			bool end = false;
 			while (true) {
-				char c = fgetc(file);
+				int c = fgetc(file);
 				if (c == EOF) {
 					end = true;
 					c = '\0';
