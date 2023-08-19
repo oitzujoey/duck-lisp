@@ -496,27 +496,21 @@ static dl_error_t parse_identifier(duckLisp_t *duckLisp,
 		goto cleanup;
 	}
 
-	tempBool = dl_string_isAlpha(source[indexCopy]);
+	tempBool = isIdentifierSymbol(source[indexCopy]);
 	if (!tempBool) {
-		tempBool = isIdentifierSymbol(source[indexCopy]);
-		if (!tempBool) {
-			eError = duckLisp_error_pushSyntax(duckLisp,
-			                                   DL_STR("Expected a alpha or allowed symbol in identifier."),
-			                                   fileName,
-			                                   fileName_length,
-			                                   start_index,
-			                                   indexCopy,
-			                                   throwErrors);
-			e = eError ? eError : dl_error_invalidValue;
-			goto cleanup;
-		}
+		eError = duckLisp_error_pushSyntax(duckLisp,
+		                                   DL_STR("Expected an alpha or allowed symbol in identifier."),
+		                                   fileName,
+		                                   fileName_length,
+		                                   start_index,
+		                                   indexCopy,
+		                                   throwErrors);
+		e = eError ? eError : dl_error_invalidValue;
+		goto cleanup;
 	}
 	indexCopy++;
 
-	while ((indexCopy < (dl_ptrdiff_t) source_length)
-	       && (dl_string_isAlpha(source[indexCopy])
-	           || dl_string_isDigit(source[indexCopy])
-	           || isIdentifierSymbol(source[indexCopy]))) {
+	while ((indexCopy < (dl_ptrdiff_t) source_length) && isIdentifierSymbol(source[indexCopy])) {
 		indexCopy++;
 	}
 	stop_index = indexCopy;
