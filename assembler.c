@@ -2304,6 +2304,11 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			}
 			break;
 		}
+		case duckLisp_instructionClass_halt: {
+			currentInstruction.byte = duckLisp_instruction_halt;
+			byte_length = 0;
+			break;
+		}
 		default: {
 			e = dl_error_invalidValue;
 			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid instruction class. Aborting."));
@@ -2332,14 +2337,6 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				goto cleanup;
 			}
 		}
-	}
-	{
-		tempByteLink.byte = duckLisp_instruction_exit;
-		DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = bytecodeList.elements_length;
-		tempByteLink.prev = -1;
-		tempByteLink.prev = bytecodeList.elements_length - 1;
-		e = dl_array_pushElement(&bytecodeList, &tempByteLink);
-		if (e) goto cleanup;
 	}
 	if (bytecodeList.elements_length > 0) {
 		DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = -1;

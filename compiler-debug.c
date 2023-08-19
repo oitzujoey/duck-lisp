@@ -7400,10 +7400,10 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 			}
 			break;
 
-		case duckLisp_instruction_exit:
+		case duckLisp_instruction_halt:
 			switch (arg) {
 			case 0:
-				e = dl_array_pushElements(&disassembly, DL_STR("exit"));
+				e = dl_array_pushElements(&disassembly, DL_STR("halt"));
 				if (e) return dl_null;
 				tempChar = '\n';
 				e = dl_array_pushElement(&disassembly, &tempChar);

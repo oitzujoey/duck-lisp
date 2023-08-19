@@ -590,8 +590,30 @@ dl_error_t duckLisp_emit_return(duckLisp_t *duckLisp,
 
 	compileState->currentCompileState->locals_length -= count;
 
- cleanup:
-	return e;
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_emit_exit(duckLisp_t *duckLisp,
+                              duckLisp_compileState_t *compileState,
+                              dl_array_t *assembly) {
+	dl_error_t e = dl_error_ok;
+
+	duckLisp_instructionObject_t instruction = {0};
+	/**/ dl_array_init(&instruction.args,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionArgClass_t),
+	                   dl_array_strategy_double);
+
+	/* Write instruction. */
+	instruction.instructionClass = duckLisp_instructionClass_halt;
+
+	/* Push instruction into list. */
+	e = dl_array_pushElement(assembly, &instruction);
+	if (e) goto cleanup;
+
+	compileState->currentCompileState->locals_length -= 1;
+
+ cleanup: return e;
 }
 
 dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp,

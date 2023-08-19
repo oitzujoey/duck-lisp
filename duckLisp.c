@@ -1187,12 +1187,11 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 		                       duckLisp_localsLength_get(compileState) - 2,
 		                       duckLisp_localsLength_get(compileState) - 1);
 		if (e) goto cleanup;
-		e = duckLisp_emit_pop(duckLisp,
-		                      compileState,
-		                      assembly,
-		                      1);
+		e = duckLisp_emit_pop(duckLisp, compileState, assembly, 1);
 		if (e) goto cleanup;
 	}
+	e = duckLisp_emit_exit(duckLisp, compileState, assembly);
+	if (e) goto cleanup;
 
 	// Print list.
 	/* printf("\n"); */

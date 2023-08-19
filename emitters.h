@@ -209,6 +209,10 @@ dl_error_t duckLisp_emit_return(duckLisp_t *duckLisp,
                                 dl_array_t *assembly,
                                 const dl_size_t count);
 
+dl_error_t duckLisp_emit_exit(duckLisp_t *duckLisp,
+                              duckLisp_compileState_t *compileState,
+                              dl_array_t *assembly);
+
 dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *assembly,

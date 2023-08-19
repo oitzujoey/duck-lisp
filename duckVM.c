@@ -4364,7 +4364,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		*halt = duckVM_halt_mode_yield;
 		break;
 
-	case duckLisp_instruction_exit:
+	case duckLisp_instruction_halt:
 		*halt = duckVM_halt_mode_halt;
 		break;
 
