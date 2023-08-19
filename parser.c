@@ -1277,7 +1277,7 @@ static void ast_print_string(duckLisp_t duckLisp, duckLisp_ast_string_t string) 
 	(void) duckLisp;
 
 	if (string.value_length == 0) {
-		puts("{NULL}");
+		printf("{NULL}");
 		return;
 	}
 
