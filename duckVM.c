@@ -4364,6 +4364,10 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		*halt = duckVM_halt_mode_yield;
 		break;
 
+	case duckLisp_instruction_exit:
+		*halt = duckVM_halt_mode_halt;
+		break;
+
 	case duckLisp_instruction_nil:
 		object1.type = duckVM_object_type_list;
 		object1.value.list = dl_null;

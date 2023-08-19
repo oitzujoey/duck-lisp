@@ -2213,6 +2213,14 @@ inferArgument
     typecheck
 
 
+Script calls are recursive. The implicit state passed to the script must be stored on a stack.
+
+We will need to end all scripts with a `yield`.
+
+
+I think it would have been better to use relative indices in the generators by default.
+
+
 
 Next step: Update "language.md"
 

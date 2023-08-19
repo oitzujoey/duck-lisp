@@ -2333,6 +2333,14 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			}
 		}
 	}
+	{
+		tempByteLink.byte = duckLisp_instruction_exit;
+		DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = bytecodeList.elements_length;
+		tempByteLink.prev = -1;
+		tempByteLink.prev = bytecodeList.elements_length - 1;
+		e = dl_array_pushElement(&bytecodeList, &tempByteLink);
+		if (e) goto cleanup;
+	}
 	if (bytecodeList.elements_length > 0) {
 		DL_ARRAY_GETTOPADDRESS(bytecodeList, byteLink_t).next = -1;
 	}

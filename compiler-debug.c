@@ -7400,6 +7400,22 @@ char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation,
 			}
 			break;
 
+		case duckLisp_instruction_exit:
+			switch (arg) {
+			case 0:
+				e = dl_array_pushElements(&disassembly, DL_STR("exit"));
+				if (e) return dl_null;
+				tempChar = '\n';
+				e = dl_array_pushElement(&disassembly, &tempChar);
+				if (e) return dl_null;
+				arg = 0;
+				continue;
+			default:
+				e = dl_array_pushElements(&disassembly, DL_STR("Invalid arg number.\n"));
+				if (e) return dl_null;
+			}
+			break;
+
 		case duckLisp_instruction_return0:
 			switch (arg) {
 			case 0:

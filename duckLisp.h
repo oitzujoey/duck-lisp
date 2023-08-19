@@ -486,6 +486,7 @@ typedef enum {
 	duckLisp_instruction_return32,
 
 	duckLisp_instruction_yield,
+	duckLisp_instruction_exit,
 
 	duckLisp_instruction_nil,
 } duckLisp_instruction_t;
