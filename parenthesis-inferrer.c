@@ -175,6 +175,10 @@ typedef struct {
 	dl_ptrdiff_t *type_index;
 	duckLisp_ast_expression_t *expression;
 	dl_ptrdiff_t *expression_index;
+	dl_array_t *newExpression;
+	dl_size_t *newLength;
+	dl_bool_t parenthesized;
+	dl_bool_t infer;
 } vmContext_t;
 
 
@@ -597,7 +601,11 @@ static dl_error_t runVm(inferrerState_t *state,
                         inferrerType_t type,
                         dl_ptrdiff_t *type_index,
                         duckLisp_ast_expression_t *expression,
-                        dl_ptrdiff_t *expression_index) {
+                        dl_ptrdiff_t *expression_index,
+                        dl_array_t *newExpression,
+                        dl_size_t *newLength,
+                        dl_bool_t parenthesized,
+                        dl_bool_t infer) {
 	dl_error_t e = dl_error_ok;
 
 	vmContext_t context;
@@ -606,10 +614,15 @@ static dl_error_t runVm(inferrerState_t *state,
 	context.type_index = type_index;
 	context.expression = expression;
 	context.expression_index = expression_index;
+	context.newExpression = newExpression;
+	context.newLength = newLength;
+	context.parenthesized = parenthesized;
+	context.infer = infer;
+
 	e = dl_array_pushElement((dl_array_t *) state->duckVM.inferrerContext, &context);
 	if (e) goto cleanup;
-	puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length));
-	/* e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length); */
+	/* puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length)); */
+	e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length);
 	if (e) goto cleanup;
 	e = dl_array_popElement((dl_array_t *) state->duckVM.inferrerContext, dl_null);
 	if (e) goto cleanup;
@@ -630,76 +643,78 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
-	/* A coroutine could be nice here, but this works too. */
-	if ((dl_size_t) *type_index < type.type.value.expression.positionalSignatures_length) {
-		if ((dl_size_t) *expression_index >= expression->compoundExpressions_length) {
-			e = dl_error_invalidValue;
-			(eError
-			 = duckLisp_error_pushInference(state,
-			                                DL_STR("Too few arguments for declared identifier.")));
-			if (eError) e = eError;
-			goto cleanup;
-		}
-		inferrerTypeSignature_t argSignature = (type.type.value.expression.positionalSignatures
-		                                        [*type_index]);
-		if (argSignature.type == inferrerTypeSignature_type_symbol) {
-			dl_ptrdiff_t lastIndex = *expression_index;
-			e = inferArgument(state,
-			                  expression,
-			                  expression_index,
-			                  dl_false,
-			                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
-			if (e) goto cleanup;
-			if (!parenthesized) {
-				e = dl_array_pushElement(newExpression, &expression->compoundExpressions[lastIndex]);
+	if ((dl_size_t) *type_index <= type.type.value.expression.positionalSignatures_length) {
+		/* A coroutine could be nice here, but this works too. */
+		if ((dl_size_t) *type_index < type.type.value.expression.positionalSignatures_length) {
+			if ((dl_size_t) *expression_index >= expression->compoundExpressions_length) {
+				e = dl_error_invalidValue;
+				(eError
+				 = duckLisp_error_pushInference(state,
+				                                DL_STR("Too few arguments for declared identifier.")));
+				if (eError) e = eError;
+				goto cleanup;
+			}
+			inferrerTypeSignature_t argSignature = (type.type.value.expression.positionalSignatures
+			                                        [*type_index]);
+			if (argSignature.type == inferrerTypeSignature_type_symbol) {
+				dl_ptrdiff_t lastIndex = *expression_index;
+				e = inferArgument(state,
+				                  expression,
+				                  expression_index,
+				                  dl_false,
+				                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
 				if (e) goto cleanup;
-				(*newExpression_length)++;
+				if (!parenthesized) {
+					e = dl_array_pushElement(newExpression, &expression->compoundExpressions[lastIndex]);
+					if (e) goto cleanup;
+					(*newExpression_length)++;
+				}
+			}
+			else {
+				(eError
+				 = duckLisp_error_pushInference(state,
+				                                DL_STR("Nested expression types are not yet supported.")));
+				if (eError) e = eError;
 			}
 		}
 		else {
-			(eError
-			 = duckLisp_error_pushInference(state,
-			                                DL_STR("Nested expression types are not yet supported.")));
-			if (eError) e = eError;
-		}
-	}
-	else {
-		// This does not need to be incremental, but it does need to be treated as the parg, and pargs
-		// are inferred incrementally.
-		if (type.type.value.expression.variadic) {
-			inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
-			for (dl_ptrdiff_t l = 0;
-			     (parenthesized
-			      ? ((dl_size_t) *expression_index < expression->compoundExpressions_length)
-			      : ((dl_size_t) l < type.type.value.expression.defaultRestLength));
-			     l++) {
-				if (argSignature.type == inferrerTypeSignature_type_symbol) {
-					dl_ptrdiff_t lastIndex = *expression_index;
-					e = inferArgument(state,
-					                  expression,
-					                  expression_index,
-					                  dl_false,
-					                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
-					                   ? infer
-					                   : dl_false));
-					if (e) goto cleanup;
-					if (!parenthesized) {
-						e = dl_array_pushElement(newExpression,
-						                         &expression->compoundExpressions[lastIndex]);
+			// This does not need to be incremental, but it does need to be treated as the parg, and pargs
+			// are inferred incrementally.
+			if (type.type.value.expression.variadic) {
+				inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
+				for (dl_ptrdiff_t l = 0;
+				     (parenthesized
+				      ? ((dl_size_t) *expression_index < expression->compoundExpressions_length)
+				      : ((dl_size_t) l < type.type.value.expression.defaultRestLength));
+				     l++) {
+					if (argSignature.type == inferrerTypeSignature_type_symbol) {
+						dl_ptrdiff_t lastIndex = *expression_index;
+						e = inferArgument(state,
+						                  expression,
+						                  expression_index,
+						                  dl_false,
+						                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
+						                   ? infer
+						                   : dl_false));
 						if (e) goto cleanup;
-						(*newExpression_length)++;
+						if (!parenthesized) {
+							e = dl_array_pushElement(newExpression,
+							                         &expression->compoundExpressions[lastIndex]);
+							if (e) goto cleanup;
+							(*newExpression_length)++;
+						}
 					}
-				}
-				else {
-					(eError
-					 = duckLisp_error_pushInference(state,
-					                                DL_STR("Nested expression types are not yet supported.")));
-					if (eError) e = eError;
+					else {
+						(eError
+						 = duckLisp_error_pushInference(state,
+						                                DL_STR("Nested expression types are not yet supported.")));
+						if (eError) e = eError;
+					}
 				}
 			}
 		}
+		(*type_index)++;
 	}
-	(*type_index)++;
 
  cleanup: return e;
 }
@@ -765,15 +780,23 @@ static dl_error_t inferArgument(inferrerState_t *state,
 					if (e) goto expressionCleanup;
 				}
 
+				dl_ptrdiff_t type_index = 0;
+
 				/* This part may do some inference. */
 				if (type.bytecode_length > 0) {
-					dl_ptrdiff_t type_index = 0;
-					e = runVm(state, type, &type_index, expression, &localIndex);
+					e = runVm(state,
+					          type,
+					          &type_index,
+					          expression,
+					          &localIndex,
+					          &newExpression,
+					          &newLength,
+					          parenthesized,
+					          infer);
 					if (e) goto cleanup;
 				}
 
 				/* This part does whatever inference the script didn't do. */
-				dl_ptrdiff_t type_index = 0;
 				while ((dl_size_t) type_index <= type.type.value.expression.positionalSignatures_length) {
 					e = inferIncrementally(state,
 					                       type,
@@ -1056,7 +1079,6 @@ static dl_error_t infer_compoundExpression(inferrerState_t *state,
 
 
 static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
-	puts("DECLARE");
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -1069,18 +1091,6 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	if (e) goto cleanup;
 	state = context.state;
 
-	e = duckVM_pop(vm, &identifierObject);
-	if (e) goto cleanup;
-	if ((identifierObject.type != duckVM_object_type_symbol)
-	    && (identifierObject.type != duckVM_object_type_string)) {
-		e = dl_error_invalidValue;
-		(eError
-		 = duckVM_error_pushRuntime(vm,
-		                            DL_STR("First argument of `__declare-identifier` should be an identifier or a string.")));
-		if (eError) e = eError;
-		goto cleanup;
-	}
-
 	e = duckVM_pop(vm, &typeObject);
 	if (e) goto cleanup;
 	if ((typeObject.type != duckVM_object_type_symbol)
@@ -1089,6 +1099,18 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		(eError
 		 = duckVM_error_pushRuntime(vm,
 		                            DL_STR("Second argument of `__declare-identifier` should be a type signature.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	e = duckVM_pop(vm, &identifierObject);
+	if (e) goto cleanup;
+	if ((identifierObject.type != duckVM_object_type_symbol)
+	    && (identifierObject.type != duckVM_object_type_string)) {
+		e = dl_error_invalidValue;
+		(eError
+		 = duckVM_error_pushRuntime(vm,
+		                            DL_STR("First argument of `__declare-identifier` should be an identifier or a string.")));
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -1123,19 +1145,60 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	}
 	if (e) goto cleanup;
 
+	e = duckVM_pushNil(vm);
+	if (e) goto cleanup;
+
  cleanup: return e;
 }
 
 static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
-	puts("INFER");
-	
-	return duckVM_pushNil(vm);
+	dl_error_t e = dl_error_ok;
+
+	vmContext_t context;
+	e = dl_array_getTop(vm->inferrerContext, &context);
+	if (e) goto preDefinitionCleanup;
+
+	inferrerState_t *state = context.state;
+	inferrerType_t type = context.type;
+	dl_ptrdiff_t *type_index = context.type_index;
+	duckLisp_ast_expression_t *expression = context.expression;
+	dl_ptrdiff_t *expression_index = context.expression_index;
+	dl_array_t *newExpression = context.newExpression;
+	dl_size_t *newLength = context.newLength;
+	const dl_bool_t parenthesized = context.parenthesized;
+	const dl_bool_t infer = context.infer;
+
+	duckLisp_t *duckLisp = &state->duckLisp;
+
+	/* infer */
+
+	e = inferIncrementally(state,
+	                       type,
+	                       type_index,
+	                       expression,
+	                       expression_index,
+	                       newExpression,
+	                       newLength,
+	                       parenthesized,
+	                       infer);
+	if (e) goto postDefinitionCleanup;
+
+	/* AndGetNextArgument */
+
+	duckVM_object_t object;
+	e = duckLisp_astToObject(duckLisp, vm, &object, expression->compoundExpressions[*expression_index - 1]);
+	if (e) goto postDefinitionCleanup;
+
+	e = duckVM_push(vm, &object);
+	if (e) goto postDefinitionCleanup;
+
+ postDefinitionCleanup:
+ preDefinitionCleanup: return e;
 }
 
 static dl_error_t callback_pushScope(duckVM_t *vm) {
 	dl_error_t e = dl_error_ok;
 
-	puts("PUSH {");
 	inferrerScope_t scope;
 	vmContext_t context;
 
@@ -1146,19 +1209,24 @@ static dl_error_t callback_pushScope(duckVM_t *vm) {
 	e = pushDeclarationScope(context.state, &scope);
 	if (e) goto cleanup;
 
+	e = duckVM_pushNil(vm);
+	if (e) goto cleanup;
+
  cleanup: return e;
 }
 
 static dl_error_t callback_popScope(duckVM_t *vm) {
 	dl_error_t e = dl_error_ok;
 
-	puts("} POP");
 	vmContext_t context;
 
 	e = dl_array_getTop(vm->inferrerContext, &context);
 	if (e) goto cleanup;
 
 	e = popDeclarationScope(context.state, dl_null);
+	if (e) goto cleanup;
+
+	e = duckVM_pushNil(vm);
 	if (e) goto cleanup;
 
  cleanup: return e;
@@ -1172,7 +1240,8 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 	dl_error_t eError = dl_error_ok;
 
 	/* `(__declaration-scope ,@body) */
-	/* `((__push-declaration-scope)
+	/* `(
+	     (__push-declaration-scope)
 	     ,@body
 	     (__pop-declaration-scope)) */
 
@@ -1209,8 +1278,6 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 	duckLisp_ast_compoundExpression_t scopeC;
 	scopeC.type = duckLisp_ast_type_expression;
 	scopeC.value.expression = scopeE;
-
-	ast_print_compoundExpression(*duckLisp, scopeC);
 
 	e = duckLisp_generator_expression(duckLisp,
 	                                  compileState,
@@ -1308,15 +1375,24 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
  ( \
   (__var parameters parameters) \
   (__while parameters \
-           (__setq type (__cons (__quote I) type)) \
+           (__if (__= (__quote &rest) (__car parameters)) \
+                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
+                 (__setq type (__cons (__quote I) type))) \
            (__setq parameters (__cdr parameters)))) \
+( \
+  (__var type2 type) \
+  (__setq type ()) \
+  (__while type2 \
+           (__setq type (__cons (__car type2) type)) \
+           (__setq type2 (__cdr type2)))) \
  (__declaration-scope \
   (__while parameters \
-           (__declare-identifier (__car parameters) (__quote L)) \
+           (__unless (__= (__quote &rest) (__car parameters)) \
+                     (__declare-identifier (__car parameters) (__quote L))) \
            (__setq parameters (__cdr parameters))) \
   (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument) \
-  (__declare-identifier name type))) \
+  (__infer-and-get-next-argument)) \
+ (__declare-identifier name type)) \
 ")},
 		                    {DL_STR("__lambda"),
 		                     DL_STR("(L &rest 1 I)"),
@@ -1327,11 +1403,20 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
  ( \
   (__var parameters parameters) \
   (__while parameters \
-           (__setq type (__cons (__quote I) type)) \
+           (__if (__= (__quote &rest) (__car parameters)) \
+                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
+                 (__setq type (__cons (__quote I) type))) \
            (__setq parameters (__cdr parameters)))) \
+( \
+  (__var type2 type) \
+  (__setq type ()) \
+  (__while type2 \
+           (__setq type (__cons (__car type2) type)) \
+           (__setq type2 (__cdr type2)))) \
  (__declaration-scope \
   (__while parameters \
-           (__declare-identifier (__car parameters) (__quote L)) \
+           (__unless (__= (__quote &rest) (__car parameters)) \
+                     (__declare-identifier (__car parameters) (__quote L))) \
            (__setq parameters (__cdr parameters))) \
   (__declare-identifier (__quote self) type) \
   (__infer-and-get-next-argument))) \
@@ -1346,15 +1431,24 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
  ( \
   (__var parameters parameters) \
   (__while parameters \
-           (__setq type (__cons (__quote I) type)) \
+           (__if (__= (__quote &rest) (__car parameters)) \
+                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
+                 (__setq type (__cons (__quote I) type))) \
            (__setq parameters (__cdr parameters)))) \
+( \
+  (__var type2 type) \
+  (__setq type ()) \
+  (__while type2 \
+           (__setq type (__cons (__car type2) type)) \
+           (__setq type2 (__cdr type2)))) \
  (__declaration-scope \
   (__while parameters \
-           (__declare-identifier (__car parameters) (__quote L)) \
+           (__unless (__= (__quote &rest) (__car parameters)) \
+                     (__declare-identifier (__car parameters) (__quote L))) \
            (__setq parameters (__cdr parameters))) \
   (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument) \
-  (__declare-identifier name type))) \
+  (__infer-and-get-next-argument)) \
+ (__declare-identifier name type)) \
 ")},
 		                    {DL_STR("__noscope"),                DL_STR("(&rest 0 I)"),     dl_null, 0},
 		                    {DL_STR("__comptime"),               DL_STR("(&rest 0 I)"),     dl_null, 0},
@@ -1426,10 +1520,6 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 
 	e = infer_compoundExpression(&state, ast, dl_true);
 	if (e) goto cleanup;
-
-	printf("\nFINAL: ");
-	ast_print_compoundExpression(state.duckLisp, *ast);
-	puts("");
 
  cleanup:
 	eError = dl_array_pushElements(errors, state.duckLisp.errors.elements, state.duckLisp.errors.elements_length);

@@ -805,6 +805,90 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
 	return e;
 }
 
+dl_error_t duckLisp_astToObject(duckLisp_t *duckLisp,
+                                duckVM_t *duckVM,
+                                duckVM_object_t *object,
+                                duckLisp_ast_compoundExpression_t ast) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	switch (ast.type) {
+	case duckLisp_ast_type_expression:
+		/* Fall through */
+	case duckLisp_ast_type_literalExpression: {
+		duckVM_object_t *tailPointer = dl_null;
+		DL_DOTIMES(j, ast.value.expression.compoundExpressions_length) {
+			duckVM_object_t head;
+			e = duckLisp_astToObject(duckLisp,
+			                         duckVM,
+			                         &head,
+			                         (ast.value.expression.compoundExpressions
+			                          [ast.value.expression.compoundExpressions_length
+			                           - 1
+			                           - j]));
+			if (e) break;
+			duckVM_object_t *headPointer;
+			e = duckVM_allocateHeapObject(duckVM, &headPointer, head);
+			if (e) break;
+			duckVM_object_t tail = duckVM_object_makeCons(headPointer, tailPointer);
+			e = duckVM_allocateHeapObject(duckVM, &tailPointer, tail);
+			if (e) break;
+		}
+		object->type = duckVM_object_type_list;
+		object->value.list = tailPointer;
+		break;
+	}
+	case duckLisp_ast_type_identifier:
+		/* Fall through */
+	case duckLisp_ast_type_callback: {
+		duckVM_object_t *internalString = dl_null;
+		e = duckVM_allocateHeapObject(duckVM,
+		                              &internalString,
+		                              duckVM_object_makeInternalString((dl_uint8_t *) ast.value.identifier.value,
+		                                                               ast.value.identifier.value_length));
+		/* Intern symbol if not already interned. */
+		e = duckLisp_symbol_create(duckLisp, ast.value.identifier.value, ast.value.identifier.value_length);
+		if (e) break;
+		dl_size_t id = duckLisp_symbol_nameToValue(duckLisp,
+		                                           ast.value.identifier.value,
+		                                           ast.value.identifier.value_length);
+		*object = duckVM_object_makeSymbol(id, internalString);
+		break;
+	}
+	case duckLisp_ast_type_string: {
+		duckVM_object_t *internalString = dl_null;
+		e = duckVM_allocateHeapObject(duckVM,
+		                              &internalString,
+		                              duckVM_object_makeInternalString((dl_uint8_t *) ast.value.string.value,
+		                                                               ast.value.string.value_length));
+		*object = duckVM_object_makeString(internalString,
+		                                   0,
+		                                   ast.value.string.value_length);
+		break;
+	}
+	case duckLisp_ast_type_float:
+		object->type = duckVM_object_type_float;
+		object->value.floatingPoint = ast.value.floatingPoint.value;
+		break;
+	case duckLisp_ast_type_int:
+		object->type = duckVM_object_type_integer;
+		object->value.integer = ast.value.integer.value;
+		break;
+	case duckLisp_ast_type_bool:
+		object->type = duckVM_object_type_bool;
+		object->value.boolean = ast.value.boolean.value;
+		break;
+	default:
+		e = dl_error_invalidValue;
+		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("duckLisp_astToObject: Illegal AST type."));
+		if (eError) e = eError;
+	}
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+
 
 dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
                                                duckLisp_compileState_t *compileState,

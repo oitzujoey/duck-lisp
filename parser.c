@@ -413,7 +413,7 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 	return e;
 }
 
-static dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression) {
+dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression) {
 	dl_error_t e = dl_error_ok;
 
 	if (expression.compoundExpressions_length == 0) {

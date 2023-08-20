@@ -592,6 +592,10 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
                                 duckLisp_ast_compoundExpression_t *ast,
                                 duckVM_object_t *object,
                                 dl_bool_t useExprs);
+dl_error_t duckLisp_astToObject(duckLisp_t *duckLisp,
+                                duckVM_t *duckVM,
+                                duckVM_object_t *object,
+                                duckLisp_ast_compoundExpression_t ast);
 
 dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,

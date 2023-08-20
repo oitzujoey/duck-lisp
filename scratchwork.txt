@@ -2221,6 +2221,11 @@ We will need to end all scripts with a `yield`.
 I think it would have been better to use relative indices in generators by default.
 
 
+Inferrer VM context is recursive.
+Inferrer is incremental.
+Inferrer is split between main function and VM.
+
+
 
 Next step: Update "language.md"
 

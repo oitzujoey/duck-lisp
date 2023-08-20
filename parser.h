@@ -41,4 +41,5 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
                          dl_ptrdiff_t index,
                          dl_bool_t throwErrors);
 dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
+dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression);
 #endif /* DUCKLISP_PARSER_H */
