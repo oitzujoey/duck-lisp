@@ -206,9 +206,11 @@ static dl_error_t inferrerTypeSignature_quit(inferrerTypeSignature_t *inferrerTy
 		return e;
 	}
 
+	if (inferrerTypeSignature->value.expression.variadic) {
+		e = inferrerTypeSignature_quit(inferrerTypeSignature->value.expression.restSignature, memoryAllocation);
+	}
 	inferrerTypeSignature->value.expression.variadic = dl_false;
 	inferrerTypeSignature->value.expression.defaultRestLength = 0;
-	e = inferrerTypeSignature_quit(inferrerTypeSignature->value.expression.restSignature, memoryAllocation);
 
 	DL_DOTIMES(i, inferrerTypeSignature->value.expression.positionalSignatures_length) {
 		e = inferrerTypeSignature_quit(inferrerTypeSignature->value.expression.positionalSignatures + i,
