@@ -1121,7 +1121,7 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	e = duckLisp_objectToAST(&state->duckLisp, &typeAst, &typeObject, dl_true);
 	if (e) goto cleanup;
 
-	if (identifierObject.type == duckLisp_ast_type_identifier) {
+	if (identifierObject.type == duckVM_object_type_string) {
 		duckVM_string_t identifierString = duckVM_object_getString(identifierObject);
 		duckVM_internalString_t identifierInternalString;
 		e = duckVM_string_getInternalString(identifierString, &identifierInternalString);
@@ -1277,9 +1277,6 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 	}
 	scopeE.compoundExpressions[scopeE.compoundExpressions_length - 1].type = duckLisp_ast_type_expression;
 	scopeE.compoundExpressions[scopeE.compoundExpressions_length - 1].value.expression = popE;
-	duckLisp_ast_compoundExpression_t scopeC;
-	scopeC.type = duckLisp_ast_type_expression;
-	scopeC.value.expression = scopeE;
 
 	e = duckLisp_generator_expression(duckLisp,
 	                                  compileState,
