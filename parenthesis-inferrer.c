@@ -411,42 +411,57 @@ static dl_error_t inferrerScope_quit(inferrerScope_t *inferrerScope, dl_memoryAl
 
 
 static dl_error_t inferrerState_init(inferrerState_t *inferrerState,
-                                     dl_memoryAllocation_t *ma,
+                                     dl_memoryAllocation_t *memoryAllocation,
                                      dl_size_t maxComptimeVmObjects,
                                      dl_array_t *errors,
                                      const char *fileName,
                                      const dl_size_t fileName_length) {
 	dl_error_t e = dl_error_ok;
 
-	inferrerState->memoryAllocation = ma;
-	e = duckLisp_init(&inferrerState->duckLisp, ma, maxComptimeVmObjects);
+	dl_array_t *inferrerContext = dl_null;
+	e = DL_MALLOC(inferrerState->memoryAllocation, &inferrerContext, 1, vmContext_t);
 	if (e) goto cleanup;
-	e = duckVM_init(&inferrerState->duckVM, ma, maxComptimeVmObjects);
+	(void) dl_array_init(inferrerContext,
+	                     inferrerState->memoryAllocation,
+	                     sizeof(vmContext_t),
+	                     dl_array_strategy_double);
+	inferrerState->memoryAllocation = memoryAllocation;
+	e = duckLisp_init(&inferrerState->duckLisp, memoryAllocation, maxComptimeVmObjects);
 	if (e) goto cleanup;
-	inferrerState->duckVM.inferrerContext = inferrerState;
+	e = duckVM_init(&inferrerState->duckVM, memoryAllocation, maxComptimeVmObjects);
+	if (e) goto cleanup;
+	inferrerState->duckVM.inferrerContext = inferrerContext;
 	inferrerState->errors = errors;
 	inferrerState->fileName = fileName;
 	inferrerState->fileName_length = fileName_length;
-	(void) dl_array_init(&inferrerState->scopeStack, ma, sizeof(inferrerScope_t), dl_array_strategy_double);
+	(void) dl_array_init(&inferrerState->scopeStack,
+	                     memoryAllocation,
+	                     sizeof(inferrerScope_t),
+	                     dl_array_strategy_double);
 
  cleanup: return e;
 }
 
-static dl_error_t inferrerState_quit(inferrerState_t *s) {
+static dl_error_t inferrerState_quit(inferrerState_t *inferrerState) {
 	dl_error_t e = dl_error_ok;
-	DL_DOTIMES(i, s->scopeStack.elements_length) {
+	dl_error_t eError = dl_error_ok;
+	DL_DOTIMES(i, inferrerState->scopeStack.elements_length) {
 		inferrerScope_t is;
-		e = dl_array_popElement(&s->scopeStack, &is);
+		e = dl_array_popElement(&inferrerState->scopeStack, &is);
 		if (e) break;
-		e = inferrerScope_quit(&is, s->memoryAllocation);
+		e = inferrerScope_quit(&is, inferrerState->memoryAllocation);
 	}
-	e = dl_array_quit(&s->scopeStack);
-	s->fileName_length = 0;
-	s->fileName = dl_null;
-	s->errors = dl_null;
-	(void) duckVM_quit(&s->duckVM);
-	(void) duckLisp_quit(&s->duckLisp);
-	s->memoryAllocation = dl_null;
+	eError = dl_array_quit(&inferrerState->scopeStack);
+	if (eError) e = eError;
+	inferrerState->fileName_length = 0;
+	inferrerState->fileName = dl_null;
+	inferrerState->errors = dl_null;
+	e = dl_array_quit((dl_array_t *) inferrerState->duckVM.inferrerContext);
+	eError = DL_FREE(inferrerState->memoryAllocation, &inferrerState->duckVM.inferrerContext);
+	if (eError) e = eError;
+	(void) duckVM_quit(&inferrerState->duckVM);
+	(void) duckLisp_quit(&inferrerState->duckLisp);
+	inferrerState->memoryAllocation = dl_null;
 	return e;
 }
 
@@ -555,6 +570,11 @@ static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
 }
 
 
+static dl_error_t inferArgument(inferrerState_t *state,
+                                duckLisp_ast_expression_t *expression,
+                                dl_ptrdiff_t *index,
+                                dl_bool_t parenthesized,
+                                dl_bool_t infer);
 static dl_error_t infer_compoundExpression(inferrerState_t *state,
                                            duckLisp_ast_compoundExpression_t *compoundExpression,
                                            dl_bool_t infer);
@@ -573,26 +593,116 @@ static dl_error_t infer_callback(inferrerState_t *state,
 			   type index
 			*/
 
-/* static dl_error_t runVm(inferrerState_t *state, */
-/*                         inferrerType_t type, */
-/*                         dl_ptrdiff_t *type_index, */
-/*                         duckLisp_ast_expression_t *expression, */
-/*                         dl_ptrdiff_t *expression_index) { */
-/* 	dl_error_t e = dl_error_ok; */
+static dl_error_t runVm(inferrerState_t *state,
+                        inferrerType_t type,
+                        dl_ptrdiff_t *type_index,
+                        duckLisp_ast_expression_t *expression,
+                        dl_ptrdiff_t *expression_index) {
+	dl_error_t e = dl_error_ok;
 
-/* 	vmContext_t context; */
-/* 	context.state = state; */
-/* 	context.type = type; */
-/* 	context.type_index = type_index; */
-/* 	context.expression = expression; */
-/* 	context.expression_index = expression_index; */
-/* 	state->duckVM.inferrerContext = &context; */
-/* 	/\* puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length)); *\/ */
-/* 	/\* e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length); *\/ */
-/* 	if (e) goto cleanup; */
+	vmContext_t context;
+	context.state = state;
+	context.type = type;
+	context.type_index = type_index;
+	context.expression = expression;
+	context.expression_index = expression_index;
+	e = dl_array_pushElement((dl_array_t *) state->duckVM.inferrerContext, &context);
+	if (e) goto cleanup;
+	puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length));
+	/* e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length); */
+	if (e) goto cleanup;
+	e = dl_array_popElement((dl_array_t *) state->duckVM.inferrerContext, dl_null);
+	if (e) goto cleanup;
 
-/*  cleanup: return e; */
-/* } */
+ cleanup: return e;
+}
+
+
+static dl_error_t inferIncrementally(inferrerState_t *state,
+                                     inferrerType_t type,
+                                     dl_ptrdiff_t *type_index,
+                                     duckLisp_ast_expression_t *expression,
+                                     dl_ptrdiff_t *expression_index,
+                                     dl_array_t *newExpression,  /* dl_array_t:duckLisp_ast_compoundExpression_t */
+                                     dl_size_t *newExpression_length,
+                                     dl_bool_t parenthesized,
+                                     dl_bool_t infer) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	/* A coroutine could be nice here, but this works too. */
+	if ((dl_size_t) *type_index < type.type.value.expression.positionalSignatures_length) {
+		if ((dl_size_t) *expression_index >= expression->compoundExpressions_length) {
+			e = dl_error_invalidValue;
+			(eError
+			 = duckLisp_error_pushInference(state,
+			                                DL_STR("Too few arguments for declared identifier.")));
+			if (eError) e = eError;
+			goto cleanup;
+		}
+		inferrerTypeSignature_t argSignature = (type.type.value.expression.positionalSignatures
+		                                        [*type_index]);
+		if (argSignature.type == inferrerTypeSignature_type_symbol) {
+			dl_ptrdiff_t lastIndex = *expression_index;
+			e = inferArgument(state,
+			                  expression,
+			                  expression_index,
+			                  dl_false,
+			                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
+			if (e) goto cleanup;
+			if (!parenthesized) {
+				e = dl_array_pushElement(newExpression, &expression->compoundExpressions[lastIndex]);
+				if (e) goto cleanup;
+				(*newExpression_length)++;
+			}
+		}
+		else {
+			(eError
+			 = duckLisp_error_pushInference(state,
+			                                DL_STR("Nested expression types are not yet supported.")));
+			if (eError) e = eError;
+		}
+	}
+	else {
+		// This does not need to be incremental, but it does need to be treated as the parg, and pargs
+		// are inferred incrementally.
+		if (type.type.value.expression.variadic) {
+			inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
+			for (dl_ptrdiff_t l = 0;
+			     (parenthesized
+			      ? ((dl_size_t) *expression_index < expression->compoundExpressions_length)
+			      : ((dl_size_t) l < type.type.value.expression.defaultRestLength));
+			     l++) {
+				if (argSignature.type == inferrerTypeSignature_type_symbol) {
+					dl_ptrdiff_t lastIndex = *expression_index;
+					e = inferArgument(state,
+					                  expression,
+					                  expression_index,
+					                  dl_false,
+					                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
+					                   ? infer
+					                   : dl_false));
+					if (e) goto cleanup;
+					if (!parenthesized) {
+						e = dl_array_pushElement(newExpression,
+						                         &expression->compoundExpressions[lastIndex]);
+						if (e) goto cleanup;
+						(*newExpression_length)++;
+					}
+				}
+				else {
+					(eError
+					 = duckLisp_error_pushInference(state,
+					                                DL_STR("Nested expression types are not yet supported.")));
+					if (eError) e = eError;
+				}
+			}
+		}
+	}
+	(*type_index)++;
+
+ cleanup: return e;
+}
 
 /* Infer a single argument from the tokens/forms. */
 static dl_error_t inferArgument(inferrerState_t *state,
@@ -643,12 +753,6 @@ static dl_error_t inferArgument(inferrerState_t *state,
 			inferrerTypeSignature_print(type.type);
 			puts("\x1B[0m");
 
-			/* if (type.bytecode_length > 0) { */
-			/* 	ast_print_compoundExpression(state->duckLisp, *head); puts(""); */
-			/* 	e = runVm(state, type, &type_index, expression, &expression_index); */
-			/* 	if (e) goto cleanup; */
-			/* } */
-
 			/* lol */
 			if (type.type.type == inferrerTypeSignature_type_expression) {
 				dl_array_t newExpression;
@@ -660,67 +764,27 @@ static dl_error_t inferArgument(inferrerState_t *state,
 					e = dl_array_pushElement(&newExpression, compoundExpression);
 					if (e) goto expressionCleanup;
 				}
-				DL_DOTIMES(l, type.type.value.expression.positionalSignatures_length) {
-					if ((dl_size_t) localIndex >= expression->compoundExpressions_length) {
-						e = dl_error_invalidValue;
-						(eError
-						 = duckLisp_error_pushInference(state,
-						                                DL_STR("Too few arguments for declared identifier.")));
-						if (eError) e = eError;
-						goto expressionCleanup;
-					}
-					inferrerTypeSignature_t argSignature = type.type.value.expression.positionalSignatures[l];
-					if (argSignature.type == inferrerTypeSignature_type_symbol) {
-						dl_ptrdiff_t lastIndex = localIndex;
-						e = inferArgument(state,
-						                  expression,
-						                  &localIndex,
-						                  dl_false,
-						                  (argSignature.value.symbol == inferrerTypeSymbol_I) ? infer : dl_false);
-						if (e) goto expressionCleanup;
-						if (!parenthesized) {
-							e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
-							if (e) goto expressionCleanup;
-							newLength++;
-						}
-					}
-					else {
-						(eError
-						 = duckLisp_error_pushInference(state,
-						                                DL_STR("Nested expression types are not yet supported.")));
-						if (eError) e = eError;
-					}
+
+				/* This part may do some inference. */
+				if (type.bytecode_length > 0) {
+					dl_ptrdiff_t type_index = 0;
+					e = runVm(state, type, &type_index, expression, &localIndex);
+					if (e) goto cleanup;
 				}
-				if (type.type.value.expression.variadic) {
-					inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
-					for (dl_ptrdiff_t l = 0;
-					     (parenthesized
-					      ? ((dl_size_t) localIndex < expression->compoundExpressions_length)
-					      : ((dl_size_t) l < type.type.value.expression.defaultRestLength));
-					     l++) {
-						if (argSignature.type == inferrerTypeSignature_type_symbol) {
-							dl_ptrdiff_t lastIndex = localIndex;
-							e = inferArgument(state,
-							                  expression,
-							                  &localIndex,
-							                  dl_false,
-							                  ((argSignature.value.symbol == inferrerTypeSymbol_I)
-							                   ? infer
-							                   : dl_false));
-							if (e) goto expressionCleanup;
-							if (!parenthesized) {
-								e = dl_array_pushElement(&newExpression, &expression->compoundExpressions[lastIndex]);
-								if (e) goto expressionCleanup;
-								newLength++;
-							}
-						}
-						else {
-							(eError
-							 = duckLisp_error_pushInference(state,
-							                                DL_STR("Nested expression types are not yet supported.")));
-							if (eError) e = eError;
-						}
-					}
+
+				/* This part does whatever inference the script didn't do. */
+				dl_ptrdiff_t type_index = 0;
+				while ((dl_size_t) type_index <= type.type.value.expression.positionalSignatures_length) {
+					e = inferIncrementally(state,
+					                       type,
+					                       &type_index,
+					                       expression,
+					                       &localIndex,
+					                       &newExpression,
+					                       &newLength,
+					                       parenthesized,
+					                       infer);
+					if (e) goto expressionCleanup;
 				}
 
 			expressionCleanup:
@@ -920,16 +984,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
 
 		if (found) {
 			/* Declared. */
-
-			/* if (type.bytecode_length > 0) { */
-			/* 	ast_print_compoundExpression(state->duckLisp, *head); puts(""); */
-			/* 	e = runVm(state, type, &type_index, expression, &expression_index); */
-			/* 	if (e) goto cleanup; */
-			/* } */
-
 			dl_ptrdiff_t expression_index = 0;
-			/* dl_ptrdiff_t type_index = 1; */
-
 			e = inferArgument(state, expression, &expression_index, dl_true, infer);
 			if (e) goto cleanup;
 		}
@@ -1007,8 +1062,12 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 
 	duckVM_object_t identifierObject;
 	duckVM_object_t typeObject;
-	vmContext_t *context = vm->inferrerContext;
-	inferrerState_t *state = context->state;
+	vmContext_t context;
+	inferrerState_t *state = dl_null;
+
+	e = dl_array_getTop(vm->inferrerContext, &context);
+	if (e) goto cleanup;
+	state = context.state;
 
 	e = duckVM_pop(vm, &identifierObject);
 	if (e) goto cleanup;
@@ -1074,17 +1133,35 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 }
 
 static dl_error_t callback_pushScope(duckVM_t *vm) {
+	dl_error_t e = dl_error_ok;
+
 	puts("PUSH {");
 	inferrerScope_t scope;
-	vmContext_t *context = vm->inferrerContext;
-	(void) inferrerScope_init(&scope, context->state->memoryAllocation);
-	return pushDeclarationScope(context->state, &scope);
+	vmContext_t context;
+
+	e = dl_array_getTop(vm->inferrerContext, &context);
+	if (e) goto cleanup;
+
+	(void) inferrerScope_init(&scope, context.state->memoryAllocation);
+	e = pushDeclarationScope(context.state, &scope);
+	if (e) goto cleanup;
+
+ cleanup: return e;
 }
 
 static dl_error_t callback_popScope(duckVM_t *vm) {
+	dl_error_t e = dl_error_ok;
+
 	puts("} POP");
-	vmContext_t *context = vm->inferrerContext;
-	return popDeclarationScope(context->state, dl_null);
+	vmContext_t context;
+
+	e = dl_array_getTop(vm->inferrerContext, &context);
+	if (e) goto cleanup;
+
+	e = popDeclarationScope(context.state, dl_null);
+	if (e) goto cleanup;
+
+ cleanup: return e;
 }
 
 static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,

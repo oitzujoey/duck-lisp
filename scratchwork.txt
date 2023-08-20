@@ -2218,11 +2218,13 @@ Script calls are recursive. The implicit state passed to the script must be stor
 We will need to end all scripts with a `yield`.
 
 
-I think it would have been better to use relative indices in the generators by default.
+I think it would have been better to use relative indices in generators by default.
 
 
 
 Next step: Update "language.md"
+
+Defer: Disallow inference scripts for non-function variables, or create a separate API for them.
 
 Todo:
     Add parenthesis inference?
@@ -2247,10 +2249,6 @@ Todo:
 	Clean up.
 	Create Hidey-Chess branch and add required functions.
 	Clean up.
-
-How to design your compiler for macros:
-Assumptions: You want macros to be able to call functions at compile-time.
-Wrap compile time functions in a `comptime' keyword. Depending on what you want out of it, you may need to create a way for the VM to yield control midway through execution.
 
 Duck-lisp architecture:
 Parse source text into an AST.
