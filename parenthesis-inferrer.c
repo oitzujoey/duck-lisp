@@ -1380,7 +1380,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                  (__setq type (__cons 0 (__cons (__quote &rest) type))) \
                  (__setq type (__cons (__quote I) type))) \
            (__setq parameters (__cdr parameters)))) \
-( \
+ ( \
   (__var type2 type) \
   (__setq type ()) \
   (__while type2 \
@@ -1408,7 +1408,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                  (__setq type (__cons 0 (__cons (__quote &rest) type))) \
                  (__setq type (__cons (__quote I) type))) \
            (__setq parameters (__cdr parameters)))) \
-( \
+ ( \
   (__var type2 type) \
   (__setq type ()) \
   (__while type2 \
@@ -1436,7 +1436,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                  (__setq type (__cons 0 (__cons (__quote &rest) type))) \
                  (__setq type (__cons (__quote I) type))) \
            (__setq parameters (__cdr parameters)))) \
-( \
+ ( \
   (__var type2 type) \
   (__setq type ()) \
   (__while type2 \
