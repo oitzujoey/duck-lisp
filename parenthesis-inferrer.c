@@ -121,6 +121,8 @@ SOFTWARE.
    scripts. It can correctly infer a complicated form like `let`, but is unable to infer `let*`. */
 
 
+#ifdef USE_PARENTHESIS_INFERENCE
+
 typedef enum {
 	inferrerTypeSymbol_L,
 	inferrerTypeSymbol_I
@@ -1536,3 +1538,5 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 
 	return e;
 }
+
+#endif /* USE_PARENTHESIS_INFERENCE */
