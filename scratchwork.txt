@@ -2263,3 +2263,13 @@ Compile AST into HLA.
 Peephole optimization: Remove redundant stack operations.
 Assemble HLA into bytecode.
 Peephole optimization: Minimize the size of branch instructions.
+
+Duck-lisp goals:
+Be a useful embeddable language.
+Make compiler and VM run on nearly any computer architecture or operating system.
+Make compiler and VM optionally independent of the standard library.
+Minimize bytecode binary sizes.
+Maximize extensibility when practical.
+Allow the VM to run on a different machine than the compiler.
+Demonstrate a free-form version of parenthesis inference.
+The C API must not be mind-bogglingly difficult to use.
