@@ -1,0 +1,58 @@
+#(__defmacro __declare (identifier type &rest script-body) ())
+
+(__defun println (arg)
+         (print arg)
+         (print "\n")
+         arg)
+
+__var a 0
+__var b 1
+__var c 0
+
+__defun get-a () a
+__defun get-b () b
+__defun get-c () c
+
+__defun set-a (v) __setq a v
+__defun set-b (v) __setq b v
+__defun set-c (v) __setq c v
+
+__defmacro HAPPY (condition &rest body)
+           (__cons __quote __while
+                   __cons condition
+                          body)
+__declare HAPPY (I &rest 1 I)
+__defun ENDING (a b) __< a b
+__var Mary #get-a
+__declare Mary ()
+__defmacro had (a b) 35
+__declare had (L L)
+__var llama, #println
+__declare llama, (I)
+__var put #set-c
+__declare put (I)
+__defun it (a b) __+ a b
+__var in #get-b
+__declare in ()
+__var zoo #set-b
+__declare zoo (I)
+__var Thereby #get-a
+__declare Thereby ()
+__var ends #set-a
+__declare ends (I)
+__var our #get-c
+__declare our ()
+;; I got a little lazy.
+__defmacro little (I0 I1 I2 I3 I4 I5 I6 I7 I8 I9 I10 I11 I12 I13 I14 I15 I16 I17 I18 I19 I20) ()
+
+
+(HAPPY ENDING
+
+ Mary had a little llama,
+ Mary put it in a zoo;
+ Thereby ends our little drama
+ Which was nice for Mary's mama
+ also for the llama, comma,
+ And for me -- and you.
+
+ -- Harry Silleck Grannatt)
