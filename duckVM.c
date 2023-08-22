@@ -4418,8 +4418,8 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		printf("ip 0x%lX\n", (dl_size_t) (ip - bytecode));
 		printf("*ip 0x%X\n", *ip);
 	}
-	else if (return_value != dl_null) {
-		if (halt == duckVM_halt_mode_yield) {
+	else if (halt == duckVM_halt_mode_yield) {
+		if (return_value != dl_null) {
 			/* Don't pop anything here so that the compiler can predict the starting stack length for the next run. */
 			if (duckVM->stack.elements_length == 0) {
 				/* Return nil if nothing on stack. */
@@ -4430,10 +4430,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 				*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t);
 			}
 		}
-		else {
-			if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
-			e = stack_pop(duckVM, return_value);
-		}
+	}
+	else {
+		if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
+		e = stack_pop(duckVM, return_value);
 	}
 
 	return e;
