@@ -5,37 +5,44 @@ __defmacro declare (identifier type &rest script-body) ()
 (__declare declare (L L &rest 0 I)
            (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
 
-__defmacro defmacro (name parameters &rest body)
-           __cons (__quote __defmacro) (__cons name (__cons parameters body))
-(__declare defmacro (L L &rest 1 I)
+__defmacro var (name value)
+           (__list (__quote __var) name value)
+(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote L)))
+
+(__defmacro defmacro (name parameters type &rest body)
+            __cons (__quote __defmacro) (__cons name (__cons parameters body)))
+(__declare defmacro (L L L &rest 1 I)
            (
             (__var name (__infer-and-get-next-argument))
             (__var parameters (__infer-and-get-next-argument))
-            (__var type ())
-            (
-             (__var parameters parameters)
-             (__while parameters
-                      (__if (__= (__quote &rest) (__car parameters))
-                            (__setq type (__cons 0 (__cons (__quote &rest) type)))
-                            (__setq type (__cons (__quote I) type)))
-                      (__setq parameters (__cdr parameters))))
-            (
-             (__var type2 type)
-             (__setq type ())
-             (__while type2
-                      (__setq type (__cons (__car type2) type))
-                      (__setq type2 (__cdr type2))))
+            (__var type (__infer-and-get-next-argument))
             (__declaration-scope
              (__while parameters
-                      (__unless (__= (__quote &rest) (__car parameters))
-                                (__declare-identifier (__car parameters) (__quote L)))
+                      __var parameter __car parameters
+                      (__unless (__= (__quote &rest) parameter)
+                                (__declare-identifier parameter (__quote L)))
                       (__setq parameters (__cdr parameters)))
              (__declare-identifier (__quote self) type)
              (__infer-and-get-next-argument))
             (__declare-identifier name type)))
 
-defmacro defun (name parameters &rest body)
-         __cons (__quote __defun) (__cons name (__cons parameters body))
+(defmacro defun (name parameters &rest body) (L L &rest 1 I)
+  __var new-parameters ()
+  ;; Dump `&rest's argument.
+  (()
+   __var p2 parameters
+   (__while p2
+            __setq new-parameters (__cons (__car p2) new-parameters)
+            __when __= (__car p2) (__quote &rest)
+                   __setq p2 __cdr p2
+            __setq p2 __cdr p2))
+  (()
+   __var np2 new-parameters
+   __setq new-parameters ()
+   (__while np2
+            __setq new-parameters (__cons (__car np2) new-parameters)
+            __setq np2 __cdr np2))
+  __cons (__quote __defun) (__cons name (__cons new-parameters body)))
 (__declare defun (L L &rest 1 I)
            (
             (__var name (__infer-and-get-next-argument))
@@ -44,8 +51,10 @@ defmacro defun (name parameters &rest body)
             (
              (__var parameters parameters)
              (__while parameters
-                      (__if (__= (__quote &rest) (__car parameters))
-                            (__setq type (__cons 0 (__cons (__quote &rest) type)))
+                      (__if (__if (__= (__quote &rest) (__car parameters))
+                                  true
+                                  (__= (__type-of __car parameters) (__type-of 0)))
+                            (__setq type (__cons __car parameters type))
                             (__setq type (__cons (__quote I) type)))
                       (__setq parameters (__cdr parameters))))
             (
@@ -56,15 +65,32 @@ defmacro defun (name parameters &rest body)
                       (__setq type2 (__cdr type2))))
             (__declaration-scope
              (__while parameters
-                      (__unless (__= (__quote &rest) (__car parameters))
-                                (__declare-identifier (__car parameters) (__quote L)))
+                      __var parameter __car parameters
+                      (__when (__when (__= (__type-of parameter) (__type-of __quote a))
+                                      (__not (__= (__quote &rest) parameter)))
+                              (__declare-identifier parameter (__quote L)))
                       (__setq parameters (__cdr parameters)))
              (__declare-identifier (__quote self) type)
              (__infer-and-get-next-argument))
             (__declare-identifier name type)))
 
-defmacro lambda (parameters &rest body)
-         (__cons (__quote __lambda) (__cons parameters body))
+(defmacro lambda (parameters &rest body) (L &rest 1 I)
+  __var new-parameters ()
+  ;; Dump `&rest's argument.
+  (()
+   __var p2 parameters
+   (__while p2
+            __setq new-parameters (__cons (__car p2) new-parameters)
+            __when __= (__car p2) (__quote &rest)
+                   __setq p2 __cdr p2
+            __setq p2 __cdr p2))
+  (()
+   __var np2 new-parameters
+   __setq new-parameters ()
+   (__while np2
+            __setq new-parameters (__cons (__car np2) new-parameters)
+            __setq np2 __cdr np2))
+  __cons (__quote __lambda) (__cons new-parameters body))
 (__declare lambda (L &rest 1 I)
            (
             (__var parameters (__infer-and-get-next-argument))
@@ -72,8 +98,10 @@ defmacro lambda (parameters &rest body)
             (
              (__var parameters parameters)
              (__while parameters
-                      (__if (__= (__quote &rest) (__car parameters))
-                            (__setq type (__cons 0 (__cons (__quote &rest) type)))
+                      (__if (__if (__= (__quote &rest) (__car parameters))
+                                  true
+                                  (__= (__type-of __car parameters) (__type-of 0)))
+                            (__setq type (__cons __car parameters type))
                             (__setq type (__cons (__quote I) type)))
                       (__setq parameters (__cdr parameters))))
             (
@@ -84,53 +112,47 @@ defmacro lambda (parameters &rest body)
                       (__setq type2 (__cdr type2))))
             (__declaration-scope
              (__while parameters
-                      (__unless (__= (__quote &rest) (__car parameters))
-                                (__declare-identifier (__car parameters) (__quote L)))
+                      __var parameter __car parameters
+                      (__when (__when (__= (__type-of parameter) (__type-of __quote a))
+                                      (__not (__= (__quote &rest) parameter)))
+                              (__declare-identifier parameter (__quote L)))
                       (__setq parameters (__cdr parameters)))
              (__declare-identifier (__quote self) type)
              (__infer-and-get-next-argument))))
-
-defmacro var (name value)
-         (__list (__quote __var) name value)
-(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote L)))
 
 
 declare print (I)
 
 
-defmacro if (condition then else)
+defmacro if (condition then else) (I I I)
          (__list (__quote __if) condition then else)
 
-defmacro apply (function &rest args)
+defmacro apply (function &rest args) (I &rest 1 I)
          (__cons (__quote __apply) (__cons function args))
-declare apply (I &rest 1 I)
 
-defmacro quote (ast) (__list __quote __quote ast)  ; Because I can, *not* because I should.
+defmacro quote (ast) (L) (__list __quote __quote ast)  ; Because I can, *not* because I should.
 
-defun + (a &rest b)
+defun + (a &rest 1 b)
       if b
          __+ a (apply #self b)
          a
-declare + (I &rest 1 I)
 
-defun * (a &rest b)
+defun * (a &rest 1 b)
       if b
          (__* a (apply #self b))
          a
-declare * (I &rest 1 I)
 
 (defun println (arg)
   print arg
   print "\n"
   arg)
 
-defun list (&rest args) args
+defun list (&rest 0 args) args
 defun cons (a d) __cons a d
 defun car (c) __car c
 defun cdr (c) __cdr c
 
-defun funcall (f &rest args) apply f args
-declare funcall (I &rest 1 I)
+defun funcall (f &rest 1 args) apply f args
 
 defun map (f l)
       if l
