@@ -1,52 +1,155 @@
 ;; This is such a hack! XD
 #(__defmacro __declare (identifier type &rest script-body) ())
 
-__declare print (I)
+__defmacro declare (identifier type &rest script-body) ()
+(__declare declare (L L &rest 0 I)
+           (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
 
-__defun + (a &rest b)
-        __if b
-             __+ a (__apply #self b)
-             a
-__declare + (I &rest 1 I)
+__defmacro defmacro (name parameters &rest body)
+           __cons (__quote __defmacro) (__cons name (__cons parameters body))
+(__declare defmacro (L L &rest 1 I)
+           (
+            (__var name (__infer-and-get-next-argument))
+            (__var parameters (__infer-and-get-next-argument))
+            (__var type ())
+            (
+             (__var parameters parameters)
+             (__while parameters
+                      (__if (__= (__quote &rest) (__car parameters))
+                            (__setq type (__cons 0 (__cons (__quote &rest) type)))
+                            (__setq type (__cons (__quote I) type)))
+                      (__setq parameters (__cdr parameters))))
+            (
+             (__var type2 type)
+             (__setq type ())
+             (__while type2
+                      (__setq type (__cons (__car type2) type))
+                      (__setq type2 (__cdr type2))))
+            (__declaration-scope
+             (__while parameters
+                      (__unless (__= (__quote &rest) (__car parameters))
+                                (__declare-identifier (__car parameters) (__quote L)))
+                      (__setq parameters (__cdr parameters)))
+             (__declare-identifier (__quote self) type)
+             (__infer-and-get-next-argument))
+            (__declare-identifier name type)))
 
-__defun * (a &rest b)
-        __if b
-             (__* a (__apply #self b))
-             a
-__declare * (I &rest 1 I)
+defmacro defun (name parameters &rest body)
+         __cons (__quote __defun) (__cons name (__cons parameters body))
+(__declare defun (L L &rest 1 I)
+           (
+            (__var name (__infer-and-get-next-argument))
+            (__var parameters (__infer-and-get-next-argument))
+            (__var type ())
+            (
+             (__var parameters parameters)
+             (__while parameters
+                      (__if (__= (__quote &rest) (__car parameters))
+                            (__setq type (__cons 0 (__cons (__quote &rest) type)))
+                            (__setq type (__cons (__quote I) type)))
+                      (__setq parameters (__cdr parameters))))
+            (
+             (__var type2 type)
+             (__setq type ())
+             (__while type2
+                      (__setq type (__cons (__car type2) type))
+                      (__setq type2 (__cdr type2))))
+            (__declaration-scope
+             (__while parameters
+                      (__unless (__= (__quote &rest) (__car parameters))
+                                (__declare-identifier (__car parameters) (__quote L)))
+                      (__setq parameters (__cdr parameters)))
+             (__declare-identifier (__quote self) type)
+             (__infer-and-get-next-argument))
+            (__declare-identifier name type)))
 
-(__defun println (arg)
-         print arg
-         print "\n"
-         arg)
+defmacro lambda (parameters &rest body)
+         (__cons (__quote __lambda) (__cons parameters body))
+(__declare lambda (L &rest 1 I)
+           (
+            (__var parameters (__infer-and-get-next-argument))
+            (__var type ())
+            (
+             (__var parameters parameters)
+             (__while parameters
+                      (__if (__= (__quote &rest) (__car parameters))
+                            (__setq type (__cons 0 (__cons (__quote &rest) type)))
+                            (__setq type (__cons (__quote I) type)))
+                      (__setq parameters (__cdr parameters))))
+            (
+             (__var type2 type)
+             (__setq type ())
+             (__while type2
+                      (__setq type (__cons (__car type2) type))
+                      (__setq type2 (__cdr type2))))
+            (__declaration-scope
+             (__while parameters
+                      (__unless (__= (__quote &rest) (__car parameters))
+                                (__declare-identifier (__car parameters) (__quote L)))
+                      (__setq parameters (__cdr parameters)))
+             (__declare-identifier (__quote self) type)
+             (__infer-and-get-next-argument))))
 
-__defun list (&rest args) args
-__defun cons (a d) __cons a d
-__defun car (c) __car c
-__defun cdr (c) __cdr c
+defmacro var (name value)
+         (__list (__quote __var) name value)
+(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote L)))
 
-__defun funcall (f &rest args) __apply f args
-__declare funcall (I &rest 1 I)
 
-__defun map (f l)
-        __if l
-             cons (#f car l)
-                  (funcall #self f cdr l)
-             ()
+declare print (I)
 
-__defun reduce (f l) __apply f l
 
-println __quote print
+defmacro if (condition then else)
+         (__list (__quote __if) condition then else)
+
+defmacro apply (function &rest args)
+         (__cons (__quote __apply) (__cons function args))
+declare apply (I &rest 1 I)
+
+defmacro quote (ast) (__list __quote __quote ast)  ; Because I can, *not* because I should.
+
+defun + (a &rest b)
+      if b
+         __+ a (apply #self b)
+         a
+declare + (I &rest 1 I)
+
+defun * (a &rest b)
+      if b
+         (__* a (apply #self b))
+         a
+declare * (I &rest 1 I)
+
+(defun println (arg)
+  print arg
+  print "\n"
+  arg)
+
+defun list (&rest args) args
+defun cons (a d) __cons a d
+defun car (c) __car c
+defun cdr (c) __cdr c
+
+defun funcall (f &rest args) apply f args
+declare funcall (I &rest 1 I)
+
+defun map (f l)
+      if l
+         cons (#f car l)
+              self f (cdr l)
+         ()
+
+defun reduce (f l) apply f l
+
+println quote print
 println + + 1 2
           + 3 4
 println (+ 1 2 3 4)
 println * 2 reduce #+ (list 1 2 3 4)
-println reduce #+ map __lambda (x) * 2 x (list 1 2 3 4)
+println reduce #+ map lambda (x) * 2 x (list 1 2 3 4)
 
-__defun f (a b) (cons a b)
-__declare f (I I)
-__defun g (a b) (cons a b)
-__declare g (L I)
+defun f (a b) (cons a b)
+defun g (a b) (cons a b)
+declare g (L I)
 
 println f list 3
 println g list 3
@@ -68,5 +171,5 @@ println (#g (list list 3) 3)
 println #(f (list list 3) 3)
 println #(g (list list 3) 3)
 
-__defun x () "Llama comma"
-println x
+defun x () "Llama comma"  println x
+var   x    "Llama comma"  println x

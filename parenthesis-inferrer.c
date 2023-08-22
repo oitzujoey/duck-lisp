@@ -173,6 +173,8 @@ typedef struct {
 
 typedef struct {
 	inferrerState_t *state;
+	char *fileName;
+	dl_size_t fileName_length;
 	inferrerType_t type;
 	dl_ptrdiff_t *type_index;
 	duckLisp_ast_expression_t *expression;
@@ -538,6 +540,44 @@ static dl_error_t addDeclaration(inferrerState_t *state,
  cleanup: return e;
 }
 
+static dl_error_t compileAndAddDeclaration(inferrerState_t *state,
+                                           const char *fileName,
+                                           const dl_size_t fileName_length,
+                                           const char *name,
+                                           const dl_size_t name_length,
+                                           const duckLisp_ast_compoundExpression_t typeAst,
+                                           const duckLisp_ast_compoundExpression_t scriptAst) {
+	dl_error_t e = dl_error_ok;
+	(void) fileName;
+	(void) fileName_length;
+
+	dl_uint8_t *bytecode = dl_null;
+	dl_size_t bytecode_length = 0;
+
+	if (scriptAst.type != duckLisp_ast_type_none) {
+		dl_array_t bytecodeArray;
+		duckLisp_compileState_t compileState;
+
+		(void) duckLisp_compileState_init(&state->duckLisp, &compileState);
+		e = duckLisp_compileAST(&state->duckLisp, &compileState, &bytecodeArray, scriptAst);
+		if (e) goto cleanup;
+		e = duckLisp_compileState_quit(&state->duckLisp, &compileState);
+		if (e) goto cleanup;
+
+		bytecode = ((unsigned char*) bytecodeArray.elements);
+		bytecode_length = bytecodeArray.elements_length;
+	}
+	e = addDeclaration(state,
+	                   name,
+	                   name_length,
+	                   typeAst,
+	                   bytecode,
+	                   bytecode_length);
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
 
 
 static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
@@ -579,11 +619,15 @@ static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
 
 
 static dl_error_t inferArgument(inferrerState_t *state,
+                                const char *fileName,
+                                const dl_size_t fileName_length,
                                 duckLisp_ast_expression_t *expression,
                                 dl_ptrdiff_t *index,
                                 dl_bool_t parenthesized,
                                 dl_bool_t infer);
 static dl_error_t infer_compoundExpression(inferrerState_t *state,
+                                           const char *fileName,
+                                           const dl_size_t fileName_length,
                                            duckLisp_ast_compoundExpression_t *compoundExpression,
                                            dl_bool_t infer);
 
@@ -636,6 +680,8 @@ static dl_error_t runVm(inferrerState_t *state,
 
 
 static dl_error_t inferIncrementally(inferrerState_t *state,
+                                     const char *fileName,
+                                     const dl_size_t fileName_length,
                                      inferrerType_t type,
                                      dl_ptrdiff_t *type_index,
                                      duckLisp_ast_expression_t *expression,
@@ -663,6 +709,8 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 			if (argSignature.type == inferrerTypeSignature_type_symbol) {
 				dl_ptrdiff_t lastIndex = *expression_index;
 				e = inferArgument(state,
+				                  fileName,
+				                  fileName_length,
 				                  expression,
 				                  expression_index,
 				                  dl_false,
@@ -694,6 +742,8 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 					if (argSignature.type == inferrerTypeSignature_type_symbol) {
 						dl_ptrdiff_t lastIndex = *expression_index;
 						e = inferArgument(state,
+						                  fileName,
+						                  fileName_length,
 						                  expression,
 						                  expression_index,
 						                  dl_false,
@@ -725,6 +775,8 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 
 /* Infer a single argument from the tokens/forms. */
 static dl_error_t inferArgument(inferrerState_t *state,
+                                const char *fileName,
+                                const dl_size_t fileName_length,
                                 duckLisp_ast_expression_t *expression,
                                 dl_ptrdiff_t *index,
                                 dl_bool_t parenthesized,
@@ -803,6 +855,8 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				/* This part does whatever inference the script didn't do. */
 				while ((dl_size_t) type_index <= type.type.value.expression.positionalSignatures_length) {
 					e = inferIncrementally(state,
+					                       fileName,
+					                       fileName_length,
 					                       type,
 					                       &type_index,
 					                       expression,
@@ -862,20 +916,20 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				printf("::");
 				inferrerTypeSignature_print(type.type);
 				puts("\x1B[0m");
-				e = infer_compoundExpression(state, compoundExpression, infer);
+				e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 				if (e) goto cleanup;
 			}
 			else {
 				/* Undeclared */
 				puts("::Undeclared\x1B[0m");
-				e = infer_compoundExpression(state, compoundExpression, infer);
+				e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 				if (e) goto cleanup;
 			}
 		}
 	}
 	else {
 		/* Anything not an identifier */
-		e = infer_compoundExpression(state, compoundExpression, infer);
+		e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 		if (e) goto cleanup;
 	}
 	*index = localIndex;
@@ -885,6 +939,8 @@ static dl_error_t inferArgument(inferrerState_t *state,
 
 /* Infer a single argument from the tokens/forms. */
 static dl_error_t inferArguments(inferrerState_t *state,
+                                 const char *fileName,
+                                 const dl_size_t fileName_length,
                                  duckLisp_ast_expression_t *expression,
                                  dl_ptrdiff_t index,
                                  dl_bool_t infer) {
@@ -894,7 +950,7 @@ static dl_error_t inferArguments(inferrerState_t *state,
 		/* Run inference on the current identifier. */
 		dl_ptrdiff_t startIndex = index;
 		/* The function needs the whole expression. It is given the pointer to the current index. */
-		e = inferArgument(state, expression, &index, dl_false, infer);
+		e = inferArgument(state, fileName, fileName_length, expression, &index, dl_false, infer);
 		if (e) goto cleanup;
 
 		/* `__declare` interpreter */
@@ -910,29 +966,18 @@ static dl_error_t inferArguments(inferrerState_t *state,
 			duckLisp_ast_compoundExpression_t typeAst = ce.value.expression.compoundExpressions[2];
 			(void) dl_string_compare(&result, DL_STR("__declare"), keyword.value, keyword.value_length);
 			if (result) {
-				inferrerType_t type;
-				inferrerScope_t scope;
-				(void) inferrerType_init(&type);
-
-				e = popDeclarationScope(state, &scope);
-				if (e) goto scopeCleanup;
-
-				e = inferrerTypeSignature_fromAst(state, &type.type, typeAst);
-				if (e) goto scopeCleanup;
-				e = dl_trie_insert(&scope.identifiersTrie,
-				                   identifier.value,
-				                   identifier.value_length,
-				                   scope.types.elements_length);
-				if (e) goto scopeCleanup;
-
-				type.bytecode = dl_null;
-				type.bytecode_length = 0;
-
-				e = dl_array_pushElement(&scope.types, &type);
-				if (e) goto scopeCleanup;
-				e = pushDeclarationScope(state, &scope);
-				if (e) goto scopeCleanup;
-			scopeCleanup:
+				duckLisp_ast_compoundExpression_t scriptAst;
+				(void) duckLisp_ast_compoundExpression_init(&scriptAst);
+				if (ce.value.expression.compoundExpressions_length == 4) {
+					scriptAst = ce.value.expression.compoundExpressions[3];
+				}
+				e = compileAndAddDeclaration(state,
+				                             fileName,
+				                             fileName_length,
+				                             identifier.value,
+				                             identifier.value_length,
+				                             typeAst,
+				                             scriptAst);
 				if (e) goto cleanup;
 			}
 		}
@@ -942,6 +987,8 @@ static dl_error_t inferArguments(inferrerState_t *state,
 }
 
 static dl_error_t infer_expression(inferrerState_t *state,
+                                   const char *fileName,
+                                   const dl_size_t fileName_length,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
                                    dl_bool_t infer) {
 	dl_error_t e = dl_error_ok;
@@ -986,7 +1033,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		if (e) goto cleanup;
 		/* Run argument inference */
 
-		e = inferArguments(state, expression, 1, dl_false);
+		e = inferArguments(state, fileName, fileName_length, expression, 1, dl_false);
 		if (e) goto cleanup;
 
 		compoundExpression->type = duckLisp_ast_type_expression;
@@ -997,7 +1044,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		if (e) goto cleanup;
 		/* Run argument inference */
 
-		e = inferArguments(state, expression, 1, infer);
+		e = inferArguments(state, fileName, fileName_length, expression, 1, infer);
 		if (e) goto cleanup;
 	}
 	else if (head->type == duckLisp_ast_type_identifier) {
@@ -1012,13 +1059,13 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		if (found) {
 			/* Declared. */
 			dl_ptrdiff_t expression_index = 0;
-			e = inferArgument(state, expression, &expression_index, dl_true, infer);
+			e = inferArgument(state, fileName, fileName_length, expression, &expression_index, dl_true, infer);
 			if (e) goto cleanup;
 		}
 		else {
 			/* Undeclared. */
 			/* Argument inference stuff goes here. */
-			e = inferArguments(state, expression, 1, infer);
+			e = inferArguments(state, fileName, fileName_length, expression, 1, infer);
 			if (e) goto cleanup;
 		}
 	}
@@ -1029,7 +1076,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		e = pushDeclarationScope(state, &scope);
 		if (e) goto cleanup;
 
-		e = inferArguments(state, expression, 0, infer);
+		e = inferArguments(state, fileName, fileName_length, expression, 0, infer);
 		if (e) goto cleanup;
 
 		e = popDeclarationScope(state, dl_null);
@@ -1040,6 +1087,8 @@ static dl_error_t infer_expression(inferrerState_t *state,
 }
 
 static dl_error_t infer_compoundExpression(inferrerState_t *state,
+                                           const char *fileName,
+                                           const dl_size_t fileName_length,
                                            duckLisp_ast_compoundExpression_t *compoundExpression,
                                            dl_bool_t infer) {
 	dl_error_t e = dl_error_ok;
@@ -1070,7 +1119,7 @@ static dl_error_t infer_compoundExpression(inferrerState_t *state,
 	case duckLisp_ast_type_literalExpression:
 		/* Fall through */
 	case duckLisp_ast_type_expression:
-		e = infer_expression(state, compoundExpression, infer);
+		e = infer_expression(state, fileName, fileName_length, compoundExpression, infer);
 		break;
 	default:
 		eError = duckLisp_error_pushInference(state, DL_STR("Illegal type."));
@@ -1163,6 +1212,8 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	if (e) goto preDefinitionCleanup;
 
 	inferrerState_t *state = context.state;
+	const char *fileName = context.fileName;
+	const dl_size_t fileName_length = context.fileName_length;
 	inferrerType_t type = context.type;
 	dl_ptrdiff_t *type_index = context.type_index;
 	duckLisp_ast_expression_t *expression = context.expression;
@@ -1177,6 +1228,8 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	/* infer */
 
 	e = inferIncrementally(state,
+	                       fileName,
+	                       fileName_length,
 	                       type,
 	                       type_index,
 	                       expression,
@@ -1480,9 +1533,10 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 		                    {DL_STR("__symbol-id"),              DL_STR("(I)"),             dl_null, 0},
 		                    {DL_STR("__error"),                  DL_STR("(I)"),             dl_null, 0}};
 		DL_DOTIMES(i, sizeof(declarations)/sizeof(*declarations)) {
-			duckLisp_ast_compoundExpression_t ast;
-			dl_uint8_t *bytecode = dl_null;
-			dl_size_t bytecode_length = 0;
+			duckLisp_ast_compoundExpression_t typeAst;
+			duckLisp_ast_compoundExpression_t scriptAst;
+			(void) duckLisp_ast_compoundExpression_init(&typeAst);
+			(void) duckLisp_ast_compoundExpression_init(&scriptAst);
 
 			e = duckLisp_read(&state.duckLisp,
 			                  dl_false,
@@ -1490,36 +1544,37 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 			                  DL_STR("<INFERRER>"),
 			                  declarations[i].typeString,
 			                  declarations[i].typeString_length,
-			                  &ast,
+			                  &typeAst,
 			                  0,
 			                  dl_true);
 			if (e) goto cleanup;
 
 			if (declarations[i].script_length > 0) {
-				/* These almost certainly can't be compiled with inference on. That would likely cause a recursive
-				   loop. */
-				e = duckLisp_loadString(&state.duckLisp,
-				                        dl_false,
-				                        &bytecode,
-				                        &bytecode_length,
-				                        declarations[i].script,
-				                        declarations[i].script_length,
-				                        fileName,
-				                        fileName_length);
+				e = duckLisp_read(&state.duckLisp,
+				                  dl_false,
+				                  0,
+				                  DL_STR("<INFERRER>"),
+				                  declarations[i].script,
+				                  declarations[i].script_length,
+				                  &scriptAst,
+				                  0,
+				                  dl_true);
 				if (e) goto cleanup;
 			}
-			e = addDeclaration(&state,
-			                   declarations[i].name,
-			                   declarations[i].name_length,
-			                   ast,
-			                   bytecode,
-			                   bytecode_length);
+
+			e = compileAndAddDeclaration(&state,
+			                             fileName,
+			                             fileName_length,
+			                             declarations[i].name,
+			                             declarations[i].name_length,
+			                             typeAst,
+			                             scriptAst);
 			if (e) goto cleanup;
 		}
 	}
 
 
-	e = infer_compoundExpression(&state, ast, dl_true);
+	e = infer_compoundExpression(&state, fileName, fileName_length, ast, dl_true);
 	if (e) goto cleanup;
 
  cleanup:
