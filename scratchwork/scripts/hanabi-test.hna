@@ -6,11 +6,11 @@ __defmacro declare (identifier type &rest script-body) ()
            (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
 
 __defmacro var (name value)
-           (__list (__quote __var) name value)
-(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote L)))
+           (__list (__quote #__var) name value)
+(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote #L)))
 
 (__defmacro defmacro (name parameters type &rest body)
-            __cons (__quote __defmacro) (__cons name (__cons parameters body)))
+            __cons (__quote #__defmacro) (__cons name (__cons parameters body)))
 (__declare defmacro (L L L &rest 1 I)
            (
             (__var name (__infer-and-get-next-argument))
@@ -19,10 +19,10 @@ __defmacro var (name value)
             (__declaration-scope
              (__while parameters
                       __var parameter __car parameters
-                      (__unless (__= (__quote &rest) parameter)
-                                (__declare-identifier parameter (__quote L)))
+                      (__unless (__= (__quote #&rest) parameter)
+                                (__declare-identifier parameter (__quote #L)))
                       (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote self) type)
+             (__declare-identifier (__quote #self) type)
              (__infer-and-get-next-argument))
             (__declare-identifier name type)))
 
@@ -33,7 +33,7 @@ __defmacro var (name value)
    __var p2 parameters
    (__while p2
             __setq new-parameters (__cons (__car p2) new-parameters)
-            __when __= (__car p2) (__quote &rest)
+            __when __= (__car p2) (__quote #&rest)
                    __setq p2 __cdr p2
             __setq p2 __cdr p2))
   (()
@@ -42,7 +42,7 @@ __defmacro var (name value)
    (__while np2
             __setq new-parameters (__cons (__car np2) new-parameters)
             __setq np2 __cdr np2))
-  __cons (__quote __defun) (__cons name (__cons new-parameters body)))
+  __cons (__quote #__defun) (__cons name (__cons new-parameters body)))
 (__declare defun (L L &rest 1 I)
            (
             (__var name (__infer-and-get-next-argument))
@@ -51,11 +51,11 @@ __defmacro var (name value)
             (
              (__var parameters parameters)
              (__while parameters
-                      (__if (__if (__= (__quote &rest) (__car parameters))
+                      (__if (__if (__= (__quote #&rest) (__car parameters))
                                   true
                                   (__= (__type-of __car parameters) (__type-of 0)))
                             (__setq type (__cons __car parameters type))
-                            (__setq type (__cons (__quote I) type)))
+                            (__setq type (__cons (__quote #I) type)))
                       (__setq parameters (__cdr parameters))))
             (
              (__var type2 type)
@@ -66,11 +66,11 @@ __defmacro var (name value)
             (__declaration-scope
              (__while parameters
                       __var parameter __car parameters
-                      (__when (__when (__= (__type-of parameter) (__type-of __quote a))
-                                      (__not (__= (__quote &rest) parameter)))
-                              (__declare-identifier parameter (__quote L)))
+                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
+                                      (__not (__= (__quote #&rest) parameter)))
+                              (__declare-identifier parameter (__quote #L)))
                       (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote self) type)
+             (__declare-identifier (__quote #self) type)
              (__infer-and-get-next-argument))
             (__declare-identifier name type)))
 
@@ -81,7 +81,7 @@ __defmacro var (name value)
    __var p2 parameters
    (__while p2
             __setq new-parameters (__cons (__car p2) new-parameters)
-            __when __= (__car p2) (__quote &rest)
+            __when __= (__car p2) (__quote #&rest)
                    __setq p2 __cdr p2
             __setq p2 __cdr p2))
   (()
@@ -90,7 +90,7 @@ __defmacro var (name value)
    (__while np2
             __setq new-parameters (__cons (__car np2) new-parameters)
             __setq np2 __cdr np2))
-  __cons (__quote __lambda) (__cons new-parameters body))
+  __cons (__quote #__lambda) (__cons new-parameters body))
 (__declare lambda (L &rest 1 I)
            (
             (__var parameters (__infer-and-get-next-argument))
@@ -98,11 +98,11 @@ __defmacro var (name value)
             (
              (__var parameters parameters)
              (__while parameters
-                      (__if (__if (__= (__quote &rest) (__car parameters))
+                      (__if (__if (__= (__quote #&rest) (__car parameters))
                                   true
                                   (__= (__type-of __car parameters) (__type-of 0)))
                             (__setq type (__cons __car parameters type))
-                            (__setq type (__cons (__quote I) type)))
+                            (__setq type (__cons (__quote #I) type)))
                       (__setq parameters (__cdr parameters))))
             (
              (__var type2 type)
@@ -113,11 +113,11 @@ __defmacro var (name value)
             (__declaration-scope
              (__while parameters
                       __var parameter __car parameters
-                      (__when (__when (__= (__type-of parameter) (__type-of __quote a))
-                                      (__not (__= (__quote &rest) parameter)))
-                              (__declare-identifier parameter (__quote L)))
+                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
+                                      (__not (__= (__quote #&rest) parameter)))
+                              (__declare-identifier parameter (__quote #L)))
                       (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote self) type)
+             (__declare-identifier (__quote #self) type)
              (__infer-and-get-next-argument))))
 
 
@@ -125,12 +125,12 @@ declare print (I)
 
 
 defmacro if (condition then else) (I I I)
-         (__list (__quote __if) condition then else)
+         (__list (__quote #__if) condition then else)
 
 defmacro apply (function &rest args) (I &rest 1 I)
-         (__cons (__quote __apply) (__cons function args))
+         (__cons (__quote #__apply) (__cons function args))
 
-defmacro quote (ast) (L) (__list __quote __quote ast)  ; Because I can, *not* because I should.
+defmacro quote (ast) (I) (__list __quote #__quote ast)  ; Because I can, *not* because I should.
 
 defun + (a &rest 1 b)
       if b
@@ -162,7 +162,7 @@ defun map (f l)
 
 defun reduce (f l) apply f l
 
-println quote print
+println quote #print
 println + + 1 2
           + 3 4
 println (+ 1 2 3 4)
