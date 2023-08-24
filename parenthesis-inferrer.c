@@ -141,7 +141,7 @@ typedef struct inferrerTypeSignature_s {
 			struct inferrerTypeSignature_s *positionalSignatures;
 			dl_size_t positionalSignatures_length;
 			struct inferrerTypeSignature_s *restSignature;  /* Contains a max of one element */
-			dl_size_t defaultRestLength;
+			dl_ptrdiff_t defaultRestLength;
 			dl_bool_t variadic;
 		} expression;
 		/* 'I or 'L */
@@ -246,7 +246,7 @@ void inferrerTypeSignature_print(inferrerTypeSignature_t inferrerTypeSignature) 
 		}
 		if (inferrerTypeSignature.value.expression.variadic) {
 			if (inferrerTypeSignature.value.expression.positionalSignatures_length > 0) putchar(' ');
-			printf("&rest %zu ", inferrerTypeSignature.value.expression.defaultRestLength);
+			printf("&rest %zi ", inferrerTypeSignature.value.expression.defaultRestLength);
 			inferrerTypeSignature_print(*inferrerTypeSignature.value.expression.restSignature);
 		}
 		printf(")");
@@ -723,6 +723,7 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 				}
 			}
 			else {
+				e = dl_error_invalidValue;
 				(eError
 				 = duckLisp_error_pushInference(state,
 				                                DL_STR("Nested expression types are not yet supported.")));
@@ -733,11 +734,19 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 			// This does not need to be incremental, but it does need to be treated as the parg, and pargs
 			// are inferred incrementally.
 			if (type.type.value.expression.variadic) {
+				if (!parenthesized && (0 > type.type.value.expression.defaultRestLength)) {
+					e = dl_error_invalidValue;
+					(eError
+					 = duckLisp_error_pushInference(state,
+					                                DL_STR("Variadic function may not be called without parentheses.")));
+					if (eError) e = eError;
+					goto cleanup;
+				}
 				inferrerTypeSignature_t argSignature = *type.type.value.expression.restSignature;
 				for (dl_ptrdiff_t l = 0;
 				     (parenthesized
 				      ? ((dl_size_t) *expression_index < expression->compoundExpressions_length)
-				      : ((dl_size_t) l < type.type.value.expression.defaultRestLength));
+				      : (l < type.type.value.expression.defaultRestLength));
 				     l++) {
 					if (argSignature.type == inferrerTypeSignature_type_symbol) {
 						dl_ptrdiff_t lastIndex = *expression_index;
@@ -759,6 +768,7 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 						}
 					}
 					else {
+						e = dl_error_invalidValue;
 						(eError
 						 = duckLisp_error_pushInference(state,
 						                                DL_STR("Nested expression types are not yet supported.")));

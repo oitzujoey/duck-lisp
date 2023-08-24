@@ -195,3 +195,6 @@ println #(g (list list 3) 3)
 
 defun x () "Llama comma"  println x
 var   x    "Llama comma"  println x
+
+defun f (&rest -1 a) a
+println (f 1 2 3)
