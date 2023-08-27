@@ -213,6 +213,17 @@ dl_error_t duckLisp_generator_ternaryArithmeticOperator(duckLisp_t *duckLisp,
 	return e;
 }
 
+
+/* Generator for the `__declare` keyword that is recognized by the parenthesis inferrer. Expands to nil, no matter what
+   arguments are passed to it. */
+dl_error_t duckLisp_generator_declare(duckLisp_t *duckLisp,
+                                      duckLisp_compileState_t *compileState,
+                                      dl_array_t *assembly,
+                                      duckLisp_ast_expression_t *expression) {
+	(void) expression;
+	return duckLisp_emit_nil(duckLisp, compileState, assembly);
+}
+
 dl_error_t duckLisp_generator_makeString(duckLisp_t *duckLisp,
                                          duckLisp_compileState_t *compileState,
                                          dl_array_t *assembly,

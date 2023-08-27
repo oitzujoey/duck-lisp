@@ -1465,7 +1465,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		const char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, duckLisp_compileState_t *, dl_array_t*, duckLisp_ast_expression_t*);
-	} generators[] = {{DL_STR("__nop"),                    duckLisp_generator_nop},
+	} generators[] = {{DL_STR("__declare"),                duckLisp_generator_declare},
+	                  {DL_STR("__nop"),                    duckLisp_generator_nop},
 	                  {DL_STR("__funcall"),                duckLisp_generator_funcall2},
 	                  {DL_STR("__apply"),                  duckLisp_generator_apply},
 	                  {DL_STR("__label"),                  duckLisp_generator_label},

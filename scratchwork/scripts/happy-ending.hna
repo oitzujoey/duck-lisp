@@ -1,5 +1,3 @@
-#(__defmacro __declare (identifier type &rest script-body) ())
-
 __defmacro declare (identifier type &rest script-body) ()
 (__declare declare (L L &rest 0 I)
            (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))

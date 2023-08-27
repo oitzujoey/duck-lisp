@@ -65,6 +65,11 @@ dl_error_t duckLisp_generator_ternaryArithmeticOperator(duckLisp_t *duckLisp,
                                                                               dl_ptrdiff_t,
                                                                               dl_ptrdiff_t));
 
+dl_error_t duckLisp_generator_declare(duckLisp_t *duckLisp,
+                                      duckLisp_compileState_t *compileState,
+                                      dl_array_t *assembly,
+                                      duckLisp_ast_expression_t *expression);
+
 dl_error_t duckLisp_generator_makeString(duckLisp_t *duckLisp,
                                          duckLisp_compileState_t *compileState,
                                          dl_array_t *assembly,

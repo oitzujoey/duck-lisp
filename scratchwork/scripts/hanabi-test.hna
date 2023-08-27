@@ -1,6 +1,3 @@
-;; This is such a hack! XD
-#(__defmacro __declare (identifier type &rest script-body) ())
-
 __defmacro declare (identifier type &rest script-body) ()
 (__declare declare (L L &rest 0 I)
            (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
@@ -193,8 +190,9 @@ println (#g (list list 3) 3)
 println #(f (list list 3) 3)
 println #(g (list list 3) 3)
 
-defun x () "Llama comma"  println x
-var   x    "Llama comma"  println x
+var      x       "Llama comma"  println x
+defun    x ()    "Llama comma"  println x
+defmacro x () () "Llama comma"  println x
 
 defun f (&rest -1 a) a
 println (f 1 2 3)

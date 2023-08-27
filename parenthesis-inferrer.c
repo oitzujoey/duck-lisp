@@ -41,8 +41,11 @@ SOFTWARE.
    Basic rules:
    * Literal value types are not touched: bool, int, float, string
    * Parenthesized expressions are not touched. Use of parentheses for a function call opts out of inference for that
-   call. Parentheses are still inferred for the arguments if appropriate.
-   * Callbacks are converted to literal identifiers. Callbacks are not candidates for inference.
+     call. Parentheses are still inferred for the arguments if appropriate and the arity of the form is checked against
+     the type.
+   * Callbacks are converted to identifiers. Callbacks are not candidates for inference.
+   * Literal expressions are converted to expressions. Neither literal expressions nor their arguments are candidates
+     for inference.
    * Identifiers that do not occur at the start of a parenthesized expression may be candidates for inference.
 
    When an identifier that is a candidate for inference is encountered, its name is looked up in the function dictionary
@@ -56,7 +59,7 @@ SOFTWARE.
 
    Normal variables have the type `L`. Functions have a list as their type. It can be empty, or it can contain a
    combination of `L` and `I`. Variadic functions are indicated by `&rest` in the third-to-last position of the
-   type. The default number of arguments for a variadic function is in the last position.
+   type. The default number of arguments for a variadic function is in the second-to-last position.
    Some examples: `()`, `(I I I)`, `(L I)`, `(L L L &rest 1 I)`.
 
    Types are declared with the keyword `__declare`. It accepts two arguments by default.
@@ -67,20 +70,20 @@ SOFTWARE.
 
    Unfortunately the use of these static type declarations is limited due to the existence of macros. To allow the type
    system to understand macros such as `defun`, `__declare` can be passed a duck-lisp script. When `__declare` is passed
-   three or more arguments, the remaining arguments are interpreted as the body of the script. The script should parse
-   and analyze the arguments in order to declare additional identifiers used by arguments or by forms that occur in the
-   same declaration scope. The duck-lisp scripts that occur in the body of a `__declare` form are run at
-   inference-time. This is a separate instance of the duck-lisp compiler and VM than is used in the rest of the
-   language. This instance is used solely in the inferrer.
+   four arguments, the last argument is interpreted as the body of the script. When the declared function is used in a
+   call, the script should parse and analyze the arguments in order to declare additional identifiers used by arguments
+   or by forms that occur in the same declaration scope. The duck-lisp scripts that occur in the body of a `__declare`
+   form are run at inference-time. This is a separate instance of the duck-lisp compiler and VM than is used in the rest
+   of the language. This instance is used solely in the inferrer.
 
    The inference-time instance of duck-lisp is defined with three additional functions:
 
    (__infer-and-get-next-argument)::Any -- C callback -- Switches to the next argument and runs inference on the current
    argument. Returns the resulting AST.
-   (__declare-identifier name::Symbol type::List)::Nil -- C callback -- Declares the provided symbol `name` as an
-   identifier in the current declaration scope with a type specified by `type`.
-   (__declaration-scope &rest body::Any)::Any -- Generator -- Create a new declaration scope. Identifiers declared in
-   the body using `__declare-identifier` are automatically deleted when the scope is exited.
+   (__declare-identifier name::(Symbol String) type::(Symbol List))::Nil -- C callback -- Declares the provided symbol
+   `name` as an identifier in the current declaration scope with a type specified by `type`.
+   (__declaration-scope body::Any*)::Any -- Generator -- Create a new declaration scope. Identifiers declared in the
+   body using `__declare-identifier` are automatically deleted when the scope is exited.
 
    Examples:
 
@@ -88,23 +91,25 @@ SOFTWARE.
    ;; scope `var' was used in.
    (__declare var (L I)
               (__declare-identifier (__infer-and-get-next-argument)
-                                    (__quote L)))
+                                    (__quote #L)))
 
-   ;; `defun' makes two declarations. One of them is scoped to the body while the other persists until the end of the
-   ;; scope `defun' was used in.
-   (__declare defun (L L L &rest 1 I)
-              ;; Infer and get the first three arguments in order.
-              (__var name (__infer-and-get-next-argument))
-              (__var parameters (__infer-and-get-next-argument))
-              (__var type (__infer-and-get-next-argument))
-              ;; `defun' defines `self' in order to allow recursion. Scope it to just the body form by running
-              ;; `__infer-and-get-next-argument' in the `__declaration-scope' form.
-              (__declaration-scope
-               (__declare-identifier (__quote self) type)
-               ;; This will infer all forms in the body.
-               (__var body (__infer-and-get-next-argument)))
-              ;; Perform the main function declaration.
-              (__declare-identifier name type))
+   ;; `defmacro' declares each of its parameters as a normal variable, and the provided name and `self` as functions of
+   ;; the specified type. `self` and the parameters are scoped to the body while the declaration of the macro itself
+   ;; persists until the end of the scope `defmacro' was used in.
+   (__declare defmacro (L L L &rest 1 I)
+              (
+               (__var name (__infer-and-get-next-argument))
+               (__var parameters (__infer-and-get-next-argument))
+               (__var type (__infer-and-get-next-argument))
+               (__declaration-scope
+                (__while parameters
+                         __var parameter __car parameters
+                         (__unless (__= (__quote #&rest) parameter)
+                                   (__declare-identifier parameter (__quote #L)))
+                         (__setq parameters (__cdr parameters)))
+                (__declare-identifier (__quote #self) type)
+                (__infer-and-get-next-argument))
+               (__declare-identifier name type)))
 
    (__declare let ((&rest 1 (L I)) &rest 1 I)
               ;; The bindings of the `let' statement is the first argument. It will be inferred using the type above.
@@ -738,7 +743,7 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 					e = dl_error_invalidValue;
 					(eError
 					 = duckLisp_error_pushInference(state,
-					                                DL_STR("Variadic function may not be called without parentheses.")));
+					                                DL_STR("This variadic function may not be called without parentheses.")));
 					if (eError) e = eError;
 					goto cleanup;
 				}
