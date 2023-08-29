@@ -6,6 +6,8 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 
 ## Features
 
+* Optional free-form parenthesis inference that is backwards compatible with S-expressions
+* Optional compile-time arity checks
 * First class functions and lexical scope
 * Common Lisp-like macros
 * UTF-8 compatible
@@ -13,8 +15,6 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 * Split compiler and VM
 * Tested on x64 (Linux) and ARM (Linux)
 * A simplified VM has been used on an ATmega328P, and the full VM runs on an LPC1769.
-* Optional compile-time arity checks
-* Optional free-form parenthesis inference that is backwards compatible with S-expressions
 
 ### Planned features
 
@@ -39,8 +39,9 @@ Duck-lisp is very minimal. Only s-expressions and a few keywords will be provide
 
 You can ignore compile flags, but in case you want them, here are all of them:
 
-To build with shared libraries, configure the project with `cmake .. -DBUILD_SHARED_LIBS=ON` instead of `cmake ..`.  
-To use DuckLib's memory allocator instead of the system's, set `-DUSE_DUCKLIB_MALLOC=ON` as with the option above.  
+To enable parenthesis inference and compile-time arity checks, configure the project with `cmake .. -DUSE_PARENTHESIS_INFERENCE=ON` instead of `cmake ..`.  
+To build with shared libraries, set `-DBUILD_SHARED_LIBS=ON` as with the option above.  
+To use DuckLib's memory allocator instead of the system's, set `-DUSE_DUCKLIB_MALLOC=ON`.  
 It is intended to be possible to use duck-lisp without the standard library if necessary. Duck-lisp is not quite in a state where it will work without the standard library, but if you want to try compiling without support the option is `USE_STDLIB=OFF`.  
 Advanced option: `NO_OPTIMIZE_JUMPS=ON`  
 Advanced option: `NO_OPTIMIZE_PUSHPOPS=ON`  
@@ -108,4 +109,4 @@ Examples on how to extend the language can be found in `scratchwork/duckLisp-dev
 
 ## Is it any good?
 
-Sure…
+Yes.
