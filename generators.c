@@ -1171,6 +1171,16 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 
 	duckLisp_subCompileState_t *lastSubCompileState = compileState->currentCompileState;
 	compileState->currentCompileState = &compileState->comptimeCompileState;
+
+	if (lastSubCompileState == &compileState->comptimeCompileState) {
+		e = dl_error_invalidValue;
+		(eError
+		 = duckLisp_error_pushRuntime(duckLisp,
+		                              DL_STR("__comptime: \"__comptime\" may only be used in the runtime environment.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
 	e = duckLisp_generator_noscope(duckLisp, compileState, &compAssembly, &subExpression);
 	if (e) goto cleanup;
 
@@ -1270,6 +1280,15 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	                                     expression->compoundExpressions[2],
 	                                     duckLisp_ast_type_expression);
 	if (e) goto cleanup;
+
+	if (compileState->currentCompileState == &compileState->comptimeCompileState) {
+		e = dl_error_invalidValue;
+		(eError
+		 = duckLisp_error_pushRuntime(duckLisp,
+		                              DL_STR("__defmacro: \"__defmacro\" may only be used in the runtime environment.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
 
 	/* Compile */
 
