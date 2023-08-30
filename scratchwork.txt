@@ -2229,6 +2229,9 @@ Inferrer is split between main function and VM.
 I think the REPL situation is bad. I need to make it so that the top-level compile state sticks around after compilation is finished.
 
 
+Inference is good enough for now. The inferrer internals don't need to be documented quite yet.
+
+
 
 Next step: Update "language.md"
 
@@ -2236,8 +2239,6 @@ Defer: Disallow inference scripts for non-function variables, or create a separa
 
 Todo:
     Add parenthesis inference?
-        Add callback parser
-        Write inferrer
         Document inference algorithm
     Fix bugs
         Write lots of tests
