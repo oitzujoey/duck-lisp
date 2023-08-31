@@ -2235,10 +2235,15 @@ Inference is good enough for now. The inferrer internals don't need to be docume
 
 Next step: Update "language.md"
 
-Defer: Disallow inference scripts for non-function variables, or create a separate API for them.
+Defer:
 
 Todo:
     Add parenthesis inference?
+        Add support for nested types
+        Allow adding declarations from C
+        Make inference work nicely with `include'
+        Make `I' the type for non-functions and `L' the type for generic variables?
+        Disallow inference scripts for non-function variables, or create a separate API for them?
         Document inference algorithm
     Fix bugs
         Write lots of tests

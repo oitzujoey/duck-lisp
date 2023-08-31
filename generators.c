@@ -1173,64 +1173,61 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 	compileState->currentCompileState = &compileState->comptimeCompileState;
 
 	if (lastSubCompileState == &compileState->comptimeCompileState) {
-		e = dl_error_invalidValue;
-		(eError
-		 = duckLisp_error_pushRuntime(duckLisp,
-		                              DL_STR("__comptime: \"__comptime\" may only be used in the runtime environment.")));
-		if (eError) e = eError;
-		goto cleanup;
+		e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &subExpression);
+		if (e) goto cleanup;
 	}
+	else {
+		e = duckLisp_generator_noscope(duckLisp, compileState, &compAssembly, &subExpression);
+		if (e) goto cleanup;
 
-	e = duckLisp_generator_noscope(duckLisp, compileState, &compAssembly, &subExpression);
-	if (e) goto cleanup;
+		e = dl_array_pushElements(&compileState->currentCompileState->assembly,
+		                          compAssembly.elements,
+		                          compAssembly.elements_length);
+		if (e) goto cleanup;
 
-	e = dl_array_pushElements(&compileState->currentCompileState->assembly,
-	                          compAssembly.elements,
-	                          compAssembly.elements_length);
-	if (e) goto cleanup;
+		e = duckLisp_assemble(duckLisp, compileState, &bytecode, &compileState->currentCompileState->assembly);
+		if (e) goto cleanup;
 
-	e = duckLisp_assemble(duckLisp, compileState, &bytecode, &compileState->currentCompileState->assembly);
-	if (e) goto cleanup;
+		e = dl_array_pushElement(&bytecode, &haltInstruction);
+		if (e) goto cleanup;
 
-	e = dl_array_pushElement(&bytecode, &haltInstruction);
-	if (e) goto cleanup;
+		e = dl_array_popElements(&compileState->currentCompileState->assembly,
+		                         dl_null,
+		                         compileState->currentCompileState->assembly.elements_length);
+		if (e) goto cleanup;
 
-	e = dl_array_popElements(&compileState->currentCompileState->assembly,
-	                         dl_null,
-	                         compileState->currentCompileState->assembly.elements_length);
-	if (e) goto cleanup;
+		/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */
 
-	/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */
+		e = duckVM_execute(&duckLisp->vm, &returnValue, bytecode.elements, bytecode.elements_length);
+		eError = dl_array_pushElements(&duckLisp->errors,
+		                               duckLisp->vm.errors.elements,
+		                               duckLisp->vm.errors.elements_length);
+		if (!e) e = eError;
+		if (e) goto cleanup;
+		e = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
+		if (e) goto cleanup;
 
-	e = duckVM_execute(&duckLisp->vm, &returnValue, bytecode.elements, bytecode.elements_length);
-	eError = dl_array_pushElements(&duckLisp->errors,
-	                               duckLisp->vm.errors.elements,
-	                               duckLisp->vm.errors.elements_length);
-	if (!e) e = eError;
-	if (e) goto cleanup;
-	e = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
-	if (e) goto cleanup;
+		e = duckLisp_objectToAST(duckLisp, &returnCompoundExpression, &returnValue, dl_false);
+		if (e) goto cleanup;
 
-	e = duckLisp_objectToAST(duckLisp, &returnCompoundExpression, &returnValue, dl_false);
-	if (e) goto cleanup;
+		/**/ duckLisp_localsLength_decrement(compileState);
 
-	/**/ duckLisp_localsLength_decrement(compileState);
+		compileState->currentCompileState = lastSubCompileState;
 
-	compileState->currentCompileState = lastSubCompileState;
+		e = duckLisp_compile_compoundExpression(duckLisp,
+		                                        compileState,
+		                                        assembly,
+		                                        expression->compoundExpressions[0].value.identifier.value,
+		                                        expression->compoundExpressions[0].value.identifier.value_length,
+		                                        &returnCompoundExpression,
+		                                        dl_null,
+		                                        dl_null,
+		                                        dl_true);
+		if (e) goto cleanup;
 
-	e = duckLisp_compile_compoundExpression(duckLisp,
-	                                        compileState,
-	                                        assembly,
-	                                        expression->compoundExpressions[0].value.identifier.value,
-	                                        expression->compoundExpressions[0].value.identifier.value_length,
-	                                        &returnCompoundExpression,
-	                                        dl_null,
-	                                        dl_null,
-	                                        dl_true);
-	if (e) goto cleanup;
-
-	e = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &returnCompoundExpression);
-	if (e) goto cleanup;
+		e = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &returnCompoundExpression);
+		if (e) goto cleanup;
+	}
 
  cleanup:
 	compileState->currentCompileState = lastSubCompileState;
