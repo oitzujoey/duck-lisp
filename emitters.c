@@ -754,8 +754,8 @@ dl_error_t duckLisp_emit_sub(duckLisp_t *duckLisp,
 }
 
 dl_error_t duckLisp_emit_nop(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState, dl_array_t *assembly) {
-	/**/ duckLisp_localsLength_decrement(compileState);
 	return duckLisp_emit_nullaryOperator(duckLisp, compileState, assembly, duckLisp_instructionClass_nop);
+	/**/ duckLisp_localsLength_decrement(compileState);
 }
 
 dl_error_t duckLisp_emit_setStatic(duckLisp_t *duckLisp,
