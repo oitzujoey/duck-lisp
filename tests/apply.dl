@@ -1,0 +1,6 @@
+(__= 55
+     (__apply (__lambda (first &rest args)
+                        (__if args
+                              (__+ first (__apply self args))
+                              first))
+              (__list 1 2 3 4 5 6 7 8 9 10)))
