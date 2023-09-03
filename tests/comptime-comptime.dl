@@ -1,0 +1,4 @@
+(
+ (__comptime
+  (__defun f () true)
+  (__comptime (f))))
