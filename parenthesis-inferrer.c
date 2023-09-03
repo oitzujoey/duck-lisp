@@ -961,10 +961,16 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				if (e) goto cleanup;
 			}
 			else if (parenthesized) {
-				e = dl_error_invalidValue;
-				eError = duckLisp_error_pushInference(state, DL_STR("Cannot call an identifier."));
-				if (eError) e = eError;
-				goto cleanup;
+				if (type.type.value.symbol == inferrerTypeSymbol_L) {
+					e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
+					if (e) goto cleanup;
+				}
+				else {
+					e = dl_error_invalidValue;
+					eError = duckLisp_error_pushInference(state, DL_STR("Cannot call an identifier of type \"I\"."));
+					if (eError) e = eError;
+					goto cleanup;
+				}
 			}
 			else {
 				/* Do nothing */
