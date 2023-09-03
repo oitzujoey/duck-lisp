@@ -522,6 +522,7 @@ static dl_error_t addDeclaration(inferrerState_t *state,
                                  dl_uint8_t *bytecode,
                                  dl_size_t bytecode_length) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
 	inferrerType_t type;
 	inferrerScope_t scope;
@@ -532,8 +533,18 @@ static dl_error_t addDeclaration(inferrerState_t *state,
 
 	type.bytecode = bytecode;
 	type.bytecode_length = bytecode_length;
+
 	e = inferrerTypeSignature_fromAst(state, &type.type, typeAst);
 	if (e) goto cleanup;
+	if ((type.type.type == inferrerTypeSignature_type_symbol) && (bytecode_length > 0)) {
+		e = dl_error_invalidValue;
+		(eError
+		 = duckLisp_error_pushInference(state,
+		                                DL_STR("Adding an inference script to an identifier with a symbol type is disallowed.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
 	e = dl_trie_insert(&scope.identifiersTrie, name, name_length, scope.types.elements_length);
 	if (e) goto cleanup;
 	e = dl_array_pushElement(&scope.types, &type);
