@@ -1,0 +1,242 @@
+__declare print (I)
+__comptime print "<comptime library.dl>\n"
+print "<library.dl>\n"
+
+(__declare print-stack ())
+(__declare garbage-collect ())
+(__declare disassemble ())
+
+__defmacro var (name value)
+           (__list (__quote #__var) name value)
+(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote #L)))
+
+(__defmacro defmacro (name parameters type &rest body)
+            (__when (__not __= (__type-of parameters) (__type-of ()))
+                    __setq parameters (__list parameters))
+            (__when (__not __= (__type-of type) (__type-of ()))
+                    __setq type (__list type))
+            __cons (__quote #__defmacro) (__cons name (__cons parameters body)))
+(__declare defmacro (L L L &rest 1 I)
+           (
+            (__var name (__infer-and-get-next-argument))
+            (__var parameters (__infer-and-get-next-argument))
+            (__when (__not __= (__type-of parameters) (__type-of ()))
+                    __setq parameters (__list parameters))
+            (__var type (__infer-and-get-next-argument))
+            (__when (__not __= (__type-of type) (__type-of ()))
+                    __setq type (__list type))
+            (__declaration-scope
+             (__while parameters
+                      __var parameter __car parameters
+                      (__unless (__= (__quote #&rest) parameter)
+                                (__declare-identifier parameter (__quote #L)))
+                      (__setq parameters (__cdr parameters)))
+             (__declare-identifier (__quote #self) type)
+             (__infer-and-get-next-argument))
+            (__declare-identifier name type)))
+
+(defmacro defun (name parameters &rest body) (L L &rest 1 I)
+          (__when (__not __= (__type-of parameters) (__type-of ()))
+                  __setq parameters (__list parameters))
+          __var new-parameters ()
+          ;; Dump `&rest's argument.
+          (()
+           __var p2 parameters
+           (__while p2
+                    __setq new-parameters (__cons (__car p2) new-parameters)
+                    __when __= (__car p2) (__quote #&rest)
+                    __setq p2 __cdr p2
+                    __setq p2 __cdr p2))
+          (()
+           __var np2 new-parameters
+           __setq new-parameters ()
+           (__while np2
+                    __setq new-parameters (__cons (__car np2) new-parameters)
+                    __setq np2 __cdr np2))
+          __cons (__quote #__defun) (__cons name (__cons new-parameters body)))
+(__declare defun (L L &rest 1 I)
+           (
+            (__var name (__infer-and-get-next-argument))
+            (__var parameters (__infer-and-get-next-argument))
+            (__when (__not __= (__type-of parameters) (__type-of ()))
+                    __setq parameters (__list parameters))
+            (__var type ())
+            (
+             (__var parameters parameters)
+             (__while parameters
+                      (__if (__if (__= (__quote #&rest) (__car parameters))
+                                  true
+                                  (__= (__type-of __car parameters) (__type-of 0)))
+                            (__setq type (__cons __car parameters type))
+                            (__setq type (__cons (__quote #I) type)))
+                      (__setq parameters (__cdr parameters))))
+            (
+             (__var type2 type)
+             (__setq type ())
+             (__while type2
+                      (__setq type (__cons (__car type2) type))
+                      (__setq type2 (__cdr type2))))
+            (__declaration-scope
+             (__while parameters
+                      __var parameter __car parameters
+                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
+                                      (__not (__= (__quote #&rest) parameter)))
+                              (__declare-identifier parameter (__quote #L)))
+                      (__setq parameters (__cdr parameters)))
+             (__declare-identifier (__quote #self) type)
+             (__infer-and-get-next-argument))
+            (__declare-identifier name type)))
+
+(defmacro lambda (parameters &rest body) (L &rest 1 I)
+          (__when (__not __= (__type-of parameters) (__type-of ()))
+                  __setq parameters (__list parameters))
+          __var new-parameters ()
+          ;; Dump `&rest's argument.
+          (()
+           __var p2 parameters
+           (__while p2
+                    __setq new-parameters (__cons (__car p2) new-parameters)
+                    __when __= (__car p2) (__quote #&rest)
+                    __setq p2 __cdr p2
+                    __setq p2 __cdr p2))
+          (()
+           __var np2 new-parameters
+           __setq new-parameters ()
+           (__while np2
+                    __setq new-parameters (__cons (__car np2) new-parameters)
+                    __setq np2 __cdr np2))
+          __cons (__quote #__lambda) (__cons new-parameters body))
+(__declare lambda (L &rest 1 I)
+           (
+            (__var parameters (__infer-and-get-next-argument))
+            (__when (__not __= (__type-of parameters) (__type-of ()))
+                    __setq parameters (__list parameters))
+            (__var type ())
+            (
+             (__var parameters parameters)
+             (__while parameters
+                      (__if (__if (__= (__quote #&rest) (__car parameters))
+                                  true
+                                  (__= (__type-of __car parameters) (__type-of 0)))
+                            (__setq type (__cons __car parameters type))
+                            (__setq type (__cons (__quote #I) type)))
+                      (__setq parameters (__cdr parameters))))
+            (
+             (__var type2 type)
+             (__setq type ())
+             (__while type2
+                      (__setq type (__cons (__car type2) type))
+                      (__setq type2 (__cdr type2))))
+            (__declaration-scope
+             (__while parameters
+                      __var parameter __car parameters
+                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
+                                      (__not (__= (__quote #&rest) parameter)))
+                              (__declare-identifier parameter (__quote #L)))
+                      (__setq parameters (__cdr parameters)))
+             (__declare-identifier (__quote #self) type)
+             (__infer-and-get-next-argument))))
+
+(defmacro bothtime (&rest body) (&rest 1 I)
+          (__list (__quote #__noscope)
+                  (__cons (__quote #__comptime)
+                          body)
+                  (__cons (__quote #__noscope)
+                          body)))
+
+(defmacro bvar (name value) (L I)
+  (__funcall #bothtime (__list (__quote #var) name value) ()))
+(__declare bvar (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote #L)))
+
+(defmacro bdefun (name parameters &rest body) (L L &rest 1 I)
+  (__var defun (__list (__quote #defun) name parameters))
+  (__set-cdr (__cdr (__cdr defun)) body)
+  (__funcall #bothtime defun ()))
+(__declare bdefun (L L &rest 1 I)
+           (
+            (__var name (__infer-and-get-next-argument))
+            (__var parameters (__infer-and-get-next-argument))
+            (__var type ())
+            (
+             (__var parameters parameters)
+             (__while parameters
+                      (__if (__if (__= (__quote #&rest) (__car parameters))
+                                  true
+                                  (__= (__type-of __car parameters) (__type-of 0)))
+                            (__setq type (__cons __car parameters type))
+                            (__setq type (__cons (__quote #I) type)))
+                      (__setq parameters (__cdr parameters))))
+            (
+             (__var type2 type)
+             (__setq type ())
+             (__while type2
+                      (__setq type (__cons (__car type2) type))
+                      (__setq type2 (__cdr type2))))
+            (__declaration-scope
+             (__while parameters
+                      __var parameter __car parameters
+                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
+                                      (__not (__= (__quote #&rest) parameter)))
+                              (__declare-identifier parameter (__quote #L)))
+                      (__setq parameters (__cdr parameters)))
+             (__declare-identifier (__quote #self) type)
+             (__infer-and-get-next-argument))
+            (__declare-identifier name type)))
+
+defmacro ' (code) (L) (__list (__quote #__quote) code)
+defmacro list (&rest parameters) (&rest 0 I) (__cons ' __list parameters)
+bdefun cons (first second) __cons first second
+defmacro nop () () (list ' __nop)
+defmacro noscope (&rest body) (&rest 2 I) (cons ' __noscope body)
+defmacro comptime (&rest body) (&rest 1 I) (cons ' __comptime body)
+defmacro quote (form) (I) (__list ' __quote form)
+defmacro setq (variable value) (L I) (list ' __setq variable value)
+defmacro funcall (function &rest arguments) (I &rest 1 I) (cons ' __funcall (cons function arguments))
+defmacro apply (function &rest arguments) (I &rest 1 I) (cons ' __apply (cons function arguments))
+defmacro if (condition then else) (I I I) (list ' __if condition then else)
+defmacro when (condition &rest then) (I &rest 1 I) (cons ' __when (cons condition then))
+defmacro unless (condition &rest else) (I &rest 1 I) (cons ' __unless (cons condition else))
+defmacro while (condition &rest body) (I &rest 1 I) (cons ' __while (cons condition body))
+bdefun car (cons) __car cons
+bdefun cdr (cons) __cdr cons
+bdefun set-car (cons value) __set-car cons value
+bdefun set-cdr (cons value) __set-cdr cons value
+bdefun null? (value) __null? value
+bdefun type-of (value) __type-of value
+bdefun not (value) __not value
+bdefun * (a b) __* a b
+bdefun / (a b) __/ a b
+bdefun + (a b) __+ a b
+bdefun - (a b) __- a b
+bdefun = (a b) __= a b
+bdefun < (a b) __< a b
+bdefun > (a b) __> a b
+bdefun symbol-string (symbol) __symbol-string symbol
+
+defmacro nil () () ()
+
+bdefun 1+ (a) + a 1
+bdefun 1- (a) - a 1
+
+bdefun >= (x y) not < x y
+bdefun <= (x y) not > x y
+bdefun != (x y) not = x y
+bdefun ≠ (x y) not = x y
+
+(bdefun print (&rest 1 vs)
+        (var vs2 vs)
+        (while (not (null? vs2))
+          (print (car vs2))
+          (setq vs2 (cdr vs2)))
+        vs)
+
+(bdefun println (&rest 1 vs)
+        (apply #print vs)
+        (print "\n")
+        vs)
+
+comptime println "</comptime library.dl>"
+println "</library.dl>"
+
+;; If we are going to pause anywhere, this is the place
+garbage-collect

@@ -1,0 +1,65 @@
+(include "../scripts/library.hna")
+
+(defun factorial0 (n)
+  (funcall
+   (lambda (n acc)
+     (unless = n 1
+             setq acc (self (1- n) (* n acc)))
+     acc)
+   n
+   1))
+
+defun factorial1 n
+  funcall lambda pair
+            noscope
+              unless = car pair
+                         1
+                set-cdr pair
+                        self cons 1- car pair
+                                  * car pair
+                                    cdr pair
+              cdr pair
+          cons n
+               1
+
+defun factorial2 n funcall lambda pair cdr cons unless = car pair 1 set-cdr pair self cons 1- car pair * car pair cdr
+pair cdr pair cons n 1
+
+
+(defun factorial3 (n)
+  var acc 1
+  (while > n 0
+         setq acc (* n acc)
+         setq n (1- n))
+  acc)
+
+defun factorial4 n
+  noscope
+    noscope
+      var acc 1
+      while > n 0
+        noscope
+          setq acc * n acc
+          setq n 1- n
+    acc
+
+defun factorial5 n noscope noscope var acc 1 while > n 0 noscope setq acc * n acc setq n 1- n acc
+
+
+defun factorial6 n 120
+
+
+(()
+ (defmacro p (c) (I)
+           (list (list ' println
+                         (list ' quote
+                                 (symbol-string (car c)))
+                         " — "
+                         c)))
+ p factorial0 5
+ p factorial1 5
+ p factorial2 5
+ p factorial3 5
+ p factorial4 5
+ p factorial5 5
+ p factorial6 5)
