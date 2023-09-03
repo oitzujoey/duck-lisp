@@ -64,17 +64,17 @@ static dl_error_t duckLisp_error_pushSyntax(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_ast_compoundExpression_quit(dl_memoryAllocation_t *memoryAllocation,
                                                 duckLisp_ast_compoundExpression_t *compoundExpression);
-static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
+dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
-                                           const dl_bool_t parenthesisInferenceEnabled,
+                                             const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                           const char *fileName,
-                                           const dl_size_t fileName_length,
-                                           const char *source,
-                                           const dl_size_t source_length,
-                                           duckLisp_ast_compoundExpression_t *compoundExpression,
-                                           dl_ptrdiff_t *index,
-                                           dl_bool_t throwErrors);
+                                             const char *fileName,
+                                             const dl_size_t fileName_length,
+                                             const char *source,
+                                             const dl_size_t source_length,
+                                             duckLisp_ast_compoundExpression_t *compoundExpression,
+                                             dl_ptrdiff_t *index,
+                                             dl_bool_t throwErrors);
 dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 
 static dl_bool_t isIdentifierSymbol(const char character) {
@@ -146,7 +146,8 @@ void ast_expression_init(duckLisp_ast_expression_t *expression) {
 	expression->compoundExpressions_length = 0;
 }
 
-static dl_error_t ast_expression_quit(dl_memoryAllocation_t *memoryAllocation, duckLisp_ast_expression_t *expression) {
+dl_error_t duckLisp_ast_expression_quit(dl_memoryAllocation_t *memoryAllocation,
+                                        duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < expression->compoundExpressions_length; i++) {
 		e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &expression->compoundExpressions[i]);
@@ -190,11 +191,6 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 		                                   indexCopy,
 		                                   throwErrors);
 		e = eError ? eError : dl_error_invalidValue;
-		goto cleanup;
-	}
-
-	if (!parenthesisInferenceEnabled) {
-		e = dl_error_invalidValue;
 		goto cleanup;
 	}
 
@@ -255,7 +251,7 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 			goto cleanup;
 		}
 		if (source[indexCopy] == ')') break;
-		e = parse_compoundExpression(duckLisp,
+		e = duckLisp_parse_compoundExpression(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 		                             parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
@@ -373,7 +369,7 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 			goto cleanup;
 		}
 		if (source[indexCopy] == ')') break;
-		e = parse_compoundExpression(duckLisp,
+		e = duckLisp_parse_compoundExpression(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 		                             parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
@@ -573,17 +569,13 @@ static dl_error_t parse_callback(duckLisp_t *duckLisp,
                                  duckLisp_ast_compoundExpression_t *compoundExpression,
                                  dl_ptrdiff_t *index,
                                  dl_bool_t throwErrors) {
+	(void) parenthesisInferenceEnabled;
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
 	dl_ptrdiff_t start_index = *index;
 	dl_ptrdiff_t indexCopy = start_index;
 	dl_ptrdiff_t stop_index = start_index;
-
-	if (!parenthesisInferenceEnabled) {
-		e = dl_error_invalidValue;
-		goto cleanup;
-	}
 
 	if (indexCopy >= (dl_ptrdiff_t) source_length) {
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -1321,7 +1313,7 @@ dl_error_t duckLisp_ast_compoundExpression_quit(dl_memoryAllocation_t *memoryAll
 		e = ast_identifier_quit(memoryAllocation, &compoundExpression->value.identifier);
 		break;
 	case duckLisp_ast_type_expression:
-		e = ast_expression_quit(memoryAllocation, &compoundExpression->value.expression);
+		e = duckLisp_ast_expression_quit(memoryAllocation, &compoundExpression->value.expression);
 		break;
 	default:
 		e = dl_error_shouldntHappen;
@@ -1335,17 +1327,41 @@ dl_error_t duckLisp_ast_compoundExpression_quit(dl_memoryAllocation_t *memoryAll
 	return e;
 }
 
-static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
+static dl_error_t runAction(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression) {
+	dl_error_t e = dl_error_ok;
+	if ((compoundExpression->type == duckLisp_ast_type_expression)
+	    || (compoundExpression->type == duckLisp_ast_type_literalExpression)) {
+		duckLisp_ast_expression_t expression = compoundExpression->value.expression;
+		if ((expression.compoundExpressions_length > 0)
+		    && ((expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)
+		        || (expression.compoundExpressions[0].type == duckLisp_ast_type_callback))) {
+			dl_ptrdiff_t index = -1;
+			duckLisp_ast_identifier_t identifier = expression.compoundExpressions[0].value.identifier;
+			(void) dl_trie_find(duckLisp->parser_actions_trie, &index, identifier.value, identifier.value_length);
+			if (index >= 0) {
+				dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*);
+				e = dl_array_get(&duckLisp->parser_actions_array, &callback, index);
+				if (e) goto cleanup;
+				e = callback(duckLisp, compoundExpression);
+				if (e) goto cleanup;
+			}
+		}
+	}
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
-                                           const dl_bool_t parenthesisInferenceEnabled,
+                                             const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                           const char *fileName,
-                                           const dl_size_t fileName_length,
-                                           const char *source,
-                                           const dl_size_t source_length,
-                                           duckLisp_ast_compoundExpression_t *compoundExpression,
-                                           dl_ptrdiff_t *index,
-                                           dl_bool_t throwErrors) {
+                                             const char *fileName,
+                                             const dl_size_t fileName_length,
+                                             const char *source,
+                                             const dl_size_t source_length,
+                                             duckLisp_ast_compoundExpression_t *compoundExpression,
+                                             dl_ptrdiff_t *index,
+                                             dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 	(void) throwErrors;
 
@@ -1403,6 +1419,8 @@ static dl_error_t parse_compoundExpression(duckLisp_t *duckLisp,
 			/* Success */
 			*index = localIndex;
 			compoundExpression->type = readerStruct[i].type;
+			e = runAction(duckLisp, compoundExpression);
+			if (e) goto cleanup;
 			goto cleanup;
 		}
 		if (e != dl_error_invalidValue) {
@@ -1457,6 +1475,23 @@ dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compou
 }
 
 
+void parser_postprocess_compoundExpression(duckLisp_ast_compoundExpression_t *compoundExpression) {
+#ifdef USE_PARENTHESIS_INFERENCE
+	if (compoundExpression->type == duckLisp_ast_type_callback) {
+		compoundExpression->type = duckLisp_ast_type_identifier;
+	}
+	else if (compoundExpression->type == duckLisp_ast_type_literalExpression) {
+		compoundExpression->type = duckLisp_ast_type_expression;
+	}
+#endif /* USE_PARENTHESIS_INFERENCE */
+	if (compoundExpression->type == duckLisp_ast_type_expression) {
+		DL_DOTIMES(j, compoundExpression->value.expression.compoundExpressions_length) {
+			(void) parser_postprocess_compoundExpression(&compoundExpression->value.expression.compoundExpressions[j]);
+		}
+	}
+}
+
+
 dl_error_t duckLisp_read(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                          const dl_bool_t parenthesisInferenceEnabled,
@@ -1469,17 +1504,17 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
                          duckLisp_ast_compoundExpression_t *ast,
                          dl_ptrdiff_t index,
                          dl_bool_t throwErrors) {
-	dl_error_t e = parse_compoundExpression(duckLisp,
+	dl_error_t e = duckLisp_parse_compoundExpression(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
-	                                        parenthesisInferenceEnabled,
+	                                                 parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-	                                        fileName,
-	                                        fileName_length,
-	                                        source,
-	                                        source_length,
-	                                        ast,
-	                                        &index,
-	                                        throwErrors);
+	                                                 fileName,
+	                                                 fileName_length,
+	                                                 source,
+	                                                 source_length,
+	                                                 ast,
+	                                                 &index,
+	                                                 throwErrors);
 	if (e) goto cleanup;
 
 #ifdef USE_PARENTHESIS_INFERENCE
@@ -1493,6 +1528,9 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 	}
 #endif /* USE_PARENTHESIS_INFERENCE */
+
+	/* This traverses the whole tree and is probably O(N^2) */
+	(void) parser_postprocess_compoundExpression(ast);
 
  cleanup: return e;
 }

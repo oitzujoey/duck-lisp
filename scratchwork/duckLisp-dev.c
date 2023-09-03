@@ -957,15 +957,17 @@ dl_error_t duckLispDev_callback_writeFile(duckVM_t *duckVM) {
 	return e;
 }
 
-dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
-                                         duckLisp_compileState_t *compileState,
-                                         dl_array_t *assembly,
-                                         duckLisp_ast_expression_t *expression) {
+/* `#include`, but for duck-lisp. The top level is assumed to be inferred. Assuming the top level *is* inferred, then it
+   can include normal duck-lisp files or inferred duck-lisp files. After that, there are two rules for inclusion:
+   inferred files may include normal duck-lisp files or inferred duck-lisp files, and normal duck-lisp files may only
+   include normal duck-lisp files. */
+dl_error_t duckLispDev_action_include(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
+	duckLisp_ast_expression_t *expression = &compoundExpression->value.expression;
 #ifdef USE_PARENTHESIS_INFERENCE
 	typedef enum {
 		filetype_dl,
@@ -1050,19 +1052,21 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 
 	/* Parse script. */
 
-	e = duckLisp_read(duckLisp,
+	{
+		dl_ptrdiff_t index = 0;
+		e = duckLisp_parse_compoundExpression(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
-	                  filetype == filetype_hanabi,
-	                  10000,
+		                                      dl_false,
 #endif /* USE_PARENTHESIS_INFERENCE */
-	                  fileName.value,
-	                  fileName.value_length,
-	                  sourceCode.elements,
-	                  sourceCode.elements_length,
-	                  &ast,
-	                  0,
-	                  dl_true);
-	if (e) goto cFileName_cleanup;
+		                                      fileName.value,
+		                                      fileName.value_length,
+		                                      sourceCode.elements,
+		                                      sourceCode.elements_length,
+		                                      &ast,
+		                                      &index,
+		                                      dl_true);
+		if (e) goto cFileName_cleanup;
+	}
 
 	/* printf(COLOR_YELLOW); */
 	/* printf("Included AST: "); */
@@ -1071,11 +1075,44 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	/* if (e) goto l_cFileName_cleanup; */
 	/* puts(COLOR_NORMAL); */
 
-	e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &ast.value.expression);
-	if (e) goto cFileName_cleanup;
+	// Free the original expression.
+	{
+		duckLisp_ast_compoundExpression_t ce;
+		ce.type = duckLisp_ast_type_expression;
+		ce.value.expression = *expression;
+		e = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ce);
+		if (e) goto cFileName_cleanup;
+	}
 
-	e = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ast);
+	// Replace the expression with `__noscope` and then the body of the just read file.
+
+	e = DL_MALLOC(duckLisp->memoryAllocation,
+	              &expression->compoundExpressions,
+	              ast.value.expression.compoundExpressions_length + 1,
+	              duckLisp_ast_compoundExpression_t);
 	if (e) goto cFileName_cleanup;
+	expression->compoundExpressions_length = ast.value.expression.compoundExpressions_length + 1;
+
+	{
+		duckLisp_ast_identifier_t identifier;
+		identifier.value_length = sizeof("__noscope") - 1;
+		e = DL_MALLOC(duckLisp->memoryAllocation, &identifier.value, identifier.value_length, char);
+		if (e) goto cFileName_cleanup;
+		// Yes, this is dirty.
+		(void) dl_memcopy_noOverlap(identifier.value, DL_STR("__noscope") * sizeof(char));
+		expression->compoundExpressions[0].type = duckLisp_ast_type_identifier;
+		expression->compoundExpressions[0].value.identifier = identifier;
+	}
+
+	(void) dl_memcopy_noOverlap(&expression->compoundExpressions[1],
+	                            ast.value.expression.compoundExpressions,
+	                            (ast.value.expression.compoundExpressions_length
+	                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+#ifdef USE_PARENTHESIS_INFERENCE
+	if (filetype != filetype_hanabi) compoundExpression->type = duckLisp_ast_type_literalExpression;
+#endif /* USE_PARENTHESIS_INFERENCE */
+
 
  cFileName_cleanup:
 	eError = dl_free(duckLisp->memoryAllocation, (void **) &cFileName);
@@ -1382,9 +1419,18 @@ int main(int argc, char *argv[]) {
 	struct {
 		const char *name;
 		const dl_size_t name_length;
+		dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*);
+	} parser_actions[] = {
+		{DL_STR("include"), duckLispDev_action_include},
+		{dl_null, 0,        dl_null}
+	};
+
+	// All user-defined generators go here.
+	struct {
+		const char *name;
+		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, duckLisp_compileState_t*, dl_array_t*, duckLisp_ast_expression_t*);
 	} generators[] = {
-		{DL_STR("include"), duckLispDev_generator_include},
 		{dl_null, 0,        dl_null}
 	};
 
@@ -1442,6 +1488,18 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	}
 	d.duckLisp_init = dl_true;
+
+	/* Add actions to reader. */
+
+	for (dl_ptrdiff_t i = 0; parser_actions[i].name != dl_null; i++) {
+		e = duckLisp_addParserAction(&duckLisp,
+		                             parser_actions[i].callback,
+		                             parser_actions[i].name,
+		                             parser_actions[i].name_length);
+		if (e) {
+			printf(COLOR_RED "Could not register reader action. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
+		}
+	}
 
 	/* Create generators. */
 

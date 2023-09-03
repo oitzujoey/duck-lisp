@@ -197,6 +197,9 @@ typedef struct {
 	dl_trie_t symbols_trie;  /* Index points to the string in `symbols_array` */
 	dl_array_t symbols_array;  /* duckLisp_ast_identifier_t */
 
+	dl_trie_t parser_actions_trie;  /* Index points to the C callback in `parser_actions_array` */
+	dl_array_t parser_actions_array;  /* dl_array_t:dl_error_t(*)(duckLisp_t*, duckLisp_ast_expression_t*) */
+
 	/* A VM instance for macros. */
 	duckVM_t vm;
 
@@ -743,6 +746,10 @@ dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
 dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
                                             duckLisp_compileState_t *compileState,
                                             const duckLisp_ast_identifier_t name);
+dl_error_t duckLisp_addParserAction(duckLisp_t *duckLisp,
+                                    dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*),
+                                    const char *name,
+                                    const dl_size_t name_length);
 dl_error_t DECLSPEC duckLisp_addGenerator(duckLisp_t *duckLisp,
                                           dl_error_t (*callback)(duckLisp_t*,
                                                                  duckLisp_compileState_t *,

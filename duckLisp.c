@@ -1555,6 +1555,12 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                             dl_array_strategy_double);
 	/* No error */ dl_trie_init(&duckLisp->symbols_trie, duckLisp->memoryAllocation, -1);
 
+	(void) dl_trie_init(&duckLisp->parser_actions_trie, duckLisp->memoryAllocation, -1);
+	(void) dl_array_init(&duckLisp->parser_actions_array,
+	                     duckLisp->memoryAllocation,
+	                     sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
+	                     dl_array_strategy_double);
+
 	duckLisp->gensym_number = 0;
 
 	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
@@ -1612,6 +1618,8 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 		            &DL_ARRAY_GETADDRESS(duckLisp->errors, duckLisp_error_t, i).message);
 	}
 	e = dl_array_quit(&duckLisp->errors);
+	e = dl_trie_quit(&duckLisp->parser_actions_trie);
+	e = dl_array_quit(&duckLisp->parser_actions_array);
 	(void) e;
 }
 
@@ -1838,6 +1846,25 @@ dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
 
  cleanup:
 	compileState->currentCompileState = originalSubCompileState;
+	return e;
+}
+
+dl_error_t duckLisp_addParserAction(duckLisp_t *duckLisp,
+                                    dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*),
+                                    const char *name,
+                                    const dl_size_t name_length) {
+	dl_error_t e = dl_error_ok;
+
+	/* Record the generator stack index. */
+	e = dl_trie_insert(&duckLisp->parser_actions_trie,
+	                   name,
+	                   name_length,
+	                   duckLisp->parser_actions_array.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElement(&duckLisp->parser_actions_array, &callback);
+	if (e) goto cleanup;
+
+ cleanup:
 	return e;
 }
 

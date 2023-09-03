@@ -28,6 +28,7 @@ SOFTWARE.
 void duckLisp_ast_compoundExpression_init(duckLisp_ast_compoundExpression_t *compoundExpression);
 dl_error_t duckLisp_ast_compoundExpression_quit(dl_memoryAllocation_t *memoryAllocation,
                                                 duckLisp_ast_compoundExpression_t *compoundExpression);
+dl_error_t duckLisp_ast_expression_quit(dl_memoryAllocation_t *memoryAllocation, duckLisp_ast_expression_t *expression);
 dl_error_t duckLisp_read(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                          const dl_bool_t parenthesisInferenceEnabled,
@@ -40,6 +41,17 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
                          duckLisp_ast_compoundExpression_t *ast,
                          dl_ptrdiff_t index,
                          dl_bool_t throwErrors);
+dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
+                                             const dl_bool_t parenthesisInferenceEnabled,
+#endif /* USE_PARENTHESIS_INFERENCE */
+                                             const char *fileName,
+                                             const dl_size_t fileName_length,
+                                             const char *source,
+                                             const dl_size_t source_length,
+                                             duckLisp_ast_compoundExpression_t *compoundExpression,
+                                             dl_ptrdiff_t *index,
+                                             dl_bool_t throwErrors);
 dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression);
 dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression);
 #endif /* DUCKLISP_PARSER_H */

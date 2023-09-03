@@ -2232,6 +2232,29 @@ I think the REPL situation is bad. I need to make it so that the top-level compi
 Inference is good enough for now. The inferrer internals don't need to be documented quite yet.
 
 
+This language is made for Hidey-Chess and microcontrollers.
+Hidey-Chess needs to run compiled functions. It also needs a REPL.
+Microcontrollers need to run compiled functions. Even REPLs have to run compiled functions.
+
+Hidey-Chess needs named variables. This is what globals are for. Unfortunately, the compiler has no knowledge of these. There are no global macros other than C generators. Comptime global variables aren't the same as runtime global variables.
+
+Hidey-Chess could have completion, but it would have to depend on defined symbols.
+
+Ideally I could do a partial compilation. A continuation? Or perhaps I shouldn't bother? I *do* need to make inference work with `include' though.
+
+
+Decision: The REPL situation will stay as is, but a new library will be created that places functions in the global scope.
+
+
+Either I can allow C to extend the inferrer, or I can add C reader macros.
+
+`include' is moving into the reader as a user-defined function. This has the benefit that the include generator doesn't have to worry about compiling the included file. It just has to produce the AST.
+
+To avoid parsing, maybe add a hook to be run after each expression or symbol is parsed?
+
+The reader could have "reader actions" since the C callbacks don't act like reader macros.
+
+
 
 Next step: Update "language.md"
 
@@ -2239,30 +2262,33 @@ Defer:
 
 Todo:
     Add parenthesis inference?
-        Add support for nested types
-        Allow adding declarations from C
-        Make inference work nicely with `include'
-        Make `I' the type for non-functions and `L' the type for generic variables?
-        Disallow inference scripts for non-function variables, or create a separate API for them?
-        Document inference algorithm
-    Fix bugs
-        Write lots of tests
-    Fix C API
-    Document C API
-    Document everything else?
+        Add support for nested types — L
+        Allow adding declarations from C — S
+        Make inference work nicely with `include' — M
+        Make `I' the type for non-functions and `L' the type for generic variables? — S
+        Disallow inference scripts for non-function variables, or create a separate API for them? — S?
+        Document inference algorithm — M
+    Switch to stack VM — M
+    Fix C API — L
+        Add a bunch of `*_toString` functions — M
+    Document C API — M
+    Fix bugs — L
+        Write lots of tests — M
+        Test on ARM — S
+    Document everything else? — L
         Write overview of compiler
         Write overview of VM
-    Clean up memory
-    Fix error handling?
-        Fix generator error reporting.
-        Fix VM error reporting?
+    Clean up memory — M
+    Fix error handling? — L
+        Fix generator error reporting. — L
+        Fix VM error reporting? — M?
     Optimization?
-        Hash tables/Tries?
-        String interning?
-        Rewrite memory allocator?
-	Clean up.
-	Create Hidey-Chess branch and add required functions.
-	Clean up.
+        Hash tables/Tries? — M
+        String interning? — M
+        Rewrite memory allocator? — L
+	Clean up. — M
+	Create Hidey-Chess branch and add required functions. — M?
+	Clean up. — S
 
 Duck-lisp architecture:
 Parse source text into an AST.
