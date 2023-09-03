@@ -2264,7 +2264,6 @@ Todo:
     Add parenthesis inference?
         Add support for nested types — L
         Allow adding declarations from C — S
-        Make `I' the type for non-functions and `L' the type for generic variables? — S
         Disallow inference scripts for non-function variables, or create a separate API for them? — S?
         Document inference algorithm — M
     Switch to stack VM — M
