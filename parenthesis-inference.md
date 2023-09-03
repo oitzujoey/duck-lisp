@@ -107,13 +107,15 @@ To be clear, parentheses are not actually inserted into the source code. Instead
 
 There are two basic types:
 
-`I`: Infer — Inference will be run on this argument.  
-`L`: Literal — Inference will not be run on this argument or its sub-forms.  
+`I`: Infer — If used in an expression type, inference will be run on this argument. If used as the top-level of the
+type, then the identifier is a non-function variable.  
+`L`: Literal — If used in an expression type, Inference will not be run on this argument or its sub-forms. If used as
+the top-level of the type, then the identifier is treated as a variable.  
 
-Normal variables have the type `L`. Functions have an expression as their type. The expression can be empty, or it can
-contain a combination of `L` and `I`. Variadic functions are indicated by `&rest` in the third-to-last position of the
-type. The default number of arguments for a variadic function is in the second-to-last position. Some examples: `L`,
-`()`, `(I I I)`, `(L I)`, `(L L L &rest 1 I)`.
+Normal variables have the type `L` or `I`. Functions have an expression as their type. The expression can be empty, or
+it can contain a combination of `L` and `I`. Variadic functions are indicated by `&rest` in the third-to-last position
+of the type. The default number of arguments for a variadic function is in the second-to-last position. Some examples:
+`L`, `()`, `(I I I)`, `(L I)`, `(L L L &rest 1 I)`.
 
 `I` is usually the type desired for function parameters. `L` is useful for certain macro parameters.
 
@@ -123,18 +125,32 @@ and redefine that previously defined variable.
 
 ```lisp
 (__defun double (v) (__* 2 v))
+;; `__defun' will actually declare `double` as `(I)`, so this line is redundant in this case.
 __declare double (I)
 
 (__defmacro var (name value) (__list (__quote __var) name value))
+;; `__defmacro` will declare this as `(I I)`, so it has to be redeclared.
 __declare var (L I)
 
 ;; Define and declare `x' as a function.
 var x (__lambda (y) (__- y 1))
+;; This is *not* redundant.
 __declare x (I)
 (println x 4)  ; ⇒ 3
 ;; Redefine and declare `x' as an integer.
 var x double 5  ; If the first argument of `var' was `I', `x' would consume `double' as an argument.
+__declare x I
 (println x)  ; ⇒ 10
+;; Since `x' is declared as `I', it cannot be called as a function. The next line of code would throw an inference error.
+;; (println (x))
+
+;; Declare `y' as `L'.
+var y (__lambda (a b) (__* a b))
+__declare y L
+;; `y' can be passed to functions as an argument.
+(println (__apply y (__list 3 4)))  ; ⇒ 12
+;; It can also be called without causing an inference error.
+(println y 4 5)  ; ⇒ 20
 ```
 
 ### Disabling inference
