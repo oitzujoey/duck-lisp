@@ -215,6 +215,9 @@ static dl_error_t inferrerTypeSignature_quit(inferrerTypeSignature_t *inferrerTy
 
 	if (inferrerTypeSignature->value.expression.variadic) {
 		e = inferrerTypeSignature_quit(inferrerTypeSignature->value.expression.restSignature, memoryAllocation);
+		if (e) return e;
+		e = DL_FREE(memoryAllocation, &inferrerTypeSignature->value.expression.restSignature);
+		if (e) return e;
 	}
 	inferrerTypeSignature->value.expression.variadic = dl_false;
 	inferrerTypeSignature->value.expression.defaultRestLength = 0;
@@ -224,6 +227,8 @@ static dl_error_t inferrerTypeSignature_quit(inferrerTypeSignature_t *inferrerTy
 		                               memoryAllocation);
 		if (e) break;
 	}
+	e = DL_FREE(memoryAllocation, &inferrerTypeSignature->value.expression.positionalSignatures);
+	if (e) return e;
 
 	return e;
 }
@@ -414,10 +419,10 @@ static void inferrerScope_init(inferrerScope_t *inferrerScope, dl_memoryAllocati
 static dl_error_t inferrerScope_quit(inferrerScope_t *inferrerScope, dl_memoryAllocation_t *ma) {
 	dl_error_t e = dl_trie_quit(&inferrerScope->identifiersTrie);
 	DL_DOTIMES(i, inferrerScope->types.elements_length) {
-		inferrerType_t it;
-		e = dl_array_popElement(&inferrerScope->types, &it);
+		inferrerType_t inferrerType;
+		e = dl_array_get(&inferrerScope->types, &inferrerType, i);
 		if (e) break;
-		e = inferrerType_quit(&it, ma);
+		e = inferrerType_quit(&inferrerType, ma);
 	}
 	e = dl_array_quit(&inferrerScope->types);
 	return e;
@@ -460,11 +465,14 @@ static dl_error_t inferrerState_init(inferrerState_t *inferrerState,
 static dl_error_t inferrerState_quit(inferrerState_t *inferrerState) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
-	DL_DOTIMES(i, inferrerState->scopeStack.elements_length) {
-		inferrerScope_t is;
-		e = dl_array_popElement(&inferrerState->scopeStack, &is);
-		if (e) break;
-		e = inferrerScope_quit(&is, inferrerState->memoryAllocation);
+	{
+		dl_size_t length = inferrerState->scopeStack.elements_length;
+		DL_DOTIMES(i, length) {
+			inferrerScope_t inferrerScope;
+			e = dl_array_get(&inferrerState->scopeStack, &inferrerScope, i);
+			if (e) break;
+			e = inferrerScope_quit(&inferrerScope, inferrerState->memoryAllocation);
+		}
 	}
 	eError = dl_array_quit(&inferrerState->scopeStack);
 	if (eError) e = eError;
@@ -486,7 +494,17 @@ static dl_error_t pushDeclarationScope(inferrerState_t *state, inferrerScope_t *
 }
 
 static dl_error_t popDeclarationScope(inferrerState_t *state, inferrerScope_t *scope) {
-	return dl_array_popElement(&state->scopeStack, scope);
+	if (scope == dl_null) {
+		inferrerScope_t scope;
+		dl_error_t e = dl_array_popElement(&state->scopeStack, &scope);
+		if (e) goto cleanup;
+		e = inferrerScope_quit(&scope, state->memoryAllocation);
+		if (e) goto cleanup;
+	cleanup: return e;
+	}
+	else {
+		return dl_array_popElement(&state->scopeStack, scope);
+	}
 }
 
 static dl_error_t findDeclaration(inferrerState_t *state,
@@ -1255,6 +1273,9 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	}
 	if (e) goto cleanup;
 
+	e = duckLisp_ast_compoundExpression_quit(state->memoryAllocation, &typeAst);
+	if (e) goto cleanup;
+
 	e = duckVM_pushNil(vm);
 	if (e) goto cleanup;
 
@@ -1631,6 +1652,13 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 			                             typeAst,
 			                             scriptAst);
 			if (e) goto cleanup;
+
+			e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &typeAst);
+			if (e) goto cleanup;
+			if (scriptAst.type != duckLisp_ast_type_none) {
+				e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &scriptAst);
+				if (e) goto cleanup;
+			}
 		}
 	}
 

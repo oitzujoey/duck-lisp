@@ -1,13 +1,13 @@
-(defmacro bothtime (&rest body)
-  (list (quote noscope)
-        (cons (quote comptime)
-              body)
-        (cons (quote noscope)
-              body)))
+(__defmacro bothtime (&rest body)
+            (__list (__quote __noscope)
+                    (__cons (__quote __comptime)
+                            body)
+                    (__cons (__quote __noscope)
+                            body)))
 
 (bothtime
- (var both 5))
+ (__var both 5))
 
 (print both)
-(comptime
+(__comptime
  (print both))

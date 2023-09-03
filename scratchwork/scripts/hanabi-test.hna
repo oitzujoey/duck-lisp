@@ -64,6 +64,3 @@ println (f 1 2 3)
 __var z lambda () 4
 declare z L
 print (z)
-
-__defmacro w (x &rest y) cons x y
-println w 4

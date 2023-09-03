@@ -678,9 +678,7 @@ dl_size_t duckLisp_localsLength_get(duckLisp_compileState_t *compileState) {
 	return compileState->currentCompileState->locals_length;
 }
 
-static dl_error_t assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly);
-
-    /* `gensym` creates a label that is unlikely to ever be used. */
+/* `gensym` creates a label that is unlikely to ever be used. */
 dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *identifier) {
 	dl_error_t e = dl_error_ok;
 
@@ -1201,7 +1199,14 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 	return e;
 }
 
-static dl_error_t assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly) {
+void duckLisp_assembly_init(duckLisp_t *duckLisp, dl_array_t *assembly) {
+	(void) dl_array_init(assembly,
+	                     duckLisp->memoryAllocation,
+	                     sizeof(duckLisp_instructionObject_t),
+	                     dl_array_strategy_double);
+}
+
+dl_error_t duckLisp_assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_instructionObject_t instruction;
@@ -1657,7 +1662,7 @@ dl_error_t duckLisp_subCompileState_quit(duckLisp_t *duckLisp, duckLisp_subCompi
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	e = dl_array_quit(&subCompileState->scope_stack);
-	eError = assembly_quit(duckLisp, &subCompileState->assembly);
+	eError = duckLisp_assembly_quit(duckLisp, &subCompileState->assembly);
 	if (eError) e = eError;
 	return e;
 }

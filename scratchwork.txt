@@ -2264,19 +2264,19 @@ Todo:
     Add parenthesis inference?
         Add support for nested types — L
         Allow adding declarations from C — S
-        Disallow inference scripts for non-function variables, or create a separate API for them? — S?
         Document inference algorithm — M
-    Switch to stack VM — M
+    Switch to stack VM? — M
     Fix C API — L
         Add a bunch of `*_toString` functions — M
     Document C API — M
     Fix bugs — L
         Write lots of tests — M
         Test on ARM — S
+        Fix remaining macro bug — M
     Document everything else? — L
         Write overview of compiler
         Write overview of VM
-    Clean up memory — M
+    Clean up memory
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?

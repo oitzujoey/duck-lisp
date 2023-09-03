@@ -1098,7 +1098,7 @@ dl_error_t duckLispDev_action_include(duckLisp_t *duckLisp, duckLisp_ast_compoun
 		identifier.value_length = sizeof("__noscope") - 1;
 		e = DL_MALLOC(duckLisp->memoryAllocation, &identifier.value, identifier.value_length, char);
 		if (e) goto cFileName_cleanup;
-		// Yes, this is dirty.
+		// Yes, this is dirty macro abuse.
 		(void) dl_memcopy_noOverlap(identifier.value, DL_STR("__noscope") * sizeof(char));
 		expression->compoundExpressions[0].type = duckLisp_ast_type_identifier;
 		expression->compoundExpressions[0].value.identifier = identifier;
@@ -1108,6 +1108,9 @@ dl_error_t duckLispDev_action_include(duckLisp_t *duckLisp, duckLisp_ast_compoun
 	                            ast.value.expression.compoundExpressions,
 	                            (ast.value.expression.compoundExpressions_length
 	                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+	e = DL_FREE(duckLisp->memoryAllocation, &ast.value.expression.compoundExpressions);
+	if (e) goto cFileName_cleanup;
 
 #ifdef USE_PARENTHESIS_INFERENCE
 	if (filetype != filetype_hanabi) compoundExpression->type = duckLisp_ast_type_literalExpression;

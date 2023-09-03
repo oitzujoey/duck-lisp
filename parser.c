@@ -1309,9 +1309,13 @@ dl_error_t duckLisp_ast_compoundExpression_quit(dl_memoryAllocation_t *memoryAll
 	case duckLisp_ast_type_float:
 		(void) ast_float_quit(memoryAllocation, &compoundExpression->value.floatingPoint);
 		break;
+	case duckLisp_ast_type_callback:
+		/* Fall through */
 	case duckLisp_ast_type_identifier:
 		e = ast_identifier_quit(memoryAllocation, &compoundExpression->value.identifier);
 		break;
+	case duckLisp_ast_type_literalExpression:
+		/* Fall through */
 	case duckLisp_ast_type_expression:
 		e = duckLisp_ast_expression_quit(memoryAllocation, &compoundExpression->value.expression);
 		break;

@@ -527,7 +527,7 @@ typedef struct duckLisp_instructionArgs_s {
 
 typedef struct duckLisp_instructionObject_s {
 	duckLisp_instructionClass_t instructionClass;
-	dl_array_t args;
+	dl_array_t args;  /* dl_array_t:duckLisp_instructionArgClass_t */
 } duckLisp_instructionObject_t;
 
 /* Parser functions */
@@ -706,6 +706,8 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *bytecode,
                              dl_array_t *assembly);
+void duckLisp_assembly_init(duckLisp_t *duckLisp, dl_array_t *assembly);
+dl_error_t duckLisp_assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly);
 dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
                                duckLisp_compileState_t *compileState,
                                dl_array_t *bytecode,
