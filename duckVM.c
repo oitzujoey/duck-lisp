@@ -1026,6 +1026,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				/* Render the original object unusable. */
 				object->type = duckVM_object_type_list;
 				object->value.list = dl_null;
+				DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_object_t *, ptrdiff1) = dl_null;
 			}
 		}
 		if (e) break;
@@ -4391,7 +4392,6 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
                           dl_uint8_t *bytecode,
                           dl_size_t bytecode_length) {
 	dl_error_t e = dl_error_ok;
-	/* dl_error_t eError = dl_error_ok; */
 
 	duckVM_halt_mode_t halt = duckVM_halt_mode_run;
 	/* Why a reference to bytecode? So it can be switched out with other bytecodes by `duckVM_executeInstruction`. */

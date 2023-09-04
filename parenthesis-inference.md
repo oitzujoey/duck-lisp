@@ -245,6 +245,7 @@ In the last case, `x` acts like a Common Lisp symbol macro despite it being defi
 
 ## Potential improvements
 
+* Create separate declaration environments for compile-time and runtime identifiers.
 * Require declaration scripts to always terminate.
 * Allow nested types, such as `((&rest 1 (L I)) &rest 1 I)`, which would greatly improve the quality of inference of `let`.
 * Modify the type system to allow infix notation.

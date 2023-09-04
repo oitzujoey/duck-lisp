@@ -2274,6 +2274,7 @@ Todo:
         Test on ARM — S
         Fix remaining macro bug — M
         Disallow `__var` anywhere except in `__noscope` and scopes.
+        Make the return value of `__comptime` act more like scopes than `__noscope`.
     Document everything else? — L
         Write overview of compiler
         Write overview of VM
