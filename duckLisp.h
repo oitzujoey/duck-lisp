@@ -112,7 +112,7 @@ Variables
 // } duckLisp_error_code_t;
 
 typedef struct {
-	const char *message;
+	char *message;
 	dl_size_t message_length;
 	dl_ptrdiff_t end_index;
 	dl_ptrdiff_t start_index;

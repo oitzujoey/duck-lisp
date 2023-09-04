@@ -1921,6 +1921,7 @@ dl_error_t serialize_errors(dl_memoryAllocation_t *memoryAllocation,
                             dl_array_t *errors,
                             dl_array_t *sourceCode) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
 	(void) dl_array_init(errorString, memoryAllocation, sizeof(char), dl_array_strategy_double);
 
@@ -2018,9 +2019,12 @@ dl_error_t serialize_errors(dl_memoryAllocation_t *memoryAllocation,
 		}
 
 	whileCleanup:
-		e = DL_FREE(memoryAllocation, &error.message);
-		if (e) break;
 		error.message_length = 0;
+		eError = DL_FREE(memoryAllocation, &error.message);
+		if (eError) {
+			e = eError;
+			break;
+		}
 	}
  cleanup:return e;
 }
