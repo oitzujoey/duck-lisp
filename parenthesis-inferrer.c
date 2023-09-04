@@ -664,6 +664,12 @@ static dl_error_t infer_compoundExpression(inferrerState_t *state,
                                            const dl_size_t fileName_length,
                                            duckLisp_ast_compoundExpression_t *compoundExpression,
                                            dl_bool_t infer);
+static dl_error_t inferArguments(inferrerState_t *state,
+                                 const char *fileName,
+                                 const dl_size_t fileName_length,
+                                 duckLisp_ast_expression_t *expression,
+                                 dl_ptrdiff_t index,
+                                 dl_bool_t infer);
 
 static dl_error_t infer_callback(inferrerState_t *state,
                                  duckLisp_ast_compoundExpression_t *compoundExpression,
@@ -991,7 +997,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 			}
 			else if (parenthesized) {
 				if (type.type.value.symbol == inferrerTypeSymbol_L) {
-					e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
+					e = inferArguments(state, fileName, fileName_length, expression, 1, infer);
 					if (e) goto cleanup;
 				}
 				else {
