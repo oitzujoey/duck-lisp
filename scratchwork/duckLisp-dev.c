@@ -1608,9 +1608,9 @@ int main(int argc, char *argv[]) {
 		char *line = NULL;
 		size_t buffer_length = 0;
 		ssize_t length = 0;
-		printf("(disassemble)  %s  Toggle disassembly of forms.\n", g_disassemble ? "[enabled] " : "[disabled]");
+		printf("(#disassemble)  %s  Toggle disassembly of forms.\n", g_disassemble ? "[enabled] " : "[disabled]");
 #ifdef USE_PARENTHESIS_INFERENCE
-		printf("(inference)    %s  Toggle parenthesis inference.\n", g_hanabi ? "[enabled] " : "[disabled]");
+		printf("(#inference)    %s  Toggle parenthesis inference.\n", g_hanabi ? "[enabled] " : "[disabled]");
 #endif /* USE_PARENTHESIS_INFERENCE */
 		while (1) {
 			duckVM_object_t return_value;
