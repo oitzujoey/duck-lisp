@@ -225,7 +225,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		duckVM_upvalueArray_t upvalueArray;
 		e = duckVM_closure_getUpvalueArray(closure, &upvalueArray);
 		if (e) break;
-		printf("(closure %li", closure.name);
+		printf("(closure $%li #%u", closure.name, closure.arity);
 		DL_DOTIMES(k, upvalueArray.length) {
 			duckVM_object_t *upvalueObject = upvalueArray.upvalues[k];
 			putchar(' ');
@@ -308,14 +308,14 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	}
 		break;
 	case duckVM_object_type_type:
-		printf("<%lu>", duckVM_object_getType(object));
+		printf("::%lu", duckVM_object_getType(object));
 		break;
 	case duckVM_object_type_composite: {
 		duckVM_composite_t composite = duckVM_object_getComposite(object);
 		duckVM_internalComposite_t internalComposite;
 		e = duckVM_composite_getInternalComposite(composite, &internalComposite);
 		if (e) break;
-		printf("(make-instance <%lu> ", internalComposite.type);
+		printf("(make-instance ::%lu ", internalComposite.type);
 		e = duckVM_push(duckVM, internalComposite.value);
 		if (e) goto cleanup;
 		e = duckLispDev_callback_print(duckVM);
@@ -444,7 +444,7 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 			putchar('\n');
 			break;
 		case duckVM_object_type_closure:
-			printf("(closure %li", tempObject.value.closure.name);
+			printf("(closure $%li #%u", tempObject.value.closure.name, tempObject.value.closure.arity);
 			DL_DOTIMES(k, tempObject.value.closure.upvalue_array->value.upvalue_array.length) {
 				duckVM_object_t *uv = tempObject.value.closure.upvalue_array->value.upvalue_array.upvalues[k];
 				putchar(' ');
