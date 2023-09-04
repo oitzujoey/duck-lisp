@@ -1201,9 +1201,9 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 		eError = dl_array_pushElements(&duckLisp->errors,
 		                               duckLisp->vm.errors.elements,
 		                               duckLisp->vm.errors.elements_length);
-		if (!e) e = eError;
-		if (e) goto cleanup;
-		e = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
+		if (eError) e = eError;
+		eError = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
+		if (eError) e = eError;
 		if (e) goto cleanup;
 
 		e = duckLisp_objectToAST(duckLisp, &returnCompoundExpression, &returnValue, dl_false);
@@ -1309,9 +1309,9 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	eError = dl_array_pushElements(&duckLisp->errors,
 	                               duckLisp->vm.errors.elements,
 	                               duckLisp->vm.errors.elements_length);
-	if (!e) e = eError;
-	if (e) goto cleanup;
-	e = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
+	if (eError) e = eError;
+	eError = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
+	if (eError) e = eError;
 	if (e) goto cleanup;
 
 	/* Save macro program. */
@@ -3468,9 +3468,9 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	eError = dl_array_pushElements(&duckLisp->errors,
 	                               duckLisp->vm.errors.elements,
 	                               duckLisp->vm.errors.elements_length);
-	if (!e) e = eError;
-	if (e) goto cleanupArrays;
-	e = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
+	if (eError) e = eError;
+	eError = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
+	if (eError) e = eError;
 	if (e) goto cleanupArrays;
 
 	/* Compile macro expansion. */
@@ -3503,7 +3503,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
  cleanupArrays:
 
-	e = duckLisp_assembly_quit(duckLisp, &argumentAssembly);
+	eError = duckLisp_assembly_quit(duckLisp, &argumentAssembly);
 	if (eError) e = eError;
 
 	eError = dl_array_quit(&bytecode);

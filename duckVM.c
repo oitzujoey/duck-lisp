@@ -37,7 +37,7 @@ dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const
 
 	e = dl_malloc(duckVM->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
 	if (e) goto cleanup;
-	e = dl_memcopy((void *) error.message, (void *) message, message_length * sizeof(char));
+	e = dl_memcopy(error.message, message, message_length * sizeof(char));
 	if (e) goto cleanup;
 
 	error.message_length = message_length;
