@@ -1,19 +1,6 @@
-
-(__defun 1- (a)
-         (__- a 1))
-
-(__defun * (a b)
-         (__var acc 0)
-
-         (__var i 0)
-         (__while (__< i b)
-	              (__setq acc (__+ acc a))
-	              (__setq i (__+ i 1)))
-         acc)
-
 (__defun factorial-helper (n acc)
          (__unless (__= n 1)
-	               (__setq acc (self (1- n) (* n acc))))
+	               (__setq acc (self (__- n 1) (__* n acc))))
          acc)
 
 (__defun factorial (n)
