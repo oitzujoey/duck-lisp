@@ -1,0 +1,10 @@
+(
+ (__var a (__list 1 2.0 "3"))
+ (__var b (__quote (1 2.0 "3")))
+ (__when (__= (__car a)
+              (__car b))
+         (__when (__= (__car (__cdr a))
+                      (__car (__cdr b)))
+                 (__when (__= (__car (__cdr (__cdr a)))
+                              (__car (__cdr (__cdr b))))
+                         true))))
