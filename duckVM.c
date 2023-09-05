@@ -554,6 +554,29 @@ dl_error_t duckVM_global_set(duckVM_t *duckVM, duckVM_object_t *value, dl_ptrdif
 	return e;
 }
 
+/* Detect cycles in linked lists using Richard Brent's algorithm.
+   source: https://stackoverflow.com/questions/2663115/how-to-detect-a-loop-in-a-linked-list */
+dl_bool_t duckVM_listIsCyclic(duckVM_object_t *rootCons) {
+	if (rootCons == dl_null) return dl_false;
+
+	duckVM_object_t *slow = rootCons;
+	duckVM_object_t *fast = rootCons;
+	int taken = 0;
+	int limit = 2;
+	while ((fast->type == duckVM_object_type_cons) && (fast->value.cons.cdr != dl_null)) {
+		fast = fast->value.cons.cdr;
+		taken++;
+		if (slow == fast) return dl_true;
+		if (taken == limit) {
+			taken = 0;
+			limit *= 2;
+			slow = fast;
+		}
+	}
+	return dl_false;
+}
+
+
 int duckVM_executeInstruction(duckVM_t *duckVM,
                               duckVM_object_t *bytecode,
                               unsigned char **ipPtr,
@@ -973,7 +996,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				e = dl_error_invalidValue;
 				eError = duckVM_error_pushRuntime(duckVM,
 				                                  DL_STR("duckVM_execute->push-global: Could not find dynamic variable."));
-				if (!e) e = eError;
+				if (eError) e = eError;
 				break;
 			}
 			e = stack_push(duckVM, global);
@@ -3913,7 +3936,24 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 			if (e) break;
 			object2.type = duckVM_object_type_integer;
-			if (object1.type == duckVM_object_type_vector) {
+			if (object1.type == duckVM_object_type_list) {
+				if (duckVM_listIsCyclic(object1.value.list)) {
+					e = dl_error_invalidValue;
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_execute->length: List must not be circular."));
+					if (!e) e = eError;
+					break;
+				}
+				object2.value.integer = 0;
+				{
+					objectPtr1 = object1.value.list;
+					while ((objectPtr1 != dl_null) && (objectPtr1->type == duckVM_object_type_cons)) {
+						object2.value.integer++;
+						objectPtr1 = objectPtr1->value.cons.cdr;
+					}
+				}
+			}
+			else if (object1.type == duckVM_object_type_vector) {
 				object2.value.integer = (object1.value.vector.internal_vector
 				                         ? (object1.value.vector.internal_vector->value.internal_vector.length
 				                            - object1.value.vector.offset)
