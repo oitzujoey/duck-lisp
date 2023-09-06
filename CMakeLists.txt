@@ -7,7 +7,6 @@ add_library(DuckLisp
   emitters.c
   generators.c
   assembler.c
-  compiler-debug.c
   duckVM.c)
 
 target_include_directories(DuckLisp
