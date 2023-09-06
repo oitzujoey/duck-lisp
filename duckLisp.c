@@ -2206,8 +2206,6 @@ dl_error_t duckLisp_disassemble(char **string,
 		{duckLisp_instruction_halt, DL_STR("halt")},
 		{duckLisp_instruction_nil, DL_STR("nil")},
 	};
-	char newline = '\n';
-	char space = ' ';
 	dl_ptrdiff_t *template_array = dl_null;
 	e = DL_MALLOC(memoryAllocation, &template_array, maxElements, dl_ptrdiff_t);
 	if (e) goto cleanup;
@@ -2220,8 +2218,7 @@ dl_error_t duckLisp_disassemble(char **string,
 		template_array[templates[i].opcode] = i;
 	}
 
-	dl_uint8_t tempChar;
-	for (dl_ptrdiff_t bytecode_index = 0; (dl_size_t) bytecode_index < length; bytecode_index++) {
+	DL_DOTIMES(bytecode_index, length) {
 		dl_ptrdiff_t template_index = template_array[bytecode[bytecode_index]];
 		if (template_index >= 0) {
 			char *format = templates[template_index].format;
@@ -2246,7 +2243,7 @@ dl_error_t duckLisp_disassemble(char **string,
 			format++;
 			--format_length;
 			if (format_length > 0) {
-				e = dl_array_pushElement(&disassembly, &space);
+				e = dl_array_pushElement(&disassembly, " ");
 				if (e) goto cleanup;
 			}
 
@@ -2270,83 +2267,47 @@ dl_error_t duckLisp_disassemble(char **string,
 					format++;
 					--format_length;
 					if (format_length > 0) {
-						e = dl_array_pushElement(&disassembly, &space);
+						e = dl_array_pushElement(&disassembly, " ");
 						if (e) goto cleanup;
 					}
 					break;
 				}
 				case '2': {
-					dl_uint8_t code = bytecode[bytecode_index];
-					char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					hexChar = dl_nybbleToHexChar(code & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					args[args_index] = code;
-					bytecode_index++;
-					code = bytecode[bytecode_index];
-					hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					hexChar = dl_nybbleToHexChar(code & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					args[args_index] <<= 8;
-					args[args_index] += code;
-					bytecode_index++;
+					DL_DOTIMES(m, 2) {
+						dl_uint8_t code = bytecode[bytecode_index];
+						char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						hexChar = dl_nybbleToHexChar(code & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						args[args_index] = code;
+						bytecode_index++;
+					}
 					format++;
 					--format_length;
 					if (format_length > 0) {
-						e = dl_array_pushElement(&disassembly, &space);
+						e = dl_array_pushElement(&disassembly, " ");
 						if (e) goto cleanup;
 					}
 					break;
 				}
 				case '4': {
-					dl_uint8_t code = bytecode[bytecode_index];
-					char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					hexChar = dl_nybbleToHexChar(code & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					args[args_index] = code;
-					bytecode_index++;
-					code = bytecode[bytecode_index];
-					hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					hexChar = dl_nybbleToHexChar(code & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					args[args_index] <<= 8;
-					args[args_index] += code;
-					bytecode_index++;
-					code = bytecode[bytecode_index];
-					hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					hexChar = dl_nybbleToHexChar(code & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					args[args_index] <<= 8;
-					args[args_index] += code;
-					bytecode_index++;
-					code = bytecode[bytecode_index];
-					hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					hexChar = dl_nybbleToHexChar(code & 0x0F);
-					e = dl_array_pushElement(&disassembly, &hexChar);
-					if (e) goto cleanup;
-					args[args_index] <<= 8;
-					args[args_index] += code;
-					bytecode_index++;
+					DL_DOTIMES(m, 4) {
+						dl_uint8_t code = bytecode[bytecode_index];
+						char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						hexChar = dl_nybbleToHexChar(code & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						args[args_index] = code;
+						bytecode_index++;
+					}
 					format++;
 					--format_length;
 					if (format_length > 0) {
-						e = dl_array_pushElement(&disassembly, &space);
+						e = dl_array_pushElement(&disassembly, " ");
 						if (e) goto cleanup;
 					}
 					break;
@@ -2359,36 +2320,17 @@ dl_error_t duckLisp_disassemble(char **string,
 					format++;
 					--format_length;
 					DL_DOTIMES(m, length) {
-						char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						bytecode_index++;
-						hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						bytecode_index++;
-						hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						bytecode_index++;
-						hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
-						e = dl_array_pushElement(&disassembly, &hexChar);
-						if (e) goto cleanup;
-						bytecode_index++;
+						DL_DOTIMES(n, 4) {
+							char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
+							e = dl_array_pushElement(&disassembly, &hexChar);
+							if (e) goto cleanup;
+							hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
+							e = dl_array_pushElement(&disassembly, &hexChar);
+							if (e) goto cleanup;
+							bytecode_index++;
+						}
 						if (format_length > 0) {
-							e = dl_array_pushElement(&disassembly, &space);
+							e = dl_array_pushElement(&disassembly, " ");
 							if (e) goto cleanup;
 						}
 					}
@@ -2405,22 +2347,21 @@ dl_error_t duckLisp_disassemble(char **string,
 				}
 			}
 
-			e = dl_array_pushElement(&disassembly, &newline);
+			e = dl_array_pushElement(&disassembly, "\n");
 			if (e) goto cleanup;
 		}
 		else {
 			e = dl_array_pushElements(&disassembly, DL_STR("Illegal opcode '"));
 			if (e) goto cleanup;
-			tempChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0xF);
-			e = dl_array_pushElement(&disassembly, &tempChar);
+			char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0xF);
+			e = dl_array_pushElement(&disassembly, &hexChar);
 			if (e) goto cleanup;
-			tempChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0xF);
-			e = dl_array_pushElement(&disassembly, &tempChar);
+			hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0xF);
+			e = dl_array_pushElement(&disassembly, &hexChar);
 			if (e) goto cleanup;
-			tempChar = '\'';
-			e = dl_array_pushElement(&disassembly, &tempChar);
+			e = dl_array_pushElement(&disassembly, "'");
 			if (e) goto cleanup;
-			e = dl_array_pushElement(&disassembly, &newline);
+			e = dl_array_pushElement(&disassembly, "\n");
 			if (e) goto cleanup;
 		}
 	}
