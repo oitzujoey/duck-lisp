@@ -167,6 +167,8 @@ __defmacro declare (identifier type &rest script-body) ()
            (
             (__var name (__infer-and-get-next-argument))
             (__var parameters (__infer-and-get-next-argument))
+            (__when (__not __= (__type-of parameters) (__type-of ()))
+                    __setq parameters (__list parameters))
             (__var type ())
             (
              (__var parameters parameters)
@@ -188,7 +190,7 @@ __defmacro declare (identifier type &rest script-body) ()
                       __var parameter __car parameters
                       (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
                                       (__not (__= (__quote #&rest) parameter)))
-                              (__declare-identifier parameter (__quote #L)))
+                              (__declare-identifier parameter (__quote #I)))
                       (__setq parameters (__cdr parameters)))
              (__declare-identifier (__quote #self) type)
              (__infer-and-get-next-argument))
@@ -208,10 +210,12 @@ defmacro if (condition then else) (I I I) (list ' __if condition then else)
 defmacro when (condition &rest then) (I &rest 1 I) (cons ' __when (cons condition then))
 defmacro unless (condition &rest else) (I &rest 1 I) (cons ' __unless (cons condition else))
 defmacro while (condition &rest body) (I &rest 1 I) (cons ' __while (cons condition body))
+defmacro vector (&rest arguments) (&rest 0 I) (cons ' __vector arguments)
 bdefun car (cons) __car cons
 bdefun cdr (cons) __cdr cons
 bdefun set-car (cons value) __set-car cons value
 bdefun set-cdr (cons value) __set-cdr cons value
+bdefun length (sequence) __length sequence
 (bdefun concatenate (first-string &rest 2 other-strings)
         (__if other-strings
               (__concatenate first-string (apply #self other-strings))
@@ -243,6 +247,45 @@ bdefun >= (x y) not < x y
 bdefun <= (x y) not > x y
 bdefun != (x y) not = x y
 bdefun ≠ (x y) not = x y
+
+(defmacro incq (variable) (L) (list ' __setq variable (list ' __+ 1 variable)))
+
+bvar duckLisp-object-type-bool type-of false
+bvar duckLisp-object-type-int type-of 0
+bvar duckLisp-object-type-str type-of ""
+bvar duckLisp-object-type-list type-of ()
+bvar duckLisp-object-type-symbol type-of ' _
+bvar duckLisp-object-type-closure type-of (lambda ())
+bvar duckLisp-object-type-vector type-of (vector)
+bvar duckLisp-object-type-type type-of type-of ()
+
+(bdefun bool? (value)
+        (= (type-of value) duckLisp-object-type-bool))
+
+(bdefun integer? (value)
+        (= (type-of value) duckLisp-object-type-int))
+(bdefun zero? (value) = 0 value)
+
+(bdefun string? (value)
+        (= (type-of value) duckLisp-object-type-str))
+
+(bdefun list? (value)
+        (= (type-of value) duckLisp-object-type-list))
+
+(bdefun cons? (value)
+        (= (type-of value) duckLisp-object-type-list))
+
+(bdefun symbol? (value)
+        (= (type-of value) duckLisp-object-type-symbol))
+
+(bdefun closure? (value)
+        (= (type-of value) duckLisp-object-type-closure))
+
+(bdefun vector? (value)
+        (= (type-of value) duckLisp-object-type-vector))
+
+(bdefun type? (value)
+        (= (type-of value) duckLisp-object-type-type))
 
 (bdefun caar (x)
         (car (car x)))
@@ -325,6 +368,11 @@ bdefun ≠ (x y) not = x y
 (bdefun rest (x)
         (cdr x))
 
+(bdefun list* (&rest -1 args)
+        (if (null? (rest args))
+            (first args)
+            (cons (first args) (apply #self (rest args)))))
+
 (bdefun print (&rest 1 vs)
         (var vs2 vs)
         (while (not (null? vs2))
@@ -337,16 +385,104 @@ bdefun ≠ (x y) not = x y
         (print "\n")
         vs)
 
-(defmacro switch (constant &rest body) (L &rest -1 L)
+(defmacro push (value variable) (I L)
+  (list ' setq variable (list ' cons value variable)))
+
+(defmacro pop (variable) (L)
+  (list
+   (list ' var ' pop-temp (list ' car variable))
+   (list ' setq variable (list ' cdr variable))
+   ' pop-temp))
+
+(bdefun reverse (list)
+        (var reversed-list ())
+        (while (not (null? list))
+          (setq reversed-list (cons (car list)
+                                    reversed-list))
+          pop list)
+        reversed-list)
+(bdefun nreverse (list) reverse list)
+
+(defmacro and (&rest args) (&rest 2 I)
+  (if args
+	  (list ' if (car args)
+			(apply #self (cdr args))
+			false)
+	  true))
+
+(defmacro or (&rest args) (&rest 2 I)
+  (if args
+	  (list ' if (car args)
+			true
+			(apply #self (cdr args)))
+	  false))
+
+(bdefun truthy-constant? (value)
+        (or (= value true)
+            (and (string? value) value)
+            (and (integer? value) value)))
+(bdefun falsy-constant? (value)
+        (or (= value false)
+            (and (string? value) (not value))
+            (and (integer? value) (not value))))
+
+;; This is not the traditional lisp cond.
+;;   (cond first-condition first-body
+;;         second-condition second-body
+;;         third-condition third-body
+;;         … …)
+(defmacro cond (&rest body) (&rest -1 I)
   (if body
       (if (cdr body)
-          (list ' if
-                (list ' = constant (first body))
-                (second body)
-                (apply #self constant (cddr body)))
+          (
+           (var condition (first body))
+           (if (truthy-constant? condition)
+               (second body)
+               (if (falsy-constant? condition)
+                   (apply #self (cddr body))
+                   (list ' if
+                         condition
+                         (second body)
+                         (apply #self (cddr body))))))
           (first body))
       ()))
 
+(defmacro switch (constant &rest body) (L &rest -1 I)
+          (if body
+              (if (cdr body)
+                  (list ' if
+                          (list ' = constant (first body))
+                          (second body)
+                          (apply #self constant (cddr body)))
+                  (first body))
+              ()))
+
+(bdefun mapcar* (fun list)
+        (unless (null? list)
+          (cons (#fun (car list)) (self fun (cdr list)))))
+(bdefun mapcar (fun list) mapcar* fun list)
+
+;; Not the typical `dotimes'.
+;;   (dotimes i 4
+;;            (println i))
+;; In the above example, the numbers 0-3 are printed.
+;; `top' is only evaluated once. Returns `top'.
+(defmacro dotimes (variable top &rest body) (L I &rest 1 I)
+  (var top-var (gensym))
+  (list
+   (list ' var variable 0)
+   (list ' var top-var top)
+   (list ' while (list ' < variable top-var)
+         (list* ' noscope body)
+         (list ' incq variable))
+   top-var))
+(__declare dotimes (L I &rest 1 I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
+
+;; Like `dolist`, but for generic sequences.
+;;   (dosequence i (list 1 2 3)
+;;               (println i))
+;; In the above example, the numbers 1-3 are printed.
+;; Returns the sequence. It is only evaluated once.
 (defmacro dosequence (variable sequence &rest body) (L I &rest 1 I)
           (var sequence-var (gensym))
           (var return-var (gensym))
@@ -361,6 +497,15 @@ bdefun ≠ (x y) not = x y
                  (list ' setq sequence-var (list ' cdr sequence-var)))
            return-var))
 (__declare dosequence (L I &rest 1 I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
+
+;; Not the typical `dolist'.
+;;   (dolist i (list 1 2 3)
+;;           (println i))
+;; In the above example, the numbers 1-3 are printed.
+;; Returns the list. It is only evaluated once.
+(defmacro dolist (variable sequence &rest body) (L I &rest 1 I)
+  (apply #dosequence variable sequence body))
+(__declare dolist (L I &rest 1 I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
 
 comptime println "</comptime library.dl>"
 println "</library.dl>"
