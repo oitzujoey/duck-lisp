@@ -2255,26 +2255,63 @@ To avoid parsing, maybe add a hook to be run after each expression or symbol is 
 The reader could have "reader actions" since the C callbacks don't act like reader macros.
 
 
+`set' setters could be scoped. How would that be implemented?
+
+
+(cvar setter-scopes ())
+
+(cdefun setter-scope (&rest -1 body)
+        `((push-setter-scope)
+          ,@
+          (pop-setter-scope)))
+
+(cvar scope-extensions #(list setter-scope
+                              ...))
+(defmacro scope (&rest body) (&rest -1 I)
+          var body body
+          (dosequence extension scope-extensions
+                      setq body (apply (car extension) body))
+          ;; Final scope
+          (cons nil body))
+
+(defmacro set (pattern value)
+  (if list? pattern
+      (scope
+       lvar setter (search-setter-scopes setter-scopes (car pattern))
+       (apply setter value (cdr pattern)))
+      `(setq ,pattern ,value)))
+
+(scope
+ (cdefun set-set-car (value cons)
+         `__set-car cons ,value)
+ define-setter car #set-set-car
+
+ var a cons 1 2
+ set (car a) 4
+ a)  ; ⇒ (4 . 2)
+
+
+{b1; b2 b3; b4} → (() (__noscope b1) (__noscope b2 b3) (__noscope b4))
+
+
 
 Next step: Update "language.md"
 
 Defer:
 
 Todo:
-    Add parenthesis inference?
-        Add support for nested types — L
+    Finish parenthesis inference
+        Add support for nested types? — L
         Allow adding declarations from C — S
         Document inference algorithm — M
     Switch to stack VM? — M
     Fix C API — L
         Add a bunch of `*_toString` functions — M
-    Document C API — M
+        Document C API — M
     Fix bugs — L
         Write lots of tests — M
-        Test on ARM — S
-        Fix remaining macro bug — M
         Disallow `__var` anywhere except in `__noscope` and scopes.
-        Make the return value of `__comptime` act more like scopes than `__noscope`.
+        Remove stray space at the end of closure.8 disassembler.
     Document everything else? — L
         Write overview of compiler
         Write overview of VM
@@ -2286,9 +2323,10 @@ Todo:
         Hash tables/Tries? — M
         String interning? — M
         Rewrite memory allocator? — L
-	Clean up. — M
-	Create Hidey-Chess branch and add required functions. — M?
-	Clean up. — S
+    Clean up. — M
+    Test on ARM — S
+    Create Hidey-Chess branch and add required functions. — M?
+    Clean up. — S
 
 Duck-lisp architecture:
 Parse source text into an AST.

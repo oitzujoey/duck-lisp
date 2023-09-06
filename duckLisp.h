@@ -769,6 +769,10 @@ dl_error_t serialize_errors(dl_memoryAllocation_t *memoryAllocation,
                             dl_array_t *errors,
                             dl_array_t *sourceCode);
 
-char *duckLisp_disassemble(dl_memoryAllocation_t *memoryAllocation, const dl_uint8_t *bytecode, const dl_size_t length);
+dl_error_t duckLisp_disassemble(char **string,
+                                dl_size_t *string_length,
+                                dl_memoryAllocation_t *memoryAllocation,
+                                const dl_uint8_t *bytecode,
+                                const dl_size_t length);
 
 #endif /* DUCKLISP_H */
