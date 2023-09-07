@@ -2294,6 +2294,75 @@ The reader could have "reader actions" since the C callbacks don't act like read
 {b1; b2 b3; b4} → (() (__noscope b1) (__noscope b2 b3) (__noscope b4))
 
 
+Macros aren't working quite right *still*. Specifically, everything seems to work if I forbid `defmacro` from running at compile-time, but if I enable it stuff that abuses it tends to break.
+I think I need to understand the model from scratch since there's so many places I just guess what statements to add or modify.
+
+
+The way it used to work is functions could be nested. Now that is not the case. Inner functions are written to the global assembly array before outer functions. It works splendidly. The purpose of this was compile-time macros.
+The runtime assembly is one large array that is grown as it passes through the compiler. The comptime assembly is a small array that only ever contains one `__comptime`, `__defmacro`, or macro at one time. Or else it fails.
+I think the problem I'm having is that I'm trying to use two instruction generation paradigms in the same generators. I want to chop the comptime assembly into little bits spread out over time, but I want to keep the runtime assembly all together.
+I think I should be able to stream assembly to both runtime and comptime but simply not delete the runtime assembly.
+Functions bodies are written sequentially in chunks. They are held in a separate assembly array until they are ready to be written.
+There are typically a max of three assembly variables at any one time. There is the global assembly, the `assembly` parameter, and the local assembly array. The global assembly is for writing top-level instructions and complete function bodies to. The local assembly array is for holding the function body until it is complete and ready to be written to the global array. The `assembly` parameter seems to be for writing to the body of the current function.
+`__defmacro` should write its body to a local array then the global array. I believe it does do this since it calls the `__defun` generator and that's what `__defun` does.
+The next problem is that `__defmacro` creates both a function and a macro.
+Currently, macros are pushed onto the top of the stack. In other words, they are assumed to be top-level functions. Clearly this is bad when the macro is defined inside another macro. It must be possible for the macro to reference free variables. Oh dear. That's a fexpr. I must forbid fexprs.
+I suppose I *could* add fexprs if I add `eval'.
+The current system is limited to performing macro definitions in the top-level scope. :( I think macros could even capture free variables in the top-level scope even when those variables are defined in the same `__comptime' form. Another potential macro configuration I could try to make work is a `__defmacro' inside `__defmacro' that doesn't capture any local variables.
+An improved system would allow using macros anywhere. This would add fexprs.
+
+)
+(comptime
+ (var w 5)
+ (defmacro f (w)
+   (var x 3)
+   (defmacro g (y)
+     `(list ,x ,y))
+   (g w))
+ (f w))
+
+(comptime
+ (var w 5)
+ (defmacro f (w)
+   (var x 3)
+   (defun g (y)
+     `(list ,x ,y))
+   (eval (g (quote w))))
+ (f w))
+
+(comptime
+ (var w 5)
+ (defmacro f (w)
+   (var x 3)
+   (defun g (y)
+     `(list ,x ,y))
+   ;; Eval must be lexically scoped. 😬
+   (eval `(list 3 w)))
+ (f w))
+
+(comptime
+ (var w 5)
+ (defmacro f (w)
+   (var x 3)
+   (defun g (y)
+     `(list ,x ,y))
+   (list 3 (quote w)))
+ (f w))
+
+(comptime
+ (var w 5)
+ (defmacro f (w)
+   (var x 3)
+   (defun g (y)
+     `(list ,x ,y))
+   (list 3 (quote w)))
+ (3 w))
+
+5
+
+Adding this would be more work than I'm willing to put in. I think I will allow macros anywhere in the runtime environment but forbid them in the comptime environment.
+
+
 
 Next step: Update "language.md"
 
@@ -2320,6 +2389,7 @@ Todo:
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
     Optimization?
+        Fuse pop instructions — S
         Hash tables/Tries? — M
         String interning? — M
         Rewrite memory allocator? — L
