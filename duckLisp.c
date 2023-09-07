@@ -2048,12 +2048,12 @@ dl_error_t duckLisp_disassemble(char **string,
 		const dl_size_t format_length;
 	} templates[] = {
 		{duckLisp_instruction_nop, DL_STR("nop")},
-		{duckLisp_instruction_pushString8, DL_STR("string.8 1 s1")},
-		{duckLisp_instruction_pushString16, DL_STR("string.16 2 s1")},
-		{duckLisp_instruction_pushString32, DL_STR("string.32 4 s1")},
-		{duckLisp_instruction_pushSymbol8, DL_STR("symbol.8 1 1 s2")},
-		{duckLisp_instruction_pushSymbol16, DL_STR("symbol.16 2 2 s2")},
-		{duckLisp_instruction_pushSymbol32, DL_STR("symbol.32 4 4 s2")},
+		{duckLisp_instruction_pushString8, DL_STR("string.8 1 s0")},
+		{duckLisp_instruction_pushString16, DL_STR("string.16 2 s0")},
+		{duckLisp_instruction_pushString32, DL_STR("string.32 4 s0")},
+		{duckLisp_instruction_pushSymbol8, DL_STR("symbol.8 1 1 s1")},
+		{duckLisp_instruction_pushSymbol16, DL_STR("symbol.16 2 2 s1")},
+		{duckLisp_instruction_pushSymbol32, DL_STR("symbol.32 4 4 s1")},
 		{duckLisp_instruction_pushBooleanFalse, DL_STR("false")},
 		{duckLisp_instruction_pushBooleanTrue, DL_STR("true")},
 		{duckLisp_instruction_pushInteger8, DL_STR("integer.8 1")},
@@ -2080,9 +2080,9 @@ dl_error_t duckLisp_disassemble(char **string,
 		{duckLisp_instruction_funcall8, DL_STR("funcall.8 1 1")},
 		{duckLisp_instruction_funcall16, DL_STR("funcall.16 2 1")},
 		{duckLisp_instruction_funcall32, DL_STR("funcall.32 4 1")},
-		{duckLisp_instruction_releaseUpvalues8, DL_STR("release-upvalues.8 1 V1")},
-		{duckLisp_instruction_releaseUpvalues16, DL_STR("release-upvalues.16 2 V1")},
-		{duckLisp_instruction_releaseUpvalues32, DL_STR("release-upvalues.32 4 V1")},
+		{duckLisp_instruction_releaseUpvalues8, DL_STR("release-upvalues.8 1 V0")},
+		{duckLisp_instruction_releaseUpvalues16, DL_STR("release-upvalues.16 2 V0")},
+		{duckLisp_instruction_releaseUpvalues32, DL_STR("release-upvalues.32 4 V0")},
 		{duckLisp_instruction_call8, DL_STR("obsolete: call.8 1 1")},
 		{duckLisp_instruction_call16, DL_STR("obsolete: call.16 1 2")},
 		{duckLisp_instruction_call32, DL_STR("obsolete: call.32 1 4")},
@@ -2134,9 +2134,9 @@ dl_error_t duckLisp_disassemble(char **string,
 		{duckLisp_instruction_cons8, DL_STR("cons.8 1 1")},
 		{duckLisp_instruction_cons16, DL_STR("cons.16 2 2")},
 		{duckLisp_instruction_cons32, DL_STR("cons.32 4 4")},
-		{duckLisp_instruction_vector8, DL_STR("vector.8 1 V1")},
-		{duckLisp_instruction_vector16, DL_STR("vector.16 2 V1")},
-		{duckLisp_instruction_vector32, DL_STR("vector.32 4 V1")},
+		{duckLisp_instruction_vector8, DL_STR("vector.8 1 V0")},
+		{duckLisp_instruction_vector16, DL_STR("vector.16 2 V0")},
+		{duckLisp_instruction_vector32, DL_STR("vector.32 4 V0")},
 		{duckLisp_instruction_makeVector8, DL_STR("makeVector.8 1 1")},
 		{duckLisp_instruction_makeVector16, DL_STR("makeVector.16 2 2")},
 		{duckLisp_instruction_makeVector32, DL_STR("makeVector.32 4 4")},
@@ -2279,6 +2279,7 @@ dl_error_t duckLisp_disassemble(char **string,
 					break;
 				}
 				case '2': {
+					args[args_index] = 0;
 					DL_DOTIMES(m, 2) {
 						bytecode_index++;
 						dl_uint8_t code = bytecode[bytecode_index];
@@ -2288,8 +2289,10 @@ dl_error_t duckLisp_disassemble(char **string,
 						hexChar = dl_nybbleToHexChar(code & 0x0F);
 						e = dl_array_pushElement(&disassembly, &hexChar);
 						if (e) goto cleanup;
-						args[args_index] = code;
+						args[args_index] <<= 8;
+						args[args_index] |= code;
 					}
+					args_index++;
 					format++;
 					--format_length;
 					if (format_length > 0) {
@@ -2299,6 +2302,7 @@ dl_error_t duckLisp_disassemble(char **string,
 					break;
 				}
 				case '4': {
+					args[args_index] = 0;
 					DL_DOTIMES(m, 4) {
 						bytecode_index++;
 						dl_uint8_t code = bytecode[bytecode_index];
@@ -2308,8 +2312,10 @@ dl_error_t duckLisp_disassemble(char **string,
 						hexChar = dl_nybbleToHexChar(code & 0x0F);
 						e = dl_array_pushElement(&disassembly, &hexChar);
 						if (e) goto cleanup;
-						args[args_index] = code;
+						args[args_index] <<= 8;
+						args[args_index] |= code;
 					}
+					args_index++;
 					format++;
 					--format_length;
 					if (format_length > 0) {
@@ -2354,6 +2360,9 @@ dl_error_t duckLisp_disassemble(char **string,
 					DL_DOTIMES(m, length) {
 						bytecode_index++;
 						char stringChar = bytecode[bytecode_index];
+						if (dl_string_isSpace(stringChar) && (stringChar != '\n') && (stringChar != '\r')) {
+							stringChar = ' ';
+						}
 						e = dl_array_pushElement(&disassembly, &stringChar);
 						if (e) goto cleanup;
 					}
@@ -2371,8 +2380,8 @@ dl_error_t duckLisp_disassemble(char **string,
 					break;
 				}
 				default:
-					format++;
-					--format_length;
+					e = dl_error_invalidValue;
+					goto cleanup;
 				}
 			}
 
