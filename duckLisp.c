@@ -2260,6 +2260,7 @@ dl_error_t duckLisp_disassemble(char **string,
 				char formatChar = *format;
 				switch (formatChar) {
 				case '1': {
+					bytecode_index++;
 					dl_uint8_t code = bytecode[bytecode_index];
 					char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
 					e = dl_array_pushElement(&disassembly, &hexChar);
@@ -2268,7 +2269,6 @@ dl_error_t duckLisp_disassemble(char **string,
 					e = dl_array_pushElement(&disassembly, &hexChar);
 					if (e) goto cleanup;
 					args[args_index] = code;
-					bytecode_index++;
 					args_index++;
 					format++;
 					--format_length;
@@ -2280,6 +2280,7 @@ dl_error_t duckLisp_disassemble(char **string,
 				}
 				case '2': {
 					DL_DOTIMES(m, 2) {
+						bytecode_index++;
 						dl_uint8_t code = bytecode[bytecode_index];
 						char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
 						e = dl_array_pushElement(&disassembly, &hexChar);
@@ -2288,7 +2289,6 @@ dl_error_t duckLisp_disassemble(char **string,
 						e = dl_array_pushElement(&disassembly, &hexChar);
 						if (e) goto cleanup;
 						args[args_index] = code;
-						bytecode_index++;
 					}
 					format++;
 					--format_length;
@@ -2300,6 +2300,7 @@ dl_error_t duckLisp_disassemble(char **string,
 				}
 				case '4': {
 					DL_DOTIMES(m, 4) {
+						bytecode_index++;
 						dl_uint8_t code = bytecode[bytecode_index];
 						char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
 						e = dl_array_pushElement(&disassembly, &hexChar);
@@ -2308,7 +2309,6 @@ dl_error_t duckLisp_disassemble(char **string,
 						e = dl_array_pushElement(&disassembly, &hexChar);
 						if (e) goto cleanup;
 						args[args_index] = code;
-						bytecode_index++;
 					}
 					format++;
 					--format_length;
@@ -2327,13 +2327,13 @@ dl_error_t duckLisp_disassemble(char **string,
 					--format_length;
 					DL_DOTIMES(m, length) {
 						DL_DOTIMES(n, 4) {
+							bytecode_index++;
 							char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
 							e = dl_array_pushElement(&disassembly, &hexChar);
 							if (e) goto cleanup;
 							hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
 							e = dl_array_pushElement(&disassembly, &hexChar);
 							if (e) goto cleanup;
-							bytecode_index++;
 						}
 						if (format_length > 0) {
 							e = dl_array_pushElement(&disassembly, " ");
