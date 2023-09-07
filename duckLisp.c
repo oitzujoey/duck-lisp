@@ -2221,6 +2221,9 @@ dl_error_t duckLisp_disassemble(char **string,
 		template_array[templates[i].opcode] = i;
 	}
 
+	e = dl_array_pushElements(&disassembly, DL_STR("DISASSEMBLY START\n"));
+	if (e) goto cleanup;
+
 	DL_DOTIMES(bytecode_index, length) {
 		dl_ptrdiff_t template_index = template_array[bytecode[bytecode_index]];
 		if (template_index >= 0) {
@@ -2368,6 +2371,9 @@ dl_error_t duckLisp_disassemble(char **string,
 			if (e) goto cleanup;
 		}
 	}
+
+	e = dl_array_pushElements(&disassembly, DL_STR("DISASSEMBLY END\n"));
+	if (e) goto cleanup;
 
 	/* Push a return. */
 	e = dl_array_pushElements(&disassembly, "\0", 1);
