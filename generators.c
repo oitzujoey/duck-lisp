@@ -3359,7 +3359,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&argumentAssembly,
 	                   duckLisp->memoryAllocation,
 	                   sizeof(duckLisp_instructionObject_t),
-	                   dl_array_strategy_fit);
+	                   dl_array_strategy_double);
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1, dl_true);
 	if (e) goto cleanupArrays;
@@ -3462,7 +3462,16 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Execute macro. */
 
-	/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */
+	/* { */
+	/* 	char *string = dl_null; */
+	/* 	dl_size_t string_length = 0; */
+	/* 	duckLisp_disassemble(&string, */
+	/* 	                     &string_length, */
+	/* 	                     duckLisp->memoryAllocation, */
+	/* 	                     bytecode.elements, */
+	/* 	                     bytecode.elements_length); */
+	/* 	puts(string); */
+	/* } */
 
 	e = duckVM_execute(&duckLisp->vm, &return_value, bytecode.elements, bytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,
