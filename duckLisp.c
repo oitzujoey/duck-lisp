@@ -2342,6 +2342,29 @@ dl_error_t duckLisp_disassemble(char **string,
 					}
 					break;
 				}
+				case 's': {
+					format++;
+					--format_length;
+					char index = *format - '0';
+					dl_size_t length = args[(dl_uint8_t) index];
+					format++;
+					--format_length;
+					e = dl_array_pushElement(&disassembly, "\"");
+					if (e) goto cleanup;
+					DL_DOTIMES(m, length) {
+						bytecode_index++;
+						char stringChar = bytecode[bytecode_index];
+						e = dl_array_pushElement(&disassembly, &stringChar);
+						if (e) goto cleanup;
+					}
+					e = dl_array_pushElement(&disassembly, "\"");
+					if (e) goto cleanup;
+					if (format_length > 0) {
+						e = dl_array_pushElement(&disassembly, " ");
+						if (e) goto cleanup;
+					}
+					break;
+				}
 				case ' ': {
 					format++;
 					--format_length;
@@ -2391,4 +2414,3 @@ dl_error_t duckLisp_disassemble(char **string,
 	if (eError) e = eError;
 	return e;
 }
-
