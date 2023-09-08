@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include "duckLisp.h"
 #include "DuckLib/sort.h"
+#include "DuckLib/string.h"
 
 dl_error_t duckLisp_instructionObject_quit(duckLisp_t *duckLisp, duckLisp_instructionObject_t *instruction) {
 	dl_error_t e = dl_error_ok;
@@ -2622,5 +2623,429 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 	eError = dl_array_quit(&labels);
 	if (eError) e = eError;
 
+	return e;
+}
+
+
+dl_error_t duckLisp_disassemble(char **string,
+                                dl_size_t *string_length,
+                                dl_memoryAllocation_t *memoryAllocation,
+                                const dl_uint8_t *bytecode,
+                                const dl_size_t length) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	const dl_size_t maxElements = 256;
+	dl_array_t disassembly;
+	/**/ dl_array_init(&disassembly, memoryAllocation, sizeof(char), dl_array_strategy_double);
+
+	const struct {
+		const dl_uint8_t opcode;
+		char *format;
+		const dl_size_t format_length;
+	} templates[] = {
+		{duckLisp_instruction_nop, DL_STR("nop")},
+		{duckLisp_instruction_pushString8, DL_STR("string.8 1 s0")},
+		{duckLisp_instruction_pushString16, DL_STR("string.16 2 s0")},
+		{duckLisp_instruction_pushString32, DL_STR("string.32 4 s0")},
+		{duckLisp_instruction_pushSymbol8, DL_STR("symbol.8 1 1 s1")},
+		{duckLisp_instruction_pushSymbol16, DL_STR("symbol.16 2 2 s1")},
+		{duckLisp_instruction_pushSymbol32, DL_STR("symbol.32 4 4 s1")},
+		{duckLisp_instruction_pushBooleanFalse, DL_STR("false")},
+		{duckLisp_instruction_pushBooleanTrue, DL_STR("true")},
+		{duckLisp_instruction_pushInteger8, DL_STR("integer.8 1")},
+		{duckLisp_instruction_pushInteger16, DL_STR("integer.16 2")},
+		{duckLisp_instruction_pushInteger32, DL_STR("integer.32 4")},
+		{duckLisp_instruction_pushDoubleFloat, DL_STR("double-float f")},
+		{duckLisp_instruction_pushIndex8, DL_STR("index.8 1")},
+		{duckLisp_instruction_pushIndex16, DL_STR("index.16 1")},
+		{duckLisp_instruction_pushIndex32, DL_STR("index.32 1")},
+		{duckLisp_instruction_pushUpvalue8, DL_STR("upvalue.8 1")},
+		{duckLisp_instruction_pushUpvalue16, DL_STR("upvalue.16 2")},
+		{duckLisp_instruction_pushUpvalue32, DL_STR("upvalue.32 4")},
+		{duckLisp_instruction_pushClosure8, DL_STR("closure.8 1 1 4 V2")},
+		{duckLisp_instruction_pushClosure16, DL_STR("closure.16 2 1 4 V2")},
+		{duckLisp_instruction_pushClosure32, DL_STR("closure.32 4 1 4 V2")},
+		{duckLisp_instruction_pushVaClosure8, DL_STR("variadic-closure.8 1 1 4 V2")},
+		{duckLisp_instruction_pushVaClosure16, DL_STR("variadic-closure.16 2 1 4 V2")},
+		{duckLisp_instruction_pushVaClosure32, DL_STR("variadic-closure.32 4 1 4 V2")},
+		{duckLisp_instruction_pushGlobal8, DL_STR("global.8 1")},
+		{duckLisp_instruction_setUpvalue8, DL_STR("set-upvalue.8 1 1")},
+		{duckLisp_instruction_setUpvalue16, DL_STR("set-upvalue.16 1 2")},
+		{duckLisp_instruction_setUpvalue32, DL_STR("set-upvalue.32 1 4")},
+		{duckLisp_instruction_setStatic8, DL_STR("set-global.8 1 1")},
+		{duckLisp_instruction_funcall8, DL_STR("funcall.8 1 1")},
+		{duckLisp_instruction_funcall16, DL_STR("funcall.16 2 1")},
+		{duckLisp_instruction_funcall32, DL_STR("funcall.32 4 1")},
+		{duckLisp_instruction_releaseUpvalues8, DL_STR("release-upvalues.8 1 v0")},
+		{duckLisp_instruction_releaseUpvalues16, DL_STR("release-upvalues.16 2 v0")},
+		{duckLisp_instruction_releaseUpvalues32, DL_STR("release-upvalues.32 4 v0")},
+		{duckLisp_instruction_call8, DL_STR("obsolete: call.8 1 1")},
+		{duckLisp_instruction_call16, DL_STR("obsolete: call.16 1 2")},
+		{duckLisp_instruction_call32, DL_STR("obsolete: call.32 1 4")},
+		{duckLisp_instruction_acall8, DL_STR("obsolete: acall.8 1 1")},
+		{duckLisp_instruction_acall16, DL_STR("obsolete: acall.16 1 2")},
+		{duckLisp_instruction_acall32, DL_STR("obsolete: acall.32 1 4")},
+		{duckLisp_instruction_apply8, DL_STR("apply.8 1 1")},
+		{duckLisp_instruction_apply16, DL_STR("apply.16 2 1")},
+		{duckLisp_instruction_apply32, DL_STR("apply.32 4 1")},
+		{duckLisp_instruction_ccall8, DL_STR("c-call.8 1")},
+		{duckLisp_instruction_ccall16, DL_STR("c-call.16 2")},
+		{duckLisp_instruction_ccall32, DL_STR("c-call.32 4")},
+		{duckLisp_instruction_jump8, DL_STR("jump.8 1")},
+		{duckLisp_instruction_jump16, DL_STR("jump.16 2")},
+		{duckLisp_instruction_jump32, DL_STR("jump.32 4")},
+		{duckLisp_instruction_brz8, DL_STR("brz.8 1 1")},
+		{duckLisp_instruction_brz16, DL_STR("brz.16 2 1")},
+		{duckLisp_instruction_brz32, DL_STR("brz.32 4 1")},
+		{duckLisp_instruction_brnz8, DL_STR("brnz.8 1 1")},
+		{duckLisp_instruction_brnz16, DL_STR("brnz.16 2 1")},
+		{duckLisp_instruction_brnz32, DL_STR("brnz.32 4 1")},
+		{duckLisp_instruction_move8, DL_STR("move.8 1 1")},
+		{duckLisp_instruction_move16, DL_STR("move.16 2 2")},
+		{duckLisp_instruction_move32, DL_STR("move.32 4 4")},
+		{duckLisp_instruction_not8, DL_STR("not.8 1")},
+		{duckLisp_instruction_not16, DL_STR("not.16 2")},
+		{duckLisp_instruction_not32, DL_STR("not.32 4")},
+		{duckLisp_instruction_mul8, DL_STR("mul.8 1 1")},
+		{duckLisp_instruction_mul16, DL_STR("mul.16 2 2")},
+		{duckLisp_instruction_mul32, DL_STR("mul.32 4 4")},
+		{duckLisp_instruction_div8, DL_STR("div.8 1 1")},
+		{duckLisp_instruction_div16, DL_STR("div.16 2 2")},
+		{duckLisp_instruction_div32, DL_STR("div.32 4 4")},
+		{duckLisp_instruction_add8, DL_STR("add.8 1 1")},
+		{duckLisp_instruction_add16, DL_STR("add.16 2 2")},
+		{duckLisp_instruction_add32, DL_STR("add.32 4 4")},
+		{duckLisp_instruction_sub8, DL_STR("sub.8 1 1")},
+		{duckLisp_instruction_sub16, DL_STR("sub.16 2 2")},
+		{duckLisp_instruction_sub32, DL_STR("sub.32 4 4")},
+		{duckLisp_instruction_equal8, DL_STR("equal.8 1 1")},
+		{duckLisp_instruction_equal16, DL_STR("equal.16 2 2")},
+		{duckLisp_instruction_equal32, DL_STR("equal.32 4 4")},
+		{duckLisp_instruction_greater8, DL_STR("greater.8 1 1")},
+		{duckLisp_instruction_greater16, DL_STR("greater.16 2 2")},
+		{duckLisp_instruction_greater32, DL_STR("greater.32 4 4")},
+		{duckLisp_instruction_less8, DL_STR("less.8 1 1")},
+		{duckLisp_instruction_less16, DL_STR("less.16 2 2")},
+		{duckLisp_instruction_less32, DL_STR("less.32 4 4")},
+		{duckLisp_instruction_cons8, DL_STR("cons.8 1 1")},
+		{duckLisp_instruction_cons16, DL_STR("cons.16 2 2")},
+		{duckLisp_instruction_cons32, DL_STR("cons.32 4 4")},
+		{duckLisp_instruction_vector8, DL_STR("vector.8 1 V0")},
+		{duckLisp_instruction_vector16, DL_STR("vector.16 2 V0")},
+		{duckLisp_instruction_vector32, DL_STR("vector.32 4 V0")},
+		{duckLisp_instruction_makeVector8, DL_STR("makeVector.8 1 1")},
+		{duckLisp_instruction_makeVector16, DL_STR("makeVector.16 2 2")},
+		{duckLisp_instruction_makeVector32, DL_STR("makeVector.32 4 4")},
+		{duckLisp_instruction_getVecElt8, DL_STR("getVecElt.8 1 1")},
+		{duckLisp_instruction_getVecElt16, DL_STR("getVecElt.16 2 2")},
+		{duckLisp_instruction_getVecElt32, DL_STR("getVecElt.32 4 4")},
+		{duckLisp_instruction_setVecElt8, DL_STR("setVecElt.8 1 1 1")},
+		{duckLisp_instruction_setVecElt16, DL_STR("setVecElt.16 2 2 2")},
+		{duckLisp_instruction_setVecElt32, DL_STR("setVecElt.32 4 4 4")},
+		{duckLisp_instruction_car8, DL_STR("car.8 1")},
+		{duckLisp_instruction_car16, DL_STR("car.16 2")},
+		{duckLisp_instruction_car32, DL_STR("car.32 4")},
+		{duckLisp_instruction_cdr8, DL_STR("cdr.8 1")},
+		{duckLisp_instruction_cdr16, DL_STR("cdr.16 2")},
+		{duckLisp_instruction_cdr32, DL_STR("cdr.32 4")},
+		{duckLisp_instruction_setCar8, DL_STR("setCar.8 1 1")},
+		{duckLisp_instruction_setCar16, DL_STR("setCar.16 2 2")},
+		{duckLisp_instruction_setCar32, DL_STR("setCar.32 4 4")},
+		{duckLisp_instruction_setCdr8, DL_STR("setCdr.8 1 1")},
+		{duckLisp_instruction_setCdr16, DL_STR("setCdr.16 2 2")},
+		{duckLisp_instruction_setCdr32, DL_STR("setCdr.32 4 4")},
+		{duckLisp_instruction_nullp8, DL_STR("null?.8 1")},
+		{duckLisp_instruction_nullp16, DL_STR("null?.16 2")},
+		{duckLisp_instruction_nullp32, DL_STR("null?.32 4")},
+		{duckLisp_instruction_typeof8, DL_STR("typeof.8 1")},
+		{duckLisp_instruction_typeof16, DL_STR("typeof.16 2")},
+		{duckLisp_instruction_typeof32, DL_STR("typeof.32 4")},
+		{duckLisp_instruction_makeType, DL_STR("makeType")},
+		{duckLisp_instruction_makeInstance8, DL_STR("makeInstance.8 1 1 1")},
+		{duckLisp_instruction_makeInstance16, DL_STR("makeInstance.16 2 2 2")},
+		{duckLisp_instruction_makeInstance32, DL_STR("makeInstance.32 4 4 4")},
+		{duckLisp_instruction_compositeValue8, DL_STR("compositeValue.8 1")},
+		{duckLisp_instruction_compositeValue16, DL_STR("compositeValue.16 2")},
+		{duckLisp_instruction_compositeValue32, DL_STR("compositeValue.32 4")},
+		{duckLisp_instruction_compositeFunction8, DL_STR("compositeFunction.8 1")},
+		{duckLisp_instruction_compositeFunction16, DL_STR("compositeFunction.16 2")},
+		{duckLisp_instruction_compositeFunction32, DL_STR("compositeFunction.32 4")},
+		{duckLisp_instruction_setCompositeValue8, DL_STR("setCompositeValue.8 1 1")},
+		{duckLisp_instruction_setCompositeValue16, DL_STR("setCompositeValue.16 2 2")},
+		{duckLisp_instruction_setCompositeValue32, DL_STR("setCompositeValue.32 4 4")},
+		{duckLisp_instruction_setCompositeFunction8, DL_STR("setCompositeFunction.8 1 1")},
+		{duckLisp_instruction_setCompositeFunction16, DL_STR("setCompositeFunction.16 2 2")},
+		{duckLisp_instruction_setCompositeFunction32, DL_STR("setCompositeFunction.32 4 4")},
+		{duckLisp_instruction_makeString8, DL_STR("makeString.8 1")},
+		{duckLisp_instruction_makeString16, DL_STR("makeString.16 2")},
+		{duckLisp_instruction_makeString32, DL_STR("makeString.32 4")},
+		{duckLisp_instruction_concatenate8, DL_STR("concatenate.8 1 1")},
+		{duckLisp_instruction_concatenate16, DL_STR("concatenate.16 2 2")},
+		{duckLisp_instruction_concatenate32, DL_STR("concatenate.32 4 4")},
+		{duckLisp_instruction_substring8, DL_STR("substring.8 1 1 1")},
+		{duckLisp_instruction_substring16, DL_STR("substring.16 2 2 2")},
+		{duckLisp_instruction_substring32, DL_STR("substring.32 4 4 4")},
+		{duckLisp_instruction_length8, DL_STR("length.8 1")},
+		{duckLisp_instruction_length16, DL_STR("length.16 2")},
+		{duckLisp_instruction_length32, DL_STR("length.32 4")},
+		{duckLisp_instruction_symbolString8, DL_STR("symbolString.8 1")},
+		{duckLisp_instruction_symbolString16, DL_STR("symbolString.16 2")},
+		{duckLisp_instruction_symbolString32, DL_STR("symbolString.32 4")},
+		{duckLisp_instruction_symbolId8, DL_STR("symbolId.8 1")},
+		{duckLisp_instruction_symbolId16, DL_STR("symbolId.16 2")},
+		{duckLisp_instruction_symbolId32, DL_STR("symbolId.32 4")},
+		{duckLisp_instruction_pop8, DL_STR("pop.8 1")},
+		{duckLisp_instruction_pop16, DL_STR("pop.16 2")},
+		{duckLisp_instruction_pop32, DL_STR("pop.32 4")},
+		{duckLisp_instruction_return0, DL_STR("return.0")},
+		{duckLisp_instruction_return8, DL_STR("return.8 1")},
+		{duckLisp_instruction_return16, DL_STR("return.16 2")},
+		{duckLisp_instruction_return32, DL_STR("return.32 4")},
+		{duckLisp_instruction_yield, DL_STR("yield")},
+		{duckLisp_instruction_halt, DL_STR("halt")},
+		{duckLisp_instruction_nil, DL_STR("nil")},
+	};
+	dl_ptrdiff_t *template_array = dl_null;
+	e = DL_MALLOC(memoryAllocation, &template_array, maxElements, dl_ptrdiff_t);
+	if (e) goto cleanup;
+
+	DL_DOTIMES(i, maxElements) {
+		template_array[i] = -1;
+	}
+
+	DL_DOTIMES(i, sizeof(templates)/sizeof(*templates)) {
+		template_array[templates[i].opcode] = i;
+	}
+
+	e = dl_array_pushElements(&disassembly, DL_STR("DISASSEMBLY START\n"));
+	if (e) goto cleanup;
+
+	DL_DOTIMES(bytecode_index, length) {
+		dl_ptrdiff_t template_index = template_array[bytecode[bytecode_index]];
+		if (template_index >= 0) {
+			char *format = templates[template_index].format;
+			dl_size_t format_length = templates[template_index].format_length;
+
+			/* Name */
+			DL_DOTIMES(k, format_length) {
+				char formatChar = format[k];
+				if (dl_string_isSpace(formatChar)) {
+					format = &format[k];
+					format_length -= k;
+					break;
+				}
+				e = dl_array_pushElement(&disassembly, &formatChar);
+				if (e) goto cleanup;
+				if ((dl_size_t) k == format_length - 1) {
+					format = &format[k];
+					format_length -= k;
+					break;
+				}
+			}
+			format++;
+			--format_length;
+			if (format_length > 0) {
+				e = dl_array_pushElement(&disassembly, " ");
+				if (e) goto cleanup;
+			}
+
+			/* Args */
+			dl_size_t args[5];  /* Didn't count. Just guessed. */
+			int args_size[5];
+			int args_index = 0;
+			while (format_length > 0) {
+				char formatChar = *format;
+				switch (formatChar) {
+				case '1': {
+					bytecode_index++;
+					dl_uint8_t code = bytecode[bytecode_index];
+					char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
+					e = dl_array_pushElement(&disassembly, &hexChar);
+					if (e) goto cleanup;
+					hexChar = dl_nybbleToHexChar(code & 0x0F);
+					e = dl_array_pushElement(&disassembly, &hexChar);
+					if (e) goto cleanup;
+					args[args_index] = code;
+					args_size[args_index] = 1;
+					args_index++;
+					format++;
+					--format_length;
+					if (format_length > 0) {
+						e = dl_array_pushElement(&disassembly, " ");
+						if (e) goto cleanup;
+					}
+					break;
+				}
+				case '2': {
+					args[args_index] = 0;
+					DL_DOTIMES(m, 2) {
+						bytecode_index++;
+						dl_uint8_t code = bytecode[bytecode_index];
+						char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						hexChar = dl_nybbleToHexChar(code & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						args[args_index] <<= 8;
+						args[args_index] |= code;
+					}
+					args_size[args_index] = 2;
+					args_index++;
+					format++;
+					--format_length;
+					if (format_length > 0) {
+						e = dl_array_pushElement(&disassembly, " ");
+						if (e) goto cleanup;
+					}
+					break;
+				}
+				case '4': {
+					args[args_index] = 0;
+					DL_DOTIMES(m, 4) {
+						bytecode_index++;
+						dl_uint8_t code = bytecode[bytecode_index];
+						char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						hexChar = dl_nybbleToHexChar(code & 0x0F);
+						e = dl_array_pushElement(&disassembly, &hexChar);
+						if (e) goto cleanup;
+						args[args_index] <<= 8;
+						args[args_index] |= code;
+					}
+					args_size[args_index] = 4;
+					args_index++;
+					format++;
+					--format_length;
+					if (format_length > 0) {
+						e = dl_array_pushElement(&disassembly, " ");
+						if (e) goto cleanup;
+					}
+					break;
+				}
+				case 'v': {
+					format++;
+					--format_length;
+					char index = *format - '0';
+					const dl_size_t length = args[(dl_uint8_t) index];
+					const int size = args_size[(dl_uint8_t) index];
+					format++;
+					--format_length;
+					DL_DOTIMES(m, length) {
+						DL_DOTIMES(n, size) {
+							bytecode_index++;
+							char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
+							e = dl_array_pushElement(&disassembly, &hexChar);
+							if (e) goto cleanup;
+							hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
+							e = dl_array_pushElement(&disassembly, &hexChar);
+							if (e) goto cleanup;
+						}
+						if ((format_length > 0) || ((dl_size_t) m != length - 1)) {
+							e = dl_array_pushElement(&disassembly, " ");
+							if (e) goto cleanup;
+						}
+					}
+					break;
+				}
+				case 'V': {
+					format++;
+					--format_length;
+					char index = *format - '0';
+					dl_size_t length = args[(dl_uint8_t) index];
+					format++;
+					--format_length;
+					DL_DOTIMES(m, length) {
+						DL_DOTIMES(n, 4) {
+							bytecode_index++;
+							char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
+							e = dl_array_pushElement(&disassembly, &hexChar);
+							if (e) goto cleanup;
+							hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
+							e = dl_array_pushElement(&disassembly, &hexChar);
+							if (e) goto cleanup;
+						}
+						if ((format_length > 0) || ((dl_size_t) m != length - 1)) {
+							e = dl_array_pushElement(&disassembly, " ");
+							if (e) goto cleanup;
+						}
+					}
+					break;
+				}
+				case 's': {
+					format++;
+					--format_length;
+					char index = *format - '0';
+					dl_size_t length = args[(dl_uint8_t) index];
+					format++;
+					--format_length;
+					e = dl_array_pushElement(&disassembly, "\"");
+					if (e) goto cleanup;
+					DL_DOTIMES(m, length) {
+						bytecode_index++;
+						char stringChar = bytecode[bytecode_index];
+						if (dl_string_isSpace(stringChar) && (stringChar != '\n') && (stringChar != '\r')) {
+							stringChar = ' ';
+						}
+						e = dl_array_pushElement(&disassembly, &stringChar);
+						if (e) goto cleanup;
+					}
+					e = dl_array_pushElement(&disassembly, "\"");
+					if (e) goto cleanup;
+					if (format_length > 0) {
+						e = dl_array_pushElement(&disassembly, " ");
+						if (e) goto cleanup;
+					}
+					break;
+				}
+				case ' ': {
+					format++;
+					--format_length;
+					break;
+				}
+				default:
+					e = dl_error_invalidValue;
+					goto cleanup;
+				}
+			}
+
+			e = dl_array_pushElement(&disassembly, "\n");
+			if (e) goto cleanup;
+		}
+		else {
+			e = dl_array_pushElements(&disassembly, DL_STR("Illegal opcode '"));
+			if (e) goto cleanup;
+			char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0xF);
+			e = dl_array_pushElement(&disassembly, &hexChar);
+			if (e) goto cleanup;
+			hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0xF);
+			e = dl_array_pushElement(&disassembly, &hexChar);
+			if (e) goto cleanup;
+			e = dl_array_pushElement(&disassembly, "'");
+			if (e) goto cleanup;
+			e = dl_array_pushElement(&disassembly, "\n");
+			if (e) goto cleanup;
+		}
+	}
+
+	e = dl_array_pushElements(&disassembly, DL_STR("DISASSEMBLY END\n"));
+	if (e) goto cleanup;
+
+	/* Push a return. */
+	e = dl_array_pushElements(&disassembly, "\0", 1);
+	if (e) goto cleanup;
+
+	/* No more editing, so shrink array. */
+	e = dl_realloc(memoryAllocation, &disassembly.elements, disassembly.elements_length * disassembly.element_size);
+	if (e) goto cleanup;
+
+	*string = disassembly.elements;
+	*string_length = disassembly.elements_length;
+
+ cleanup:
+	eError = DL_FREE(memoryAllocation, &template_array);
+	if (eError) e = eError;
 	return e;
 }
