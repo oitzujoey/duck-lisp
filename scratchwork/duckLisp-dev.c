@@ -1286,7 +1286,8 @@ int eval(duckLisp_t *duckLisp,
 		dl_size_t length = 0;
 		duckLisp_disassemble(&disassembly, &length, duckLisp->memoryAllocation, bytecode, bytecode_length);
 		printf("%s", disassembly);
-		/* e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly); */
+		e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly);
+		if (e) goto cleanup;
 		putchar('\n');
 	}
 

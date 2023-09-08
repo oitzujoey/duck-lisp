@@ -2389,7 +2389,6 @@ Todo:
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
     Optimization?
-        Fuse pop instructions — S
         Hash tables/Tries? — M
         String interning? — M
         Rewrite memory allocator? — L
