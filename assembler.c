@@ -2455,68 +2455,74 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 
 		/* Optimize addressing size. */
 
-		dl_ptrdiff_t offset;
-		do {
-			/* printf("\n"); */
-			offset = 0;
-			for (dl_ptrdiff_t j = 0; (dl_size_t) j < 2 * newLinkArray.links_length; j++) {
-				unsigned char newSize;
-				dl_ptrdiff_t difference;
-				dl_ptrdiff_t index = jumpLinkPointers[j].index;
-				jumpLink_t link = newLinkArray.links[index];
+		{
+			dl_ptrdiff_t offset;
+			dl_size_t iteration = 0;
+			do {
+				/* printf("\n"); */
+				offset = 0;
+				iteration++;
+				for (dl_ptrdiff_t j = 0; (dl_size_t) j < 2 * newLinkArray.links_length; j++) {
+					unsigned char newSize;
+					dl_ptrdiff_t difference;
+					dl_ptrdiff_t index = jumpLinkPointers[j].index;
+					jumpLink_t link = newLinkArray.links[index];
 
-				/* Make sure to check for duplicate links.
-				   ^^^ Make sure to ignore that. They are not duplicates.
-				   They need to point to the original links so that the originals can be updated.
-				   This means I should have created a member that points to the original struct. */
+					/* Make sure to check for duplicate links.
+					   ^^^ Make sure to ignore that. They are not duplicates.
+					   They need to point to the original links so that the originals can be updated.
+					   This means I should have created a member that points to the original struct. */
 
-				/*
-				  Required structs:
-				  goto-label struct. Has a single label and multiple gotos. Possibly superfluous. Done.
-				  Original jump link struct. Saved so that the bytecode addresses can be updated. Done.
-				  Malleable jump link struct. Scratchpad and final result of calculation. Done.
-				  Link pointer struct. Sorted so that malleable links can be updated in order. Done.
-				*/
+					/*
+					  Required structs:
+					  goto-label struct. Has a single label and multiple gotos. Possibly superfluous. Done.
+					  Original jump link struct. Saved so that the bytecode addresses can be updated. Done.
+					  Malleable jump link struct. Scratchpad and final result of calculation. Done.
+					  Link pointer struct. Sorted so that malleable links can be updated in order. Done.
+					*/
 
-				/* jumpLink[i].address += offset; */
+					/* jumpLink[i].address += offset; */
 
-				if (jumpLinkPointers[j].type == jumpLinkPointers_type_target) {
-					link.target += offset;
-					/* printf("t %lli	index l%lli		 offset %lli\n", link.target, index, offset); */
-				}
-				else {
-					link.source += offset;
-
-					/* Range calculation */
-					difference = link.target - (link.source + link.size);
-
-					/* Size calculation */
-					if ((DL_INT8_MAX >= difference) && (difference >= DL_INT8_MIN)) {
-						newSize = 1;  /* +1 for opcode. */
-					}
-					else if ((DL_INT16_MAX >= difference) && (difference >= DL_INT16_MIN)) {
-						newSize = 2;
+					if (jumpLinkPointers[j].type == jumpLinkPointers_type_target) {
+						link.target += offset;
+						/* printf("t %lli	index l%lli		 offset %lli\n", link.target, index, offset); */
 					}
 					else {
-						newSize = 4;
-					}
-					if (link.absolute) newSize = 4;
+						link.source += offset;
 
-					/* printf("t %lli	index j%lli		 offset %lli  difference %lli  size %u	newSize %u\n", */
-					/*        link.source, */
-					/*        index, */
-					/*        offset, */
-					/*        difference, */
-					/*        link.size, */
-					/*        newSize) */;
-					if (newSize > link.size) {
-						offset += newSize - link.size;
-						link.size = newSize;
+						/* Range calculation */
+						difference = link.target - (link.source + link.size);
+
+						/* Size calculation */
+						if ((DL_INT8_MAX >= difference) && (difference >= DL_INT8_MIN)) {
+							newSize = 1;  /* +1 for opcode. */
+						}
+						else if ((DL_INT16_MAX >= difference) && (difference >= DL_INT16_MIN)) {
+							newSize = 2;
+						}
+						else {
+							newSize = 4;
+						}
+						if (link.absolute) newSize = 4;
+
+						/* printf("t %zi	index j%zi		 offset %zi  difference %zi  size %u	newSize %u\n", */
+						/*        link.source, */
+						/*        index, */
+						/*        offset, */
+						/*        difference, */
+						/*        link.size, */
+						/*        newSize); */
+						if (newSize != link.size) {
+							offset += newSize - link.size;
+							link.size = newSize;
+						}
 					}
+					newLinkArray.links[index] = link;
 				}
-				newLinkArray.links[index] = link;
-			}
-		} while (offset != 0);
+				/* I haven't checked if it terminates after I changed `newSize > link.size` to `newSize != link.size`,
+				   thus the `iteration < 10`. */
+			} while ((offset != 0) && (iteration < 10));
+		}
 
 		e = dl_free(duckLisp->memoryAllocation, (void *) &jumpLinkPointers);
 		if (e) goto cleanup;
