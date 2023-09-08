@@ -138,13 +138,15 @@ dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
 #define X(s) s, sizeof(s) - 1
 		{X("duckLisp_ast_type_none")},
 		{X("duckLisp_ast_type_expression")},
+		{X("duckLisp_ast_type_literalExpression")},
 		{X("duckLisp_ast_type_identifier")},
+		{X("duckLisp_ast_type_callback")},
 		{X("duckLisp_ast_type_string")},
 		{X("duckLisp_ast_type_float")},
 		{X("duckLisp_ast_type_int")},
 		{X("duckLisp_ast_type_bool")},
 #undef X
-	};
+};
 
 
 	if (astCompoundExpression.type != type) {
