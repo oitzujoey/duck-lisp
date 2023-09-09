@@ -2374,7 +2374,6 @@ Defer:
 Todo:
     Finish parenthesis inference
         Add support for nested types? — L
-        Allow adding declarations from C — S
         Document inference algorithm — M
     Fix C API — L
         Add a bunch of `*_toString` functions — M

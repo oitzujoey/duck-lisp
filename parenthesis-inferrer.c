@@ -1481,7 +1481,13 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 		if (e) goto cleanup;
 	}
 
-	e = duckLisp_addGenerator(&state.duckLisp, generator_declarationScope, DL_STR("__declaration-scope"));
+	e = duckLisp_addGenerator(&state.duckLisp,
+	                          generator_declarationScope,
+	                          DL_STR("__declaration-scope"),
+	                          dl_null,
+	                          0,
+	                          dl_null,
+	                          0);
 	if (e) goto cleanup;
 
 	{
@@ -1493,141 +1499,6 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 
 	{
 		duckLisp_parenthesisInferrer_declarationPrototype_t declarations[] = {
-			{DL_STR("__declare"),                     DL_STR("(L L &rest 0 I)"), dl_null, 0},
-			{DL_STR("__nop"),                         DL_STR("()"), dl_null, 0},
-			{DL_STR("__funcall"),                     DL_STR("(I &rest 1 I)"), dl_null, 0},
-			{DL_STR("__apply"),                       DL_STR("(I &rest 1 I)"), dl_null, 0},
-			{DL_STR("__var"),
-			 DL_STR("(L I)"),
-			 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
-			{DL_STR("__global"),                      DL_STR("(L I)"), dl_null, 0},
-			{DL_STR("__setq"),                        DL_STR("(L I)"), dl_null, 0},
-			{DL_STR("__not"),                         DL_STR("(I)"), dl_null, 0},
-			{DL_STR("__*"),                           DL_STR("(I I)"), dl_null, 0},
-			{DL_STR("__/"),                           DL_STR("(I I)"), dl_null, 0},
-			{DL_STR("__+"),                           DL_STR("(I I)"), dl_null, 0},
-			{DL_STR("__-"),                           DL_STR("(I I)"), dl_null, 0},
-			{DL_STR("__while"),                       DL_STR("(I &rest 1 I)"), dl_null, 0},
-			{DL_STR("__if"),                          DL_STR("(I I I)"), dl_null, 0},
-			{DL_STR("__when"),                        DL_STR("(I &rest 1 I)"), dl_null, 0},
-			{DL_STR("__unless"),                      DL_STR("(I &rest 1 I)"), dl_null, 0},
-			{DL_STR("__="),                           DL_STR("(I I)"), dl_null, 0},
-			{DL_STR("__<"),                           DL_STR("(I I)"), dl_null, 0},
-			{DL_STR("__>"),                           DL_STR("(I I)"), dl_null, 0},
-			{DL_STR("__defun"),
-			 DL_STR("(L L &rest 1 I)"),
-			 DL_STR(" \
-( \
- (__var name (__infer-and-get-next-argument)) \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
- ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
- ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument)) \
- (__declare-identifier name type)) \
-")},
-			{DL_STR("__lambda"),
-			 DL_STR("(L &rest 1 I)"),
-			 DL_STR(" \
-( \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
- ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
- ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument))) \
-")},
-			{DL_STR("__defmacro"),
-			 DL_STR("(L L &rest 1 I)"),
-			 DL_STR(" \
-( \
- (__var name (__infer-and-get-next-argument)) \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
- ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
- ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument)) \
- (__declare-identifier name type)) \
-")},
-			{DL_STR("__noscope"),                     DL_STR("(&rest 0 I)"),     dl_null, 0},
-			{DL_STR("__comptime"),                    DL_STR("(&rest 1 I)"),     dl_null, 0},
-			{DL_STR("__quote"),                       DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__list"),                        DL_STR("(&rest 0 I)"),     dl_null, 0},
-			{DL_STR("__vector"),                      DL_STR("(&rest 0 I)"),     dl_null, 0},
-			{DL_STR("__make-vector"),                 DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__get-vector-element"),          DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__set-vector-element"),          DL_STR("(I I I)"),         dl_null, 0},
-			{DL_STR("__cons"),                        DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__car"),                         DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__cdr"),                         DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__set-car"),                     DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__set-cdr"),                     DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__null?"),                       DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__type-of"),                     DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__make-type"),                   DL_STR("()"),              dl_null, 0},
-			{DL_STR("__make-instance"),               DL_STR("(I I I)"),         dl_null, 0},
-			{DL_STR("__composite-value"),             DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__composite-function"),          DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__set-composite-value"),         DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__set-composite-function"),      DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__make-string"),                 DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__concatenate"),                 DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__substring"),                   DL_STR("(I I I)"),         dl_null, 0},
-			{DL_STR("__length"),                      DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__symbol-string"),               DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__symbol-id"),                   DL_STR("(I)"),             dl_null, 0},
-			{DL_STR("__error"),                       DL_STR("(I)"),             dl_null, 0},
-
 			{DL_STR("__infer-and-get-next-argument"), DL_STR("()"),              dl_null, 0},
 			{DL_STR("__declare-identifier"),          DL_STR("(I I)"),           dl_null, 0},
 			{DL_STR("__declaration-scope"),           DL_STR("(&rest 1 I)"),     dl_null, 0}};
@@ -1689,11 +1560,6 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 
 				e = dl_array_get(externalDeclarations, &prototype, i);
 				if (e) goto cleanup;
-
-				DL_DOTIMES(i, prototype.name_length) {
-					putchar(prototype.name[i]);
-				}
-				putchar('\n');
 
 				e = duckLisp_read(&state.duckLisp,
 				                  dl_false,

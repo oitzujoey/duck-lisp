@@ -753,13 +753,21 @@ dl_error_t duckLisp_addParserAction(duckLisp_t *duckLisp,
                                     dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*),
                                     const dl_uint8_t *name,
                                     const dl_size_t name_length);
-dl_error_t DECLSPEC duckLisp_addGenerator(duckLisp_t *duckLisp,
-                                          dl_error_t (*callback)(duckLisp_t*,
-                                                                 duckLisp_compileState_t *,
-                                                                 dl_array_t*,
-                                                                 duckLisp_ast_expression_t*),
-                                          const dl_uint8_t *name,
-                                          const dl_size_t name_length);
+dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
+                                 dl_error_t (*callback)(duckLisp_t*,
+                                                        duckLisp_compileState_t *,
+                                                        dl_array_t*,
+                                                        duckLisp_ast_expression_t*),
+                                 dl_uint8_t *name,
+                                 const dl_size_t name_length
+#ifdef USE_PARENTHESIS_INFERENCE
+                                 ,
+                                 dl_uint8_t *typeString,
+                                 const dl_size_t typeString_length,
+                                 dl_uint8_t *declarationScript,
+                                 const dl_size_t declarationScript_length
+#endif /* USE_PARENTHESIS_INFERENCE */
+                                 );
 dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
                                   dl_error_t (*callback)(duckVM_t *),
                                   dl_uint8_t *name,

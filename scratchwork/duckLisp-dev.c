@@ -1468,11 +1468,15 @@ int main(int argc, char *argv[]) {
 
 	// All user-defined generators go here.
 	struct {
-		const unsigned char *name;
+		dl_uint8_t *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, duckLisp_compileState_t*, dl_array_t*, duckLisp_ast_expression_t*);
+		dl_uint8_t *type;
+		const dl_size_t type_length;
+		dl_uint8_t *declarationScript;
+		const dl_size_t declarationScript_length;
 	} generators[] = {
-		{dl_null, 0,        dl_null}
+		{dl_null, 0, dl_null, dl_null, 0, dl_null, 0}
 	};
 
 	// All user-defined callbacks go here.
@@ -1547,7 +1551,18 @@ int main(int argc, char *argv[]) {
 	/* Create generators. */
 
 	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
-		e = duckLisp_addGenerator(&duckLisp, generators[i].callback, generators[i].name, generators[i].name_length);
+		e = duckLisp_addGenerator(&duckLisp,
+		                          generators[i].callback,
+		                          generators[i].name,
+		                          generators[i].name_length
+#ifdef USE_PARENTHESIS_INFERENCE
+		                          ,
+		                          generators[i].type,
+		                          generators[i].type_length,
+		                          generators[i].declarationScript,
+		                          generators[i].declarationScript_length
+#endif /* USE_PARENTHESIS_INFERENCE */
+		                          );
 		if (e) {
 			printf(COLOR_RED "Could not register generator. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		}
