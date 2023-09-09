@@ -1,128 +1,4 @@
-__defmacro declare (identifier type &rest script-body) ()
-(__declare declare (L L &rest 0 I)
-           (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
-
-__defmacro var (name value)
-           (__list (__quote __var) name value)
-(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote L)))
-
-(__defmacro defmacro (name parameters type &rest body)
-            __cons (__quote __defmacro) (__cons name (__cons parameters body)))
-(__declare defmacro (L L L &rest 1 I)
-           (
-            (__var name (__infer-and-get-next-argument))
-            (__var parameters (__infer-and-get-next-argument))
-            (__var type (__infer-and-get-next-argument))
-            (__declaration-scope
-             (__while parameters
-                      __var parameter __car parameters
-                      (__unless (__= (__quote &rest) parameter)
-                                (__declare-identifier parameter (__quote L)))
-                      (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote self) type)
-             (__infer-and-get-next-argument))
-            (__declare-identifier name type)))
-
-(defmacro defun (name parameters &rest body) (L L &rest 1 I)
-  __var new-parameters ()
-  ;; Dump `&rest's argument.
-  (()
-   __var p2 parameters
-   (__while p2
-            __setq new-parameters (__cons (__car p2) new-parameters)
-            __when __= (__car p2) (__quote &rest)
-                   __setq p2 __cdr p2
-            __setq p2 __cdr p2))
-  (()
-   __var np2 new-parameters
-   __setq new-parameters ()
-   (__while np2
-            __setq new-parameters (__cons (__car np2) new-parameters)
-            __setq np2 __cdr np2))
-  __cons (__quote __defun) (__cons name (__cons new-parameters body)))
-(__declare defun (L L &rest 1 I)
-           (
-            (__var name (__infer-and-get-next-argument))
-            (__var parameters (__infer-and-get-next-argument))
-            (__var type ())
-            (
-             (__var parameters parameters)
-             (__while parameters
-                      (__if (__if (__= (__quote &rest) (__car parameters))
-                                  true
-                                  (__= (__type-of __car parameters) (__type-of 0)))
-                            (__setq type (__cons __car parameters type))
-                            (__setq type (__cons (__quote I) type)))
-                      (__setq parameters (__cdr parameters))))
-            (
-             (__var type2 type)
-             (__setq type ())
-             (__while type2
-                      (__setq type (__cons (__car type2) type))
-                      (__setq type2 (__cdr type2))))
-            (__declaration-scope
-             (__while parameters
-                      __var parameter __car parameters
-                      (__when (__when (__= (__type-of parameter) (__type-of __quote a))
-                                      (__not (__= (__quote &rest) parameter)))
-                              (__declare-identifier parameter (__quote L)))
-                      (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote self) type)
-             (__infer-and-get-next-argument))
-            (__declare-identifier name type)))
-
-(defmacro lambda (parameters &rest body) (L &rest 1 I)
-  __var new-parameters ()
-  ;; Dump `&rest's argument.
-  (()
-   __var p2 parameters
-   (__while p2
-            __setq new-parameters (__cons (__car p2) new-parameters)
-            __when __= (__car p2) (__quote &rest)
-                   __setq p2 __cdr p2
-            __setq p2 __cdr p2))
-  (()
-   __var np2 new-parameters
-   __setq new-parameters ()
-   (__while np2
-            __setq new-parameters (__cons (__car np2) new-parameters)
-            __setq np2 __cdr np2))
-  __cons (__quote __lambda) (__cons new-parameters body))
-(__declare lambda (L &rest 1 I)
-           (
-            (__var parameters (__infer-and-get-next-argument))
-            (__var type ())
-            (
-             (__var parameters parameters)
-             (__while parameters
-                      (__if (__if (__= (__quote &rest) (__car parameters))
-                                  true
-                                  (__= (__type-of __car parameters) (__type-of 0)))
-                            (__setq type (__cons __car parameters type))
-                            (__setq type (__cons (__quote I) type)))
-                      (__setq parameters (__cdr parameters))))
-            (
-             (__var type2 type)
-             (__setq type ())
-             (__while type2
-                      (__setq type (__cons (__car type2) type))
-                      (__setq type2 (__cdr type2))))
-            (__declaration-scope
-             (__while parameters
-                      __var parameter __car parameters
-                      (__when (__when (__= (__type-of parameter) (__type-of __quote a))
-                                      (__not (__= (__quote &rest) parameter)))
-                              (__declare-identifier parameter (__quote L)))
-                      (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote self) type)
-             (__infer-and-get-next-argument))))
-
-declare print (I)
-
-
-;;;;;;;;;;;;;;;;;;;;;;;
-;; Start main script ;;
-;;;;;;;;;;;;;;;;;;;;;;;
+(include "../scripts/library.hna")
 
 var a 0
 var b 1
@@ -132,26 +8,25 @@ defun get-a () a
 defun get-b () b
 defun get-c () c
 
-defun set-a (v) __setq a v
-defun set-b (v) __setq b v
-defun set-c (v) __setq c v
+defun set-a v setq a v
+defun set-b v setq b v
+defun set-c v setq c v
 
 defmacro HAPPY (condition &rest body) (I &rest 1 I)
-  __cons __quote __while
-         __cons condition
-                body
-__defun ENDING (a b) __< a b
+  cons ' while
+       cons condition
+            body
+defun ENDING (a b) < a b
 defun Mary ()  get-a
 defmacro had (a b) (L L) 35
-defun llama, (v)
-      __cons print v
-             print "\n"
-defun put (v) set-c v
-defun it (a b) __+ a b
+defun llama, v
+      println v
+defun put v set-c v
+defun it (a b) + a b
 defun in () get-b
-defun zoo (v) set-b v
+defun zoo v set-b v
 defun Thereby () get-a
-defun ends (v) set-a v
+defun ends v set-a v
 defun our () get-c
 ;; I got a little lazy.
 defmacro little
