@@ -27,11 +27,21 @@ SOFTWARE.
 
 #include "duckLisp.h"
 
+typedef struct {
+	dl_uint8_t *name;
+	dl_size_t name_length;
+	dl_uint8_t *type;
+	dl_size_t type_length;
+	dl_uint8_t *script;
+	dl_size_t script_length;
+} duckLisp_parenthesisInferrer_declarationPrototype_t;
+
 dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
-                            dl_size_t maxComptimeVmObjects,
+                            const dl_size_t maxComptimeVmObjects,
                             dl_array_t *errors,
                             const dl_uint8_t *fileName,
                             const dl_size_t fileName_length,
-                            duckLisp_ast_compoundExpression_t *ast);
+                            duckLisp_ast_compoundExpression_t *ast,
+                            dl_array_t *externalDeclarations  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */);
 
 #endif /* PARENTHESIS_INFERRER_H */

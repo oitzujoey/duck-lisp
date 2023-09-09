@@ -191,6 +191,7 @@ typedef struct {
 	dl_size_t generators_length;
 
 	dl_trie_t callbacks_trie;  /* Points to runtime C callbacks. */
+	dl_array_t parenthesisInferrerTypes_array;  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */
 
 	dl_size_t gensym_number;
 
@@ -759,10 +760,16 @@ dl_error_t DECLSPEC duckLisp_addGenerator(duckLisp_t *duckLisp,
                                                                  duckLisp_ast_expression_t*),
                                           const dl_uint8_t *name,
                                           const dl_size_t name_length);
-dl_error_t DECLSPEC duckLisp_linkCFunction(duckLisp_t *duckLisp,
-                                           dl_error_t (*callback)(duckVM_t *),
-                                           const dl_uint8_t *name,
-                                           const dl_size_t name_length);
+dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
+                                  dl_error_t (*callback)(duckVM_t *),
+                                  dl_uint8_t *name,
+                                  const dl_size_t name_length
+#ifdef USE_PARENTHESIS_INFERENCE
+                                  ,
+                                  dl_uint8_t *typeString,
+                                  const dl_size_t typeString_length
+#endif /* USE_PARENTHESIS_INFERENCE */
+                                  );
 
 dl_error_t serialize_errors(dl_memoryAllocation_t *memoryAllocation,
                             dl_array_t *errorString,

@@ -1449,7 +1449,8 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                             dl_array_t *errors,
                             const dl_uint8_t *fileName,
                             const dl_size_t fileName_length,
-                            duckLisp_ast_compoundExpression_t *ast) {
+                            duckLisp_ast_compoundExpression_t *ast,
+                            dl_array_t *externalDeclarations  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -1458,7 +1459,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	if (e) goto cleanup;
 
 	struct {
-		const dl_uint8_t *name;
+		dl_uint8_t *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
@@ -1468,7 +1469,12 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 		{DL_STR("\0__pop-declaration-scope"),     callback_popScope},
 	};
 	DL_DOTIMES(i, sizeof(callbacks)/sizeof(*callbacks)) {
-		e = duckLisp_linkCFunction(&state.duckLisp, callbacks[i].callback, callbacks[i].name, callbacks[i].name_length);
+		e = duckLisp_linkCFunction(&state.duckLisp,
+		                           callbacks[i].callback,
+		                           callbacks[i].name,
+		                           callbacks[i].name_length,
+		                           dl_null,
+		                           0);
 		if (e) goto cleanup;
 		dl_ptrdiff_t id = duckLisp_symbol_nameToValue(&state.duckLisp, callbacks[i].name, callbacks[i].name_length);
 		e = duckVM_linkCFunction(&state.duckVM, id, callbacks[i].callback);
@@ -1486,37 +1492,31 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	}
 
 	{
-		struct {
-			dl_uint8_t *name;
-			dl_size_t name_length;
-			dl_uint8_t *typeString;
-			dl_size_t typeString_length;
-			dl_uint8_t *script;
-			dl_size_t script_length;
-		} declarations[] = {{DL_STR("__declare"),                     DL_STR("(L L &rest 0 I)"), dl_null, 0},
-		                    {DL_STR("__nop"),                         DL_STR("()"), dl_null, 0},
-		                    {DL_STR("__funcall"),                     DL_STR("(I &rest 1 I)"), dl_null, 0},
-		                    {DL_STR("__apply"),                       DL_STR("(I &rest 1 I)"), dl_null, 0},
-		                    {DL_STR("__var"),
-		                     DL_STR("(L I)"),
-		                     DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
-		                    {DL_STR("__global"),                      DL_STR("(L I)"), dl_null, 0},
-		                    {DL_STR("__setq"),                        DL_STR("(L I)"), dl_null, 0},
-		                    {DL_STR("__not"),                         DL_STR("(I)"), dl_null, 0},
-		                    {DL_STR("__*"),                           DL_STR("(I I)"), dl_null, 0},
-		                    {DL_STR("__/"),                           DL_STR("(I I)"), dl_null, 0},
-		                    {DL_STR("__+"),                           DL_STR("(I I)"), dl_null, 0},
-		                    {DL_STR("__-"),                           DL_STR("(I I)"), dl_null, 0},
-		                    {DL_STR("__while"),                       DL_STR("(I &rest 1 I)"), dl_null, 0},
-		                    {DL_STR("__if"),                          DL_STR("(I I I)"), dl_null, 0},
-		                    {DL_STR("__when"),                        DL_STR("(I &rest 1 I)"), dl_null, 0},
-		                    {DL_STR("__unless"),                      DL_STR("(I &rest 1 I)"), dl_null, 0},
-		                    {DL_STR("__="),                           DL_STR("(I I)"), dl_null, 0},
-		                    {DL_STR("__<"),                           DL_STR("(I I)"), dl_null, 0},
-		                    {DL_STR("__>"),                           DL_STR("(I I)"), dl_null, 0},
-		                    {DL_STR("__defun"),
-		                     DL_STR("(L L &rest 1 I)"),
-		                     DL_STR(" \
+		duckLisp_parenthesisInferrer_declarationPrototype_t declarations[] = {
+			{DL_STR("__declare"),                     DL_STR("(L L &rest 0 I)"), dl_null, 0},
+			{DL_STR("__nop"),                         DL_STR("()"), dl_null, 0},
+			{DL_STR("__funcall"),                     DL_STR("(I &rest 1 I)"), dl_null, 0},
+			{DL_STR("__apply"),                       DL_STR("(I &rest 1 I)"), dl_null, 0},
+			{DL_STR("__var"),
+			 DL_STR("(L I)"),
+			 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
+			{DL_STR("__global"),                      DL_STR("(L I)"), dl_null, 0},
+			{DL_STR("__setq"),                        DL_STR("(L I)"), dl_null, 0},
+			{DL_STR("__not"),                         DL_STR("(I)"), dl_null, 0},
+			{DL_STR("__*"),                           DL_STR("(I I)"), dl_null, 0},
+			{DL_STR("__/"),                           DL_STR("(I I)"), dl_null, 0},
+			{DL_STR("__+"),                           DL_STR("(I I)"), dl_null, 0},
+			{DL_STR("__-"),                           DL_STR("(I I)"), dl_null, 0},
+			{DL_STR("__while"),                       DL_STR("(I &rest 1 I)"), dl_null, 0},
+			{DL_STR("__if"),                          DL_STR("(I I I)"), dl_null, 0},
+			{DL_STR("__when"),                        DL_STR("(I &rest 1 I)"), dl_null, 0},
+			{DL_STR("__unless"),                      DL_STR("(I &rest 1 I)"), dl_null, 0},
+			{DL_STR("__="),                           DL_STR("(I I)"), dl_null, 0},
+			{DL_STR("__<"),                           DL_STR("(I I)"), dl_null, 0},
+			{DL_STR("__>"),                           DL_STR("(I I)"), dl_null, 0},
+			{DL_STR("__defun"),
+			 DL_STR("(L L &rest 1 I)"),
+			 DL_STR(" \
 ( \
  (__var name (__infer-and-get-next-argument)) \
  (__var parameters (__infer-and-get-next-argument)) \
@@ -1543,9 +1543,9 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
   (__infer-and-get-next-argument)) \
  (__declare-identifier name type)) \
 ")},
-		                    {DL_STR("__lambda"),
-		                     DL_STR("(L &rest 1 I)"),
-		                     DL_STR(" \
+			{DL_STR("__lambda"),
+			 DL_STR("(L &rest 1 I)"),
+			 DL_STR(" \
 ( \
  (__var parameters (__infer-and-get-next-argument)) \
  (__var type ()) \
@@ -1570,9 +1570,9 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
   (__declare-identifier (__quote self) type) \
   (__infer-and-get-next-argument))) \
 ")},
-		                    {DL_STR("__defmacro"),
-		                     DL_STR("(L L &rest 1 I)"),
-		                     DL_STR(" \
+			{DL_STR("__defmacro"),
+			 DL_STR("(L L &rest 1 I)"),
+			 DL_STR(" \
 ( \
  (__var name (__infer-and-get-next-argument)) \
  (__var parameters (__infer-and-get-next-argument)) \
@@ -1599,41 +1599,38 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
   (__infer-and-get-next-argument)) \
  (__declare-identifier name type)) \
 ")},
-		                    {DL_STR("__noscope"),                     DL_STR("(&rest 0 I)"),     dl_null, 0},
-		                    {DL_STR("__comptime"),                    DL_STR("(&rest 1 I)"),     dl_null, 0},
-		                    {DL_STR("__quote"),                       DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__list"),                        DL_STR("(&rest 0 I)"),     dl_null, 0},
-		                    {DL_STR("__vector"),                      DL_STR("(&rest 0 I)"),     dl_null, 0},
-		                    {DL_STR("__make-vector"),                 DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__get-vector-element"),          DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__set-vector-element"),          DL_STR("(I I I)"),         dl_null, 0},
-		                    {DL_STR("__cons"),                        DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__car"),                         DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__cdr"),                         DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__set-car"),                     DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__set-cdr"),                     DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__null?"),                       DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__type-of"),                     DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__make-type"),                   DL_STR("()"),              dl_null, 0},
-		                    {DL_STR("__make-instance"),               DL_STR("(I I I)"),         dl_null, 0},
-		                    {DL_STR("__composite-value"),             DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__composite-function"),          DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__set-composite-value"),         DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__set-composite-function"),      DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__make-string"),                 DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__concatenate"),                 DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__substring"),                   DL_STR("(I I I)"),         dl_null, 0},
-		                    {DL_STR("__length"),                      DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__symbol-string"),               DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__symbol-id"),                   DL_STR("(I)"),             dl_null, 0},
-		                    {DL_STR("__error"),                       DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__noscope"),                     DL_STR("(&rest 0 I)"),     dl_null, 0},
+			{DL_STR("__comptime"),                    DL_STR("(&rest 1 I)"),     dl_null, 0},
+			{DL_STR("__quote"),                       DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__list"),                        DL_STR("(&rest 0 I)"),     dl_null, 0},
+			{DL_STR("__vector"),                      DL_STR("(&rest 0 I)"),     dl_null, 0},
+			{DL_STR("__make-vector"),                 DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__get-vector-element"),          DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__set-vector-element"),          DL_STR("(I I I)"),         dl_null, 0},
+			{DL_STR("__cons"),                        DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__car"),                         DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__cdr"),                         DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__set-car"),                     DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__set-cdr"),                     DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__null?"),                       DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__type-of"),                     DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__make-type"),                   DL_STR("()"),              dl_null, 0},
+			{DL_STR("__make-instance"),               DL_STR("(I I I)"),         dl_null, 0},
+			{DL_STR("__composite-value"),             DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__composite-function"),          DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__set-composite-value"),         DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__set-composite-function"),      DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__make-string"),                 DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__concatenate"),                 DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__substring"),                   DL_STR("(I I I)"),         dl_null, 0},
+			{DL_STR("__length"),                      DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__symbol-string"),               DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__symbol-id"),                   DL_STR("(I)"),             dl_null, 0},
+			{DL_STR("__error"),                       DL_STR("(I)"),             dl_null, 0},
 
-		                    {DL_STR("gensym"),                        DL_STR("()"),              dl_null, 0},
-		                    {DL_STR("intern"),                        DL_STR("(I)"),             dl_null, 0},
-
-		                    {DL_STR("__infer-and-get-next-argument"), DL_STR("()"),              dl_null, 0},
-		                    {DL_STR("__declare-identifier"),          DL_STR("(I I)"),           dl_null, 0},
-		                    {DL_STR("__declaration-scope"),           DL_STR("(&rest 1 I)"),     dl_null, 0}};
+			{DL_STR("__infer-and-get-next-argument"), DL_STR("()"),              dl_null, 0},
+			{DL_STR("__declare-identifier"),          DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__declaration-scope"),           DL_STR("(&rest 1 I)"),     dl_null, 0}};
 		DL_DOTIMES(i, sizeof(declarations)/sizeof(*declarations)) {
 			duckLisp_ast_compoundExpression_t typeAst;
 			duckLisp_ast_compoundExpression_t scriptAst;
@@ -1643,9 +1640,10 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 			e = duckLisp_read(&state.duckLisp,
 			                  dl_false,
 			                  0,
+			                  dl_null,
 			                  DL_STR("<INFERRER>"),
-			                  declarations[i].typeString,
-			                  declarations[i].typeString_length,
+			                  declarations[i].type,
+			                  declarations[i].type_length,
 			                  &typeAst,
 			                  0,
 			                  dl_true);
@@ -1655,6 +1653,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 				e = duckLisp_read(&state.duckLisp,
 				                  dl_false,
 				                  0,
+				                  dl_null,
 				                  DL_STR("<INFERRER>"),
 				                  declarations[i].script,
 				                  declarations[i].script_length,
@@ -1678,6 +1677,65 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 			if (scriptAst.type != duckLisp_ast_type_none) {
 				e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &scriptAst);
 				if (e) goto cleanup;
+			}
+		}
+		if (externalDeclarations) {
+			DL_DOTIMES(i, externalDeclarations->elements_length) {
+				duckLisp_parenthesisInferrer_declarationPrototype_t prototype;
+				duckLisp_ast_compoundExpression_t typeAst;
+				duckLisp_ast_compoundExpression_t scriptAst;
+				(void) duckLisp_ast_compoundExpression_init(&typeAst);
+				(void) duckLisp_ast_compoundExpression_init(&scriptAst);
+
+				e = dl_array_get(externalDeclarations, &prototype, i);
+				if (e) goto cleanup;
+
+				DL_DOTIMES(i, prototype.name_length) {
+					putchar(prototype.name[i]);
+				}
+				putchar('\n');
+
+				e = duckLisp_read(&state.duckLisp,
+				                  dl_false,
+				                  0,
+				                  dl_null,
+				                  DL_STR("<INFERRER>"),
+				                  prototype.type,
+				                  prototype.type_length,
+				                  &typeAst,
+				                  0,
+				                  dl_true);
+				if (e) goto cleanup;
+
+				if (prototype.script_length > 0) {
+					e = duckLisp_read(&state.duckLisp,
+					                  dl_false,
+					                  0,
+					                  dl_null,
+					                  DL_STR("<INFERRER>"),
+					                  prototype.script,
+					                  prototype.script_length,
+					                  &scriptAst,
+					                  0,
+					                  dl_true);
+					if (e) goto cleanup;
+				}
+
+				e = compileAndAddDeclaration(&state,
+				                             fileName,
+				                             fileName_length,
+				                             prototype.name,
+				                             prototype.name_length,
+				                             typeAst,
+				                             scriptAst);
+				if (e) goto cleanup;
+
+				e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &typeAst);
+				if (e) goto cleanup;
+				if (scriptAst.type != duckLisp_ast_type_none) {
+					e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &scriptAst);
+					if (e) goto cleanup;
+				}
 			}
 		}
 	}

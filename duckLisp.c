@@ -32,6 +32,9 @@ SOFTWARE.
 #include "parser.h"
 #include "emitters.h"
 #include "generators.h"
+#ifdef USE_PARENTHESIS_INFERENCE
+#include "parenthesis-inferrer.h"
+#endif /* USE_PARENTHESIS_INFERENCE */
 #include <stdio.h>
 
 /*
@@ -1569,13 +1572,15 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                  {dl_null, 0,                         dl_null}};
 
 	struct {
-		const dl_uint8_t *name;
+		dl_uint8_t *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
+		dl_uint8_t *typeString;
+		const dl_size_t typeString_length;
 	} callbacks[] = {
-		{DL_STR("gensym"), duckLisp_callback_gensym},
-		{DL_STR("intern"), duckLisp_callback_intern},
-		{dl_null, 0,       dl_null}
+		{DL_STR("gensym"), duckLisp_callback_gensym, DL_STR("()")},
+		{DL_STR("intern"), duckLisp_callback_intern, DL_STR("(I)")},
+		{dl_null, 0,       dl_null,                  dl_null, 0}
 	};
 
 	duckLisp->memoryAllocation = memoryAllocation;
@@ -1598,6 +1603,12 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	/**/ dl_trie_init(&duckLisp->generators_trie, duckLisp->memoryAllocation, -1);
 	duckLisp->generators_length = 0;
 	/**/ dl_trie_init(&duckLisp->callbacks_trie, duckLisp->memoryAllocation, -1);
+#ifdef USE_PARENTHESIS_INFERENCE
+	(void) dl_array_init(&duckLisp->parenthesisInferrerTypes_array,
+	                     duckLisp->memoryAllocation,
+	                     sizeof(duckLisp_parenthesisInferrer_declarationPrototype_t),
+	                     dl_array_strategy_double);
+#endif /* USE_PARENTHESIS_INFERENCE */
 	/* No error */ dl_array_init(&duckLisp->symbols_array,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_ast_identifier_t),
@@ -1626,7 +1637,16 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	duckLisp->vm.duckLisp = duckLisp;
 
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
-		error = duckLisp_linkCFunction(duckLisp, callbacks[i].callback, callbacks[i].name, callbacks[i].name_length);
+		error = duckLisp_linkCFunction(duckLisp,
+		                               callbacks[i].callback,
+		                               callbacks[i].name,
+		                               callbacks[i].name_length
+#ifdef USE_PARENTHESIS_INFERENCE
+		                               ,
+		                               callbacks[i].typeString,
+		                               callbacks[i].typeString_length
+#endif /* USE_PARENTHESIS_INFERENCE */
+		                               );
 		if (error) {
 			printf("Could not create function. (%s)\n", dl_errorString[error]);
 			goto cleanup;
@@ -1656,6 +1676,9 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 	/**/ dl_trie_quit(&duckLisp->generators_trie);
 	duckLisp->generators_length = 0;
 	/**/ dl_trie_quit(&duckLisp->callbacks_trie);
+#ifdef USE_PARENTHESIS_INFERENCE
+	e = dl_array_quit(&duckLisp->parenthesisInferrerTypes_array);
+#endif /* USE_PARENTHESIS_INFERENCE */
 	e = dl_trie_quit(&duckLisp->symbols_trie);
 	DL_DOTIMES(i, duckLisp->symbols_array.elements_length) {
 		e = DL_FREE(duckLisp->memoryAllocation,
@@ -1764,6 +1787,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 	                  parenthesisInferenceEnabled,
 	                  10000,
+	                  &duckLisp->parenthesisInferrerTypes_array,
 #endif /* USE_PARENTHESIS_INFERENCE */
 	                  fileName,
 	                  fileName_length,
@@ -1943,8 +1967,14 @@ dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
                                   dl_error_t (*callback)(duckVM_t *),
-                                  const dl_uint8_t *name,
-                                  const dl_size_t name_length) {
+                                  dl_uint8_t *name,
+                                  const dl_size_t name_length
+#ifdef USE_PARENTHESIS_INFERENCE
+                                  ,
+                                  dl_uint8_t *typeString,
+                                  const dl_size_t typeString_length
+#endif /* USE_PARENTHESIS_INFERENCE */
+                                  ) {
 	dl_error_t e = dl_error_ok;
 	(void) callback;
 
@@ -1955,6 +1985,19 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 	dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp, name, name_length);
 	e = dl_trie_insert(&duckLisp->callbacks_trie, name, name_length, key);
 	if (e) goto cleanup;
+
+#ifdef USE_PARENTHESIS_INFERENCE
+	duckLisp_parenthesisInferrer_declarationPrototype_t prototype;
+	prototype.name = name;
+	prototype.name_length = name_length;
+	prototype.type = typeString;
+	prototype.type_length = typeString_length;
+	/* Functions can't declare variables, except globals, which I'm ignoring for now. */
+	prototype.script = dl_null;
+	prototype.script_length = 0;
+	e = dl_array_pushElement(&duckLisp->parenthesisInferrerTypes_array, &prototype);
+	if (e) goto cleanup;
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 	/* Add to the VM's scope. */
 	e = duckVM_linkCFunction(&duckLisp->vm, key, callback);

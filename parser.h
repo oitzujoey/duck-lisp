@@ -33,6 +33,7 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                          const dl_bool_t parenthesisInferenceEnabled,
                          const dl_size_t maxComptimeVmObjects,
+                         dl_array_t *externalDeclarations,  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */
 #endif /* USE_PARENTHESIS_INFERENCE */
                          const dl_uint8_t *fileName,
                          const dl_size_t fileName_length,

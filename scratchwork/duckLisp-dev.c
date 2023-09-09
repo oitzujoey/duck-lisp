@@ -1477,24 +1477,26 @@ int main(int argc, char *argv[]) {
 
 	// All user-defined callbacks go here.
 	struct {
-		const unsigned char *name;
+		dl_uint8_t *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
+		dl_uint8_t *typeString;
+		const dl_size_t typeString_length;
 	} callbacks[] = {
-		{DL_STR("print"),           duckLispDev_callback_print},
-		{DL_STR("print-stack"),     duckLispDev_callback_printStack},
-		{DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect},
-		{DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
+		{DL_STR("print"),           duckLispDev_callback_print,             DL_STR("(I)")},
+		{DL_STR("print-stack"),     duckLispDev_callback_printStack,        DL_STR("()")},
+		{DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect,    DL_STR("()")},
+		{DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly,    DL_STR("()")},
 #ifdef USE_PARENTHESIS_INFERENCE
-		{DL_STR("inference"),       duckLispDev_callback_toggleHanabi},
+		{DL_STR("inference"),       duckLispDev_callback_toggleHanabi,      DL_STR("()")},
 #endif /* USE_PARENTHESIS_INFERENCE */
-		{DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare},
-		{DL_STR("print-uv-stack"),  duckLispDev_callback_printUpvalueStack},
-		{DL_STR("open-file"),       duckLispDev_callback_openFile},
-		{DL_STR("close-file"),      duckLispDev_callback_closeFile},
-		{DL_STR("fgetc"),           duckLispDev_callback_fgetc},
-		{DL_STR("fwrite"),          duckLispDev_callback_writeFile},
-		{dl_null, 0,                dl_null}
+		{DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare,   DL_STR("(I I)")},
+		{DL_STR("print-uv-stack"),  duckLispDev_callback_printUpvalueStack, DL_STR("()")},
+		{DL_STR("open-file"),       duckLispDev_callback_openFile,          DL_STR("(I I)")},
+		{DL_STR("close-file"),      duckLispDev_callback_closeFile,         DL_STR("(I)")},
+		{DL_STR("fgetc"),           duckLispDev_callback_fgetc,             DL_STR("(I)")},
+		{DL_STR("fwrite"),          duckLispDev_callback_writeFile,         DL_STR("(I I)")},
+		{dl_null, 0,                dl_null,                                dl_null, 0}
 	};
 
 	/* Initialization. */
@@ -1554,7 +1556,16 @@ int main(int argc, char *argv[]) {
 	/* Add C functions. */
 
 	for (dl_ptrdiff_t i = 0; callbacks[i].name != dl_null; i++) {
-		e = duckLisp_linkCFunction(&duckLisp, callbacks[i].callback, callbacks[i].name, callbacks[i].name_length);
+		e = duckLisp_linkCFunction(&duckLisp,
+		                           callbacks[i].callback,
+		                           callbacks[i].name,
+		                           callbacks[i].name_length
+#ifdef USE_PARENTHESIS_INFERENCE
+		                           ,
+		                           callbacks[i].typeString,
+		                           callbacks[i].typeString_length
+#endif /* USE_PARENTHESIS_INFERENCE */
+		                           );
 		if (e) {
 			printf(COLOR_RED "Could not create function. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 			goto cleanup;
