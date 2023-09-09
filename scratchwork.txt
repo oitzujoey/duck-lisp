@@ -2373,7 +2373,6 @@ Todo:
         Add support for nested types? — L
         Allow adding declarations from C — S
         Document inference algorithm — M
-    Switch to stack VM? — M
     Fix C API — L
         Add a bunch of `*_toString` functions — M
         Document C API — M
@@ -2381,15 +2380,16 @@ Todo:
         Write lots of tests — M
         Disallow `__var` anywhere except in `__noscope` and scopes.
         Remove stray space at the end of closure.8 disassembler.
+        Reverse the order gensyms are created to make trie storage more efficient. 4000 → 0004
     Document everything else? — L
         Write overview of compiler
         Write overview of VM
-    Clean up memory
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
     Optimization?
         Hash tables/Tries? — M
+        Switch to stack VM? — M
         String interning? — M
         Rewrite memory allocator? — L
     Clean up. — M

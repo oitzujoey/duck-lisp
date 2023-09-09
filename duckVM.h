@@ -252,7 +252,7 @@ dl_error_t duckVM_softReset(duckVM_t *duckVM);
 /* Functions intended for C callbacks */
 
 /* Log a string into the errors array. */
-dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const dl_size_t message_length);
+dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length);
 
 /* Push an object onto the stack. */
 dl_error_t duckVM_push(duckVM_t *duckVM, duckVM_object_t *object);
@@ -274,12 +274,17 @@ dl_error_t duckVM_allocateHeapObject(duckVM_t *duckVM, duckVM_object_t **heapObj
 /* Return the type of an object. */
 duckVM_object_type_t duckVM_typeOf(duckVM_object_t object);
 
+dl_bool_t duckVM_object_isString(duckVM_object_t object);
+
 /* Pass an object to these functions to return the requested field. Use them if the save space. Or don't use them. Your
    choice. */
 dl_bool_t duckVM_object_getBoolean(duckVM_object_t object);
 dl_ptrdiff_t duckVM_object_getInteger(duckVM_object_t object);
 double duckVM_object_getFloat(duckVM_object_t object);
-duckVM_string_t duckVM_object_getString(duckVM_object_t object);
+dl_error_t duckVM_object_getString(dl_memoryAllocation_t *memoryAllocation,
+                                   dl_uint8_t **string,
+                                   dl_size_t *length,
+                                   duckVM_object_t object);
 duckVM_internalString_t duckVM_object_getInternalString(duckVM_object_t object);
 duckVM_list_t duckVM_object_getList(duckVM_object_t object);
 duckVM_cons_t duckVM_object_getCons(duckVM_object_t object);
@@ -303,7 +308,11 @@ duckVM_object_t duckVM_object_makeInteger(dl_ptrdiff_t integer);
 duckVM_object_t duckVM_object_makeFloat(double floatingPoint);
 duckVM_object_t duckVM_object_makeInternalString(dl_uint8_t *value, dl_size_t length);
 duckVM_object_t duckVM_object_makeString(duckVM_object_t *internalString, dl_ptrdiff_t offset, dl_size_t length);
-duckVM_object_t duckVM_object_makeSymbol(dl_size_t id, duckVM_object_t *internalString);
+dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
+                                    duckVM_object_t *symbolOut,
+                                    dl_size_t id,
+                                    dl_uint8_t *string,
+                                    dl_size_t string_length);
 duckVM_object_t duckVM_object_makeFunction(dl_error_t (*callback)(duckVM_t *));
 duckVM_object_t duckVM_object_makeClosure(dl_ptrdiff_t name,
                                           duckVM_object_t *bytecode,

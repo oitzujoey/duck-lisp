@@ -32,9 +32,9 @@ SOFTWARE.
 #include "DuckLib/string.h"
 
 static dl_error_t duckLisp_error_pushSyntax(duckLisp_t *duckLisp,
-                                            const char *message,
+                                            const dl_uint8_t *message,
                                             const dl_size_t message_length,
-                                            const char *fileName,
+                                            const dl_uint8_t *fileName,
                                             const dl_size_t fileName_length,
                                             const dl_ptrdiff_t start_index,
                                             const dl_ptrdiff_t end_index,
@@ -68,9 +68,9 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                              const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                             const char *fileName,
+                                             const dl_uint8_t *fileName,
                                              const dl_size_t fileName_length,
-                                             const char *source,
+                                             const dl_uint8_t *source,
                                              const dl_size_t source_length,
                                              duckLisp_ast_compoundExpression_t *compoundExpression,
                                              dl_ptrdiff_t *index,
@@ -93,7 +93,7 @@ static dl_bool_t isIdentifierSymbol(const char character) {
 
 /* Does not consume the line endings. */
 static dl_error_t parse_comment(duckLisp_t *duckLisp,
-                                const char *source,
+                                const dl_uint8_t *source,
                                 const dl_size_t source_length,
                                 duckLisp_ast_compoundExpression_t *compoundExpression,
                                 dl_ptrdiff_t *index,
@@ -119,7 +119,7 @@ static dl_error_t parse_comment(duckLisp_t *duckLisp,
 }
 
 dl_error_t parse_irrelevant(duckLisp_t *duckLisp,
-                            const char *source,
+                            const dl_uint8_t *source,
                             const dl_size_t source_length,
                             duckLisp_ast_compoundExpression_t *compoundExpression,
                             dl_ptrdiff_t *index,
@@ -164,9 +164,9 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                           const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                          const char *fileName,
+                                          const dl_uint8_t *fileName,
                                           const dl_size_t fileName_length,
-                                          const char *source,
+                                          const dl_uint8_t *source,
                                           const dl_size_t source_length,
                                           duckLisp_ast_compoundExpression_t *compoundExpression,
                                           dl_ptrdiff_t *index,
@@ -296,9 +296,9 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                    const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                   const char *fileName,
+                                   const dl_uint8_t *fileName,
                                    const dl_size_t fileName_length,
-                                   const char *source,
+                                   const dl_uint8_t *source,
                                    const dl_size_t source_length,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
                                    dl_ptrdiff_t *index,
@@ -464,9 +464,9 @@ static dl_error_t parse_identifier(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                    const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                   const char *fileName,
+                                   const dl_uint8_t *fileName,
                                    const dl_size_t fileName_length,
-                                   const char *source,
+                                   const dl_uint8_t *source,
                                    const dl_size_t source_length,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
                                    dl_ptrdiff_t *index,
@@ -566,9 +566,9 @@ static dl_error_t parse_callback(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                  const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                 const char *fileName,
+                                 const dl_uint8_t *fileName,
                                  const dl_size_t fileName_length,
-                                 const char *source,
+                                 const dl_uint8_t *source,
                                  const dl_size_t source_length,
                                  duckLisp_ast_compoundExpression_t *compoundExpression,
                                  dl_ptrdiff_t *index,
@@ -649,9 +649,9 @@ static dl_error_t parse_bool(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                              const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                             const char *fileName,
+                             const dl_uint8_t *fileName,
                              const dl_size_t fileName_length,
-                             const char *source,
+                             const dl_uint8_t *source,
                              const dl_size_t source_length,
                              duckLisp_ast_compoundExpression_t *compoundExpression,
                              dl_ptrdiff_t *index,
@@ -756,9 +756,9 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                             const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                            const char *fileName,
+                            const dl_uint8_t *fileName,
                             const dl_size_t fileName_length,
-                            const char *source,
+                            const dl_uint8_t *source,
                             const dl_size_t source_length,
                             duckLisp_ast_compoundExpression_t *compoundExpression,
                             dl_ptrdiff_t *index,
@@ -896,9 +896,9 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                               const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                              const char *fileName,
+                              const dl_uint8_t *fileName,
                               const dl_size_t fileName_length,
-                              const char *source,
+                              const dl_uint8_t *source,
                               const dl_size_t source_length,
                               duckLisp_ast_compoundExpression_t *compoundExpression,
                               dl_ptrdiff_t *index,
@@ -1138,9 +1138,9 @@ static dl_error_t parse_string(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                               const char *fileName,
+                               const dl_uint8_t *fileName,
                                const dl_size_t fileName_length,
-                               const char *source,
+                               const dl_uint8_t *source,
                                const dl_size_t source_length,
                                duckLisp_ast_compoundExpression_t *compoundExpression,
                                dl_ptrdiff_t *index,
@@ -1225,7 +1225,7 @@ static dl_error_t parse_string(duckLisp_t *duckLisp,
 	dl_ptrdiff_t token_length = stop_index - start_index - 2;
 
 	void *destination = dl_null;
-	const char *s = dl_null;
+	const dl_uint8_t *s = dl_null;
 	dl_bool_t escape = dl_false;
 
 	duckLisp_ast_string_t string;
@@ -1346,7 +1346,10 @@ static dl_error_t runAction(duckLisp_t *duckLisp, duckLisp_ast_compoundExpressio
 		        || (expression.compoundExpressions[0].type == duckLisp_ast_type_callback))) {
 			dl_ptrdiff_t index = -1;
 			duckLisp_ast_identifier_t identifier = expression.compoundExpressions[0].value.identifier;
-			(void) dl_trie_find(duckLisp->parser_actions_trie, &index, identifier.value, identifier.value_length);
+			(void) dl_trie_find(duckLisp->parser_actions_trie,
+			                    &index,
+			                    identifier.value,
+			                    identifier.value_length);
 			if (index >= 0) {
 				dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*);
 				e = dl_array_get(&duckLisp->parser_actions_array, &callback, index);
@@ -1364,9 +1367,9 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                              const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                                             const char *fileName,
+                                             const dl_uint8_t *fileName,
                                              const dl_size_t fileName_length,
-                                             const char *source,
+                                             const dl_uint8_t *source,
                                              const dl_size_t source_length,
                                              duckLisp_ast_compoundExpression_t *compoundExpression,
                                              dl_ptrdiff_t *index,
@@ -1382,9 +1385,9 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 		                      const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-		                      const char *fileName,
+		                      const dl_uint8_t *fileName,
 		                      const dl_size_t fileName_length,
-		                      const char *source,
+		                      const dl_uint8_t *source,
 		                      const dl_size_t source_length,
 		                      duckLisp_ast_compoundExpression_t *compoundExpression,
 		                      dl_ptrdiff_t *index,
@@ -1503,9 +1506,9 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
                          const dl_bool_t parenthesisInferenceEnabled,
                          const dl_size_t maxComptimeVmObjects,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                         const char *fileName,
+                         const dl_uint8_t *fileName,
                          const dl_size_t fileName_length,
-                         const char *source,
+                         const dl_uint8_t *source,
                          const dl_size_t source_length,
                          duckLisp_ast_compoundExpression_t *ast,
                          dl_ptrdiff_t index,

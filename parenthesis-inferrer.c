@@ -171,14 +171,14 @@ typedef struct {
 	duckLisp_t duckLisp;
 	duckVM_t duckVM;
 	dl_array_t *errors;  /* dl_array_t:duckLisp_error_t */
-	const char *fileName;
+	const dl_uint8_t *fileName;
 	dl_size_t fileName_length;
 	dl_array_t scopeStack;  /* dl_array_t:inferrerScope_t */
 } inferrerState_t;
 
 typedef struct {
 	inferrerState_t *state;
-	char *fileName;
+	dl_uint8_t *fileName;
 	dl_size_t fileName_length;
 	inferrerType_t type;
 	dl_ptrdiff_t *type_index;
@@ -192,7 +192,7 @@ typedef struct {
 
 
 static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
-                                               const char *message,
+                                               const dl_uint8_t *message,
                                                const dl_size_t message_length);
 
 
@@ -275,12 +275,18 @@ static dl_error_t inferrerTypeSignature_fromAst(inferrerState_t *state,
 	case duckLisp_ast_type_callback: {
 		dl_bool_t result;
 		duckLisp_ast_identifier_t identifier = compoundExpression.value.identifier;
-		(void) dl_string_compare(&result, DL_STR("L"), identifier.value, identifier.value_length);
+		(void) dl_string_compare(&result,
+		                         DL_STR("L"),
+		                         identifier.value,
+		                         identifier.value_length);
 		if (result) {
 			inferrerTypeSignature->value.symbol = inferrerTypeSymbol_L;
 		}
 		else {
-			(void) dl_string_compare(&result, DL_STR("I"), identifier.value, identifier.value_length);
+			(void) dl_string_compare(&result,
+			                         DL_STR("I"),
+			                         identifier.value,
+			                         identifier.value_length);
 			if (result) {
 				inferrerTypeSignature->value.symbol = inferrerTypeSymbol_I;
 			}
@@ -334,7 +340,10 @@ static dl_error_t inferrerTypeSignature_fromAst(inferrerState_t *state,
 			    || (expression.compoundExpressions[j].type == duckLisp_ast_type_callback)) {
 				dl_bool_t result;
 				duckLisp_ast_identifier_t identifier = expression.compoundExpressions[j].value.identifier;
-				(void) dl_string_compare(&result, DL_STR("&rest"), identifier.value, identifier.value_length);
+				(void) dl_string_compare(&result,
+				                         DL_STR("&rest"),
+				                         identifier.value,
+				                         identifier.value_length);
 				if (result) {
 					if (variadic) {
 						e = dl_error_invalidValue;
@@ -434,7 +443,7 @@ static dl_error_t inferrerState_init(inferrerState_t *inferrerState,
                                      dl_memoryAllocation_t *memoryAllocation,
                                      dl_size_t maxComptimeVmObjects,
                                      dl_array_t *errors,
-                                     const char *fileName,
+                                     const dl_uint8_t *fileName,
                                      const dl_size_t fileName_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -534,7 +543,7 @@ static dl_error_t findDeclaration(inferrerState_t *state,
 }
 
 static dl_error_t addDeclaration(inferrerState_t *state,
-                                 const char *name,
+                                 const dl_uint8_t *name,
                                  const dl_size_t name_length,
                                  duckLisp_ast_compoundExpression_t typeAst,
                                  dl_uint8_t *bytecode,
@@ -575,9 +584,9 @@ static dl_error_t addDeclaration(inferrerState_t *state,
 }
 
 static dl_error_t compileAndAddDeclaration(inferrerState_t *state,
-                                           const char *fileName,
+                                           const dl_uint8_t *fileName,
                                            const dl_size_t fileName_length,
-                                           const char *name,
+                                           const dl_uint8_t *name,
                                            const dl_size_t name_length,
                                            const duckLisp_ast_compoundExpression_t typeAst,
                                            const duckLisp_ast_compoundExpression_t scriptAst) {
@@ -598,7 +607,7 @@ static dl_error_t compileAndAddDeclaration(inferrerState_t *state,
 		e = duckLisp_compileState_quit(&state->duckLisp, &compileState);
 		if (e) goto cleanup;
 
-		bytecode = ((unsigned char*) bytecodeArray.elements);
+		bytecode = bytecodeArray.elements;
 		bytecode_length = bytecodeArray.elements_length;
 	}
 	e = addDeclaration(state,
@@ -615,29 +624,31 @@ static dl_error_t compileAndAddDeclaration(inferrerState_t *state,
 
 
 static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
-                                               const char *message,
+                                               const dl_uint8_t *message,
                                                const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_error_t error;
 
-	const char inferrerPrefix[] = "Inference error: ";
+	const dl_uint8_t inferrerPrefix[] = "Inference error: ";
 	const dl_size_t inferrerPrefix_length = sizeof(inferrerPrefix)/sizeof(*inferrerPrefix) - 1;
 
 	e = dl_malloc(inferrerState->memoryAllocation,
 	              (void **) &error.message,
-	              (inferrerPrefix_length + message_length) * sizeof(char));
+	              (inferrerPrefix_length + message_length) * sizeof(dl_uint8_t));
 	if (e) goto cleanup;
-	e = dl_memcopy((void *) error.message, (void *) inferrerPrefix, inferrerPrefix_length * sizeof(char));
+	e = dl_memcopy((void *) error.message, (void *) inferrerPrefix, inferrerPrefix_length * sizeof(dl_uint8_t));
 	if (e) goto cleanup;
-	e = dl_memcopy((void *) (error.message + inferrerPrefix_length), (void *) message, message_length * sizeof(char));
+	e = dl_memcopy((void *) (error.message + inferrerPrefix_length),
+	               (void *) message,
+	               message_length * sizeof(dl_uint8_t));
 	if (e) goto cleanup;
 
-	e = DL_MALLOC(inferrerState->memoryAllocation, &error.fileName, inferrerState->fileName_length, char);
+	e = DL_MALLOC(inferrerState->memoryAllocation, &error.fileName, inferrerState->fileName_length, dl_uint8_t);
 	if (e) goto cleanup;
 	e = dl_memcopy((void *) error.fileName,
 	               (void *) inferrerState->fileName,
-	               inferrerState->fileName_length * sizeof(char));
+	               inferrerState->fileName_length * sizeof(dl_uint8_t));
 	if (e) goto cleanup;
 
 	error.message_length = inferrerPrefix_length + message_length;
@@ -653,19 +664,19 @@ static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
 
 
 static dl_error_t inferArgument(inferrerState_t *state,
-                                const char *fileName,
+                                const dl_uint8_t *fileName,
                                 const dl_size_t fileName_length,
                                 duckLisp_ast_expression_t *expression,
                                 dl_ptrdiff_t *index,
                                 dl_bool_t parenthesized,
                                 dl_bool_t infer);
 static dl_error_t infer_compoundExpression(inferrerState_t *state,
-                                           const char *fileName,
+                                           const dl_uint8_t *fileName,
                                            const dl_size_t fileName_length,
                                            duckLisp_ast_compoundExpression_t *compoundExpression,
                                            dl_bool_t infer);
 static dl_error_t inferArguments(inferrerState_t *state,
-                                 const char *fileName,
+                                 const dl_uint8_t *fileName,
                                  const dl_size_t fileName_length,
                                  duckLisp_ast_expression_t *expression,
                                  dl_ptrdiff_t index,
@@ -720,7 +731,7 @@ static dl_error_t runVm(inferrerState_t *state,
 
 
 static dl_error_t inferIncrementally(inferrerState_t *state,
-                                     const char *fileName,
+                                     const dl_uint8_t *fileName,
                                      const dl_size_t fileName_length,
                                      inferrerType_t type,
                                      dl_ptrdiff_t *type_index,
@@ -825,7 +836,7 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 
 /* Check if this is a declaration and declare the given identifier if it is. */
 dl_error_t interpretDeclare(inferrerState_t *state,
-                            const char *fileName,
+                            const dl_uint8_t *fileName,
                             const dl_size_t fileName_length,
                             duckLisp_ast_compoundExpression_t compoundExpression) {
 	dl_error_t e = dl_error_ok;
@@ -841,7 +852,10 @@ dl_error_t interpretDeclare(inferrerState_t *state,
 		duckLisp_ast_identifier_t keyword = expression.compoundExpressions[0].value.identifier;
 		duckLisp_ast_identifier_t identifier = expression.compoundExpressions[1].value.identifier;
 		duckLisp_ast_compoundExpression_t typeAst = expression.compoundExpressions[2];
-		(void) dl_string_compare(&result, DL_STR("__declare"), keyword.value, keyword.value_length);
+		(void) dl_string_compare(&result,
+		                         DL_STR("__declare"),
+		                         keyword.value,
+		                         keyword.value_length);
 		if (result) {
 			duckLisp_ast_compoundExpression_t scriptAst;
 			(void) duckLisp_ast_compoundExpression_init(&scriptAst);
@@ -864,7 +878,7 @@ dl_error_t interpretDeclare(inferrerState_t *state,
 
 /* Infer a single argument from the tokens/forms. */
 static dl_error_t inferArgument(inferrerState_t *state,
-                                const char *fileName,
+                                const dl_uint8_t *fileName,
                                 const dl_size_t fileName_length,
                                 duckLisp_ast_expression_t *expression,
                                 dl_ptrdiff_t *index,
@@ -997,6 +1011,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 			}
 			else if (parenthesized) {
 				if (type.type.value.symbol == inferrerTypeSymbol_L) {
+					// This could probably be moved to `infer_expression`.
 					e = inferArguments(state, fileName, fileName_length, expression, 1, infer);
 					if (e) goto cleanup;
 				}
@@ -1042,7 +1057,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 
 /* Infer a single argument from the tokens/forms. */
 static dl_error_t inferArguments(inferrerState_t *state,
-                                 const char *fileName,
+                                 const dl_uint8_t *fileName,
                                  const dl_size_t fileName_length,
                                  duckLisp_ast_expression_t *expression,
                                  dl_ptrdiff_t index,
@@ -1063,7 +1078,7 @@ static dl_error_t inferArguments(inferrerState_t *state,
 }
 
 static dl_error_t infer_expression(inferrerState_t *state,
-                                   const char *fileName,
+                                   const dl_uint8_t *fileName,
                                    const dl_size_t fileName_length,
                                    duckLisp_ast_compoundExpression_t *compoundExpression,
                                    dl_bool_t infer) {
@@ -1168,7 +1183,7 @@ static dl_error_t infer_expression(inferrerState_t *state,
 }
 
 static dl_error_t infer_compoundExpression(inferrerState_t *state,
-                                           const char *fileName,
+                                           const dl_uint8_t *fileName,
                                            const dl_size_t fileName_length,
                                            duckLisp_ast_compoundExpression_t *compoundExpression,
                                            dl_bool_t infer) {
@@ -1254,16 +1269,12 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	if (e) goto cleanup;
 
 	if (identifierObject.type == duckVM_object_type_string) {
-		duckVM_string_t identifierString = duckVM_object_getString(identifierObject);
-		duckVM_internalString_t identifierInternalString;
-		e = duckVM_string_getInternalString(identifierString, &identifierInternalString);
+		dl_uint8_t *string = dl_null;
+		dl_size_t length = 0;
+		e = duckVM_object_getString(vm->memoryAllocation, &string, &length, identifierObject);
 		if (e) goto cleanup;
-		e = addDeclaration(state,
-		                   (char *) identifierInternalString.value + identifierString.offset,
-		                   identifierString.length - identifierString.offset,
-		                   typeAst,
-		                   dl_null,
-		                   0);
+		e = addDeclaration(state, string, length, typeAst, dl_null, 0);
+		if (e) goto cleanup;
 	}
 	else {
 		duckVM_symbol_t identifierSymbol = duckVM_object_getSymbol(identifierObject);
@@ -1271,13 +1282,13 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		e = duckVM_symbol_getInternalString(identifierSymbol, &identifierInternalString);
 		if (e) goto cleanup;
 		e = addDeclaration(state,
-		                   (char *) identifierInternalString.value,
+		                   identifierInternalString.value,
 		                   identifierInternalString.value_length,
 		                   typeAst,
 		                   dl_null,
 		                   0);
+		if (e) goto cleanup;
 	}
-	if (e) goto cleanup;
 
 	e = duckLisp_ast_compoundExpression_quit(state->memoryAllocation, &typeAst);
 	if (e) goto cleanup;
@@ -1296,7 +1307,7 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	if (e) goto preDefinitionCleanup;
 
 	inferrerState_t *state = context.state;
-	const char *fileName = context.fileName;
+	const dl_uint8_t *fileName = context.fileName;
 	const dl_size_t fileName_length = context.fileName_length;
 	inferrerType_t type = context.type;
 	dl_ptrdiff_t *type_index = context.type_index;
@@ -1388,15 +1399,15 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 
 	duckLisp_ast_compoundExpression_t pushC;
 	pushC.type = duckLisp_ast_type_identifier;
-	pushC.value.identifier.value = "\0__push-declaration-scope";
-	pushC.value.identifier.value_length = sizeof("\0__push-declaration-scope")/sizeof(char) - 1;
+	pushC.value.identifier.value = (dl_uint8_t *) "\0__push-declaration-scope";
+	pushC.value.identifier.value_length = sizeof("\0__push-declaration-scope")/sizeof(dl_uint8_t) - 1;
 	duckLisp_ast_expression_t pushE;
 	pushE.compoundExpressions_length = 1;
 	pushE.compoundExpressions = &pushC;
 	duckLisp_ast_compoundExpression_t popC;
 	popC.type = duckLisp_ast_type_identifier;
-	popC.value.identifier.value = "\0__pop-declaration-scope";
-	popC.value.identifier.value_length = sizeof("\0__pop-declaration-scope")/sizeof(char) - 1;
+	popC.value.identifier.value = (dl_uint8_t *) "\0__pop-declaration-scope";
+	popC.value.identifier.value_length = sizeof("\0__pop-declaration-scope")/sizeof(dl_uint8_t) - 1;
 	duckLisp_ast_expression_t popE;
 	popE.compoundExpressions_length = 1;
 	popE.compoundExpressions = &popC;
@@ -1436,7 +1447,7 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                             const dl_size_t maxComptimeVmObjects,
                             dl_array_t *errors,
-                            const char *fileName,
+                            const dl_uint8_t *fileName,
                             const dl_size_t fileName_length,
                             duckLisp_ast_compoundExpression_t *ast) {
 	dl_error_t e = dl_error_ok;
@@ -1447,7 +1458,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	if (e) goto cleanup;
 
 	struct {
-		const char *name;
+		const dl_uint8_t *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
@@ -1476,11 +1487,11 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 
 	{
 		struct {
-			char *name;
+			dl_uint8_t *name;
 			dl_size_t name_length;
-			char *typeString;
+			dl_uint8_t *typeString;
 			dl_size_t typeString_length;
-			char *script;
+			dl_uint8_t *script;
 			dl_size_t script_length;
 		} declarations[] = {{DL_STR("__declare"),                     DL_STR("(L L &rest 0 I)"), dl_null, 0},
 		                    {DL_STR("__nop"),                         DL_STR("()"), dl_null, 0},
@@ -1616,6 +1627,9 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 		                    {DL_STR("__symbol-string"),               DL_STR("(I)"),             dl_null, 0},
 		                    {DL_STR("__symbol-id"),                   DL_STR("(I)"),             dl_null, 0},
 		                    {DL_STR("__error"),                       DL_STR("(I)"),             dl_null, 0},
+
+		                    {DL_STR("gensym"),                        DL_STR("()"),              dl_null, 0},
+		                    {DL_STR("intern"),                        DL_STR("(I)"),             dl_null, 0},
 
 		                    {DL_STR("__infer-and-get-next-argument"), DL_STR("()"),              dl_null, 0},
 		                    {DL_STR("__declare-identifier"),          DL_STR("(I I)"),           dl_null, 0},

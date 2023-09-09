@@ -148,13 +148,16 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 	}
 		break;
 	case duckVM_object_type_string: {
-		duckVM_string_t string = duckVM_object_getString(object);
-		duckVM_internalString_t internalString;
-		e = duckVM_string_getInternalString(string, &internalString);
-		if (e) break;
-		for (dl_size_t i = string.offset; i < string.length; i++) {
-			putchar(internalString.value[i]);
+		dl_uint8_t *string = dl_null;
+		dl_size_t length = 0;
+		e = duckVM_object_getString(duckVM->memoryAllocation, &string, &length, object);
+		if (e) goto stringCleanup;
+		for (dl_size_t i = 0; i < length; i++) {
+			putchar(string[i]);
 		}
+		stringCleanup:
+		e = DL_FREE(duckVM->memoryAllocation, &string);
+		if (e) break;
 	}
 		break;
 	case duckVM_object_type_integer:
@@ -1035,7 +1038,9 @@ dl_error_t duckLispDev_action_include(duckLisp_t *duckLisp, duckLisp_ast_compoun
 	if (fileName.value_length >= hanabiExtension.value_length) {
 		dl_bool_t result;
 		(void) dl_string_compare_partial(&result,
-		                                 fileName.value + fileName.value_length - hanabiExtension.value_length,
+		                                 (fileName.value
+		                                  + fileName.value_length
+		                                  - hanabiExtension.value_length),
 		                                 hanabiExtension.value,
 		                                 hanabiExtension.value_length);
 		if (result) filetype = filetype_hanabi;
@@ -1166,9 +1171,9 @@ int eval(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
          const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-         const char *source,
+         const dl_uint8_t *source,
          const dl_size_t source_length,
-         const char *fileName,
+         const dl_uint8_t *fileName,
          const dl_size_t fileName_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1210,7 +1215,7 @@ int eval(duckLisp_t *duckLisp,
 #endif /* USE_PARENTHESIS_INFERENCE */
 	                                &bytecode,
 	                                &bytecode_length,
-	                                &DL_ARRAY_GETADDRESS(sourceCode, char, 0),
+	                                &DL_ARRAY_GETADDRESS(sourceCode, dl_uint8_t, 0),
 	                                sourceCode.elements_length,
 	                                fileName,
 	                                fileName_length);
@@ -1282,7 +1287,7 @@ int eval(duckLisp_t *duckLisp,
 	}
 
 	if (g_disassemble) {
-		char *disassembly = NULL;
+		dl_uint8_t *disassembly = NULL;
 		dl_size_t length = 0;
 		duckLisp_disassemble(&disassembly, &length, duckLisp->memoryAllocation, bytecode, bytecode_length);
 		printf("%s", disassembly);
@@ -1356,7 +1361,7 @@ int eval(duckLisp_t *duckLisp,
 	return e;
 }
 
-int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_value, const char *filename) {
+int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_value, const dl_uint8_t *filename) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -1373,7 +1378,7 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 #ifdef USE_PARENTHESIS_INFERENCE
 	duckLisp_ast_string_t hanabiExtension = {DL_STR(".hna")};
 #endif /* USE_PARENTHESIS_INFERENCE */
-	size_t filename_length = strlen(filename);
+	size_t filename_length = strlen((const char *) filename);
 
 	dl_array_t sourceCode;
 	/**/ dl_array_init(&sourceCode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
@@ -1382,7 +1387,7 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 	if (filename_length >= hanabiExtension.value_length) {
 		dl_bool_t result;
 		(void) dl_string_compare_partial(&result,
-		                                 filename + filename_length - hanabiExtension.value_length,
+		                                 (filename + filename_length - hanabiExtension.value_length),
 		                                 hanabiExtension.value,
 		                                 hanabiExtension.value_length);
 		if (result) filetype = filetype_hanabi;
@@ -1391,7 +1396,7 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 
 	/* Fetch script. */
 
-	FILE *sourceFile = sourceFile = fopen(filename, "r");
+	FILE *sourceFile = sourceFile = fopen((const char *) filename, "r");
 	if (sourceFile != NULL) {
 		while ((tempInt = fgetc(sourceFile)) != EOF) {
 			tempChar = tempInt & 0xFF;
@@ -1453,7 +1458,7 @@ int main(int argc, char *argv[]) {
 
 	// All user-defined generators go here.
 	struct {
-		const char *name;
+		const unsigned char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*);
 	} parser_actions[] = {
@@ -1463,7 +1468,7 @@ int main(int argc, char *argv[]) {
 
 	// All user-defined generators go here.
 	struct {
-		const char *name;
+		const unsigned char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, duckLisp_compileState_t*, dl_array_t*, duckLisp_ast_expression_t*);
 	} generators[] = {
@@ -1472,7 +1477,7 @@ int main(int argc, char *argv[]) {
 
 	// All user-defined callbacks go here.
 	struct {
-		const char *name;
+		const unsigned char *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
@@ -1598,17 +1603,17 @@ int main(int argc, char *argv[]) {
 #ifdef USE_PARENTHESIS_INFERENCE
 			         dl_true,
 #endif /* USE_PARENTHESIS_INFERENCE */
-			         argv[1],
+			         (unsigned char *) argv[1],
 			         strlen(argv[1]),
 			         DL_STR("<ARGV>"));
 		}
 		else {
-			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, argv[1]);
+			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, (const unsigned char *) argv[1]);
 		}
 	}
 	/* REPL */
 	else if (argc == 1) {
-		char *line = NULL;
+		dl_uint8_t *line = NULL;
 		size_t buffer_length = 0;
 		ssize_t length = 0;
 		printf("(#disassemble)  %s  Toggle disassembly of forms.\n", g_disassemble ? "[enabled] " : "[disabled]");
@@ -1625,7 +1630,7 @@ int main(int argc, char *argv[]) {
 				printf("\n%lu", duckVM.stack.elements_length);
 			}
 			printf("> ");
-			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
+			if ((length = getline((char **) &line, &buffer_length, stdin)) < 0) break;
 			e = eval(&duckLisp,
 			         &duckVM,
 			         &return_value,

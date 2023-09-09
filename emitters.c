@@ -890,7 +890,7 @@ dl_error_t duckLisp_emit_pushString(duckLisp_t *duckLisp,
                                     duckLisp_compileState_t *compileState,
                                     dl_array_t *assembly,
                                     dl_ptrdiff_t *stackIndex,
-                                    char *string,
+                                    dl_uint8_t *string,
                                     dl_size_t string_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1259,7 +1259,7 @@ dl_error_t duckLisp_emit_acall(duckLisp_t *duckLisp,
 dl_error_t duckLisp_emit_call(duckLisp_t *duckLisp,
                               duckLisp_compileState_t *compileState,
                               dl_array_t *assembly,
-                              char *label,
+                              dl_uint8_t *label,
                               const dl_size_t label_length,
                               const dl_size_t count) {
 	dl_error_t e = dl_error_ok;
@@ -1299,8 +1299,7 @@ dl_error_t duckLisp_emit_call(duckLisp_t *duckLisp,
 			e = eError;
 			goto cleanup;
 		}
-		eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements),
-		                                    eString.elements_length);
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length);
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -1330,7 +1329,7 @@ dl_error_t duckLisp_emit_call(duckLisp_t *duckLisp,
 dl_error_t duckLisp_emit_brz(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *assembly,
-                             char *label,
+                             dl_uint8_t *label,
                              dl_size_t label_length,
                              int pops) {
 	dl_error_t e = dl_error_ok;
@@ -1377,9 +1376,7 @@ dl_error_t duckLisp_emit_brz(duckLisp_t *duckLisp,
 			e = eError;
 			goto cleanup;
 		}
-		eError = duckLisp_error_pushRuntime(duckLisp,
-		                                    ((char *) eString.elements),
-		                                    eString.elements_length);
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length);
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -1412,7 +1409,7 @@ dl_error_t duckLisp_emit_brz(duckLisp_t *duckLisp,
 dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp,
                               duckLisp_compileState_t *compileState,
                               dl_array_t *assembly,
-                              char *label,
+                              dl_uint8_t *label,
                               dl_size_t label_length,
                               int pops) {
 	dl_error_t e = dl_error_ok;
@@ -1459,9 +1456,7 @@ dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp,
 			e = eError;
 			goto cleanup;
 		}
-		eError = duckLisp_error_pushRuntime(duckLisp,
-		                                    ((char *) eString.elements),
-		                                    eString.elements_length);
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length);
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -1494,7 +1489,7 @@ dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp,
 dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp,
                               duckLisp_compileState_t *compileState,
                               dl_array_t *assembly,
-                              char *label,
+                              dl_uint8_t *label,
                               dl_size_t label_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1533,8 +1528,7 @@ dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp,
 			e = eError;
 			goto cleanup;
 		}
-		eError = duckLisp_error_pushRuntime(duckLisp, ((char *) eString.elements),
-		                                    eString.elements_length);
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length);
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -1560,7 +1554,7 @@ dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp,
 dl_error_t duckLisp_emit_label(duckLisp_t *duckLisp,
                                duckLisp_compileState_t *compileState,
                                dl_array_t *assembly,
-                               char *label,
+                               dl_uint8_t *label,
                                dl_size_t label_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1603,9 +1597,7 @@ dl_error_t duckLisp_emit_label(duckLisp_t *duckLisp,
 			e = eError;
 			goto cleanup;
 		}
-		eError = duckLisp_error_pushRuntime(duckLisp,
-		                                    ((char *) eString.elements),
-		                                    eString.elements_length);
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length);
 		if (eError) e = eError;
 		goto cleanup;
 	}

@@ -30,7 +30,7 @@ SOFTWARE.
 dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                             dl_size_t maxComptimeVmObjects,
                             dl_array_t *errors,
-                            const char *fileName,
+                            const dl_uint8_t *fileName,
                             const dl_size_t fileName_length,
                             duckLisp_ast_compoundExpression_t *ast);
 

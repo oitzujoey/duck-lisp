@@ -314,7 +314,7 @@ void printErrors(dl_array_t errors) {
 	printf(COLOR_NORMAL);
 }
 
-dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
+dl_error_t runTest(const unsigned char *fileBaseName, dl_uint8_t *text, size_t text_length) {
 	dl_error_t e = dl_error_ok;
 
 	const size_t duckLispMemory_size = 1024 * 1024;
@@ -356,7 +356,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 	                        text,
 	                        text_length - 1,
 	                        fileBaseName,
-	                        strlen(fileBaseName));
+	                        strlen((const char *) fileBaseName));
 	if (e) {
 		puts(COLOR_YELLOW "Compilation failed" COLOR_NORMAL);
 
@@ -398,7 +398,7 @@ dl_error_t runTest(const char *fileBaseName, char *text, size_t text_length) {
 
 	if (e) {
 		puts("disassembly {");
-		char *string = dl_null;
+		unsigned char *string = dl_null;
 		dl_size_t length = 0;
 		duckLisp_disassemble(&string, &length, &ma, bytecode, bytecode_length);
 		printf("%s", string);
@@ -441,14 +441,15 @@ int main(int argc, char *argv[]) {
 		if (dirent == NULL) break;
 		if (dirent->d_type != DT_REG) continue;
 
-		const char *fileBaseName = dirent->d_name;
+		const unsigned char *fileBaseName = (unsigned char *) dirent->d_name;
 
-		char *extension = strrchr(fileBaseName, '.');
+		char *extension = strrchr((const char *) fileBaseName, '.');
 		if (extension == NULL) continue;
 		extension++;
 		if (0 != strcmp(extension, "dl")) continue;
 
-		const size_t path_length = directoryName_length + 1 + strlen(fileBaseName) + 1;  // +1 for '/'. +1 for '\0'.
+		// +1 for '/'. +1 for '\0'.
+		const size_t path_length = directoryName_length + 1 + strlen((const char *) fileBaseName) + 1;
 		char *path = malloc(sizeof(char) * path_length);
 		if (path == NULL) {
 			// This might be recoverable, but fail anyway.
@@ -467,7 +468,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			size_t text_memory_length = 2*1024;
-			char *text = malloc(text_memory_length * sizeof(char));
+			unsigned char *text = malloc(text_memory_length * sizeof(unsigned char));
 			size_t text_length = 0;
 			if (text == NULL) {
 				e = dl_error_outOfMemory;
@@ -484,7 +485,7 @@ int main(int argc, char *argv[]) {
 				}
 				if (text_length >= text_memory_length) {
 					text_memory_length *= 2;
-					text = realloc(text, text_memory_length * sizeof(char));
+					text = realloc(text, text_memory_length * sizeof(unsigned char));
 				}
 				text[text_length++] = c;
 				if (end) break;

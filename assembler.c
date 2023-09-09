@@ -2662,7 +2662,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 }
 
 
-dl_error_t duckLisp_disassemble(char **string,
+dl_error_t duckLisp_disassemble(dl_uint8_t **string,
                                 dl_size_t *string_length,
                                 dl_memoryAllocation_t *memoryAllocation,
                                 const dl_uint8_t *bytecode,
@@ -2676,7 +2676,7 @@ dl_error_t duckLisp_disassemble(char **string,
 
 	const struct {
 		const dl_uint8_t opcode;
-		char *format;
+		dl_uint8_t *format;
 		const dl_size_t format_length;
 	} templates[] = {
 		{duckLisp_instruction_nop, DL_STR("nop")},
@@ -2859,7 +2859,7 @@ dl_error_t duckLisp_disassemble(char **string,
 	DL_DOTIMES(bytecode_index, length) {
 		dl_ptrdiff_t template_index = template_array[bytecode[bytecode_index]];
 		if (template_index >= 0) {
-			char *format = templates[template_index].format;
+			dl_uint8_t *format = templates[template_index].format;
 			dl_size_t format_length = templates[template_index].format_length;
 
 			/* Name */

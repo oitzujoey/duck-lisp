@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 	dl_bool_t equal = dl_false;
 	
 	const struct {
-		char *string;
+		dl_uint8_t *string;
 		dl_size_t length;
 	} words[] = {
 		{DL_STR("burst")},

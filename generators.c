@@ -750,7 +750,7 @@ dl_error_t duckLisp_generator_quote(duckLisp_t *duckLisp,
 	/**/ dl_array_init(&tempString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 	duckLisp_ast_compoundExpression_t *tree = &expression->compoundExpressions[1];
 	dl_ptrdiff_t temp_index = -1;
-	char *functionName = expression->compoundExpressions[0].value.identifier.value;
+	dl_uint8_t *functionName = expression->compoundExpressions[0].value.identifier.value;
 	dl_size_t functionName_length = expression->compoundExpressions[0].value.identifier.value_length;
 	duckLisp_ast_identifier_t tempIdentifier;
 
@@ -790,7 +790,8 @@ dl_error_t duckLisp_generator_quote(duckLisp_t *duckLisp,
 	case duckLisp_ast_type_identifier:
 		// Check if symbol is interned
 		/**/ dl_trie_find(duckLisp->symbols_trie,
-		                  &temp_index, tree->value.identifier.value,
+		                  &temp_index,
+		                  tree->value.identifier.value,
 		                  tree->value.identifier.value_length);
 		if (temp_index < 0) {
 			// It's not. Intern it.
@@ -1395,7 +1396,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 
 		{
 			duckLisp_ast_identifier_t identifier;
-			identifier.value = "self";
+			identifier.value = (dl_uint8_t *) "self";
 			identifier.value_length = sizeof("self") - 1;
 			/* Since this is effectively a single pass compiler, I don't see a good way to determine purity before
 			   compilation of the body. */
@@ -1772,7 +1773,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 	if (e) goto cleanup;
 	lambda.compoundExpressions_length = expression->compoundExpressions_length - 1;
 	lambda.compoundExpressions[0].type = duckLisp_ast_type_identifier;
-	lambda.compoundExpressions[0].value.identifier.value = "\0defun:lambda";
+	lambda.compoundExpressions[0].value.identifier.value = (dl_uint8_t *) "\0defun:lambda";
 	lambda.compoundExpressions[0].value.identifier.value_length = sizeof("\0defun:lambda") - 1;
 	for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
 		lambda.compoundExpressions[i - 1] = expression->compoundExpressions[i];
@@ -1782,7 +1783,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 	if (e) goto cleanup;
 	var.compoundExpressions_length = 3;
 	var.compoundExpressions[0].type = duckLisp_ast_type_identifier;
-	var.compoundExpressions[0].value.identifier.value = "\0defun:var";
+	var.compoundExpressions[0].value.identifier.value = (dl_uint8_t *) "\0defun:var";
 	var.compoundExpressions[0].value.identifier.value_length = sizeof("\0defun:var") - 1;
 	var.compoundExpressions[1] = expression->compoundExpressions[1];
 	var.compoundExpressions[2].type = duckLisp_ast_type_expression;
@@ -1961,9 +1962,7 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp,
 
 	if (expression->compoundExpressions[0].type != duckLisp_ast_type_identifier) {
 		e = dl_error_invalidValue;
-		eError = duckLisp_error_pushRuntime(duckLisp,
-		                                    (char *) eString.elements,
-		                                    eString.elements_length * eString.element_size);
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -2923,9 +2922,7 @@ dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp,
 			e = eError;
 			goto cleanup;
 		}
-		eError = duckLisp_error_pushRuntime(duckLisp,
-		                                    (char *) eString.elements,
-		                                    eString.elements_length * eString.element_size);
+		eError = duckLisp_error_pushRuntime(duckLisp, eString.elements, eString.elements_length * eString.element_size);
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -3396,7 +3393,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 			quote.type = duckLisp_ast_type_expression;
 			quote.value.expression.compoundExpressions_length = 2;
 			quote.value.expression.compoundExpressions[0].type = duckLisp_ast_type_identifier;
-			quote.value.expression.compoundExpressions[0].value.identifier.value = "__quote";
+			quote.value.expression.compoundExpressions[0].value.identifier.value = (dl_uint8_t *) "__quote";
 			quote.value.expression.compoundExpressions[0].value.identifier.value_length = sizeof("__quote") - 1;
 			quote.value.expression.compoundExpressions[1] = expression->compoundExpressions[i];
 			/* call.value.expression.compoundExpressions[i] = quote; */

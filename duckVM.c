@@ -30,7 +30,7 @@ SOFTWARE.
 #include "duckLisp.h"
 #include <stdio.h>
 
-dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const dl_size_t message_length) {
+dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_error_t error;
@@ -630,10 +630,12 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			size2 = *(ip++);
 			size1 = *(ip++);
 		}
-		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, duckVM_object_makeInternalString(ip, size1));
-		if (e) break;
-		ip += size1;
-		object1 = duckVM_object_makeSymbol(size2, objectPtr1);
+		{
+			dl_uint8_t *lastIp = ip;
+			ip += size1;
+			e = duckVM_object_makeSymbol(duckVM, &object1, size2, lastIp, size1);
+			if (e) break;
+		}
 		e = stack_push(duckVM, &object1);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-symbol: stack_push failed."));
@@ -2640,11 +2642,11 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 				else {
 					/**/ dl_string_compare(&bool1,
-					                       (char *) (object1.value.string.internalString->value.internalString.value
-					                                 + object1.value.string.offset),
+					                       (object1.value.string.internalString->value.internalString.value
+					                        + object1.value.string.offset),
 					                       object1.value.string.length - object1.value.string.offset,
-					                       (char *) (object2.value.string.internalString->value.internalString.value
-					                                 + object2.value.string.offset),
+					                       (object2.value.string.internalString->value.internalString.value
+					                        + object2.value.string.offset),
 					                       object2.value.string.length - object2.value.string.offset);
 					object1.value.boolean = bool1;
 				}
@@ -3964,8 +3966,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 			else {
 				e = dl_error_invalidValue;
-				eError = duckVM_error_pushRuntime(duckVM,
-				                                  DL_STR("duckVM_execute->length: Argument must be a vector or string."));
+				(eError
+				 = duckVM_error_pushRuntime(duckVM,
+				                            DL_STR("duckVM_execute->length: Argument must be a list, vector, or string.")));
 				if (eError) e = eError;
 				break;
 			}
@@ -4161,17 +4164,18 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff1 = duckVM->stack.elements_length - ptrdiff1;
 		if ((ptrdiff1 < 0) || ((dl_size_t) ptrdiff1 > duckVM->stack.elements_length)) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM,
-			                                  DL_STR("duckVM_execute->concatenate: First string stack index out of bounds."));
+			(eError
+			 = duckVM_error_pushRuntime(duckVM,
+			                            DL_STR("duckVM_execute->concatenate: First string stack index out of bounds.")));
 			if (!e) e = eError;
 			break;
 		}
 		e = dl_array_get(&duckVM->stack, &object1, ptrdiff1);
 		if (e) break;
-		if (object1.type != duckVM_object_type_string) {
+		if ((object1.type != duckVM_object_type_string) && (object1.type != duckVM_object_type_symbol)) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
-			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
+			                                  DL_STR("duckVM_execute->concatenate: First argument must be a string or symbol."));
 			if (!e) e = eError;
 			break;
 		}
@@ -4179,48 +4183,69 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		ptrdiff2 = duckVM->stack.elements_length - ptrdiff2;
 		if ((ptrdiff2 < 0) || ((dl_size_t) ptrdiff2 > duckVM->stack.elements_length)) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM,
-			                                  DL_STR("duckVM_execute->concatenate: Second string stack index out of bounds."));
+			(eError
+			 = duckVM_error_pushRuntime(duckVM,
+			                            DL_STR("duckVM_execute->concatenate: Second string stack index out of bounds.")));
 			if (!e) e = eError;
 			break;
 		}
 		e = dl_array_get(&duckVM->stack, &object2, ptrdiff2);
 		if (e) break;
-		if (object2.type != duckVM_object_type_string) {
+		if ((object2.type != duckVM_object_type_string) && (object2.type != duckVM_object_type_symbol)) {
 			e = dl_error_invalidValue;
 			eError = duckVM_error_pushRuntime(duckVM,
-			                                  DL_STR("duckVM_execute->concatenate: dl_array_get failed."));
+			                                  DL_STR("duckVM_execute->concatenate: Second argument must be a string or symbol."));
 			if (!e) e = eError;
 			break;
 		}
 
-		object3.type = duckVM_object_type_internalString;
-		object3.value.internalString.value = (object1.value.string.internalString->value.internalString.value
-		                                      + object1.value.string.offset);
-		object3.value.internalString.value_length = object1.value.string.length;
-		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object3);
-		if (e) break;
-		objectPtr1->value.internalString.value_length = ((object1.value.string.length)
-		                                                 + (object2.value.string.length));
-		e = DL_REALLOC(duckVM->memoryAllocation,
-		               &objectPtr1->value.internalString.value,
-		               objectPtr1->value.internalString.value_length,
-		               dl_uint8_t);
-		if (e) break;
-		/**/ dl_memcopy_noOverlap((objectPtr1->value.internalString.value
-		                           + object1.value.string.length),
-		                          (object2.value.string.internalString->value.internalString.value
-		                           + object2.value.string.offset),
-		                          object2.value.string.length);
-		object3.type = duckVM_object_type_string;
-		object3.value.string.offset = 0;
-		object3.value.string.length = objectPtr1->value.internalString.value_length;
-		object3.value.string.internalString = objectPtr1;
-		e = stack_push(duckVM, &object3);
-		if (e) {
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->concatenate: stack_push failed."));
-			if (!e) e = eError;
-			break;
+		{
+			dl_uint8_t *object1_string = dl_null;
+			dl_size_t object1_string_length = 0;
+			dl_uint8_t *object2_string = dl_null;
+			dl_size_t object2_string_length = 0;
+			if (object1.type == duckVM_object_type_string) {
+				object1_string = (object1.value.string.internalString->value.internalString.value
+				                  + object1.value.string.offset);
+				object1_string_length = object1.value.string.length;
+			}
+			else {
+				object1_string = object1.value.symbol.internalString->value.internalString.value;
+				object1_string_length = object1.value.symbol.internalString->value.internalString.value_length;
+			}
+			if (object2.type == duckVM_object_type_string) {
+				object2_string = (object2.value.string.internalString->value.internalString.value
+				                  + object2.value.string.offset);
+				object2_string_length = object2.value.string.length;
+			}
+			else {
+				object2_string = object2.value.symbol.internalString->value.internalString.value;
+				object2_string_length = object2.value.symbol.internalString->value.internalString.value_length;
+			}
+			object3.type = duckVM_object_type_internalString;
+			object3.value.internalString.value = object1_string;
+			object3.value.internalString.value_length = object1_string_length;
+			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object3);
+			if (e) break;
+			objectPtr1->value.internalString.value_length = object1_string_length + object2_string_length;
+			e = DL_REALLOC(duckVM->memoryAllocation,
+			               &objectPtr1->value.internalString.value,
+			               objectPtr1->value.internalString.value_length,
+			               dl_uint8_t);
+			if (e) break;
+			/**/ dl_memcopy_noOverlap((objectPtr1->value.internalString.value + object1_string_length),
+			                          object2_string,
+			                          object2_string_length);
+			object3.type = duckVM_object_type_string;
+			object3.value.string.offset = 0;
+			object3.value.string.length = objectPtr1->value.internalString.value_length;
+			object3.value.string.internalString = objectPtr1;
+			e = stack_push(duckVM, &object3);
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->concatenate: stack_push failed."));
+				if (!e) e = eError;
+				break;
+			}
 		}
 		break;
 
@@ -4627,12 +4652,23 @@ duckVM_object_t duckVM_object_makeString(duckVM_object_t *internalString, dl_ptr
 	return o;
 }
 
-duckVM_object_t duckVM_object_makeSymbol(dl_size_t id, duckVM_object_t *internalStringObject) {
-	duckVM_object_t o;
-	o.type = duckVM_object_type_symbol;
-	o.value.symbol.internalString = internalStringObject;
-	o.value.symbol.id = id;
-	return o;
+dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
+                                    duckVM_object_t *symbolOut,
+                                    dl_size_t id,
+                                    dl_uint8_t *string,
+                                    dl_size_t string_length) {
+	duckVM_object_t internalString = duckVM_object_makeInternalString(string, string_length);
+	duckVM_object_t *internalStringPointer = dl_null;
+	dl_error_t e = duckVM_gclist_pushObject(duckVM, &internalStringPointer, internalString);
+	if (e) goto cleanup;
+
+	duckVM_object_t symbol;
+	symbol.type = duckVM_object_type_symbol;
+	symbol.value.symbol.internalString = internalStringPointer;
+	symbol.value.symbol.id = id;
+	*symbolOut = symbol;
+
+ cleanup: return e;
 }
 
 duckVM_object_t duckVM_object_makeFunction(dl_error_t (*callback)(duckVM_t *)) {
@@ -4747,8 +4783,36 @@ double duckVM_object_getFloat(duckVM_object_t object) {
 	return object.value.floatingPoint;
 }
 
-duckVM_string_t duckVM_object_getString(duckVM_object_t object) {
-	return object.value.string;
+dl_error_t duckVM_object_getString(dl_memoryAllocation_t *memoryAllocation,
+                                   dl_uint8_t **string,
+                                   dl_size_t *length,
+                                   duckVM_object_t object) {
+	dl_error_t e = dl_error_ok;
+
+	{
+		dl_ptrdiff_t offset = object.value.string.offset;
+		dl_size_t length = object.value.string.length;
+		if (length) {
+			e = DL_MALLOC(memoryAllocation, string, length - offset, dl_uint8_t);
+			if (e) goto cleanup;
+
+			duckVM_object_t *internalStringObject = object.value.string.internalString;
+			if (internalStringObject == dl_null) {
+				e = dl_error_nullPointer;
+				goto cleanup;
+			}
+
+			duckVM_internalString_t internalString = internalStringObject->value.internalString;
+			(void) dl_memcopy_noOverlap(*string, &internalString.value[offset], length);
+		}
+		else {
+			*string = dl_null;
+		}
+	}
+
+	*length = object.value.string.length - object.value.string.offset;
+
+ cleanup: return e;
 }
 
 duckVM_internalString_t duckVM_object_getInternalString(duckVM_object_t object) {
@@ -5022,4 +5086,9 @@ dl_error_t duckVM_composite_getFunctionObject(duckVM_composite_t composite, duck
 
 duckVM_object_type_t duckVM_typeOf(duckVM_object_t object) {
 	return object.type;
+}
+
+
+dl_bool_t duckVM_object_isString(duckVM_object_t object) {
+	return object.type == duckVM_object_type_string;
 }

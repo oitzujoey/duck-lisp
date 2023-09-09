@@ -40,7 +40,7 @@ SOFTWARE.
   ===============
 */
 
-dl_error_t duckLisp_error_pushRuntime(duckLisp_t *duckLisp, const char *message, const dl_size_t message_length) {
+dl_error_t duckLisp_error_pushRuntime(duckLisp_t *duckLisp, const dl_uint8_t *message, const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_error_t error;
@@ -110,9 +110,7 @@ dl_error_t duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp,
 		e = dl_array_pushElements(&string, DL_STR("\"."));
 		if (e) goto cleanup;
 
-		e = duckLisp_error_pushRuntime(duckLisp,
-		                               (char *) string.elements,
-		                               string.elements_length * string.element_size);
+		e = duckLisp_error_pushRuntime(duckLisp, string.elements, string.elements_length * string.element_size);
 		if (e) goto cleanup;
 
 		e = dl_error_invalidValue;
@@ -135,7 +133,7 @@ dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
 	dl_array_t string;
 	/**/ dl_array_init(&string, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 	const duckLisp_ast_identifier_t typeString[] = {
-#define X(s) s, sizeof(s) - 1
+#define X(s) (dl_uint8_t *) s, sizeof(s) - 1
 		{X("duckLisp_ast_type_none")},
 		{X("duckLisp_ast_type_expression")},
 		{X("duckLisp_ast_type_literalExpression")},
@@ -176,9 +174,7 @@ dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
 		e = dl_array_pushElements(&string, DL_STR("\"."));
 		if (e) goto l_cleanup;
 
-		e = duckLisp_error_pushRuntime(duckLisp,
-		                               (char *) string.elements,
-		                               string.elements_length * string.element_size);
+		e = duckLisp_error_pushRuntime(duckLisp, string.elements, string.elements_length * string.element_size);
 		if (e) goto l_cleanup;
 
 		e = dl_error_invalidValue;
@@ -197,20 +193,25 @@ dl_error_t duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
  */
 
 /* Accepts a symbol name and returns its value. Returns -1 if the symbol is not found. */
-dl_ptrdiff_t duckLisp_symbol_nameToValue(const duckLisp_t *duckLisp, const char *name, const dl_size_t name_length) {
+dl_ptrdiff_t duckLisp_symbol_nameToValue(const duckLisp_t *duckLisp,
+                                         const dl_uint8_t *name,
+                                         const dl_size_t name_length) {
 	dl_ptrdiff_t value = -1;
 	/**/ dl_trie_find(duckLisp->symbols_trie, &value, name, name_length);
 	return value;
 }
 
 /* Guaranteed not to create a new symbol if a symbol with the given name already exists. */
-dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const char *name, const dl_size_t name_length) {
+dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const dl_uint8_t *name, const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
 	dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp, name, name_length);
 	if (key == -1) {
 		duckLisp_ast_identifier_t tempIdentifier;
-		e = dl_trie_insert(&duckLisp->symbols_trie, name, name_length, duckLisp->symbols_array.elements_length);
+		e = dl_trie_insert(&duckLisp->symbols_trie,
+		                   name,
+		                   name_length,
+		                   duckLisp->symbols_array.elements_length);
 		if (e) goto l_cleanup;
 		tempIdentifier.value_length = name_length;
 		e = dl_malloc(duckLisp->memoryAllocation, (void **) &tempIdentifier.value, name_length);
@@ -365,7 +366,7 @@ dl_error_t duckLisp_popScope(duckLisp_t *duckLisp,
 */
 dl_error_t duckLisp_scope_getMacroFromName(duckLisp_subCompileState_t *subCompileState,
                                            dl_ptrdiff_t *index,
-                                           const char *name,
+                                           const dl_uint8_t *name,
                                            const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -398,7 +399,7 @@ dl_error_t duckLisp_scope_getMacroFromName(duckLisp_subCompileState_t *subCompil
 */
 dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_subCompileState_t *subCompileState,
                                                 dl_ptrdiff_t *index,
-                                                const char *name,
+                                                const dl_uint8_t *name,
                                                 const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -430,7 +431,7 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
                                                            dl_bool_t *found,
                                                            dl_ptrdiff_t *index,
                                                            dl_ptrdiff_t *scope_index,
-                                                           const char *name,
+                                                           const dl_uint8_t *name,
                                                            const dl_size_t name_length,
                                                            duckLisp_scope_t function_scope,
                                                            dl_ptrdiff_t function_scope_index) {
@@ -549,7 +550,7 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
                                                     dl_bool_t *found,
                                                     dl_ptrdiff_t *index,
                                                     dl_ptrdiff_t *scope_index,
-                                                    const char *name,
+                                                    const dl_uint8_t *name,
                                                     const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 	duckLisp_scope_t function_scope;
@@ -584,7 +585,7 @@ dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
                                      duckLisp_subCompileState_t *subCompileState,
                                      duckLisp_functionType_t *functionType,
                                      dl_ptrdiff_t *index,
-                                     const char *name,
+                                     const dl_uint8_t *name,
                                      const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -640,9 +641,9 @@ dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
 }
 
 dl_error_t duckLisp_scope_getLabelFromName(duckLisp_subCompileState_t *subCompileState,
-                                  dl_ptrdiff_t *index,
-                                  const char *name,
-                                  dl_size_t name_length) {
+                                           dl_ptrdiff_t *index,
+                                           const dl_uint8_t *name,
+                                           dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_scope_t scope;
@@ -700,7 +701,7 @@ dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *iden
 
 dl_error_t duckLisp_register_label(duckLisp_t *duckLisp,
                                    duckLisp_subCompileState_t *subCompileState,
-                                   char *name,
+                                   dl_uint8_t *name,
                                    const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -852,7 +853,8 @@ dl_error_t duckLisp_astToObject(duckLisp_t *duckLisp,
 		dl_size_t id = duckLisp_symbol_nameToValue(duckLisp,
 		                                           ast.value.identifier.value,
 		                                           ast.value.identifier.value_length);
-		*object = duckVM_object_makeSymbol(id, internalString);
+		e = duckVM_object_makeSymbol(duckVM, object, id, ast.value.identifier.value, ast.value.identifier.value_length);
+		if (e) break;
 		break;
 	}
 	case duckLisp_ast_type_string: {
@@ -893,7 +895,7 @@ dl_error_t duckLisp_astToObject(duckLisp_t *duckLisp,
 dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
                                                duckLisp_compileState_t *compileState,
                                                dl_array_t *assembly,
-                                               char *functionName,
+                                               dl_uint8_t *functionName,
                                                const dl_size_t functionName_length,
                                                duckLisp_ast_compoundExpression_t *compoundExpression,
                                                dl_ptrdiff_t *index,
@@ -1054,7 +1056,7 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,
                                        dl_array_t *assembly,
-                                       char *functionName,
+                                       dl_uint8_t *functionName,
                                        const dl_size_t functionName_length,
                                        duckLisp_ast_expression_t *expression,
                                        dl_ptrdiff_t *index) {
@@ -1423,12 +1425,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	return e;
 }
 
-/*
-  ================
-  Public functions
-  ================
-*/
-
 dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1462,6 +1458,51 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	return e;
 }
 
+dl_error_t duckLisp_callback_intern(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_t *duckLisp = duckVM->duckLisp;
+	duckVM_object_t object;
+
+	e = duckVM_pop(duckVM, &object);
+	if (e) goto cleanup;
+
+	if (!duckVM_object_isString(object)) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM, DL_STR("\"intern\" expects a string argument."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	{
+		dl_uint8_t *string = dl_null;
+		dl_size_t string_length = 0;
+
+		e = duckVM_object_getString(duckVM->memoryAllocation, &string, &string_length, object);
+		if (e) goto cleanupString;
+
+		e = duckLisp_symbol_create(duckLisp, string, string_length);
+		if (e) goto cleanupString;
+
+		e = duckVM_object_makeSymbol(duckVM,
+		                             &object,
+		                             duckLisp_symbol_nameToValue(duckLisp, string, string_length),
+		                             string,
+		                             string_length);
+		if (e) goto cleanupString;
+
+	cleanupString:
+		e = DL_FREE(duckVM->memoryAllocation, &string);
+		if (e) goto cleanup;
+	}
+
+	e = duckVM_push(duckVM, &object);
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
 dl_error_t duckLisp_init(duckLisp_t *duckLisp,
                          dl_memoryAllocation_t *memoryAllocation,
                          dl_size_t maxComptimeVmObjects) {
@@ -1469,7 +1510,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 
 	/* All language-defined generators go here. */
 	struct {
-		const char *name;
+		const dl_uint8_t *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckLisp_t*, duckLisp_compileState_t *, dl_array_t*, duckLisp_ast_expression_t*);
 	} generators[] = {{DL_STR("__declare"),                duckLisp_generator_declare},
@@ -1528,11 +1569,12 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                  {dl_null, 0,                         dl_null}};
 
 	struct {
-		const char *name;
+		const dl_uint8_t *name;
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
 		{DL_STR("gensym"), duckLisp_callback_gensym},
+		{DL_STR("intern"), duckLisp_callback_intern},
 		{dl_null, 0,       dl_null}
 	};
 
@@ -1693,11 +1735,11 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
-                               unsigned char **bytecode,
+                               dl_uint8_t **bytecode,
                                dl_size_t *bytecode_length,
-                               const char *source,
+                               const dl_uint8_t *source,
                                const dl_size_t source_length,
-                               const char *fileName,
+                               const dl_uint8_t *fileName,
                                const dl_size_t fileName_length) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -1761,7 +1803,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_scope_addObject(duckLisp_t *duckLisp,
                                     duckLisp_compileState_t *compileState,
-                                    const char *name,
+                                    const dl_uint8_t *name,
                                     const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -1783,18 +1825,16 @@ dl_error_t duckLisp_scope_addObject(duckLisp_t *duckLisp,
 }
 
 dl_error_t duckLisp_addStatic(duckLisp_t *duckLisp,
-                              const char *name,
+                              const dl_uint8_t *name,
                               const dl_size_t name_length,
                               dl_ptrdiff_t *index) {
 	dl_error_t e = dl_error_ok;
 
 	e = duckLisp_symbol_create(duckLisp, name, name_length);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 	*index = duckLisp_symbol_nameToValue(duckLisp, name, name_length);
 
- l_cleanup:
-
-	return e;
+ cleanup: return e;
 }
 
 dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
@@ -1840,7 +1880,10 @@ dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
 		e = duckLisp_scope_getTop(duckLisp, compileState->currentCompileState, &scope);
 		if (e) goto cleanup;
 
-		e = dl_trie_insert(&scope.functions_trie, name.value, name.value_length, duckLisp_functionType_macro);
+		e = dl_trie_insert(&scope.functions_trie,
+		                   name.value,
+		                   name.value_length,
+		                   duckLisp_functionType_macro);
 		if (e) goto cleanup;
 
 		e = scope_setTop(compileState->currentCompileState, &scope);
@@ -1858,7 +1901,7 @@ dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_addParserAction(duckLisp_t *duckLisp,
                                     dl_error_t (*callback)(duckLisp_t*, duckLisp_ast_compoundExpression_t*),
-                                    const char *name,
+                                    const dl_uint8_t *name,
                                     const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -1880,12 +1923,15 @@ dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
                                                         duckLisp_compileState_t *,
                                                         dl_array_t*,
                                                         duckLisp_ast_expression_t*),
-                                 const char *name,
+                                 const dl_uint8_t *name,
                                  const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
 	/* Record the generator stack index. */
-	e = dl_trie_insert(&duckLisp->generators_trie, name, name_length, duckLisp->generators_stack.elements_length);
+	e = dl_trie_insert(&duckLisp->generators_trie,
+	                   name,
+	                   name_length,
+	                   duckLisp->generators_stack.elements_length);
 	if (e) goto cleanup;
 	duckLisp->generators_length++;
 	e = dl_array_pushElement(&duckLisp->generators_stack, &callback);
@@ -1897,7 +1943,7 @@ dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
                                   dl_error_t (*callback)(duckVM_t *),
-                                  const char *name,
+                                  const dl_uint8_t *name,
                                   const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 	(void) callback;
