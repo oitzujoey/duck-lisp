@@ -2,11 +2,6 @@ __declare print (I)
 __comptime print "<comptime library.dl>\n"
 print "<library.dl>\n"
 
-__declare print-stack ()
-__declare garbage-collect ()
-__declare disassemble ()
-__declare gensym ()
-
 __defmacro declare (identifier type &rest script-body) ()
 (__declare declare (L L &rest 0 I)
            (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))

@@ -2366,6 +2366,12 @@ Adding this would be more work than I'm willing to put in. I think I will allow 
 A small library takes almost no time to compile, so including the library every time code is entered on the Hidey-Chess REPL should be acceptable.
 
 
+Callbacks now work nicely with the type system.
+
+
+Hidey-Chess REPL will work OK now due to illusion. Scripts will be much less wordy as well. The only thing it truly needs now is a stable C API. Fortunately, I think I know how to do this now. It might end up being a lot of work, but it will little thought.
+
+
 
 Next step: Update "language.md"
 
