@@ -1642,10 +1642,22 @@ int main(int argc, char *argv[]) {
 		dl_uint8_t *line = NULL;
 		size_t buffer_length = 0;
 		ssize_t length = 0;
-		printf("(#disassemble)  %s  Toggle disassembly of forms.\n", g_disassemble ? "[enabled] " : "[disabled]");
+		printf("HELP:\n");
+		printf("    (print <value>)                         Display the value of an object.\n");
+		printf("    (print-stack)                           Print the data stack of the current environment.\n");
+		printf("    (garbage-collect)                       Manually run garbage collection.\n");
+		printf("    (disassemble)               %s  Toggle disassembly of forms.\n",
+		       g_disassemble ? "[enabled] " : "[disabled]");
 #ifdef USE_PARENTHESIS_INFERENCE
-		printf("(#inference)    %s  Toggle parenthesis inference.\n", g_hanabi ? "[enabled] " : "[disabled]");
+		printf("    (inference)                 %s  Toggle parenthesis inference.\n",
+		       g_hanabi ? " [enabled]" : "[disabled]");
 #endif /* USE_PARENTHESIS_INFERENCE */
+		printf("    (quicksort-hoare <list> <list-length>)  Sort a numeric list in descending order.\n");
+		printf("    (print-uv-stack)                        Print the upvalue stack in the current environment.\n");
+		printf("    (open-file <name> <mode>)               Call `fopen'.\n");
+		printf("    (close-file <file>)                     Call `fclose'.\n");
+		printf("    (fgetc file <file>)                     Call `fgetc'.\n");
+		printf("    (fwrite <file> <string>)                Call `fwrite'.\n");
 		while (1) {
 			duckVM_object_t return_value;
 			if (duckVM.stack.elements_length > 0) {
