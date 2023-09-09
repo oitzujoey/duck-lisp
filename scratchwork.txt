@@ -2372,6 +2372,9 @@ Callbacks now work nicely with the type system.
 Hidey-Chess REPL will work OK now due to illusion. Scripts will be much less wordy as well. The only thing it truly needs now is a stable C API. Fortunately, I think I know how to do this now. It might end up being a lot of work, but it will little thought.
 
 
+I don't think upvalues should be easily accessible since you can't refer to them by name.
+
+
 
 Next step: Update "language.md"
 

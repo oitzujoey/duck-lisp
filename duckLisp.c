@@ -2134,7 +2134,7 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t serialize_errors(dl_memoryAllocation_t *memoryAllocation,
+dl_error_t duckLisp_serialize_errors(dl_memoryAllocation_t *memoryAllocation,
                             dl_array_t *errorString,
                             dl_array_t *errors,
                             dl_array_t *sourceCode) {

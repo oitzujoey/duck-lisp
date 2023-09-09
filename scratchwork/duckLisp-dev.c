@@ -1264,7 +1264,7 @@ int eval(duckLisp_t *duckLisp,
 
 	{
 		dl_array_t errorString;
-		e = serialize_errors(duckLisp->memoryAllocation, &errorString, &duckLisp->errors, &sourceCode);
+		e = duckLisp_serialize_errors(duckLisp->memoryAllocation, &errorString, &duckLisp->errors, &sourceCode);
 		if (e) goto cleanup;
 		printf(COLOR_RED);
 		DL_DOTIMES(i, errorString.elements_length) {
@@ -1310,7 +1310,7 @@ int eval(duckLisp_t *duckLisp,
 	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
 	{
 		dl_array_t errorString;
-		e = serialize_errors(duckVM->memoryAllocation, &errorString, &duckVM->errors, dl_null);
+		e = duckLisp_serialize_errors(duckVM->memoryAllocation, &errorString, &duckVM->errors, dl_null);
 		if (e) goto cleanup;
 		printf(COLOR_RED);
 		DL_DOTIMES(i, errorString.elements_length) {
