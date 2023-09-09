@@ -2363,6 +2363,9 @@ An improved system would allow using macros anywhere. This would add fexprs.
 Adding this would be more work than I'm willing to put in. I think I will allow macros anywhere in the runtime environment but forbid them in the comptime environment.
 
 
+A small library takes almost no time to compile, so including the library every time code is entered on the Hidey-Chess REPL should be acceptable.
+
+
 
 Next step: Update "language.md"
 

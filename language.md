@@ -1,18 +1,17 @@
 # Language
 
-Welcome to the weirdest lisp you'll ever use!
+Welcome to duck-lisp!
 
 ## Syntax
 
-S-expressions to the extreme. Even comments follow the rule.  
-Every function and keyword follows the form `(verb noun noun …)`.  
-`verb` must be an identifier.
+S-expressions are taken to the extreme. Not even `quote` has special reader syntax. Every function and keyword follows the form `(verb noun noun …)`. `verb` must be an identifier. There's an alternative syntax available though, so take a look at "parenthesis-inference.md" when you tire of the parentheses.
+
+Despite what is shown in this document, all keywords are preceded by two underscores. "language-reference.md" contains the full list of keywords and built-in functions. Every form in that document is mentioned in this one as well, but without the underscores since underscores are unsightly.
 
 ## Comments
 
 ```lisp
-(comment This is a comment.)
-(; This is also a comment, though it may mess with your parenthesis completion.)
+; This is a comment.
 ```
 
 ## Data types
@@ -22,7 +21,7 @@ Integers, floats, booleans, strings, cons, symbols, closures, vectors, types, co
 The type of a value can be queried using the `type-of` keyword. The type of the returned value is a type.
 
 ```lisp
-(type-of 5)  (; ⇒ <2>)
+(type-of 5)  ; ⇒ ::2
 ```
 
 ## Arithmetic
@@ -32,12 +31,12 @@ The type of a value can be queried using the `type-of` keyword. The type of the 
 Arithmetic operators are generators, not functions, so they have no value. However, if you do want to treat them as functions, there is a decent workaround.
 
 ```lisp
-(; Functions names are defined after the function body is defined, so the `+'
-   being called is the operator.)
+;; Functions names are defined after the function body is defined, so the `+'
+;; being called is the operator.
 (defun + (a b)
   (+ a b))
 
-(; Now use it with a higher-order function)
+;; Now use it with a higher-order function
 (defun apply2 (f a b)
   (f a b))
 
@@ -55,14 +54,14 @@ Lexical variables are created as in C but using the `var` keyword. Global variab
 
 ```lisp
 (var x 5)
-(print x)  (; ⇒ 5)
+(print x)  ; ⇒ 5
 (
- (print x)  (; ⇒ 5)
+ (print x)  ; ⇒ 5
  (var x 6)
- (print x))  (; ⇒ 6)
-(print x)  (; ⇒ 5)
+ (print x))  ; ⇒ 6
+(print x)  ; ⇒ 5
 
-(; `y' will still exist when newly-compiled bytecode is run on the VM.)
+;; `y' will still exist when newly-compiled bytecode is run on the VM.
 (global y)
 ```
 
@@ -71,67 +70,67 @@ Lexical variables are created as in C but using the `var` keyword. Global variab
 `defun` generates lexically scoped functions. Functions are first class. Variadic functions are created like in Common Lisp, using the `&rest` keyword. They can be called using `funcall` and `apply`, which also come from Common Lisp. Recursion is possible (using `self`), but mutual recursion between two functions requires a third function to do the setup. The duck-lisp compiler does not perform tail call optimization.
 
 ```lisp
-(; Basic usage)
+;; Basic usage
 (defun mod (a b)
   (- a (* (/ a b) b)))
-(mod 47 12)  (; ⇒ 11)
+(mod 47 12)  ; ⇒ 11
 
-(; Variadic functions)
-(include "../scripts/library.dl")  (; Import `println')
+;; Variadic functions
+(include "../scripts/library.dl")  ; Import `println'
 (defun print-args (&rest args)
   (print (length args))
   (println args)
   args)
-(print-args 1 2 3 4 5)  (; Prints 5(1 2 3 4 5))
+(print-args 1 2 3 4 5)  ; Prints 5(1 2 3 4 5)
 
-(; Recursion)
+;; Recursion
 (defun fact (n)
   (if (= n 1)
     1
     (* n (self (- n 1)))))
 (fact 5)  (; ⇒ 120)
 
-(; Mutual recursion)
-(; `f2' must be declared first, and then set.)
+;; Mutual recursion
+;; `f2' must be declared first, and then set.
 (var f2 ())
 (defun f1 () (f2))
 (setq f2 (lambda () (f1)))
-(f1)  (; Does not return)
+(f1)  ; Does not return
 
-(; Higher-order functions)
+;; Higher-order functions
 (defun apply1 (f n) (f n))
-(apply1 fact 5)  (; ⇒ 120)
+(apply1 fact 5)  ; ⇒ 120
 ```
 
 Anonymous functions are created with lambdas.
 
 ```lisp
 (var f (lambda () 5))
-(f)  (; ⇒ 5)
+(f)  ; ⇒ 5
 ```
 
 Expressions are never treated as functions. Attempting to call them will wrap another scope around them, which does nothing.
 
 ```lisp
-((lambda () 5))  (; ⇒ (closure 2))
+((lambda () 5))  ; ⇒ (closure 2)
 ```
 
 The above merely returns the function. It is not called. `funcall` is used to call an expression as a function.
 
 ```lisp
-(funcall (lambda () 5))  (; ⇒ 5)
+(funcall (lambda () 5))  ; ⇒ 5
 ```
 
 If you need to destructure a list to use the elements as arguments, use `apply`.
 
 ```lisp
-(apply >= (list 2 2))  (; ⇒ true)
+(apply >= (list 2 2))  ; ⇒ true
 ```
 
 `funcall` and `apply` do not work on function-like keywords.
 
 ```lisp
-(apply + (list 2 2))  (; compoundExpression: Could not find variable "+".)
+(apply + (list 2 2))  ; compoundExpression: Could not find variable "+".
 ```
 
 ### Assignment
@@ -139,9 +138,9 @@ If you need to destructure a list to use the elements as arguments, use `apply`.
 Assignment is done with `setq`. It acts like `=` in C.
 
 ```lisp
-(var x 0)  (; ⇒ 0)
-(setq x 5)  (; ⇒ 5)
-x  (; ⇒ 5)
+(var x 0)  ; ⇒ 0
+(setq x 5)  ; ⇒ 5
+x  ; ⇒ 5
 ```
 
 Assignment can be used to modify captured variables in closures.
@@ -150,9 +149,9 @@ Assignment can be used to modify captured variables in closures.
 (var x 0)
 (defun f ()
   (setq x 5)))
-x  (; ⇒ 0)
+x  ; ⇒ 0
 (f)
-x  (; ⇒ 5)
+x  ; ⇒ 5
 ```
 
 ## Primitive types
@@ -179,21 +178,21 @@ Literal floating point values are defined by this regex: `-?(([0-9]+\.[0-9]*)|([
 Symbols are created by quoting an identifier.
 
 ```lisp
-(quote I'm-a-symbol!)  (; ⇒ I'm-a-symbol!→11)
+(quote I'm-a-symbol!)  ; ⇒ I'm-a-symbol!→11
 ```
 
 They can be checked for equality with other symbols.
 
 ```lisp
-(= (quote I'm-a-symbol!) (quote I'm-a-symbol!))  (; ⇒ true)
-(= (quote I'm-a-symbol!) (quote I'm-another-symbol!))  (; ⇒ false)
+(= (quote I'm-a-symbol!) (quote I'm-a-symbol!))  ; ⇒ true
+(= (quote I'm-a-symbol!) (quote I'm-another-symbol!))  ; ⇒ false
 ```
 
 An integer unique to the symbol can be retrieved using `symbol-id`. The symbol's name can be retrieved using `symbol-string`. Symbols are immutable.
 
 ```lisp
-(symbol-id (quote I'm-a-symbol!))  (; ⇒ 11)
-(symbol-string (quote I'm-a-symbol!))  (; ⇒ "I'm-a-symbol!")
+(symbol-id (quote I'm-a-symbol!))  ; ⇒ 11
+(symbol-string (quote I'm-a-symbol!))  ; ⇒ "I'm-a-symbol!"
 ```
 
 
@@ -204,7 +203,7 @@ An integer unique to the symbol can be retrieved using `symbol-id`. The symbol's
 The most common sequence type is the cons cell. A cons cell is a pair of values.
 
 ```lisp
-(cons 4 2)  (; ⇒ (4 . 2))
+(cons 4 2)  ; ⇒ (4 . 2)
 ```
 
 The dot notation above is how a cons cell is printed. Duck-lisp cannot parse that syntax.
@@ -212,26 +211,26 @@ The dot notation above is how a cons cell is printed. Duck-lisp cannot parse tha
 To access the first value, use `car`.
 
 ```lisp
-(car (cons 4 2))  (; ⇒ 4)
+(car (cons 4 2))  ; ⇒ 4
 ```
 
 To access the second value, use `cdr`.
 
 ```lisp
-(cdr (cons 4 2))  (; ⇒ 2)
+(cdr (cons 4 2))  ; ⇒ 2
 ```
 
 They can also be nested.
 
 ```lisp
-(cons (cons 1 2) (cons 3 4))  (; ⇒ ((1 . 2) . (3 . 4)))
+(cons (cons 1 2) (cons 3 4))  ; ⇒ ((1 . 2) . (3 . 4))
 ```
 
 `()` is the syntax for nil. It is used as an end-marker for lists, and as a general default/error value. They keyword `null?` can be used to check if a value is nil.
 
 ```lisp
 ()  (; ⇒ nil)
-(cons 1 (cons 2 (cons 3 (cons 4 ()))))  (; ⇒ (1 2 3 4))
+(cons 1 (cons 2 (cons 3 (cons 4 ()))))  ; ⇒ (1 2 3 4)
 (null? (cons 1 2))  (; ⇒ false)
 (null? ())  (; ⇒ true)
 ```
@@ -240,13 +239,13 @@ If nil is added to the end of a chain of conses, it becomes a list.
 `list` offers a shorthand for writing chains of conses terminated by a nil.
 
 ```lisp
-(list 1 2 3 4)  (; ⇒ (1 2 3 4))
+(list 1 2 3 4)  ; ⇒ (1 2 3 4)
 ```
 
 A list without a nil on the end is called a dotted list. In general, dotted lists are less useful than normal lists since it's not as simple to tell where the end is.
 
 ```lisp
-(cons 1 (cons 2 (cons 3 (cons 4 5))))  (; ⇒ (1 2 3 4 . 5))
+(cons 1 (cons 2 (cons 3 (cons 4 5))))  ; ⇒ (1 2 3 4 . 5)
 ```
 
 ### Vectors
@@ -262,43 +261,43 @@ Both `()` and `[]` are null values, but vectors do not have a quoted read syntax
 Vectors are created using the `vector` keyword.
 
 ```lisp
-(print (vector 1 2 3 4 5))  (; ⇒ [1 2 3 4 5])
+(print (vector 1 2 3 4 5))  ; ⇒ [1 2 3 4 5]
 ```
 
 To create an array of arbitrary size at runtime, use `make-vector`. The first argument is the length, and the second argument is the object to initialize each element with.
 
 ```lisp
-(make-vector 5 3)  (; ⇒ [3 3 3 3 3])
-(make-vector 4 (vector 1 2 3))  (; ⇒ [[1 2 3] [1 2 3] [1 2 3] [1 2 3]])
+(make-vector 5 3)  ; ⇒ [3 3 3 3 3]
+(make-vector 4 (vector 1 2 3))  ; ⇒ [[1 2 3] [1 2 3] [1 2 3] [1 2 3]]
 ```
 
 The length can be obtained with the `length` keyword.
 
 ```lisp
-(length (vector () () () () ()))  (; ⇒ 5)
+(length (vector () () () () ()))  ; ⇒ 5
 ```
 
 Instead of using `car` and `cdr` to access elements, `get-vector-element` can be used instead. The first argument is the vector, and the second element is the index.
 
 ```lisp
-(get-vector-element (vector 5 4 3 2 1) 3)  (; ⇒ 2)
+(get-vector-element (vector 5 4 3 2 1) 3)  ; ⇒ 2
 ```
 
 To set an element, use `set-vector-element`. Its usage is the same as `get-vector-element`, but its third argument is the value to set the element to.
 
 ```lisp
-(var x (vector 1 2 3))  (; ⇒ [1 2 3])
-(set-vector-element x 1 0)  (; ⇒ 0)
-(print x)  (; ⇒ [1 0 3])
+(var x (vector 1 2 3))  ; ⇒ [1 2 3]
+(set-vector-element x 1 0)  ; ⇒ 0
+(print x)  ; ⇒ [1 0 3]
 ```
 
 Like `car`, `cdr`, `set-car`, and `set-cdr`, these two operations can be used together on trees.
 
 ```lisp
-(var x (make-vector 4 (vector 1 2 3)))  (; ⇒ [[1 2 3] [1 2 3] [1 2 3] [1 2 3]])
-(get-vector-element x 3)  (; ⇒ [1 2 3])
-(set-vector-element (get-vector-element x 3) 2 10)  (; ⇒ 10)
-(print x)  (; ⇒ [[1 2 10] [1 2 10] [1 2 10] [1 2 10]])
+(var x (make-vector 4 (vector 1 2 3)))  ; ⇒ [[1 2 3] [1 2 3] [1 2 3] [1 2 3]]
+(get-vector-element x 3)  ; ⇒ [1 2 3]
+(set-vector-element (get-vector-element x 3) 2 10)  ; ⇒ 10
+(print x)  ; ⇒ [[1 2 10] [1 2 10] [1 2 10] [1 2 10]]
 ```
 
 ### Strings
@@ -307,16 +306,17 @@ Literal strings are any sequence of characters surrounded by quotes. Quotes are 
 
 All vector operations work on strings. List operations work on strings, with the same limitations as vectors. `set-car` and `set-vector-element` have the additional limitation that the argument must be an integer between 0 and 255. Like with vectors, calling `null?` on an empty string returns true.
 
-Strings can be concatenated using the `concatenate` keyword.
+Strings and symbols can be concatenated using the `concatenate` keyword.
 
 ```lisp
-(concatenate "Hello, " "world!\n")  (; ⇒ "Hello, world!")
+(concatenate "Hello, " "world!\n")  ; ⇒ "Hello, world!"
+(concatenate (quote Hello,) (quote world!\n))  ; ⇒ "Hello,world!\n"
 ```
 
 A portion of a string can be extracted using the `substring` command. The first argument is the string, the second is the start index, and the third is the end index. The last returned character originates from the index just before the end index.
 
 ```lisp
-(substring "0123456789" 3 6)  (; ⇒ "345")
+(substring "0123456789" 3 6)  ; ⇒ "345"
 ```
 
 
@@ -327,7 +327,7 @@ Composites are user-defined types that have nearly the same language support as 
 To create a composite, first create a new type. For this example, we will implement a composite that stores a complex number.
 
 ```lisp
-(var complex-type (make-type))  (; ⇒ <20>)
+(var complex-type (make-type))  ; ⇒ ::20
 ```
 
 Next, prepare the data to store in the composite.
@@ -347,7 +347,7 @@ Now create a function to use when the composite is called. Since it doesn't real
 And finally, create the composite.
 
 ```lisp
-(make-instance complex-type internal-complex complex-function)  (; ⇒ (composite <20> (cons 3.0 4.0) (closure 2)))
+(make-instance complex-type internal-complex complex-function)  ; ⇒ (composite ::20 (cons 3.0 4.0) (closure 2))
 ```
 
 It's probably best to create a proper constructor.
@@ -362,7 +362,7 @@ It's probably best to create a proper constructor.
 `type-of` works on this new data type.
 
 ```lisp
-(= complex-type (type-of complex-number))  (; ⇒ true)
+(= complex-type (type-of complex-number))  ; ⇒ true
 ```
 
 `composite-value` and `composite-function` return the value and function slots of the composite. `set-composite-value` and `set-composite-function` set the value and function slots.
@@ -373,7 +373,7 @@ It's probably best to create a proper constructor.
 (defun imag-part (complex)
   (cdr (composite-value complex)))
 
-(; There isn't generally a good reason to do this for a complex type.)
+;; There isn't generally a good reason to do this for a complex type.
 (set-composite-value complex (cons -5.9 -6.3))
 ```
 
@@ -396,8 +396,8 @@ Using the ability to call composites like functions, we can simulate message pas
 ```lisp
 (var inc (quote inc))
 (var dec (quote dec))
-(; Unfortunately, we need to declare the object beforehand so that the)
-(; lambda can capture it, but this wordiness can be fixed with a macro)
+;; Unfortunately, we need to declare the object beforehand so that the
+;; lambda can capture it, but this wordiness can be fixed with a macro
 (var object ())
 (setq object (make-instance (make-type)
                             0
@@ -408,13 +408,13 @@ Using the ability to call composites like functions, we can simulate message pas
                                                               -1
                                                               0))
                                                       (composite-value object))))))
-(print (composite-value object))  (; ⇒ 0)
+(print (composite-value object))  ; ⇒ 0
 (object inc)
-(print (composite-value object))  (; ⇒ 1)
+(print (composite-value object))  ; ⇒ 1
 (object dec)
 (object dec)
 (object dec)
-(print (composite-value object))  (; ⇒ -2)
+(print (composite-value object))  ; ⇒ -2
 ```
 
 
@@ -423,15 +423,15 @@ Using the ability to call composites like functions, we can simulate message pas
 `if`, `when`, and `unless` should act the same as in Common Lisp. And if you're feeling clever, you can use functions instead (untyped lambda calculus).
 
 ```lisp
-(if (> x 10)  (; condition)
-  10  (; then)
-  x)  (; else)
+(if (> x 10)  ; condition
+  10  ; then
+  x)  ; else
 ```
 
 ```lisp
-(when (or (> x 10) (> y 10))  (; condition)
-  (setq x 0)  (; then)
-  (setq y 0)  (; also then)
+(when (or (> x 10) (> y 10))  ; condition
+  (setq x 0)  ; then
+  (setq y 0)  ; also then
   …)
 ```
 
@@ -473,7 +473,7 @@ Compilation can be terminated with an error using `error`. A compile error occur
 Duck-lisp supports `quote` and the symbol data type. This is enough to implement the metacircular evaluator.
 
 ```lisp
-(print (quote (+ 4 17)))  (; ⇒ (+→0 4 17))
+(print (quote (+ 4 17)))  ; ⇒ (+→0 4 17)
 ```
 
 Common Lisp-like macros are also supported.
@@ -525,7 +525,7 @@ or alternatively,
   list)
 ```
 
-The most significant limitation is that there are separate runtime and compile-time environments, which means that macros cannot call functions in the runtime environment, and functions in the runtime environment cannot call functions in the compile-time environment. The `comptime` keyword is provided to run code at compile-time.
+The most significant limitation is that there are separate runtime and compile-time environments, which means that macros cannot call functions in the runtime environment, and functions in the runtime environment cannot call functions in the compile-time environment. The `comptime` keyword is provided to run code at compile-time. Another limitation is that macro definitions may not be nested or appear in a `comptime` form.
 
 ```lisp
 (comptime
@@ -534,7 +534,7 @@ The most significant limitation is that there are separate runtime and compile-t
        (car args)
        (cons (car args) (apply self (cdr args))))))
 
-(; `to' calls the compile time function `list*')
+;; `to' calls the compile time function `list*'
 (defmacro to (variable form)
   (list (quote setq) variable (list* (car form) variable (cdr form))))
 ```
@@ -545,7 +545,7 @@ Macros are compile-time functions declared in the runtime environment, so it is 
 (defmacro and (&rest args)
   (if args
 	  (list (quote if) (car args)
-            (; `self' is always called as a function)
+            ;; `self' is always called as a function
 			(apply self (cdr args))
 			false)
 	  true))
@@ -557,7 +557,7 @@ Calling a macro using normal function call syntax at compile time still results 
 (comptime
  (var x 4)
  (to x (+ 5))
- (print x))  (; ⇒ 9)
+ (print x))  ; ⇒ 9
 ```
 
 `funcall` can be used to explicitly force calling the macro as a function. This only works in compile-time code.
@@ -565,14 +565,14 @@ Calling a macro using normal function call syntax at compile time still results 
 ```lisp
 (comptime
  (var x 4)
- (funcall to x (+ 5))  (; Error: `+' requires two arguments)
+ (funcall to x (+ 5))  ; Error: `+' requires two arguments
  (print x))
 ```
 
 `comptime` can be used to calculate constants at compile time, but it is unable to pass closures to the runtime environment.
 
 ```lisp
-(print (comptime (+ 3 4)))  (; ⇒ 7)
+(print (comptime (+ 3 4)))  ; ⇒ 7
 ```
 
 Sometimes is convenient to return multiple unscoped forms from a macro. The most common reason to do this is to create new bindings in the caller's scope. Wrapping the bindings in a list _would_ bundle them together in one form, but that would also create a new scope. The bindings would not be visible to code that occur after the macro call. Instead, they should be wrapped in the `noscope` keyword.
@@ -601,3 +601,34 @@ This expands to
   (setq b 3)
   …)
 ```
+
+There are two helper functions for macros that are defined only at compile time. `gensym` creates a unique symbol. The returned symbols are nearly unreadable, so it is supplemented by `intern`, which accepts a string and returns a symbol with the name it was passed.
+
+```lisp
+(defmacro quote-gensym ()
+  (list (quote quote) (gensym)))
+(print (quote-gensym))  ; ⇒ 3000000000000000→15
+```
+
+```lisp
+(defmacro quote-named-gensym (name)
+  (list (quote quote) (intern (concatenate name (gensym)))))
+(print (quote-named-gensym "Fred-"))  ; ⇒ Fred-2000000000000000→15
+```
+
+```lisp
+(defmacro dotimes (variable top &rest body)
+  ;; Create a unique symbol with a readable name.
+  (var top-var (intern (concatenate "top-var:" (gensym))))
+  (list
+   (list (quote var) variable 0)
+   (list (quote var) top-var top)
+   (list (quote while) (list (quote <) variable top-var)
+         (list* (quote noscope) body)
+         (list (quote to) variable (quote (1+))))
+   ;; `top-var' will print as `top-var:6D30000000000000→316'.
+   (println top-var)
+   top-var))
+```
+
+`gensym` and `intern` are C functions, not keywords, so they have all the advantages of functions.

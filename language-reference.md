@@ -178,9 +178,9 @@ Set the contents of the function slot in `composite` to `value.
 
 Create a string from a sequence of integers.
 
-### (__concatenate left::String right::String)::String
+### (__concatenate left::(String Symbol) right::(String Symbol))::String
 
-Append string `right` to the end of string `left`.
+Append string or symbol `right` to the end of string or symbol `left`.
 
 ### (__substring string::String start-index::Integer end-index::Integer)::String
 
@@ -208,3 +208,7 @@ Throw a compilation error using `message` as the error message. Does not return.
 ### (gensym)::Symbol
 
 Create and return a new unique symbol.
+
+### (intern string::String)::Symbol
+
+Create and return a new symbol with the name provided by `string`.

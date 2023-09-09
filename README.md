@@ -2,12 +2,12 @@
 
 A simple scripting language for Hidey-Chess and similar projects.
 
-Duck-lisp is very minimal. Only s-expressions and a few keywords will be provided. You are expected to create the rest of the language.
+Duck-lisp is your typical hobby lisp with one or two twists. I started this project before I knew what lisp was, choosing the syntax solely for parsability, so variable declaration has a bit of a JavaScript-like feel. Macros are also a little weird since the language is split into separate runtime and compile-time environments. Also, parentheses are optional.
 
 ## Features
 
-* Optional free-form parenthesis inference that is backwards compatible with S-expressions
-* Optional compile-time arity checks
+* Optional free-form parenthesis inference that is mostly backwards compatible with S-expressions
+* Optional compile-time arity checks (part of parenthesis inference)
 * First class functions and lexical scope
 * Common Lisp-like macros
 * UTF-8 compatible

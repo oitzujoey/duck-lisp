@@ -618,7 +618,7 @@
 ;; In the above example, the numbers 0-3 are printed.
 ;; `top' is only evaluated once. Returns `top'.
 (defmacro dotimes (variable top &rest body)
-  (var top-var (gensym))
+  (var top-var (intern (concatenate "top-var:" (gensym))))
   (list
    (list (quote var) variable 0)
    (list (quote var) top-var top)
