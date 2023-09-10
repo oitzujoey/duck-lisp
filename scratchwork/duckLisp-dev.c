@@ -137,14 +137,15 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 
 	switch (duckVM_typeOf(object)) {
 	case duckVM_object_type_symbol: {
-		duckVM_symbol_t symbol = duckVM_object_getSymbol(object);
-		duckVM_internalString_t internalString;
-		e = duckVM_symbol_getInternalString(symbol, &internalString);
+		dl_size_t id = 0;
+		dl_uint8_t *string = dl_null;
+		dl_size_t length = 0;
+		e = duckVM_object_getSymbol(duckVM->memoryAllocation, &id, &string, &length, object);
 		if (e) break;
-		for (dl_size_t i = 0; i < internalString.value_length; i++) {
-			putchar(internalString.value[i]);
+		for (dl_size_t i = 0; i < length; i++) {
+			putchar(string[i]);
 		}
-		printf("→%lu", symbol.id);
+		printf("→%lu", id);
 	}
 		break;
 	case duckVM_object_type_string: {

@@ -285,10 +285,15 @@ dl_error_t duckVM_object_getString(dl_memoryAllocation_t *memoryAllocation,
                                    dl_uint8_t **string,
                                    dl_size_t *length,
                                    duckVM_object_t object);
+// hidden
 duckVM_internalString_t duckVM_object_getInternalString(duckVM_object_t object);
 duckVM_list_t duckVM_object_getList(duckVM_object_t object);
 duckVM_cons_t duckVM_object_getCons(duckVM_object_t object);
-duckVM_symbol_t duckVM_object_getSymbol(duckVM_object_t object);
+dl_error_t duckVM_object_getSymbol(dl_memoryAllocation_t *memoryAllocation,
+                                   dl_size_t *id,
+                                   dl_uint8_t **string,
+                                   dl_size_t *length,
+                                   duckVM_object_t object);
 duckVM_function_t duckVM_object_getFunction(duckVM_object_t object);
 duckVM_upvalue_t duckVM_object_getUpvalue(duckVM_object_t object);
 duckVM_upvalueArray_t duckVM_object_getUpvalueArray(duckVM_object_t object);

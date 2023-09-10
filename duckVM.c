@@ -4827,8 +4827,35 @@ duckVM_cons_t duckVM_object_getCons(duckVM_object_t object) {
 	return object.value.cons;
 }
 
-duckVM_symbol_t duckVM_object_getSymbol(duckVM_object_t object) {
-	return object.value.symbol;
+dl_error_t duckVM_object_getSymbol(dl_memoryAllocation_t *memoryAllocation,
+                                   dl_size_t *id,
+                                   dl_uint8_t **string,
+                                   dl_size_t *length,
+                                   duckVM_object_t object) {
+	dl_error_t e = dl_error_ok;
+
+	{
+		duckVM_object_t *internalStringObject = object.value.symbol.internalString;
+		if (internalStringObject == dl_null) {
+			e = dl_error_nullPointer;
+			goto cleanup;
+		}
+		duckVM_internalString_t internalString = internalStringObject->value.internalString;
+		if (internalString.value_length) {
+			e = DL_MALLOC(memoryAllocation, string, internalString.value_length, dl_uint8_t);
+			if (e) goto cleanup;
+
+			(void) dl_memcopy_noOverlap(*string, internalString.value, internalString.value_length);
+		}
+		else {
+			*string = dl_null;
+		}
+		*length = internalString.value_length;
+	}
+
+	*id = object.value.symbol.id;
+
+ cleanup: return e;
 }
 
 duckVM_function_t duckVM_object_getFunction(duckVM_object_t object) {

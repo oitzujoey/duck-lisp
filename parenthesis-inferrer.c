@@ -1277,16 +1277,12 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		if (e) goto cleanup;
 	}
 	else {
-		duckVM_symbol_t identifierSymbol = duckVM_object_getSymbol(identifierObject);
-		duckVM_internalString_t identifierInternalString;
-		e = duckVM_symbol_getInternalString(identifierSymbol, &identifierInternalString);
+		dl_size_t id = 0;
+		dl_uint8_t *string = dl_null;
+		dl_size_t length = 0;
+		e = duckVM_object_getSymbol(vm->memoryAllocation, &id, &string, &length, identifierObject);
 		if (e) goto cleanup;
-		e = addDeclaration(state,
-		                   identifierInternalString.value,
-		                   identifierInternalString.value_length,
-		                   typeAst,
-		                   dl_null,
-		                   0);
+		e = addDeclaration(state, string, length, typeAst, dl_null, 0);
 		if (e) goto cleanup;
 	}
 
