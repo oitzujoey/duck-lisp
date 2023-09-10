@@ -248,6 +248,11 @@ dl_error_t duckVM_garbageCollect(duckVM_t *duckVM);
 /* Reset the VM, but retain global variables and the contents of the heap. */
 dl_error_t duckVM_softReset(duckVM_t *duckVM);
 
+/* Fetch a global object. */
+dl_error_t duckVM_getGlobal(const duckVM_t *duckVM, duckVM_object_t *global, const dl_ptrdiff_t key);
+/* Create a new global object, or overwrite the global object if it already exists. */
+dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_object_t *object);
+
 
 /* Functions intended for C callbacks */
 

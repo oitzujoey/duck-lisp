@@ -4580,7 +4580,15 @@ dl_error_t duckVM_softReset(duckVM_t *duckVM) {
 	return e;
 }
 
-dl_error_t duckVM_makeGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_object_t *object) {
+dl_error_t duckVM_getGlobal(const duckVM_t *duckVM, duckVM_object_t *global, const dl_ptrdiff_t key) {
+	duckVM_object_t *globalPointer = dl_null;
+	dl_error_t e = duckVM_global_get(duckVM, &globalPointer, key);
+	if (e) return e;
+	*global = *globalPointer;
+	return dl_error_ok;
+}
+
+dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_object_t *object) {
 	return duckVM_global_set(duckVM, object, key);
 }
 
