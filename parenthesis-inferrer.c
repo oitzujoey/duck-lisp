@@ -1275,6 +1275,8 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		if (e) goto cleanup;
 		e = addDeclaration(state, string, length, typeAst, dl_null, 0);
 		if (e) goto cleanup;
+		e = DL_FREE(vm->memoryAllocation, &string);
+		if (e) goto cleanup;
 	}
 	else {
 		dl_size_t id = 0;
@@ -1283,6 +1285,8 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		e = duckVM_object_getSymbol(vm->memoryAllocation, &id, &string, &length, identifierObject);
 		if (e) goto cleanup;
 		e = addDeclaration(state, string, length, typeAst, dl_null, 0);
+		if (e) goto cleanup;
+		e = DL_FREE(vm->memoryAllocation, &string);
 		if (e) goto cleanup;
 	}
 
