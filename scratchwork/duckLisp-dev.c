@@ -145,6 +145,8 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		for (dl_size_t i = 0; i < length; i++) {
 			putchar(string[i]);
 		}
+		e = DL_FREE(duckVM->memoryAllocation, &string);
+		if (e) break;
 		printf("→%lu", id);
 	}
 		break;
