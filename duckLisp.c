@@ -1775,6 +1775,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 void duckLisp_quit(duckLisp_t *duckLisp) {
 	dl_error_t e;
 
+	dl_memoryAllocation_t *memoryAllocation = duckLisp->memoryAllocation;
 	/**/ duckVM_quit(&duckLisp->vm);
 	duckLisp->gensym_number = 0;
 	e = dl_array_quit(&duckLisp->generators_stack);
@@ -1782,16 +1783,23 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 	duckLisp->generators_length = 0;
 	/**/ dl_trie_quit(&duckLisp->callbacks_trie);
 #ifdef USE_PARENTHESIS_INFERENCE
+	DL_DOTIMES(i, duckLisp->parenthesisInferrerTypes_array.elements_length) {
+		duckLisp_parenthesisInferrer_declarationPrototype_t prototype;
+		e = dl_array_get(&duckLisp->parenthesisInferrerTypes_array, &prototype, i);
+		e = DL_FREE(memoryAllocation, &prototype.name);
+		e = DL_FREE(memoryAllocation, &prototype.type);
+		e = DL_FREE(memoryAllocation, &prototype.script);
+	}
 	e = dl_array_quit(&duckLisp->parenthesisInferrerTypes_array);
 #endif /* USE_PARENTHESIS_INFERENCE */
 	e = dl_trie_quit(&duckLisp->symbols_trie);
 	DL_DOTIMES(i, duckLisp->symbols_array.elements_length) {
-		e = DL_FREE(duckLisp->memoryAllocation,
+		e = DL_FREE(memoryAllocation,
 		            &DL_ARRAY_GETADDRESS(duckLisp->symbols_array, duckLisp_ast_identifier_t, i).value);
 	}
 	e = dl_array_quit(&duckLisp->symbols_array);
 	DL_DOTIMES(i, duckLisp->errors.elements_length) {
-		e = DL_FREE(duckLisp->memoryAllocation,
+		e = DL_FREE(memoryAllocation,
 		            &DL_ARRAY_GETADDRESS(duckLisp->errors, duckLisp_error_t, i).message);
 	}
 	e = dl_array_quit(&duckLisp->errors);
@@ -2077,12 +2085,18 @@ dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 	if (typeString_length > 0) {
 		duckLisp_parenthesisInferrer_declarationPrototype_t prototype;
-		prototype.name = name;
+		e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.name, name_length, dl_uint8_t);
+		if (e) goto cleanup;
+		(void) dl_memcopy_noOverlap(prototype.name, name, name_length);
 		prototype.name_length = name_length;
-		prototype.type = typeString;
+		e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.type, typeString_length, dl_uint8_t);
+		if (e) goto cleanup;
+		(void) dl_memcopy_noOverlap(prototype.type, typeString, typeString_length);
 		prototype.type_length = typeString_length;
 		/* Functions can't declare variables, except globals, which I'm ignoring for now. */
-		prototype.script = declarationScript;
+		e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.script, declarationScript_length, dl_uint8_t);
+		if (e) goto cleanup;
+		(void) dl_memcopy_noOverlap(prototype.script, declarationScript, declarationScript_length);
 		prototype.script_length = declarationScript_length;
 		e = dl_array_pushElement(&duckLisp->parenthesisInferrerTypes_array, &prototype);
 		if (e) goto cleanup;
@@ -2115,9 +2129,13 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 
 #ifdef USE_PARENTHESIS_INFERENCE
 	duckLisp_parenthesisInferrer_declarationPrototype_t prototype;
-	prototype.name = name;
+	e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.name, name_length, dl_uint8_t);
+	if (e) goto cleanup;
+	(void) dl_memcopy_noOverlap(prototype.name, name, name_length);
 	prototype.name_length = name_length;
-	prototype.type = typeString;
+	e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.type, typeString_length, dl_uint8_t);
+	if (e) goto cleanup;
+	(void) dl_memcopy_noOverlap(prototype.type, typeString, typeString_length);
 	prototype.type_length = typeString_length;
 	/* Functions can't declare variables, except globals, which I'm ignoring for now. */
 	prototype.script = dl_null;
