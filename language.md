@@ -602,7 +602,7 @@ This expands to
   …)
 ```
 
-There are two helper functions for macros that are defined only at compile time. `gensym` creates a unique symbol. The returned symbols are nearly unreadable, so it is supplemented by `intern`, which accepts a string and returns a symbol with the name it was passed.
+There are three helper functions for macros that are defined only at compile time. `gensym` creates a unique symbol. The returned symbols are nearly unreadable, so it is supplemented by `intern`, which accepts a string and returns a symbol with the name it was passed. `read` parses strings into duck-lisp AST.
 
 ```lisp
 (defmacro quote-gensym ()
@@ -631,4 +631,23 @@ There are two helper functions for macros that are defined only at compile time.
    top-var))
 ```
 
-`gensym` and `intern` are C functions, not keywords, so they have all the advantages of functions.
+```lisp
+(__defmacro read! (string)
+            ;; Parse the string.
+            __var ast (read string true)
+            __var error __cdr ast
+            __setq ast __car ast
+            ;; Error handling
+            (__if error
+                  (__list __quote #__quote
+                          __quote #error
+                          error)
+                  ast))
+read! "
+(()
+ __declare print (I)
+ print \"Hello, world!\n\")
+"  ; ⇒ Hello, world!
+```
+
+`gensym`, `intern`, and `read` are C functions, not keywords, so they have all the advantages of functions.

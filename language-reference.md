@@ -98,7 +98,7 @@ Evaluate body forms in the compile-time environment. Return the result of the la
 
 Convert the AST representation of `form` to a similar structure that is represented as one or more objects.
 
-Booleans, integers, floats, and strings remain the same.
+Booleans, integers, floats, and strings remain the same.  
 Identifiers are converted to symbols.  
 Expressions are converted to lists.
 
@@ -212,3 +212,7 @@ Create and return a new unique symbol.
 ### (intern string::String)::Symbol
 
 Create and return a new symbol with the name provided by `string`.
+
+### (read source::String enable-inference::Boolean)::(Cons (Boolean Integer Float Symbol List String) Integer)
+
+Parse and return the AST for the provided source code string. If `enable-inference` is `true` and duck-lisp has been compiled with parenthesis inference, then inference will be enabled when running the parser. No declarations exist in this instance of the inferrer except for `__declare`, `__infer-and-get-next-argument`, `__declare-identifier`, and `__declaration-scope`. `read` returns a cons. The CAR is the AST. If an error occurred, the CAR is nil. The CDR is the error number. It is set from a C variable of `dl_error_t`, so a value of 0 is no error.
