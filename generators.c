@@ -1018,6 +1018,7 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
                                   duckVM_object_t *cons) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
 	/* (cons a b) */
 
@@ -1064,11 +1065,10 @@ dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
 				j++;
 			}
 			else {
-				duckLisp_objectToAST(duckLisp,
-				                     &ast->value.expression.compoundExpressions[j],
-				                     cons->value.cons.cdr,
-				                     dl_true);
-				cons = dl_null;
+				e = dl_error_invalidValue;
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Cannot return cons with a non-nil CDR."));
+				if (eError) e = eError;
+				goto cleanup;
 			}
 		}
 	}

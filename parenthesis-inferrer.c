@@ -1499,6 +1499,7 @@ dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 
 	{
 		duckLisp_parenthesisInferrer_declarationPrototype_t declarations[] = {
+			{DL_STR("__declare"),                     DL_STR("(L L &rest 0 I)"), dl_null, 0},
 			{DL_STR("__infer-and-get-next-argument"), DL_STR("()"),              dl_null, 0},
 			{DL_STR("__declare-identifier"),          DL_STR("(I I)"),           dl_null, 0},
 			{DL_STR("__declaration-scope"),           DL_STR("(&rest 1 I)"),     dl_null, 0}};

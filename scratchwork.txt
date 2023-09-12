@@ -2376,25 +2376,21 @@ I don't think upvalues should be easily accessible since you can't refer to them
 
 
 
-Next step: Update "language.md"
-
-Defer:
-
 Todo:
     Finish parenthesis inference
         Add support for nested types? — L
         Document inference algorithm — M
     Fix C API — L
+        Add a bunch of `duckVM_object_is<type>` functions — S
+        Add a bunch of `duckVM_object_make<type>` functions — M
         Add a bunch of `*_toString` functions — M
         Document C API — M
     Fix bugs — L
         Write lots of tests — M
         Disallow `__var` anywhere except in `__noscope` and scopes.
-        Remove stray space at the end of closure.8 disassembler.
+        Remove stray space at the end of closure.8 disassembler?
         Reverse the order gensyms are created to make trie storage more efficient. 4000 → 0004
-    Document everything else? — L
-        Write overview of compiler
-        Write overview of VM
+        Add user-defined destructors to the GC, or fix it if that feature already exists.
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
@@ -2403,10 +2399,14 @@ Todo:
         Switch to stack VM? — M
         String interning? — M
         Rewrite memory allocator? — L
+    Document everything else? — L
+        Write overview of compiler
+        Write overview of VM
     Clean up. — M
     Test on ARM — S
-    Create Hidey-Chess branch and add required functions. — M?
     Clean up. — S
+    Create Hidey-Chess branch. — M
+    Release!!!
 
 Duck-lisp architecture:
 Parse source text into an AST.

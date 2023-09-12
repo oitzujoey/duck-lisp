@@ -1,0 +1,18 @@
+(__defmacro read ()
+            __var ast (read "
+(()
+ __declare __+ (I I)
+ __+ 1 2)
+"
+                            true)
+            __var error __cdr ast
+            __setq ast __car ast
+            (__if error
+                  (__list __quote #__quote
+                          __quote #error
+                          error)
+                  (__list __quote #__quote
+                          ast)))
+
+print read
+print "\n"

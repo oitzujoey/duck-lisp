@@ -5124,6 +5124,79 @@ duckVM_object_type_t duckVM_typeOf(duckVM_object_t object) {
 }
 
 
+dl_bool_t duckVM_object_isNone(duckVM_object_t object) {
+	return object.type == duckVM_object_type_none;
+}
+
+dl_bool_t duckVM_object_isBoolean(duckVM_object_t object) {
+	return object.type == duckVM_object_type_bool;
+}
+
+dl_bool_t duckVM_object_isInteger(duckVM_object_t object) {
+	return object.type == duckVM_object_type_integer;
+}
+
+dl_bool_t duckVM_object_isFloat(duckVM_object_t object) {
+	return object.type == duckVM_object_type_float;
+}
+
 dl_bool_t duckVM_object_isString(duckVM_object_t object) {
 	return object.type == duckVM_object_type_string;
+}
+
+dl_bool_t duckVM_object_isSymbol(duckVM_object_t object) {
+	return object.type == duckVM_object_type_symbol;
+}
+
+dl_bool_t duckVM_object_isList(duckVM_object_t object) {
+	return object.type == duckVM_object_type_list;
+}
+
+dl_bool_t duckVM_object_isClosure(duckVM_object_t object) {
+	return object.type == duckVM_object_type_closure;
+}
+
+dl_bool_t duckVM_object_isVector(duckVM_object_t object) {
+	return object.type == duckVM_object_type_vector;
+}
+
+dl_bool_t duckVM_object_isType(duckVM_object_t object) {
+	return object.type == duckVM_object_type_type;
+}
+
+dl_bool_t duckVM_object_isComposite(duckVM_object_t object) {
+	return object.type == duckVM_object_type_composite;
+}
+
+dl_bool_t duckVM_object_isUser(duckVM_object_t object) {
+	return object.type == duckVM_object_type_user;
+}
+
+
+dl_bool_t duckVM_object_isCons(duckVM_object_t object) {
+	return object.type == duckVM_object_type_cons;
+}
+
+dl_bool_t duckVM_object_isUpvalue(duckVM_object_t object) {
+	return object.type == duckVM_object_type_upvalue;
+}
+
+dl_bool_t duckVM_object_isUpvalueArray(duckVM_object_t object) {
+	return object.type == duckVM_object_type_upvalueArray;
+}
+
+dl_bool_t duckVM_object_isInternalVector(duckVM_object_t object) {
+	return object.type == duckVM_object_type_internalVector;
+}
+
+dl_bool_t duckVM_object_isBytecode(duckVM_object_t object) {
+	return object.type == duckVM_object_type_bytecode;
+}
+
+dl_bool_t duckVM_object_isInternalComposite(duckVM_object_t object) {
+	return object.type == duckVM_object_type_internalComposite;
+}
+
+dl_bool_t duckVM_object_isInternalString(duckVM_object_t object) {
+	return object.type == duckVM_object_type_internalString;
 }

@@ -1506,6 +1506,97 @@ dl_error_t duckLisp_callback_intern(duckVM_t *duckVM) {
  cleanup: return e;
 }
 
+dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	duckLisp_t *duckLisp = duckVM->duckLisp;
+	dl_memoryAllocation_t *memoryAllocation = duckVM->memoryAllocation;
+
+	duckVM_object_t booleanObject;
+	e = duckVM_pop(duckVM, &booleanObject);
+	if (e) goto cleanup;
+
+	if (!duckVM_object_isBoolean(booleanObject)) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM, DL_STR("Second argument of \"read\" should be a boolean."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	duckVM_object_t stringObject;
+	e = duckVM_pop(duckVM, &stringObject);
+	if (e) goto cleanup;
+
+	if (!duckVM_object_isString(stringObject)) {
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM, DL_STR("First argument of \"read\" should be a string."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+
+	{
+		dl_uint8_t *string = dl_null;
+		dl_size_t string_length = 0;
+
+		e = duckVM_object_getString(duckVM->memoryAllocation, &string, &string_length, stringObject);
+		if (e) goto cleanupString;
+
+		duckVM_object_t astObject;
+		duckVM_object_t statusObject;
+		{
+			duckLisp_ast_compoundExpression_t ast;
+			(void) duckLisp_ast_compoundExpression_init(&ast);
+
+			e = duckLisp_read(duckLisp,
+			                  duckVM_object_getBoolean(booleanObject),
+			                  1000,
+			                  dl_null,
+			                  DL_STR("<CALLBACK READ>"),
+			                  string,
+			                  string_length,
+			                  &ast,
+			                  0,
+			                  dl_true);
+			if (e) {
+				e = dl_error_ok;
+				statusObject = duckVM_object_makeInteger(e);
+				astObject = duckVM_object_makeList(dl_null);
+			}
+			else {
+				statusObject = duckVM_object_makeInteger(0);
+				e = duckLisp_astToObject(duckLisp, duckVM, &astObject, ast);
+				if (e) goto cleanupAst;
+			}
+
+		cleanupAst:
+			e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &ast);
+			if (e) goto cleanupString;
+		}
+
+		duckVM_object_t *astObjectPointer = dl_null;
+		duckVM_object_t *statusObjectPointer = dl_null;
+		e = duckVM_allocateHeapObject(duckVM, &astObjectPointer, astObject);
+		if (e) goto cleanupString;
+		e = duckVM_allocateHeapObject(duckVM, &statusObjectPointer, statusObject);
+		if (e) goto cleanupString;
+		duckVM_object_t consObject = duckVM_object_makeCons(astObjectPointer, statusObjectPointer);
+		duckVM_object_t *consObjectPointer = dl_null;
+		e = duckVM_allocateHeapObject(duckVM, &consObjectPointer, consObject);
+		if (e) goto cleanupString;
+		duckVM_object_t listObject = duckVM_object_makeList(consObjectPointer);
+
+		e = duckVM_push(duckVM, &listObject);
+		if (e) goto cleanupString;
+
+	cleanupString:
+		e = DL_FREE(duckVM->memoryAllocation, &string);
+		if (e) goto cleanup;
+	}
+
+ cleanup: return e;
+}
+
 dl_error_t duckLisp_init(duckLisp_t *duckLisp,
                          dl_memoryAllocation_t *memoryAllocation,
                          dl_size_t maxComptimeVmObjects) {
@@ -1674,7 +1765,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	} callbacks[] = {
 		{DL_STR("gensym"), duckLisp_callback_gensym, DL_STR("()")},
 		{DL_STR("intern"), duckLisp_callback_intern, DL_STR("(I)")},
-		{dl_null, 0,       dl_null,                  dl_null, 0}
+		{DL_STR("read"), duckLisp_callback_read, DL_STR("(I I)")},
+		{dl_null, 0, dl_null, dl_null, 0}
 	};
 
 	duckLisp->memoryAllocation = memoryAllocation;
