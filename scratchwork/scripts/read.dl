@@ -1,0 +1,14 @@
+(__defmacro read! (string)
+            (__var ast (read string true))
+            (__var error (__cdr ast))
+            (__setq ast (__car ast))
+            (__if error
+                  (__list (__quote #__quote)
+                          (__quote #error)
+                          error)
+                  ast))
+
+(read! "
+(()
+ (print \"Hello, world!\n\"))
+")

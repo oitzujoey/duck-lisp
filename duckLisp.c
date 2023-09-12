@@ -1549,9 +1549,11 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 			(void) duckLisp_ast_compoundExpression_init(&ast);
 
 			e = duckLisp_read(duckLisp,
+#ifdef USE_PARENTHESIS_INFERENCE
 			                  duckVM_object_getBoolean(booleanObject),
 			                  1000,
 			                  dl_null,
+#endif /* USE_PARENTHESIS_INFERENCE */
 			                  DL_STR("<CALLBACK READ>"),
 			                  string,
 			                  string_length,
