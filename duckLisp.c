@@ -1572,8 +1572,8 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 			                  0,
 			                  dl_true);
 			if (e) {
-				e = dl_error_ok;
 				statusObject = duckVM_object_makeInteger(e);
+				e = dl_error_ok;
 				astObject = duckVM_object_makeList(dl_null);
 			}
 			else {
