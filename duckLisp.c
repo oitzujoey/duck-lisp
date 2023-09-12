@@ -1524,6 +1524,17 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 		goto cleanup;
 	}
 
+#ifndef USE_PARENTHESIS_INFERENCE
+	if (duckVM_object_getBoolean(booleanObject)) {
+		e = dl_error_invalidValue;
+		(eError
+		 = duckVM_error_pushRuntime(duckVM,
+		                            DL_STR("duck-lisp was not built with parenthesis inference, so the second argument of \"read\" must be false.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+#endif /* USE_PARENTHESIS_INFERENCE */
+
 	duckVM_object_t stringObject;
 	e = duckVM_pop(duckVM, &stringObject);
 	if (e) goto cleanup;

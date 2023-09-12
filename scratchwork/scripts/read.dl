@@ -1,5 +1,5 @@
 (__defmacro read! (string)
-            (__var ast (read string true))
+            (__var ast (read string false))
             (__var error (__cdr ast))
             (__setq ast (__car ast))
             (__if error
