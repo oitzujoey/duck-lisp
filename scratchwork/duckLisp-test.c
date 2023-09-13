@@ -341,7 +341,14 @@ dl_error_t runTest(const unsigned char *fileBaseName, dl_uint8_t *text, size_t t
 		goto cleanup;
 	}
 
-	e = duckLisp_init(&duckLisp, &ma, duckVMMaxObjects);
+	e = duckLisp_init(&duckLisp,
+	                  &ma,
+	                  duckVMMaxObjects
+#ifdef USE_PARENTHESIS_INFERENCE
+	                  ,
+	                  0
+#endif /* USE_PARENTHESIS_INFERENCE */
+	                  );
 	if (e) {
 		puts(COLOR_YELLOW "Compiler initialization failed" COLOR_NORMAL);
 		goto cleanup;

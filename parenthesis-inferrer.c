@@ -455,7 +455,7 @@ static dl_error_t inferrerState_init(inferrerState_t *inferrerState,
 	                     sizeof(vmContext_t),
 	                     dl_array_strategy_double);
 	inferrerState->memoryAllocation = memoryAllocation;
-	e = duckLisp_init(&inferrerState->duckLisp, memoryAllocation, maxComptimeVmObjects);
+	e = duckLisp_init(&inferrerState->duckLisp, memoryAllocation, maxComptimeVmObjects, maxComptimeVmObjects);
 	if (e) goto cleanup;
 	e = duckVM_init(&inferrerState->duckVM, memoryAllocation, maxComptimeVmObjects);
 	if (e) goto cleanup;

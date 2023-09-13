@@ -2391,6 +2391,8 @@ Todo:
         Remove stray space at the end of closure.8 disassembler?
         Reverse the order gensyms are created to make trie storage more efficient. 4000 → 0004
         Add user-defined destructors to the GC, or fix it if that feature already exists.
+        Remove magic constants.
+        OOM seems to cause segfaults.
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?

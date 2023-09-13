@@ -1562,7 +1562,7 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 			e = duckLisp_read(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 			                  duckVM_object_getBoolean(booleanObject),
-			                  1000,
+			                  duckLisp->maxInferenceVmObjects,
 			                  dl_null,
 #endif /* USE_PARENTHESIS_INFERENCE */
 			                  DL_STR("<CALLBACK READ>"),
@@ -1612,7 +1612,12 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 
 dl_error_t duckLisp_init(duckLisp_t *duckLisp,
                          dl_memoryAllocation_t *memoryAllocation,
-                         dl_size_t maxComptimeVmObjects) {
+                         dl_size_t maxComptimeVmObjects
+#ifdef USE_PARENTHESIS_INFERENCE
+                         ,
+                         dl_size_t maxInferenceVmObjects
+#endif /* USE_PARENTHESIS_INFERENCE */
+                         ) {
 	dl_error_t error = dl_error_ok;
 
 	/* All language-defined generators go here. */
@@ -1783,6 +1788,10 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	};
 
 	duckLisp->memoryAllocation = memoryAllocation;
+
+#ifdef USE_PARENTHESIS_INFERENCE
+	duckLisp->maxInferenceVmObjects = maxInferenceVmObjects;
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 #ifdef USE_DATALOGGING
 	duckLisp->datalog.total_bytes_generated = 0;
@@ -2004,7 +2013,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	e = duckLisp_read(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 	                  parenthesisInferenceEnabled,
-	                  10000,
+	                  duckLisp->maxInferenceVmObjects,
 	                  &duckLisp->parenthesisInferrerTypes_array,
 #endif /* USE_PARENTHESIS_INFERENCE */
 	                  fileName,

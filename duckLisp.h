@@ -191,7 +191,11 @@ typedef struct {
 	dl_size_t generators_length;
 
 	dl_trie_t callbacks_trie;  /* Points to runtime C callbacks. */
+
+#ifdef USE_PARENTHESIS_INFERENCE
 	dl_array_t parenthesisInferrerTypes_array;  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */
+	dl_size_t maxInferenceVmObjects;
+#endif /* USE_PARENTHESIS_INFERENCE */
 
 	dl_size_t gensym_number;
 
@@ -534,9 +538,14 @@ typedef struct duckLisp_instructionObject_s {
 /* Parser functions */
 
 
-dl_error_t DECLSPEC duckLisp_init(duckLisp_t *duckLisp,
-                                  dl_memoryAllocation_t *memoryAllocation,
-                                  dl_size_t maxComptimeVmObjects);
+dl_error_t duckLisp_init(duckLisp_t *duckLisp,
+                         dl_memoryAllocation_t *memoryAllocation,
+                         dl_size_t maxComptimeVmObjects
+#ifdef USE_PARENTHESIS_INFERENCE
+                         ,
+                         dl_size_t maxInferenceVmObjects
+#endif /* USE_PARENTHESIS_INFERENCE */
+                         );
 void DECLSPEC duckLisp_quit(duckLisp_t *duckLisp);
 
 void DECLSPEC duckLisp_compileState_init(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState);
