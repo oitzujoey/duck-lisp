@@ -1,0 +1,7 @@
+__declare print (I)
+
+(__defmacro quote-interned-string (string)
+            (__list (__quote #__quote)
+                    (intern (__concatenate string (gensym)))))
+
+print (quote-interned-string "Hello")
