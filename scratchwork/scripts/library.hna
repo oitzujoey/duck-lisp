@@ -1,4 +1,3 @@
-__declare print (I)
 __comptime print "<comptime library.dl>\n"
 print "<library.dl>\n"
 
@@ -206,11 +205,13 @@ defmacro when (condition &rest then) (I &rest 1 I) (cons ' __when (cons conditio
 defmacro unless (condition &rest else) (I &rest 1 I) (cons ' __unless (cons condition else))
 defmacro while (condition &rest body) (I &rest 1 I) (cons ' __while (cons condition body))
 defmacro vector (&rest arguments) (&rest 0 I) (cons ' __vector arguments)
+bdefun get-vector-element (vector index) __get-vector-element vector index
 bdefun car (cons) __car cons
 bdefun cdr (cons) __cdr cons
 bdefun set-car (cons value) __set-car cons value
 bdefun set-cdr (cons value) __set-cdr cons value
 bdefun length (sequence) __length sequence
+bdefun make-string (integer-sequence) __make-string integer-sequence
 (bdefun concatenate (first-string &rest 2 other-strings)
         (__if other-strings
               (__concatenate first-string (apply #self other-strings))
@@ -247,6 +248,7 @@ bdefun ≠ (x y) not = x y
 
 bvar duckLisp-object-type-bool type-of false
 bvar duckLisp-object-type-int type-of 0
+bvar duckLisp-object-type-float type-of 0.0
 bvar duckLisp-object-type-str type-of ""
 bvar duckLisp-object-type-list type-of ()
 bvar duckLisp-object-type-symbol type-of ' _
@@ -442,7 +444,7 @@ bvar duckLisp-object-type-type type-of type-of ()
           (first body))
       ()))
 
-(defmacro switch (constant &rest body) (L &rest -1 I)
+(defmacro switch (constant &rest body) (I &rest -1 I)
           (if body
               (if (cdr body)
                   (list ' if
@@ -451,6 +453,18 @@ bvar duckLisp-object-type-type type-of type-of ()
                           (apply #self constant (cddr body)))
                   (first body))
               ()))
+
+(bdefun append (list1 list2)
+        (var appended-list ())
+        (while (not (null? list1))
+          (setq appended-list (cons (car list1)
+                                    appended-list))
+          (pop list1))
+        (while (not (null? list2))
+          (setq appended-list (cons (car list2)
+                                    appended-list))
+          (pop list2))
+        (nreverse appended-list))
 
 (bdefun mapcar* (fun list)
         (unless (null? list)
@@ -501,6 +515,46 @@ bvar duckLisp-object-type-type type-of type-of ()
 (defmacro dolist (variable sequence &rest body) (L I &rest 1 I)
   (apply #dosequence variable sequence body))
 (__declare dolist (L I &rest 1 I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
+
+
+
+;; Semi-functional quasiquote. Vectors and composites are not fully implemented. Better error checking is needed.
+;; Arity checking is not implemented for "," and ",@" .
+;; ",", and ",@" need to be called as functions in order to match properly.
+(defmacro quasiquote (form) (I)
+    (switch (type-of form)
+            duckLisp-object-type-list (when form
+                                        (
+                                         (var sub-form (car form))
+                                         (if (list? sub-form)
+                                             (switch (car sub-form)
+                                                     ' , (list ' cons (cadr sub-form) (self (cdr form)))
+                                                     ' ,@ (list ' append
+                                                                      (cadr sub-form)
+                                                                      (self (cdr form)))
+                                                     (list ' cons (self (car form)) (self (cdr form))))
+                                             (list ' cons (self (car form)) (self (cdr form))))))
+            duckLisp-object-type-symbol (list ' quote form)
+            duckLisp-object-type-closure (list ' error "`: Cannot quote closure object")
+            duckLisp-object-type-vector (list ' quote form)
+            duckLisp-object-type-type (list ' error "`: Cannot quote type object")
+            form))
+(__declare quasiquote (I)
+           (__declaration-scope
+            (__declare-identifier (__quote #,) (__quote #I))
+            (__declare-identifier (__quote #,@) (__quote #I))
+            __infer-and-get-next-argument))
+;; See above description of the backtick character.
+(defmacro ` (form) (I) (funcall #quasiquote form))
+(__declare ` (I)
+             (__declaration-scope
+              (__declare-identifier (__quote #,) (__quote #(I)))
+              (__declare-identifier (__quote #,@) (__quote #(I)))
+              __infer-and-get-next-argument))
+
+
+(defmacro until (condition &rest body) (I &rest 1 I)
+          ` (while (not , condition) ,@ body))
 
 comptime println "</comptime library.dl>"
 println "</library.dl>"
