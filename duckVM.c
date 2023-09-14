@@ -652,14 +652,22 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		// Fall through
 	case duckLisp_instruction_pushString8:
 		size1 = *(ip++) + (size1 << 8);
-		e = duckVM_gclist_pushObject(duckVM, &objectPtr1, duckVM_object_makeInternalString(ip, size1));
-		if (e) break;
-		ip += size1;
-		object1 = duckVM_object_makeString(objectPtr1, 0, size1);
-		e = stack_push(duckVM, &object1);
-		if (e) {
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-string: stack_push failed."));
-			if (!e) e = eError;
+		{
+			dl_uint8_t *string = ip;
+			dl_size_t string_length = size1;
+			ip += size1;
+			e = duckVM_object_makeString(duckVM, &object1, string, string_length);
+			if (e) {
+				(eError
+				 = duckVM_error_pushRuntime(duckVM,
+				                            DL_STR("duckVM_execute->push-string: duckVM_object_makeString failed.")));
+				if (!e) e = eError;
+			}
+			e = stack_push(duckVM, &object1);
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-string: stack_push failed."));
+				if (!e) e = eError;
+			}
 		}
 		break;
 
@@ -4651,13 +4659,23 @@ duckVM_object_t duckVM_object_makeInternalString(dl_uint8_t *value, dl_size_t le
 	return o;
 }
 
-duckVM_object_t duckVM_object_makeString(duckVM_object_t *internalString, dl_ptrdiff_t offset, dl_size_t length) {
-	duckVM_object_t o;
-	o.type = duckVM_object_type_string;
-	o.value.string.internalString = internalString;
-	o.value.string.offset = offset;
-	o.value.string.length = length;
-	return o;
+dl_error_t duckVM_object_makeString(duckVM_t *duckVM,
+                                    duckVM_object_t *stringOut,
+                                    dl_uint8_t *stringIn,
+                                    dl_size_t stringIn_length) {
+	duckVM_object_t internalString = duckVM_object_makeInternalString(stringIn, stringIn_length);
+	duckVM_object_t *internalStringPointer = dl_null;
+	dl_error_t e = duckVM_gclist_pushObject(duckVM, &internalStringPointer, internalString);
+	if (e) goto cleanup;
+
+	duckVM_object_t string;
+	string.type = duckVM_object_type_string;
+	string.value.string.internalString = internalStringPointer;
+	string.value.string.offset = 0;
+	string.value.string.length = internalString.value.internalString.value_length;
+	*stringOut = string;
+
+ cleanup: return e;
 }
 
 dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,

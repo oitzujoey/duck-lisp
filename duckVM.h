@@ -335,7 +335,10 @@ duckVM_object_t duckVM_object_makeBoolean(dl_bool_t boolean);
 duckVM_object_t duckVM_object_makeInteger(dl_ptrdiff_t integer);
 duckVM_object_t duckVM_object_makeFloat(double floatingPoint);
 duckVM_object_t duckVM_object_makeInternalString(dl_uint8_t *value, dl_size_t length);
-duckVM_object_t duckVM_object_makeString(duckVM_object_t *internalString, dl_ptrdiff_t offset, dl_size_t length);
+dl_error_t duckVM_object_makeString(duckVM_t *duckVM,
+                                    duckVM_object_t *stringOut,
+                                    dl_uint8_t *stringIn,
+                                    dl_size_t stringIn_length);
 dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
                                     duckVM_object_t *symbolOut,
                                     dl_size_t id,

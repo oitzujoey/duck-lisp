@@ -861,14 +861,11 @@ dl_error_t duckLisp_astToObject(duckLisp_t *duckLisp,
 		break;
 	}
 	case duckLisp_ast_type_string: {
-		duckVM_object_t *internalString = dl_null;
-		e = duckVM_allocateHeapObject(duckVM,
-		                              &internalString,
-		                              duckVM_object_makeInternalString((dl_uint8_t *) ast.value.string.value,
-		                                                               ast.value.string.value_length));
-		*object = duckVM_object_makeString(internalString,
-		                                   0,
-		                                   ast.value.string.value_length);
+		e = duckVM_object_makeString(duckVM,
+		                             object,
+		                             (dl_uint8_t *) ast.value.string.value,
+		                             ast.value.string.value_length);
+		if (e) break;
 		break;
 	}
 	case duckLisp_ast_type_float:

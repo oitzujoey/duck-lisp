@@ -2375,6 +2375,30 @@ Hidey-Chess REPL will work OK now due to illusion. Scripts will be much less wor
 I don't think upvalues should be easily accessible since you can't refer to them by name.
 
 
+Lisp-2 is a well-tested method to control namespace collisions. How would I sanely implement that?
+
+Add a function namespace to the scope stack. `defun` would write to both that and the variable namespace. `funcall` would call variables. Functions would be called like normal functions. It doesn't seem like that big of a deal to change, but let's defer this until it actually becomes a problem.
+
+
+Duck-lisp function call environment search order:
+scope_getFunctionFromName
+if !macro:
+    duckLisp_scope_getLocalIndexFromName
+    On fail duckLisp_scope_getFreeLocalIndexFromName
+if !function:
+    scope_getFunctionFromName
+    On fail assume global.
+
+What I want it to be:
+scope_getFunctionFromName
+if !(macro or function):
+    duckLisp_scope_getLocalIndexFromName
+    if !found:
+        fail duckLisp_scope_getFreeLocalIndexFromName
+        if !found
+            On fail assume global.
+
+
 
 Todo:
     Finish parenthesis inference
@@ -2391,8 +2415,8 @@ Todo:
         Remove stray space at the end of closure.8 disassembler?
         Reverse the order gensyms are created to make trie storage more efficient. 4000 → 0004
         Add user-defined destructors to the GC, or fix it if that feature already exists.
-        Remove magic constants.
-        OOM seems to cause segfaults.
+        OOM seems to sometimes cause segfaults.
+        Macros are very unhygienic. Maybe add a separate function namespace to mitigate the problem?
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
@@ -2405,6 +2429,7 @@ Todo:
         Write overview of compiler
         Write overview of VM
     Clean up. — M
+        Remove "pure" function type or use it to make efficient functions.
     Test on ARM — S
     Clean up. — S
     Create Hidey-Chess branch. — M
