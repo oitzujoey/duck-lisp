@@ -695,8 +695,10 @@ dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *iden
 		return dl_error_outOfMemory;
 	}
 	identifier->value[0] = '\0';  /* Surely not even an idiot would start a string with a null char. */
-	DL_DOTIMES(i, 8/4*sizeof(dl_size_t)) {
-		identifier->value[i + 1] = dl_nybbleToHexChar((duckLisp->gensym_number >> 4*i) & 0xF);
+	const dl_size_t top = 8/4*sizeof(dl_size_t);
+	DL_DOTIMES(i, top) {
+		identifier->value[1 + ((top - 1) - i)] = dl_nybbleToHexChar((duckLisp->gensym_number >> 4*i)
+		                                                                            & 0xF);
 	}
 	duckLisp->gensym_number++;
 	return e;
