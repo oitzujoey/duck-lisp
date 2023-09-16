@@ -2880,10 +2880,6 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 			}
 			format++;
 			--format_length;
-			if (format_length > 0) {
-				e = dl_array_pushElement(&disassembly, " ");
-				if (e) goto cleanup;
-			}
 
 			/* Args */
 			dl_size_t args[5];  /* Didn't count. Just guessed. */
@@ -2893,6 +2889,8 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 				char formatChar = *format;
 				switch (formatChar) {
 				case '1': {
+					e = dl_array_pushElement(&disassembly, " ");
+					if (e) goto cleanup;
 					bytecode_index++;
 					dl_uint8_t code = bytecode[bytecode_index];
 					char hexChar = dl_nybbleToHexChar((code >> 4) & 0x0F);
@@ -2906,13 +2904,11 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 					args_index++;
 					format++;
 					--format_length;
-					if (format_length > 0) {
-						e = dl_array_pushElement(&disassembly, " ");
-						if (e) goto cleanup;
-					}
 					break;
 				}
 				case '2': {
+					e = dl_array_pushElement(&disassembly, " ");
+					if (e) goto cleanup;
 					args[args_index] = 0;
 					DL_DOTIMES(m, 2) {
 						bytecode_index++;
@@ -2930,13 +2926,11 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 					args_index++;
 					format++;
 					--format_length;
-					if (format_length > 0) {
-						e = dl_array_pushElement(&disassembly, " ");
-						if (e) goto cleanup;
-					}
 					break;
 				}
 				case '4': {
+					e = dl_array_pushElement(&disassembly, " ");
+					if (e) goto cleanup;
 					args[args_index] = 0;
 					DL_DOTIMES(m, 4) {
 						bytecode_index++;
@@ -2954,10 +2948,6 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 					args_index++;
 					format++;
 					--format_length;
-					if (format_length > 0) {
-						e = dl_array_pushElement(&disassembly, " ");
-						if (e) goto cleanup;
-					}
 					break;
 				}
 				case 'v': {
@@ -2969,6 +2959,8 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 					format++;
 					--format_length;
 					DL_DOTIMES(m, length) {
+						e = dl_array_pushElement(&disassembly, " ");
+						if (e) goto cleanup;
 						DL_DOTIMES(n, size) {
 							bytecode_index++;
 							char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
@@ -2976,10 +2968,6 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 							if (e) goto cleanup;
 							hexChar = dl_nybbleToHexChar(bytecode[bytecode_index] & 0x0F);
 							e = dl_array_pushElement(&disassembly, &hexChar);
-							if (e) goto cleanup;
-						}
-						if ((format_length > 0) || ((dl_size_t) m != length - 1)) {
-							e = dl_array_pushElement(&disassembly, " ");
 							if (e) goto cleanup;
 						}
 					}
@@ -2993,6 +2981,8 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 					format++;
 					--format_length;
 					DL_DOTIMES(m, length) {
+						e = dl_array_pushElement(&disassembly, " ");
+						if (e) goto cleanup;
 						DL_DOTIMES(n, 4) {
 							bytecode_index++;
 							char hexChar = dl_nybbleToHexChar((bytecode[bytecode_index] >> 4) & 0x0F);
@@ -3002,14 +2992,12 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 							e = dl_array_pushElement(&disassembly, &hexChar);
 							if (e) goto cleanup;
 						}
-						if ((format_length > 0) || ((dl_size_t) m != length - 1)) {
-							e = dl_array_pushElement(&disassembly, " ");
-							if (e) goto cleanup;
-						}
 					}
 					break;
 				}
 				case 's': {
+					e = dl_array_pushElement(&disassembly, " ");
+					if (e) goto cleanup;
 					format++;
 					--format_length;
 					char index = *format - '0';
@@ -3029,10 +3017,6 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 					}
 					e = dl_array_pushElement(&disassembly, "\"");
 					if (e) goto cleanup;
-					if (format_length > 0) {
-						e = dl_array_pushElement(&disassembly, " ");
-						if (e) goto cleanup;
-					}
 					break;
 				}
 				case ' ': {
