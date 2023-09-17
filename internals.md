@@ -114,7 +114,7 @@ The main compilation stage is complete.
 
 At this point there is no printable representation of the HLA form of the program, but if there were it would look like this:
 
-```lisp
+```
 nil
 pop 1
 push-integer 5
@@ -128,7 +128,7 @@ halt
 
 The first set of peephole optimizations is run. `nil` is followed by an immediate `pop 1`, meaning that this sequence does nothing. Delete it.
 
-```lisp
+```
 push-integer 5
 not 1
 move 1 2
@@ -138,7 +138,7 @@ halt
 
 This is a straightforward translation of the HLA to bytecode. The instruction type used for each instruction class depends upon the size of the arguments. In this case, all values fit into 8 bits, so the 8-bit version of each instruction is used.
 
-```lisp
+```
 integer.8 5
 not.8 1
 move.8 1 2
