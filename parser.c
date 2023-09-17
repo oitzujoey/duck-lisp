@@ -1529,7 +1529,7 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
 
 #ifdef USE_PARENTHESIS_INFERENCE
 	if (parenthesisInferenceEnabled) {
-		e = inferParentheses(duckLisp->memoryAllocation,
+		e = duckLisp_inferParentheses(duckLisp->memoryAllocation,
 		                     maxComptimeVmObjects,
 		                     &duckLisp->errors,
 		                     fileName,

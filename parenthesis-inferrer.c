@@ -1444,13 +1444,13 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 }
 
 
-dl_error_t inferParentheses(dl_memoryAllocation_t *memoryAllocation,
-                            const dl_size_t maxComptimeVmObjects,
-                            dl_array_t *errors,
-                            const dl_uint8_t *fileName,
-                            const dl_size_t fileName_length,
-                            duckLisp_ast_compoundExpression_t *ast,
-                            dl_array_t *externalDeclarations  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */) {
+dl_error_t duckLisp_inferParentheses(dl_memoryAllocation_t *memoryAllocation,
+                                     const dl_size_t maxComptimeVmObjects,
+                                     dl_array_t *errors,
+                                     const dl_uint8_t *fileName,
+                                     const dl_size_t fileName_length,
+                                     duckLisp_ast_compoundExpression_t *ast,
+                                     dl_array_t *externalDeclarations  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
