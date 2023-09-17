@@ -2379,7 +2379,6 @@ Lisp-2 is a well-tested method to control namespace collisions. How would I sane
 
 Add a function namespace to the scope stack. `defun` would write to both that and the variable namespace. `funcall` would call variables. Functions would be called like normal functions. It doesn't seem like that big of a deal to change, but let's defer this until it actually becomes a problem.
 
-
 Duck-lisp function call environment search order:
 scope_getFunctionFromName
 if !macro:
@@ -2398,6 +2397,10 @@ if !(macro or function):
         if !found
             On fail assume global.
 
+And so we have a weird mix of lisp-1 and lisp-2. Macros are in their own namespace. Yaaaaay
+
+Functions and macros should reside in the same namespace. Normal variables will reside in their own namespace (along with functions). This may present a challenge since functions and variables can both be captured in closures.
+
 
 
 Todo:
@@ -2405,18 +2408,15 @@ Todo:
         Add support for nested types? — L
         Document inference algorithm — M
     Fix C API — L
-        Add a bunch of `duckVM_object_is<type>` functions — S
         Add a bunch of `duckVM_object_make<type>` functions — M
         Add a bunch of `*_toString` functions — M
         Document C API — M
     Fix bugs — L
         Write lots of tests — M
-        Disallow `__var` anywhere except in `__noscope` and scopes.
-        Remove stray space at the end of closure.8 disassembler?
-        Reverse the order gensyms are created to make trie storage more efficient. 4000 → 0004
-        Add user-defined destructors to the GC, or fix it if that feature already exists.
-        OOM seems to sometimes cause segfaults.
-        Macros are very unhygienic. Maybe add a separate function namespace to mitigate the problem?
+        Disallow `__var`, `__defun` and, `__noscope` anywhere except in generators that call `__noscope`. — M
+        Add user-defined destructors to the GC, or fix it if that feature already exists. — M
+        OOM seems to sometimes cause segfaults. — M
+        Macros are more unhygienic than desired. Maybe add a separate function namespace to mitigate the problem? — M
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
@@ -2425,6 +2425,7 @@ Todo:
         Switch to stack VM? — M
         String interning? — M
         Rewrite memory allocator? — L
+        Add option to strip symbols of their name in the runtime bytecode. — S
     Document everything else? — L
         Write overview of compiler
         Write overview of VM
