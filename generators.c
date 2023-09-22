@@ -904,11 +904,6 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
 			                  DL_STR("__defun"));
-			// `include` is an exception because the included file exists in the parent scope.
-			dl_string_compare(&foundInclude,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
-			                  DL_STR("include"));
 			dl_string_compare(&foundNoscope,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
@@ -1392,17 +1387,15 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 
 		e = duckLisp_scope_addObject(duckLisp, compileState, DL_STR("self"));
 		if (e) goto cleanup;
-		duckLisp_localsLength_increment(compileState);
 
 		{
-			duckLisp_ast_identifier_t identifier;
-			identifier.value = (dl_uint8_t *) "self";
-			identifier.value_length = sizeof("self") - 1;
+			duckLisp_ast_identifier_t identifier = {DL_STR("self")};
 			/* Since this is effectively a single pass compiler, I don't see a good way to determine purity before
 			   compilation of the body. */
 			e = duckLisp_addInterpretedFunction(duckLisp, compileState, identifier, dl_false);
 			if (e) goto cleanup;
 		}
+		duckLisp_localsLength_increment(compileState);
 
 		e = duckLisp_pushScope(duckLisp, compileState, dl_null, dl_true);
 		if (e) goto cleanup;
@@ -1798,11 +1791,17 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 		e = DL_FREE(duckLisp->memoryAllocation, (void **) &lambda.compoundExpressions);
 		if (e) goto cleanup;
 
+		/* HACK */
+		/* `duckLisp_addInterpretedFunction` needs to know the position of the closure. */
+		(void) duckLisp_localsLength_decrement(compileState);
+		(void) duckLisp_localsLength_decrement(compileState);
 		e = duckLisp_addInterpretedFunction(duckLisp,
 		                                    compileState,
 		                                    expression->compoundExpressions[1].value.identifier,
 		                                    pure);
 		if (e) goto cleanup;
+		(void) duckLisp_localsLength_increment(compileState);
+		(void) duckLisp_localsLength_increment(compileState);
 	}
 
  cleanup:
@@ -2697,7 +2696,8 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp,
 	e = duckLisp_scope_getLocalIndexFromName(compileState->currentCompileState,
 	                                         &identifier_index,
 	                                         expression->compoundExpressions[1].value.identifier.value,
-	                                         expression->compoundExpressions[1].value.identifier.value_length);
+	                                         expression->compoundExpressions[1].value.identifier.value_length,
+	                                         dl_false);
 	if (e) goto cleanup;
 	if (identifier_index == -1) {
 		dl_ptrdiff_t scope_index;
@@ -2708,7 +2708,8 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp,
 		                                             &identifier_index,
 		                                             &scope_index,
 		                                             expression->compoundExpressions[1].value.identifier.value,
-		                                             expression->compoundExpressions[1].value.identifier.value_length);
+		                                             expression->compoundExpressions[1].value.identifier.value_length,
+		                                             dl_false);
 		if (e) goto cleanup;
 		if (!found) {
 			identifier_index = duckLisp_symbol_nameToValue(duckLisp,
@@ -2790,6 +2791,7 @@ dl_error_t duckLisp_generator_nop(duckLisp_t *duckLisp,
 	return duckLisp_emit_nop(duckLisp, compileState, assembly);
 }
 
+/* I believe this is obsolete. */
 dl_error_t duckLisp_generator_label(duckLisp_t *duckLisp,
                                     duckLisp_compileState_t *compileState,
                                     dl_array_t *assembly,
@@ -2835,6 +2837,7 @@ dl_error_t duckLisp_generator_label(duckLisp_t *duckLisp,
 	return e;
 }
 
+/* I believe this is obsolete. */
 dl_error_t duckLisp_generator_goto(duckLisp_t *duckLisp,
                                    duckLisp_compileState_t *compileState,
                                    dl_array_t *assembly,
@@ -2880,6 +2883,7 @@ dl_error_t duckLisp_generator_goto(duckLisp_t *duckLisp,
 	return e;
 }
 
+/* I believe this is obsolete. */
 dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp,
                                     duckLisp_compileState_t *compileState,
                                     dl_array_t *assembly,
@@ -2990,6 +2994,8 @@ dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp,
 	return e;
 }
 
+/* This might be good to use for pure functions, so I'm keeping it for now. */
+
 /* dl_error_t duckLisp_generator_subroutine(duckLisp_t *duckLisp, */
 /*                                          dl_array_t *assembly, */
 /*                                          duckLisp_ast_expression_t *expression) { */
@@ -3043,6 +3049,9 @@ dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp,
 /* 	return e; */
 /* } */
 
+/* Not a real generator since it has the wrong type. It is called only by `duckLisp_compile_expression`. If you are
+   looking for `funcall`, it is elsewhere. This one can only call functions defined using `defun`. No error checking is
+   done because this "generator" is expected to be called by another function that does the checking for it. */
 dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
                                       duckLisp_compileState_t *compileState,
                                       dl_array_t *assembly,
@@ -3056,16 +3065,75 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 	dl_ptrdiff_t innerStartStack_length;
 	dl_ptrdiff_t outerStartStack_length;
 
-	e = duckLisp_compile_compoundExpression(duckLisp,
-	                                        compileState,
-	                                        assembly,
-	                                        expression->compoundExpressions[0].value.identifier.value,
-	                                        expression->compoundExpressions[0].value.identifier.value_length,
-	                                        &expression->compoundExpressions[0],
-	                                        &identifier_index,
-	                                        dl_null,
-	                                        dl_true);
-	if (e) goto cleanup;
+	{
+		duckLisp_ast_compoundExpression_t compoundExpression = expression->compoundExpressions[0];
+		e = duckLisp_scope_getLocalIndexFromName(compileState->currentCompileState,
+		                                         &identifier_index,
+		                                         compoundExpression.value.identifier.value,
+		                                         compoundExpression.value.identifier.value_length,
+		                                         dl_true);
+		if (e) goto cleanup;
+		if (identifier_index == -1) {
+			dl_ptrdiff_t scope_index;
+			dl_bool_t found;
+			e = duckLisp_scope_getFreeLocalIndexFromName(duckLisp,
+			                                             compileState->currentCompileState,
+			                                             &found,
+			                                             &identifier_index,
+			                                             &scope_index,
+			                                             compoundExpression.value.identifier.value,
+			                                             compoundExpression.value.identifier.value_length,
+			                                             dl_true);
+			if (e) goto cleanup;
+			if (!found) {
+				/* Attempt to find an existing global. Only symbols registered with the compiler will be found here. */
+				identifier_index = duckLisp_symbol_nameToValue(duckLisp,
+				                                               compoundExpression.value.identifier.value,
+				                                               compoundExpression.value.identifier.value_length);
+				if (e) goto cleanup;
+				if (identifier_index == -1) {
+					/* Maybe it's a global that hasn't been defined yet? */
+					e = dl_array_pushElements(&eString, DL_STR("funcall: Could not find function \""));
+					if (e) goto cleanup;
+					e = dl_array_pushElements(&eString,
+					                          compoundExpression.value.identifier.value,
+					                          compoundExpression.value.identifier.value_length);
+					if (e) goto cleanup;
+					e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming global scope."));
+					if (e) goto cleanup;
+					e = duckLisp_error_pushRuntime(duckLisp,
+					                               eString.elements,
+					                               eString.elements_length * eString.element_size);
+					if (e) goto cleanup;
+					/* Register global (symbol) and then use it. */
+					e = duckLisp_symbol_create(duckLisp,
+					                           compoundExpression.value.identifier.value,
+					                           compoundExpression.value.identifier.value_length);
+					if (e) goto cleanup;
+					dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp,
+					                                               compoundExpression.value.identifier.value,
+					                                               compoundExpression.value.identifier.value_length);
+					e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, key);
+					if (e) goto cleanup;
+					identifier_index = duckLisp_localsLength_get(compileState) - 1;
+				}
+				else {
+					e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, identifier_index);
+					if (e) goto cleanup;
+					identifier_index = duckLisp_localsLength_get(compileState) - 1;
+				}
+			}
+			else {
+				e = duckLisp_emit_pushUpvalue(duckLisp, compileState, assembly, identifier_index);
+				if (e) goto cleanup;
+				identifier_index = duckLisp_localsLength_get(compileState) - 1;
+			}
+		}
+		else {
+			e = duckLisp_emit_pushIndex(duckLisp, compileState, assembly, identifier_index);
+			if (e) goto cleanup;
+		}
+	}
 
 	outerStartStack_length = duckLisp_localsLength_get(compileState);
 
@@ -3097,7 +3165,7 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 		}
 	}
 
-	/* The zeroth argument is the function name, which also happens to be a label. */
+	/* The zeroth argument is the function name, which also happens to be a label. This fact is irrelevant for now. */
 	e = duckLisp_emit_funcall(duckLisp,
 	                          compileState,
 	                          assembly,
@@ -3107,16 +3175,17 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 
 	compileState->currentCompileState->locals_length = outerStartStack_length + 1;
 
-	/* Don't push label into trie. This will be done later during assembly. */
+	/* Labels aren't mentioned here because they are dealt with during assembly. */
 
  cleanup:
-
 	eError = dl_array_quit(&eString);
 	if (eError) e = eError;
 
 	return e;
 }
 
+/* This is the *real* `funcall`. This can call any normal variable as a function, including functions defined using
+   `defun`. */
 dl_error_t duckLisp_generator_funcall2(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,
                                        dl_array_t *assembly,

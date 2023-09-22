@@ -468,7 +468,7 @@ bvar duckLisp-object-type-type type-of type-of ()
 
 (bdefun mapcar* (fun list)
         (unless (null? list)
-          (cons (#fun (car list)) (self fun (cdr list)))))
+          (cons (funcall fun (car list)) (self fun (cdr list)))))
 (bdefun mapcar (fun list) mapcar* fun list)
 
 ;; Not the typical `dotimes'.

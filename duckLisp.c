@@ -237,6 +237,7 @@ dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const dl_uint8_t *name, 
 
 static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t is_function) {
 	/**/ dl_trie_init(&scope->locals_trie, duckLisp->memoryAllocation, -1);
+	/**/ dl_trie_init(&scope->functionLocals_trie, duckLisp->memoryAllocation, -1);
 	/**/ dl_trie_init(&scope->functions_trie, duckLisp->memoryAllocation, -1);
 	scope->functions_length = 0;
 	/**/ dl_trie_init(&scope->macros_trie, duckLisp->memoryAllocation, -1);
@@ -253,6 +254,7 @@ static dl_error_t scope_quit(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	dl_error_t e = dl_error_ok;
 	(void) duckLisp;
 	/**/ dl_trie_quit(&scope->locals_trie);
+	/**/ dl_trie_quit(&scope->functionLocals_trie);
 	/**/ dl_trie_quit(&scope->functions_trie);
 	scope->functions_length = 0;
 	/**/ dl_trie_quit(&scope->macros_trie);
@@ -387,7 +389,7 @@ dl_error_t duckLisp_scope_getMacroFromName(duckLisp_subCompileState_t *subCompil
 			break;
 		}
 
-		/**/ dl_trie_find(scope.locals_trie, index, name, name_length);
+		/**/ dl_trie_find(scope.functionLocals_trie, index, name, name_length);
 		if (*index != -1) {
 			break;
 		}
@@ -403,12 +405,14 @@ dl_error_t duckLisp_scope_getMacroFromName(duckLisp_subCompileState_t *subCompil
 dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_subCompileState_t *subCompileState,
                                                 dl_ptrdiff_t *index,
                                                 const dl_uint8_t *name,
-                                                const dl_size_t name_length) {
+                                                const dl_size_t name_length,
+                                                const dl_bool_t functionsOnly) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_scope_t scope;
 	dl_ptrdiff_t scope_index = subCompileState->scope_stack.elements_length;
 
+	dl_ptrdiff_t local_index = -1;
 	*index = -1;
 
 	do {
@@ -420,8 +424,14 @@ dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_subCompileState_t *subC
 			break;
 		}
 
-		/**/ dl_trie_find(scope.locals_trie, index, name, name_length);
-		if (*index != -1) {
+		if (functionsOnly) {
+			(void) dl_trie_find(scope.functionLocals_trie, &local_index, name, name_length);
+		}
+		else {
+			(void) dl_trie_find(scope.locals_trie, &local_index, name, name_length);
+		}
+		if (local_index != -1) {
+			*index = local_index;
 			break;
 		}
 	} while (!scope.function_scope);
@@ -437,7 +447,8 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
                                                            const dl_uint8_t *name,
                                                            const dl_size_t name_length,
                                                            duckLisp_scope_t function_scope,
-                                                           dl_ptrdiff_t function_scope_index) {
+                                                           dl_ptrdiff_t function_scope_index,
+                                                           const dl_bool_t functionsOnly) {
 	dl_error_t e = dl_error_ok;
 
 	// Fix this stupid variable here.
@@ -449,7 +460,6 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 	   Scopes will always have positive indices. Functions may have negative indices.
 	*/
 
-	/* dl_ptrdiff_t local_index; */
 	*found = dl_false;
 
 	duckLisp_scope_t scope = {0};
@@ -462,7 +472,7 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 			goto cleanup;
 		}
 
-		/**/ dl_trie_find(scope.locals_trie, index, name, name_length);
+		(void) dl_trie_find(functionsOnly ? scope.functionLocals_trie : scope.locals_trie, index, name, name_length);
 		if (*index != -1) {
 			*found = dl_true;
 			break;
@@ -479,10 +489,11 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName_helper(duckLisp_t *duckLisp,
 		                                                    name,
 		                                                    name_length,
 		                                                    scope,
-		                                                    *scope_index);
+		                                                    *scope_index,
+		                                                    functionsOnly);
 		if (e) goto cleanup;
-		// Don't set `index` below here.
-		// Create a closure to the scope above.
+		/* Don't set `index` below here. */
+		/* Create a closure to the scope above. */
 		if (*index >= 0) *index = -(*index + 1);
 	}
 	/* sic. */
@@ -554,7 +565,8 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
                                                     dl_ptrdiff_t *index,
                                                     dl_ptrdiff_t *scope_index,
                                                     const dl_uint8_t *name,
-                                                    const dl_size_t name_length) {
+                                                    const dl_size_t name_length,
+                                                    const dl_bool_t functionsOnly) {
 	dl_error_t e = dl_error_ok;
 	duckLisp_scope_t function_scope;
 	dl_ptrdiff_t function_scope_index = subCompileState->scope_stack.elements_length;
@@ -579,7 +591,8 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
 	                                                    name,
 	                                                    name_length,
 	                                                    function_scope,
-	                                                    function_scope_index);
+	                                                    function_scope_index,
+	                                                    functionsOnly);
  cleanup:
 	return e;
 }
@@ -953,7 +966,8 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 		e = duckLisp_scope_getLocalIndexFromName(compileState->currentCompileState,
 		                                         &temp_index,
 		                                         compoundExpression->value.identifier.value,
-		                                         compoundExpression->value.identifier.value_length);
+		                                         compoundExpression->value.identifier.value_length,
+		                                         dl_false);
 		if (e) goto cleanup;
 		if (temp_index == -1) {
 			dl_ptrdiff_t scope_index;
@@ -964,7 +978,8 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 			                                             &temp_index,
 			                                             &scope_index,
 			                                             compoundExpression->value.identifier.value,
-			                                             compoundExpression->value.identifier.value_length);
+			                                             compoundExpression->value.identifier.value_length,
+			                                             dl_false);
 			if (e) goto cleanup;
 			if (!found) {
 				/* Attempt to find a global. Only globals registered with the compiler will be found here. */
@@ -1055,6 +1070,9 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 	return e;
 }
 
+/* Figure out what sort of form the current AST node is based on the head of the node.
+     Identifier? Then it's a function. Do a functiony thing.
+     Anything else? It's a scope. Call the expression generator. */
 dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,
                                        dl_array_t *assembly,
@@ -1065,7 +1083,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
-	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	(void) dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	duckLisp_functionType_t functionType;
 	dl_ptrdiff_t functionIndex = -1;
@@ -1077,28 +1095,21 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		goto cleanup;
 	}
 
-	// Compile!
 	duckLisp_ast_identifier_t name = expression->compoundExpressions[0].value.identifier;
 	switch (expression->compoundExpressions[0].type) {
 	case duckLisp_ast_type_bool:
+		/* Fall through */
 	case duckLisp_ast_type_int:
+		/* Fall through */
 	case duckLisp_ast_type_float:
-		/* e = dl_error_invalidValue; */
-		/* eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Constants as function names are not supported.")); */
-		/* if (eError) { */
-		/*		e = eError; */
-		/* } */
-		/* goto l_cleanup; */
+		/* Fall through */
 	case duckLisp_ast_type_string:
-		/* // Assume this is a comment or something. Maybe even returning a string. */
-		/* break; */
+		/* Fall through */
 	case duckLisp_ast_type_expression:
-		// Run expression generator.
 		e = duckLisp_generator_expression(duckLisp, compileState, assembly, expression);
 		if (e) goto cleanup;
 		break;
 	case duckLisp_ast_type_identifier:
-		/* Determine function type. */
 		functionType = duckLisp_functionType_none;
 		e = scope_getFunctionFromName(duckLisp,
 		                              compileState->currentCompileState,
@@ -1107,62 +1118,25 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		                              name.value,
 		                              name.value_length);
 		if (e) goto cleanup;
-		if (functionType != duckLisp_functionType_macro) {
-			dl_ptrdiff_t index = -1;
-			e = duckLisp_scope_getLocalIndexFromName(compileState->currentCompileState,
-			                                         &index,
-			                                         name.value,
-			                                         name.value_length);
+		if (functionType == duckLisp_functionType_none) {
+			/* A warning, not an error. */
+			eError = dl_array_pushElements(&eString, functionName, functionName_length);
+			if (eError) e = eError;
+			eError = dl_array_pushElements(&eString, DL_STR(": Could not find function \""));
+			if (eError) e = eError;
+			eError = dl_array_pushElements(&eString,
+			                               name.value,
+			                               name.value_length);
+			if (eError) e = eError;
+			eError = dl_array_pushElements(&eString, DL_STR("\"."));
+			if (eError) e = eError;
+			eError = duckLisp_error_pushRuntime(duckLisp,
+			                                    eString.elements,
+			                                    eString.elements_length * eString.element_size);
+			if (eError) e = eError;
 			if (e) goto cleanup;
-			if (index == -1) {
-				dl_bool_t found = dl_false;
-				dl_ptrdiff_t scope_index;
-				e = duckLisp_scope_getFreeLocalIndexFromName(duckLisp,
-				                                             compileState->currentCompileState,
-				                                             &found,
-				                                             &index,
-				                                             &scope_index,
-				                                             name.value,
-				                                             name.value_length);
-				if (e) goto cleanup;
-				if (found) functionType = duckLisp_functionType_ducklisp;
-			}
-			else {
-				functionType = duckLisp_functionType_ducklisp;
-			}
+			functionType = duckLisp_functionType_ducklisp;
 		}
-		/* No need to check if it's a pure function since `functionType` is only explicitly set a few lines
-		   above. */
-		if (functionType != duckLisp_functionType_ducklisp) {
-			e = scope_getFunctionFromName(duckLisp,
-			                              compileState->currentCompileState,
-			                              &functionType,
-			                              &functionIndex,
-			                              name.value,
-			                              name.value_length);
-			if (e) goto cleanup;
-			if (functionType == duckLisp_functionType_none) {
-				e = dl_error_ok;
-				eError = dl_array_pushElements(&eString, functionName, functionName_length);
-				if (eError) e = eError;
-				eError = dl_array_pushElements(&eString, DL_STR(": Could not find variable \""));
-				if (eError) e = eError;
-				eError = dl_array_pushElements(&eString,
-				                               name.value,
-				                               name.value_length);
-				if (eError) e = eError;
-				eError = dl_array_pushElements(&eString, DL_STR("\". Assuming global scope."));
-				if (eError) e = eError;
-				eError = duckLisp_error_pushRuntime(duckLisp,
-				                                    eString.elements,
-				                                    eString.elements_length * eString.element_size);
-				if (eError) e = eError;
-				if (e) goto cleanup;
-				/* goto l_cleanup; */
-				functionType = duckLisp_functionType_ducklisp_pure;
-			}
-		}
-		/* Compile function. */
 		switch (functionType) {
 		case duckLisp_functionType_ducklisp:
 			/* Fall through */
@@ -1633,7 +1607,6 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		{DL_STR("__nop"), duckLisp_generator_nop, DL_STR("()"), dl_null, 0},
 		{DL_STR("__funcall"), duckLisp_generator_funcall2, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__apply"), duckLisp_generator_apply, DL_STR("(I &rest 1 I)"), dl_null, 0},
-		{DL_STR("__label"), duckLisp_generator_label, dl_null, 0, dl_null, 0},
 		{DL_STR("__var"),
 		 duckLisp_generator_createVar,
 		 DL_STR("(L I)"),
@@ -2097,22 +2070,25 @@ dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
 
 	/* Stick name and index in the current scope's trie. */
 	e = duckLisp_scope_getTop(duckLisp, compileState->currentCompileState, &scope);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
 	/* Record function type in function trie. */
+	e = dl_trie_insert(&scope.functionLocals_trie,
+	                   name.value,
+	                   name.value_length,
+	                   duckLisp_localsLength_get(compileState));
+	if (e) goto cleanup;
+
 	e = dl_trie_insert(&scope.functions_trie,
 	                   name.value,
 	                   name.value_length,
 	                   pure ? duckLisp_functionType_ducklisp_pure : duckLisp_functionType_ducklisp);
-	if (e) goto l_cleanup;
-	/* So simple. :) */
+	if (e) goto cleanup;
 
 	e = scope_setTop(compileState->currentCompileState, &scope);
-	if (e) goto l_cleanup;
+	if (e) goto cleanup;
 
- l_cleanup:
-
-	return e;
+ cleanup: return e;
 }
 
 /* Interpreted generator, i.e. a macro. */

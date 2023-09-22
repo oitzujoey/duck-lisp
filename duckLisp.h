@@ -133,8 +133,10 @@ typedef enum {
 typedef struct {
 	/* All variable names in the current scope are stored here. */
 	dl_trie_t locals_trie;   /* Points to stack objects. */
+	dl_trie_t functionLocals_trie;   /* Points to stack objects. */
 
-	dl_trie_t functions_trie;  /* Records all the function types in this scope. */
+	/* This trie records all the function types in this scope. */
+	dl_trie_t functions_trie;  /* dl_trie_t:duckLisp_functionType_t */
 	dl_size_t functions_length;
 
 	dl_trie_t macros_trie;  /* Index of macro in `macros`. */
@@ -572,14 +574,16 @@ dl_error_t duckLisp_scope_getMacroFromName(duckLisp_subCompileState_t *subCompil
 dl_error_t duckLisp_scope_getLocalIndexFromName(duckLisp_subCompileState_t *subCompileState,
                                                 dl_ptrdiff_t *index,
                                                 const dl_uint8_t *name,
-                                                const dl_size_t name_length);
+                                                const dl_size_t name_length,
+                                                const dl_bool_t functionsOnly);
 dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
                                                     duckLisp_subCompileState_t *subCompileState,
                                                     dl_bool_t *found,
                                                     dl_ptrdiff_t *index,
                                                     dl_ptrdiff_t *scope_index,
                                                     const dl_uint8_t *name,
-                                                    const dl_size_t name_length);
+                                                    const dl_size_t name_length,
+                                                    const dl_bool_t functionsOnly);
 dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
                                      duckLisp_subCompileState_t *subCompileState,
                                      duckLisp_functionType_t *functionType,

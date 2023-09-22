@@ -270,7 +270,7 @@
                                     reversed-list))
           (to list (cdr)))
         reversed-list)
-(bvar nreverse reverse)
+(bdefun nreverse (list) (reverse list))
 
 (bdefun min (&rest values)
         (var min-value (first values))
@@ -448,30 +448,30 @@
 
 (bdefun remove-if* (fun list)
         (unless (null? list)
-          (if (fun (car list))
+          (if (funcall fun (car list))
               (self fun (cdr list))
               (cons (car list)
                     (self fun (cdr list))))))
 
 (bdefun remove-if-not* (fun list)
         (unless (null? list)
-          (if (not (fun (car list)))
+          (if (not (funcall fun (car list)))
               (self fun (cdr list))
               (cons (car list)
                     (self fun (cdr list))))))
 
 (bdefun maplist* (fun list)
         (unless (null? list)
-          (cons (fun list) (self fun (cdr list)))))
+          (cons (funcall fun list) (self fun (cdr list)))))
 
 (bdefun mapcar* (fun list)
         (unless (null? list)
-          (cons (fun (car list)) (self fun (cdr list)))))
+          (cons (funcall fun (car list)) (self fun (cdr list)))))
 (bvar mapcar mapcar*)
 
 (bdefun filter* (fun list)
         (unless (null? list)
-          (if (fun (car list))
+          (if (funcall fun (car list))
               (cons (car list) (self fun (cdr list)))
               (self fun (cdr list)))))
 
@@ -520,14 +520,14 @@
 
         (lambda (message &rest args)
           (defun hash (key)
-            (mod (hash-function key) size))
+            (mod (funcall hash-function key) size))
 
           (defun get-hash (key)
             (var entries (get-vector-element hash-table (hash key)))
             (var found ())
             (while (and entries (not found))
               (var entry (first entries))
-              (when (equal? (car entry) key)
+              (when (funcall equal? (car entry) key)
                 (setq found (car entry)))
               (pop entries))
             found)
@@ -539,7 +539,7 @@
              (var entries entries)
              (while (and entries (not found))
                (var entry (first entries))
-               (when (equal? (car entry) key)
+               (when (funcall equal? (car entry) key)
                  (setq found entries))
                (pop entries)))
             (if found
