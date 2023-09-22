@@ -2416,7 +2416,7 @@ Todo:
         Disallow `__var`, `__defun` and, `__noscope` anywhere except in generators that call `__noscope`. — M
         Add user-defined destructors to the GC, or fix it if that feature already exists. — M
         OOM seems to sometimes cause segfaults. — M
-        Add globals trie.
+        Add globals trie. — S
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?

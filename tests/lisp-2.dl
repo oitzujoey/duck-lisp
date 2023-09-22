@@ -1,0 +1,8 @@
+(
+ (__defun a () true)
+ (__var a false)
+ (__if a
+       false
+       (__if (a)
+             true
+             false)))
