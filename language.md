@@ -47,7 +47,7 @@ Arithmetic operators are generators, not functions, so they have no value. Howev
 
 ## Variables
 
-Duck-lisp has both lexically and globally scoped variables. Callbacks from C are created as globals and can be accessed by name from C. Global variables persist between bytecode executions in the VM.
+Duck-lisp has both lexically and globally scoped variables. Callbacks from C are created as globals and can be accessed by name from C. There is no way to create a global function from duck-lisp. Global variables persist between bytecode executions in the VM.
 
 Scopes are created as in C, but using parentheses instead of curly braces. Confusing? Yes.  
 Lexical variables are created as in C but using the `var` keyword. Global variables are created using the `global` keyword. The value argument is required for both `var` and `global`.

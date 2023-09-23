@@ -911,14 +911,14 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 			{
 				duckLisp_functionType_t functionType = duckLisp_functionType_none;
 				dl_ptrdiff_t functionIndex = -1;
-				e = scope_getFunctionFromName(duckLisp,
-				                              compileState->currentCompileState,
-				                              &functionType,
-				                              &functionIndex,
-				                              (currentExpression.value.expression.compoundExpressions[0]
-				                               .value.identifier.value),
-				                              (currentExpression.value.expression.compoundExpressions[0]
-				                               .value.identifier.value_length));
+				e = duckLisp_scope_getFunctionFromName(duckLisp,
+				                                       compileState->currentCompileState,
+				                                       &functionType,
+				                                       &functionIndex,
+				                                       (currentExpression.value.expression.compoundExpressions[0]
+				                                        .value.identifier.value),
+				                                       (currentExpression.value.expression.compoundExpressions[0]
+				                                        .value.identifier.value_length));
 				if (e) goto cleanup;
 				foundMacro = (functionType == duckLisp_functionType_macro);
 			}
@@ -1425,9 +1425,9 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 
 		/* `label_index` should never equal -1 after this function exits. */
 		e = duckLisp_scope_getLabelFromName(compileState->currentCompileState,
-		                           &function_label_index,
-		                           selfGensym.value,
-		                           selfGensym.value_length);
+		                                    &function_label_index,
+		                                    selfGensym.value,
+		                                    selfGensym.value_length);
 		if (e) goto cleanup_gensym;
 		if (function_label_index == -1) {
 			/* We literally just added the function name to the parent scope. */
@@ -1669,7 +1669,7 @@ dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
 	return duckLisp_generator_createVar_raw(duckLisp, compileState, assembly, expression, dl_null);
 }
 
-dl_error_t duckLisp_generator_static(duckLisp_t *duckLisp,
+dl_error_t duckLisp_generator_global(duckLisp_t *duckLisp,
                                      duckLisp_compileState_t *compileState,
                                      dl_array_t *assembly,
                                      duckLisp_ast_expression_t *expression) {
@@ -1697,7 +1697,6 @@ dl_error_t duckLisp_generator_static(duckLisp_t *duckLisp,
 		goto cleanup;
 	}
 
-	// Notice here, that a variable could potentially refer to itself.
 	/* Insert arg1 into this scope's name trie. */
 	/* This is not actually where stack variables are allocated. The magic happens in
 	   `duckLisp_generator_expression`. */
@@ -1712,10 +1711,11 @@ dl_error_t duckLisp_generator_static(duckLisp_t *duckLisp,
 	                                        dl_true);
 	if (e) goto cleanup;
 	dl_ptrdiff_t static_index = -1;
-	e = duckLisp_addStatic(duckLisp,
+	e = duckLisp_addGlobal(duckLisp,
 	                       expression->compoundExpressions[1].value.identifier.value,
 	                       expression->compoundExpressions[1].value.identifier.value_length,
-	                       &static_index);
+	                       &static_index,
+	                       &compileState->comptimeCompileState == compileState->currentCompileState);
 	if (e) goto cleanup;
 
 	e = duckLisp_emit_setStatic(duckLisp, compileState, assembly, static_index, duckLisp_localsLength_get(compileState) - 1);
@@ -2712,10 +2712,13 @@ dl_error_t duckLisp_generator_setq(duckLisp_t *duckLisp,
 		                                             dl_false);
 		if (e) goto cleanup;
 		if (!found) {
-			identifier_index = duckLisp_symbol_nameToValue(duckLisp,
-			                                               expression->compoundExpressions[1].value.identifier.value,
-			                                               (expression->compoundExpressions[1]
-			                                                .value.identifier.value_length));
+			e = duckLisp_scope_getGlobalFromName(duckLisp,
+			                                     &identifier_index,
+			                                     expression->compoundExpressions[1].value.identifier.value,
+			                                     expression->compoundExpressions[1].value.identifier.value_length,
+			                                     (&compileState->comptimeCompileState
+			                                      == compileState->currentCompileState));
+			if (e) goto cleanup;
 			if (identifier_index == -1) {
 				e = dl_array_pushElements(&eString, DL_STR("setq: Could not find variable \""));
 				if (e) goto cleanup;
@@ -3086,42 +3089,17 @@ dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
 			                                             dl_true);
 			if (e) goto cleanup;
 			if (!found) {
-				/* Attempt to find an existing global. Only symbols registered with the compiler will be found here. */
-				identifier_index = duckLisp_symbol_nameToValue(duckLisp,
+				/* Register global (symbol) and then use it. */
+				e = duckLisp_symbol_create(duckLisp,
+				                           compoundExpression.value.identifier.value,
+				                           compoundExpression.value.identifier.value_length);
+				if (e) goto cleanup;
+				dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp,
 				                                               compoundExpression.value.identifier.value,
 				                                               compoundExpression.value.identifier.value_length);
+				e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, key);
 				if (e) goto cleanup;
-				if (identifier_index == -1) {
-					/* Maybe it's a global that hasn't been defined yet? */
-					e = dl_array_pushElements(&eString, DL_STR("funcall: Could not find function \""));
-					if (e) goto cleanup;
-					e = dl_array_pushElements(&eString,
-					                          compoundExpression.value.identifier.value,
-					                          compoundExpression.value.identifier.value_length);
-					if (e) goto cleanup;
-					e = dl_array_pushElements(&eString, DL_STR("\" in lexical scope. Assuming global scope."));
-					if (e) goto cleanup;
-					e = duckLisp_error_pushRuntime(duckLisp,
-					                               eString.elements,
-					                               eString.elements_length * eString.element_size);
-					if (e) goto cleanup;
-					/* Register global (symbol) and then use it. */
-					e = duckLisp_symbol_create(duckLisp,
-					                           compoundExpression.value.identifier.value,
-					                           compoundExpression.value.identifier.value_length);
-					if (e) goto cleanup;
-					dl_ptrdiff_t key = duckLisp_symbol_nameToValue(duckLisp,
-					                                               compoundExpression.value.identifier.value,
-					                                               compoundExpression.value.identifier.value_length);
-					e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, key);
-					if (e) goto cleanup;
-					identifier_index = duckLisp_localsLength_get(compileState) - 1;
-				}
-				else {
-					e = duckLisp_emit_pushGlobal(duckLisp, compileState, assembly, identifier_index);
-					if (e) goto cleanup;
-					identifier_index = duckLisp_localsLength_get(compileState) - 1;
-				}
+				identifier_index = duckLisp_localsLength_get(compileState) - 1;
 			}
 			else {
 				e = duckLisp_emit_pushUpvalue(duckLisp, compileState, assembly, identifier_index);

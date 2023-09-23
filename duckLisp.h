@@ -201,6 +201,9 @@ typedef struct {
 
 	dl_size_t gensym_number;
 
+	dl_trie_t comptimeGlobals_trie;  /* Index points to the string in `symbols_array` */
+	dl_trie_t runtimeGlobals_trie;  /* Index points to the string in `symbols_array` */
+
 	dl_trie_t symbols_trie;  /* Index points to the string in `symbols_array` */
 	dl_array_t symbols_array;  /* duckLisp_ast_identifier_t */
 
@@ -584,12 +587,17 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
                                                     const dl_uint8_t *name,
                                                     const dl_size_t name_length,
                                                     const dl_bool_t functionsOnly);
-dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
-                                     duckLisp_subCompileState_t *subCompileState,
-                                     duckLisp_functionType_t *functionType,
-                                     dl_ptrdiff_t *index,
-                                     const dl_uint8_t *name,
-                                     const dl_size_t name_length);
+dl_error_t duckLisp_scope_getFunctionFromName(duckLisp_t *duckLisp,
+                                              duckLisp_subCompileState_t *subCompileState,
+                                              duckLisp_functionType_t *functionType,
+                                              dl_ptrdiff_t *index,
+                                              const dl_uint8_t *name,
+                                              const dl_size_t name_length);
+dl_error_t duckLisp_scope_getGlobalFromName(duckLisp_t *duckLisp,
+                                            dl_ptrdiff_t *symbolId,
+                                            const dl_uint8_t *name,
+                                            const dl_size_t name_length,
+                                            const dl_bool_t isComptime);
 dl_error_t duckLisp_scope_getLabelFromName(duckLisp_subCompileState_t *subCompileState,
                                            dl_ptrdiff_t *index,
                                            const dl_uint8_t *name,
@@ -747,10 +755,11 @@ dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp,
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp,
                                       duckLisp_compileState_t *compileState,
                                       duckLisp_scope_t *scope);
-dl_error_t DECLSPEC duckLisp_addStatic(duckLisp_t *duckLisp,
-                                       const dl_uint8_t *name,
-                                       const dl_size_t name_length,
-                                       dl_ptrdiff_t *index);
+dl_error_t duckLisp_addGlobal(duckLisp_t *duckLisp,
+                              const dl_uint8_t *name,
+                              const dl_size_t name_length,
+                              dl_ptrdiff_t *index,
+                              const dl_bool_t comptime);
 dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp,
                                              duckLisp_compileState_t *compileState,
                                              const dl_uint8_t *name,

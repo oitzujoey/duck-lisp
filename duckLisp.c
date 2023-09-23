@@ -597,12 +597,12 @@ dl_error_t duckLisp_scope_getFreeLocalIndexFromName(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
-                                     duckLisp_subCompileState_t *subCompileState,
-                                     duckLisp_functionType_t *functionType,
-                                     dl_ptrdiff_t *index,
-                                     const dl_uint8_t *name,
-                                     const dl_size_t name_length) {
+dl_error_t duckLisp_scope_getFunctionFromName(duckLisp_t *duckLisp,
+                                              duckLisp_subCompileState_t *subCompileState,
+                                              duckLisp_functionType_t *functionType,
+                                              dl_ptrdiff_t *index,
+                                              const dl_uint8_t *name,
+                                              const dl_size_t name_length) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_scope_t scope;
@@ -654,6 +654,15 @@ dl_error_t scope_getFunctionFromName(duckLisp_t *duckLisp,
 	}
 
 	return e;
+}
+
+dl_error_t duckLisp_scope_getGlobalFromName(duckLisp_t *duckLisp,
+                                            dl_ptrdiff_t *symbolId,
+                                            const dl_uint8_t *name,
+                                            const dl_size_t name_length,
+                                            const dl_bool_t isComptime) {
+	(void) dl_trie_find(isComptime ? duckLisp->comptimeGlobals_trie : duckLisp->runtimeGlobals_trie, symbolId, name, name_length);
+	return dl_error_ok;
 }
 
 dl_error_t duckLisp_scope_getLabelFromName(duckLisp_subCompileState_t *subCompileState,
@@ -983,9 +992,12 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 			if (e) goto cleanup;
 			if (!found) {
 				/* Attempt to find a global. Only globals registered with the compiler will be found here. */
-				temp_index = duckLisp_symbol_nameToValue(duckLisp,
-				                                         compoundExpression->value.identifier.value,
-				                                         compoundExpression->value.identifier.value_length);
+				e = duckLisp_scope_getGlobalFromName(duckLisp,
+				                                     &temp_index,
+				                                     compoundExpression->value.identifier.value,
+				                                     compoundExpression->value.identifier.value_length,
+				                                     (&compileState->comptimeCompileState
+				                                      == compileState->currentCompileState));
 				if (e) goto cleanup;
 				if (temp_index == -1) {
 					/* Maybe it's a global that hasn't been defined yet? */
@@ -1111,12 +1123,12 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		break;
 	case duckLisp_ast_type_identifier:
 		functionType = duckLisp_functionType_none;
-		e = scope_getFunctionFromName(duckLisp,
-		                              compileState->currentCompileState,
-		                              &functionType,
-		                              &functionIndex,
-		                              name.value,
-		                              name.value_length);
+		e = duckLisp_scope_getFunctionFromName(duckLisp,
+		                                       compileState->currentCompileState,
+		                                       &functionType,
+		                                       &functionIndex,
+		                                       name.value,
+		                                       name.value_length);
 		if (e) goto cleanup;
 		if (functionType == duckLisp_functionType_none) {
 			/* A warning, not an error. */
@@ -1128,7 +1140,7 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 			                               name.value,
 			                               name.value_length);
 			if (eError) e = eError;
-			eError = dl_array_pushElements(&eString, DL_STR("\"."));
+			eError = dl_array_pushElements(&eString, DL_STR("\". Assuming global scope."));
 			if (eError) e = eError;
 			eError = duckLisp_error_pushRuntime(duckLisp,
 			                                    eString.elements,
@@ -1611,7 +1623,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		 duckLisp_generator_createVar,
 		 DL_STR("(L I)"),
 		 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
-		{DL_STR("__global"), duckLisp_generator_static, DL_STR("(L I)"), dl_null, 0},
+		{DL_STR("__global"), duckLisp_generator_global, DL_STR("(L I)"), dl_null, 0},
 		{DL_STR("__setq"), duckLisp_generator_setq, DL_STR("(L I)"), dl_null, 0},
 		{DL_STR("__not"), duckLisp_generator_not, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__*"), duckLisp_generator_multiply, DL_STR("(I I)"), dl_null, 0},
@@ -1789,6 +1801,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                     sizeof(duckLisp_parenthesisInferrer_declarationPrototype_t),
 	                     dl_array_strategy_double);
 #endif /* USE_PARENTHESIS_INFERENCE */
+	/* No error */ dl_trie_init(&duckLisp->comptimeGlobals_trie, duckLisp->memoryAllocation, -1);
+	/* No error */ dl_trie_init(&duckLisp->runtimeGlobals_trie, duckLisp->memoryAllocation, -1);
 	/* No error */ dl_array_init(&duckLisp->symbols_array,
 	                             duckLisp->memoryAllocation,
 	                             sizeof(duckLisp_ast_identifier_t),
@@ -1878,6 +1892,8 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 	}
 	e = dl_array_quit(&duckLisp->parenthesisInferrerTypes_array);
 #endif /* USE_PARENTHESIS_INFERENCE */
+	e = dl_trie_quit(&duckLisp->comptimeGlobals_trie);
+	e = dl_trie_quit(&duckLisp->runtimeGlobals_trie);
 	e = dl_trie_quit(&duckLisp->symbols_trie);
 	DL_DOTIMES(i, duckLisp->symbols_array.elements_length) {
 		e = DL_FREE(memoryAllocation,
@@ -2047,15 +2063,22 @@ dl_error_t duckLisp_scope_addObject(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_addStatic(duckLisp_t *duckLisp,
+dl_error_t duckLisp_addGlobal(duckLisp_t *duckLisp,
                               const dl_uint8_t *name,
                               const dl_size_t name_length,
-                              dl_ptrdiff_t *index) {
+                              dl_ptrdiff_t *index,
+                              const dl_bool_t isComptime) {
 	dl_error_t e = dl_error_ok;
 
 	e = duckLisp_symbol_create(duckLisp, name, name_length);
 	if (e) goto cleanup;
-	*index = duckLisp_symbol_nameToValue(duckLisp, name, name_length);
+	dl_ptrdiff_t local_index = duckLisp_symbol_nameToValue(duckLisp, name, name_length);
+	e = dl_trie_insert(isComptime ? &duckLisp->comptimeGlobals_trie : &duckLisp->runtimeGlobals_trie,
+	                   name,
+	                   name_length,
+	                   local_index);
+	if (e) goto cleanup;
+	*index = local_index;
 
  cleanup: return e;
 }
