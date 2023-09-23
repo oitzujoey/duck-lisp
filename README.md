@@ -27,11 +27,13 @@ Duck-lisp is your typical hobby lisp with one or two twists. I started this proj
 * Built-in keywords can be overridden using `var`, `defun` and `defmacro`.
 * Variables are declared as they are in C-like languages. There is no `let`.
 * Parenthesis inference does not work with lisp auto-formatters.
+* Not quite a lisp-2.
 
 ### Misfeatures
 
 * Error reporting is horrible. It will likely stay this way.
 * There are no debug features other than a disassembler.
+* Macros are unhygienic due to the inability of closures to be passed from the compilation VM to the runtime VM.
 
 ## Examples
 

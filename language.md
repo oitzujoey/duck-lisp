@@ -2,9 +2,11 @@
 
 Welcome to duck-lisp!
 
+I intend for you to read this manual top-down, but sometimes I felt the need to use advanced concepts before they are defined. You may need to skip around or reread sections to properly understand the manual.
+
 ## Syntax
 
-S-expressions are taken to the extreme. Not even `quote` has special reader syntax. Every function and keyword follows the form `(verb noun noun …)`. `verb` must be an identifier. There's an alternative syntax available though, so take a look at "parenthesis-inference.md" when you tire of the parentheses.
+S-expressions are taken to the extreme. Not even `quote` has special syntax. Every function and keyword follows the form `(verb noun noun …)`. `verb` must be an identifier. There's an alternative syntax available though, so take a look at "parenthesis-inference.md" when you tire of the parentheses.
 
 Despite what is shown in this document, all keywords are preceded by two underscores. "language-reference.md" contains the full list of keywords and built-in functions. Every form in that document is mentioned in this one as well, but without the underscores since underscores are unsightly.
 
@@ -40,14 +42,12 @@ Arithmetic operators are generators, not functions, so they have no value. Howev
 (defun apply2 (f a b)
   (f a b))
 
-(print (apply2 + 4 5))  (; ⇒ 9)
+(print (apply2 + 4 5))  ; ⇒ 9
 ```
 
 ## Variables
 
-Duck-lisp has both lexically and globally scoped variables. Callbacks from C are created as globals. Global variables persist between bytecode executions on the VM and can be accessed by name from C.
-
-For the most part, it should be safe to assume that all identifiers reside within a single namespace.
+Duck-lisp has both lexically and globally scoped variables. Callbacks from C are created as globals and can be accessed by name from C. Global variables persist between bytecode executions in the VM.
 
 Scopes are created as in C, but using parentheses instead of curly braces. Confusing? Yes.  
 Lexical variables are created as in C but using the `var` keyword. Global variables are created using the `global` keyword. The value argument is required for both `var` and `global`.
@@ -62,8 +62,33 @@ Lexical variables are created as in C but using the `var` keyword. Global variab
 (print x)  ; ⇒ 5
 
 ;; `y' will still exist when newly-compiled bytecode is run on the VM.
-(global y)
+(global y 7)
 ```
+
+Duck-lisp is a modified lisp-2. A lisp-2 separates functions and normal variables into two separate namespaces. Duck-lisp puts functions in their own namespace, but functions are also placed in the namespace for variables.
+
+```lisp
+;; `add-function' is placed into both the function and variable namespaces.
+(defun add-function (a b) (+ a b))
+add-function  ; ⇒ (closure $2 #2)
+(funcall add-function 1 2)  ; ⇒ 3
+(add-function 1 2)  ; ⇒ 3
+
+;; `add-variable' is only placed into the variable namespace.
+(var add-variable (lambda (a b) (+ a b)))
+add-variable  ; ⇒ (closure $2 #2)
+(funcall add-variable 1 2)  ; ⇒ 3
+(add-variable 1 2)  ; Error. `add-variable` is not defined as a function, so it is assumed to be a global function.
+```
+
+These are the rules for each type of variable:
+
+* Global variables can be called as functions and used as normal variables.
+* Normal variables cannot be called as functions except using `funcall`.
+* Functions can be called as functions and used as normal variables.
+* Macros can be called as functions (triggering a macro expansion) and used as normal variables. Calling macros using funcall calls them like a normal function instead of causing a macro expansion.
+
+If a variable, function, or macro is not found to be defined, then the identifier is assumed to be a global variable.
 
 ### Functions
 
@@ -93,7 +118,8 @@ Lexical variables are created as in C but using the `var` keyword. Global variab
 ;; Mutual recursion
 ;; `f2' must be declared first, and then set.
 (var f2 ())
-(defun f1 () (f2))
+;; Since `f2' is defined as a variable, it must be called using `funcall'.
+(defun f1 () (funcall f2))
 (setq f2 (lambda () (f1)))
 (f1)  ; Does not return
 
@@ -106,7 +132,7 @@ Anonymous functions are created with lambdas.
 
 ```lisp
 (var f (lambda () 5))
-(f)  ; ⇒ 5
+(funcall f)  ; ⇒ 5
 ```
 
 Expressions are never treated as functions. Attempting to call them will wrap another scope around them, which does nothing.
@@ -115,7 +141,7 @@ Expressions are never treated as functions. Attempting to call them will wrap an
 ((lambda () 5))  ; ⇒ (closure 2)
 ```
 
-The above merely returns the function. It is not called. `funcall` is used to call an expression as a function.
+The above merely returns the function. It is not called. `funcall` must used to call expressions as functions.
 
 ```lisp
 (funcall (lambda () 5))  ; ⇒ 5
@@ -130,6 +156,7 @@ If you need to destructure a list to use the elements as arguments, use `apply`.
 `funcall` and `apply` do not work on function-like keywords.
 
 ```lisp
+;; `+' is a keyword, not a function.
 (apply + (list 2 2))  ; compoundExpression: Could not find variable "+".
 ```
 
@@ -178,7 +205,7 @@ Literal floating point values are defined by this regex: `-?(([0-9]+\.[0-9]*)|([
 Symbols are created by quoting an identifier.
 
 ```lisp
-(quote I'm-a-symbol!)  ; ⇒ I'm-a-symbol!→11
+(quote I'm-a-symbol!)  ; ⇒ I'm-a-symbol!→15
 ```
 
 They can be checked for equality with other symbols.
@@ -191,7 +218,7 @@ They can be checked for equality with other symbols.
 An integer unique to the symbol can be retrieved using `symbol-id`. The symbol's name can be retrieved using `symbol-string`. Symbols are immutable.
 
 ```lisp
-(symbol-id (quote I'm-a-symbol!))  ; ⇒ 11
+(symbol-id (quote I'm-a-symbol!))  ; ⇒ 15
 (symbol-string (quote I'm-a-symbol!))  ; ⇒ "I'm-a-symbol!"
 ```
 
@@ -408,13 +435,13 @@ Using the ability to call composites like functions, we can simulate message pas
                                                               -1
                                                               0))
                                                       (composite-value object))))))
-(print (composite-value object))  ; ⇒ 0
+(print (funcall composite-value object))  ; ⇒ 0
 (object inc)
-(print (composite-value object))  ; ⇒ 1
+(print (funcall composite-value object))  ; ⇒ 1
 (object dec)
 (object dec)
 (object dec)
-(print (composite-value object))  ; ⇒ -2
+(print (funcall composite-value object))  ; ⇒ -2
 ```
 
 
@@ -476,7 +503,7 @@ Duck-lisp supports `quote` and the symbol data type. This is enough to implement
 (print (quote (+ 4 17)))  ; ⇒ (+→0 4 17)
 ```
 
-Common Lisp-like macros are also supported.
+Common Lisp-like macros are also supported, with the major difference that functions cannot be hygienically used in macros (thus why duck-lisp is a lisp-2).
 
 ```lisp
 (defmacro to (variable form)
@@ -545,7 +572,7 @@ Macros are compile-time functions declared in the runtime environment, so it is 
 (defmacro and (&rest args)
   (if args
 	  (list (quote if) (car args)
-            ;; `self' is always called as a function
+            ;; `self' is always called as a function, and never as a macro.
 			(apply self (cdr args))
 			false)
 	  true))
@@ -564,9 +591,8 @@ Calling a macro using normal function call syntax at compile time still results 
 
 ```lisp
 (comptime
- (var x 4)
- (funcall to x (+ 5))  ; Error: `+' requires two arguments
- (print x))
+ (print (funcall to (quote x) (quote (+ 5))))  ; ⇒ (setq x (+ x 5))
+ ())
 ```
 
 `comptime` can be used to calculate constants at compile time, but it is unable to pass closures to the runtime environment.
@@ -575,7 +601,7 @@ Calling a macro using normal function call syntax at compile time still results 
 (print (comptime (+ 3 4)))  ; ⇒ 7
 ```
 
-Sometimes is convenient to return multiple unscoped forms from a macro. The most common reason to do this is to create new bindings in the caller's scope. Wrapping the bindings in a list _would_ bundle them together in one form, but that would also create a new scope. The bindings would not be visible to code that occur after the macro call. Instead, they should be wrapped in the `noscope` keyword.
+Sometimes is convenient to return multiple unscoped forms from a macro. The most common reason to do this is to create new bindings in the caller's scope. Wrapping the bindings in a list would bundle them together in one form, but would also create a new scope. The bindings would not be visible to code that occur after the macro call. Instead, they should be wrapped in the `noscope` keyword.
 
 ```lisp
 (defun declare-variables (&rest names)
@@ -598,8 +624,8 @@ This expands to
   (var b ())
   (var b ()))
 
-  (setq b 3)
-  …)
+ (setq b 3)
+ …)
 ```
 
 There are three helper functions for macros that are defined only at compile time. `gensym` creates a unique symbol. The returned symbols are nearly unreadable, so it is supplemented by `intern`, which accepts a string and returns a symbol with the name it was passed. `read` parses strings into duck-lisp AST.
@@ -634,20 +660,20 @@ There are three helper functions for macros that are defined only at compile tim
 ```lisp
 (__defmacro read! (string)
             ;; Parse the string.
-            __var ast (read string true)
-            __var error __cdr ast
-            __setq ast __car ast
+            (__var ast (read string true))
+            (__var error (__cdr ast))
+            (__setq ast (__car ast))
             ;; Error handling
             (__if error
-                  (__list __quote #__quote
-                          __quote #error
+                  (__list (__quote __quote)
+                          (__quote error)
                           error)
                   ast))
-read! "
+(read! "
 (()
  __declare print (I)
  print \"Hello, world!\n\")
-"  ; ⇒ Hello, world!
+")  ; ⇒ Hello, world!
 ```
 
 `gensym`, `intern`, and `read` are C functions, not keywords, so they have all the advantages of functions.
