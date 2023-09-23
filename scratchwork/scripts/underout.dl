@@ -10,14 +10,14 @@
 ;; state.
 
 (defun new-deck (size)
-  (print "* <new-deck ") (print size) (println ">")
+  (println "* <new-deck " size ">")
   (var deck ())
   (dotimes i size
            (push (- (- size i) 1) deck))
   deck)
 
 (defun pseudo-shuffle (deck unders-count)  
-  (print "* <pseudo-shuffle ") (print (quote deck)) (print unders-count) (println ">")
+  (println "* <pseudo-shuffle deck " unders-count ">")
   (var new-deck ())
   (var last-cons (last deck))
   (while (and (atom? (car deck))
@@ -31,7 +31,7 @@
   new-deck)
 
 (defun find-cycles (deck unders-count)
-  (print "* <find-cycles ") (print (quote deck)) (print unders-count) (println ">")
+  (println "* <find-cycles deck " unders-count ">")
   (println "Shuffling deck…")
   (var shuffled-deck (pseudo-shuffle (copy-list deck) unders-count))
   (var scratch-shuffled-deck (copy-list shuffled-deck))
@@ -71,7 +71,7 @@
   (cons shuffled-deck (cons cycles (cons cycle-number ()))))
 
 (defun calculate-identity-shuffle (cycles)
-  (print "* <calculate-identity-shuffle ") (print (quote cycles)) (println ">")
+  (println "* <calculate-identity-shuffle cycles>")
   (println "Collecting cycle lengths…")
   (var lengths ())
   (dolist cycle cycles
@@ -95,5 +95,5 @@
   (println "\nNumber of cycles ․․․ " (third cycles))
   (println "\nIdentity shuffles ․․ " identity-shuffles))
 
-(comptime (print "</comptime underout.dl>\n"))
-(print "</underout.dl>\n")
+(comptime (println "</comptime underout.dl>"))
+(println "</underout.dl>")
