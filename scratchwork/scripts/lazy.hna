@@ -42,7 +42,7 @@ var lazy-type (make-type)
   value)
 
 println "Create lazy list."
-var lazy-list (lcons (e 1) lcons (e 2) lcons (e 3) nil)
+var lazy-list (lcons (e 1) (e (lcons (e 2) (e (lcons (e 3) (e nil))))))
 println "Lazily get second element of list."
 var lazy-two (lcar (e lcdr (e lazy-list)))
 println "Print, forcing evaluation of the entire list."
