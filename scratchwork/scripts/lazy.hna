@@ -1,0 +1,49 @@
+(include "../scripts/library.hna")
+
+
+(defmacro thunk (value) (I)
+  `(lambda () , value))
+
+
+;; Lazy type and methods.
+var lazy-type (make-type)
+(defmacro … (value) (I)
+  ` make-instance lazy-type nil (thunk , value))
+(defun lazy? (value)
+  (= lazy-type
+     type-of value))
+(defun ! (value)
+  (if lazy? value
+      (funcall value)
+      value))
+
+
+(defmacro lcons (car cdr) (I I)
+  ` … (cons … ! , car
+            … ! , cdr))
+(defmacro lcar (sequence) (I)
+   ` … ! car ! , sequence)
+(defmacro lcdr (sequence) (I)
+  ` … ! cdr ! , sequence)
+;; `println' is not lazy and forces evaluation.
+(defun println (&rest 1 values)
+  (apply #println (mapcar #! values)))
+
+
+;; Show when evaluation occurs.
+(defun e (value)
+  (println "Evaluated: "
+           (cond
+             closure? value
+             "(Closure …)"
+             lazy? value
+             "(Lazy …)"
+             value))
+  value)
+
+println "Create lazy list."
+var lazy-list (lcons (e 1) lcons (e 2) lcons (e 3) nil)
+println "Lazily get second element of list."
+var lazy-two (lcar (e lcdr (e lazy-list)))
+println "Print, forcing evaluation of the entire list."
+println lazy-two
