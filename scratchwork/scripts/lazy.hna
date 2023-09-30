@@ -7,11 +7,13 @@
 
 ;; Lazy type and methods.
 var lazy-type (make-type)
-(defmacro … (value) (I)
-  ` make-instance lazy-type nil (thunk , value))
+;; Delay evaluation of `form'.
+(defmacro … (form) (I)
+  ` make-instance lazy-type nil (thunk , form))
 (defun lazy? (value)
   (= lazy-type
      type-of value))
+;; Evaluate a delayed value.
 (defun ! (value)
   (if lazy? value
       (funcall value)
