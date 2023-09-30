@@ -24,7 +24,7 @@ var lazy-type (make-type)
   ` … (cons … ! , car
             … ! , cdr))
 (defmacro lcar (sequence) (I)
-   ` … ! car ! , sequence)
+  ` … ! car ! , sequence)
 (defmacro lcdr (sequence) (I)
   ` … ! cdr ! , sequence)
 ;; `println' is not lazy and forces evaluation.
