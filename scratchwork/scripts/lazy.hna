@@ -1,51 +1,85 @@
 (include "../scripts/library.hna")
 
+;; This is so stupid. Why did I require recursion to use `self'.
+bdefun self () ()
 
 (defmacro thunk (value) (I)
-  `(lambda () , value))
+          (var self-gensym
+               (intern (concatenate (' self)
+                                    (gensym))))
+          `(()
+            ;; `self-gensym` is already declared, thus the need to escape `var'.
+            (#var , self-gensym #self)
+            (lambda ()
+              (setq #self , self-gensym)
+              , value)))
 
 
 ;; Lazy type and methods.
-var lazy-type (make-type)
+bvar lazy-type (make-type)
 ;; Delay evaluation of `form'.
 (defmacro … (form) (I)
   ` make-instance lazy-type nil (thunk , form))
-(defun lazy? (value)
-  (= lazy-type
-     type-of value))
+(bdefun lazy? (value)
+        (= lazy-type
+           type-of value))
 ;; Evaluate a delayed value.
-(defun ! (value)
-  (if lazy? value
-      (funcall value)
-      value))
+(bdefun ! (value)
+        (if lazy? value
+            (funcall value)
+            value))
 
 
 (defmacro lcons (car cdr) (I I)
-  ` … (cons … ! , car
-            … ! , cdr))
+          ` … (cons … ! , car
+                      … ! , cdr))
 (defmacro lcar (sequence) (I)
-  ` … ! car ! , sequence)
+          ` … ! car ! , sequence)
 (defmacro lcdr (sequence) (I)
-  ` … ! cdr ! , sequence)
+          ` … ! cdr ! , sequence)
+
+(bdefun elt (sequence index)
+        (if lazy? sequence
+            (()
+             (dotimes i index
+                      setq sequence cdr ! sequence)
+             lcar sequence)
+            elt sequence index))
+
+(defmacro lelt (sequence index) (I I)
+          ` … ! (elt , sequence , index))
+
 ;; `println' is not lazy and forces evaluation.
-(defun println (&rest 1 values)
-  (apply #println (mapcar #! values)))
+(bdefun println (&rest 1 values)
+        (apply #println (mapcar #! values)))
 
 
 ;; Show when evaluation occurs.
-(defun e (value)
-  (println "Evaluated: "
-           (cond
-             closure? value
-             "(Closure …)"
-             lazy? value
-             "(Lazy …)"
-             value))
-  value)
+(bdefun e (value)
+        (println "Evaluated: "
+                 (cond closure? value
+                       "(Closure …)"
+                       lazy? value
+                       "(Lazy …)"
+                       value))
+        value)
 
 println "Create lazy list."
-var lazy-list (lcons (e 1) (e (lcons (e 2) (e (lcons (e 3) (e nil))))))
+var lazy-list (lcons e 1
+                     e (lcons e 2
+                              e (lcons e 3
+                                       e nil)))
 println "Lazily get second element of list."
 var lazy-two (lcar (e lcdr (e lazy-list)))
 println "Print, forcing evaluation of the entire list."
 println lazy-two
+
+(bdefun fibonacci ()
+        (defun fibonacci (a b)
+          (lcons a
+                 (self b
+                       + a b)))
+        fibonacci 0 1)
+
+(dotimes i 10
+         println (elt fibonacci i))

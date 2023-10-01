@@ -454,6 +454,16 @@ bvar duckLisp-object-type-type type-of type-of ()
                   (first body))
               ()))
 
+(bdefun nth (n list)
+        (var i 0)
+        (while (< i n)
+          (pop list)
+          (incq i))
+        (car list))
+
+(bdefun elt (list n)
+        (nth n list))
+
 (bdefun append (list1 list2)
         (var appended-list ())
         (while (not (null? list1))
