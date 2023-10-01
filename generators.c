@@ -1478,7 +1478,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			}
 		}
 
-		// Body
+		/* Body */
 
 		duckLisp_ast_expression_t progn;
 		progn.compoundExpressions = &expression->compoundExpressions[2];
@@ -1486,7 +1486,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 		e = duckLisp_generator_expression(duckLisp, compileState, &bodyAssembly, &progn);
 		if (e) goto cleanup_gensym;
 
-		// Footer
+		/* Footer */
 
 		{
 			duckLisp_scope_t scope;
@@ -1544,6 +1544,37 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			                              scope.function_uvs_length);
 			if (e) goto cleanup_gensym;
 			if (pure != dl_null) *pure = scope.function_uvs_length == 0;
+		}
+
+		{
+			/* Release the `self` upvalue. */
+			duckLisp_scope_t scope = DL_ARRAY_GETADDRESS(compileState->currentCompileState->scope_stack,
+			                                             duckLisp_scope_t,
+			                                             (compileState->currentCompileState->scope_stack.elements_length
+			                                              - 2));
+
+			if (scope.scope_uvs_length) {
+				/* Manual intervention with the stack length is OK here since the only upvalue here can be `self`. */
+				e = duckLisp_emit_pushIndex(duckLisp,
+				                            compileState,
+				                            assembly,
+				                            duckLisp_localsLength_get(compileState) - 1);
+				if (e) goto cleanup_gensym;
+				e = duckLisp_emit_releaseUpvalues(duckLisp,
+				                                  compileState,
+				                                  assembly,
+				                                  scope.scope_uvs,
+				                                  scope.scope_uvs_length);
+				if (e) goto cleanup_gensym;
+				e = duckLisp_emit_move(duckLisp,
+				                       compileState,
+				                       assembly,
+				                       duckLisp_localsLength_get(compileState) - 2,
+				                       duckLisp_localsLength_get(compileState) - 1);
+				if (e) goto cleanup_gensym;
+				e = duckLisp_emit_pop(duckLisp, compileState, assembly, 1);
+				if (e) goto cleanup_gensym;
+			}
 		}
 
 		e = duckLisp_popScope(duckLisp, compileState, dl_null);
@@ -3609,7 +3640,6 @@ dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 	}
 
-	// And pop it... This is so much easier than it used to be. No more queuing `pop-scope`s.
 	e = duckLisp_popScope(duckLisp, compileState, dl_null);
 	if (e) goto cleanup;
 

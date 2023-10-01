@@ -1097,12 +1097,12 @@ dl_error_t duckLisp_emit_releaseUpvalues(duckLisp_t *duckLisp,
 	                   sizeof(duckLisp_instructionArgClass_t),
 	                   dl_array_strategy_double);
 
-	// Write instruction.
+	/* Write instruction. */
 	instruction.instructionClass = duckLisp_instructionClass_releaseUpvalues;
 
-	// Push arguments into instruction.
+	/* Push arguments into instruction. */
 
-	// Upvalues
+	/* Upvalues */
 	argument.type = duckLisp_instructionArgClass_type_integer;
 	{
 		dl_size_t num_objects = 0;
@@ -1116,7 +1116,7 @@ dl_error_t duckLisp_emit_releaseUpvalues(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 	}
 
-	// Push instruction into list.
+	/* Push instruction into list. */
 	e = dl_array_pushElement(assembly, &instruction);
 	if (e) {
 		goto cleanup;

@@ -925,6 +925,14 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				}
 				/* Break push_scope abstraction. */
 				e = dl_array_pushElement(&duckVM->upvalue_stack, dl_null);
+				if (e) {
+					e = dl_error_shouldntHappen;
+					(eError
+					 = duckVM_error_pushRuntime(duckVM,
+					                            DL_STR("duckVM_execute->push-closure: dl_array_pushElement failed.")));
+					if (!e) e = eError;
+					break;
+				}
 				/* Upvalue stack slot exists now, so insert the new UV. */
 				DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_object_t *, ptrdiff1) = upvalue_pointer;
 			}

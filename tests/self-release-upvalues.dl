@@ -1,0 +1,7 @@
+(
+ (__funcall (()
+             (__var a ())
+             (__lambda ()
+                       (__var b self)
+                       ())))
+ true)
