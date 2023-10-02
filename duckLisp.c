@@ -869,11 +869,6 @@ dl_error_t duckLisp_astToObject(duckLisp_t *duckLisp,
 	case duckLisp_ast_type_identifier:
 		/* Fall through */
 	case duckLisp_ast_type_callback: {
-		duckVM_object_t *internalString = dl_null;
-		e = duckVM_allocateHeapObject(duckVM,
-		                              &internalString,
-		                              duckVM_object_makeInternalString((dl_uint8_t *) ast.value.identifier.value,
-		                                                               ast.value.identifier.value_length));
 		/* Intern symbol if not already interned. */
 		e = duckLisp_symbol_create(duckLisp, ast.value.identifier.value, ast.value.identifier.value_length);
 		if (e) break;

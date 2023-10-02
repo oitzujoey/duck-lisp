@@ -2408,28 +2408,28 @@ It seems that garbage collection of full memory causes a stack overflow. This is
 
 Todo:
     Finish parenthesis inference
-        Add support for nested types? — L
-        Document inference algorithm — M
+        C: Add support for nested types? — L
+        SQUISH: Document inference algorithm — M
     Fix C API — L
-        Add a bunch of `duckVM_object_make<type>` functions — M
-        Add a bunch of `*_toString` functions — M
-        Document C API — M
+        C: Add a bunch of `duckVM_object_make<type>` functions — M
+        C: Add a bunch of `*_toString` functions — M
+        SQUISH: Document C API — M
     Fix bugs — L
-        Write lots of tests — M
-        Disallow `__var`, `__defun` and, `__noscope` anywhere except in generators that call `__noscope`. — M
+        C/DL: Write lots of tests — M
+        C: Disallow `__var`, `__defun` and, `__noscope` anywhere except in generators that call `__noscope`. — M
     Fix error handling? — L
-        Fix generator error reporting. — L
-        Fix VM error reporting? — M?
+        C: Fix generator error reporting. — L
+        C: Fix VM error reporting? — M?
     Optimization?
-        Hash tables/Tries? — M
-        Switch to stack VM? — M
-        String interning? — M
-        Rewrite memory allocator? — L
-        Add option to strip symbols of their name in the runtime bytecode. — S
+        C: Hash tables/Tries? — M
+        C: Switch to stack VM? — M
+        C: String interning? — M
+        C: Rewrite memory allocator? — L
+        C: Add option to strip symbols of their name in the runtime bytecode. — S
     Document everything else? — L
-        Write overview of VM
+        SQUISH: Write overview of VM
     Clean up. — M
-        Remove "pure" function type or use it to make efficient functions.
+        C: Remove "pure" function type or use it to make efficient functions.
     Test on ARM — S
     Clean up. — S
     Create Hidey-Chess branch. — M

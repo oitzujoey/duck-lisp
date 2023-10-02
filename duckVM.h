@@ -335,7 +335,6 @@ duckVM_user_t duckVM_object_getUser(duckVM_object_t object);
 duckVM_object_t duckVM_object_makeBoolean(dl_bool_t boolean);
 duckVM_object_t duckVM_object_makeInteger(dl_ptrdiff_t integer);
 duckVM_object_t duckVM_object_makeFloat(double floatingPoint);
-duckVM_object_t duckVM_object_makeInternalString(dl_uint8_t *value, dl_size_t length);
 dl_error_t duckVM_object_makeString(duckVM_t *duckVM,
                                     duckVM_object_t *stringOut,
                                     dl_uint8_t *stringIn,
@@ -346,23 +345,31 @@ dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
                                     dl_uint8_t *string,
                                     dl_size_t string_length);
 duckVM_object_t duckVM_object_makeFunction(dl_error_t (*callback)(duckVM_t *));
+/* Advanced. In fact I don't recommend even attempting to use closures from C if you can help it. */
 duckVM_object_t duckVM_object_makeClosure(dl_ptrdiff_t name,
                                           duckVM_object_t *bytecode,
                                           duckVM_object_t *upvalueArray,
                                           dl_uint8_t arity,
                                           dl_bool_t variadic);
 duckVM_object_t duckVM_object_makeList(duckVM_object_t *cons);
+/* Contrary to what they sound like, conses should never appear on the stack. Instead, a list should be placed on the
+   stack that points to the cons. */
 duckVM_object_t duckVM_object_makeCons(duckVM_object_t *car, duckVM_object_t *cdr);
-/* No `makeUpvalueObject` because C function calls can't handle unions well. */
-duckVM_object_t duckVM_object_makeUpvalueArray(duckVM_object_t **upvalues, dl_size_t length);
-duckVM_object_t duckVM_object_makeInternalVector(duckVM_object_t **values, dl_size_t length, dl_bool_t initialized);
-duckVM_object_t duckVM_object_makeVector(duckVM_object_t *internalVector, dl_ptrdiff_t offset);
+/* dl_error_t duckVM_object_makeVector(duckVM_t *duckVM, */
+/*                                     duckVM_object_t *vectorOut, */
+/*                                     dl_array_t elements /\* dl_array_t:duckVM_object_t * *\/); */
+/* Bytecode is not intended to ever appear on the stack. */
 duckVM_object_t duckVM_object_makeBytecode(dl_uint8_t *bytecode, dl_size_t length);
-duckVM_object_t duckVM_object_makeInternalComposite(dl_size_t compositeType,
-                                                    duckVM_object_t *value,
-                                                    duckVM_object_t *function);
-duckVM_object_t duckVM_object_makeComposite(duckVM_object_t *internalComposite);
+/* Create a composite value. `compositeType` is the value that `type-of' will return. `value` is the object that goes in
+   the value slot. `function` is the value that goes in the function slot. */
+dl_error_t duckVM_object_makeComposite(duckVM_t *duckVM,
+                                       duckVM_object_t *compositeOut,
+                                       dl_size_t compositeType,
+                                       duckVM_object_t *value,
+                                       duckVM_object_t *function);
+/* It says "user" but: Advanced. */
 duckVM_object_t duckVM_object_makeUser(void *data,
+                                       dl_error_t (*marker)(duckVM_gclist_t *, dl_array_t *, struct duckVM_object_s *),
                                        dl_error_t (*destructor)(duckVM_gclist_t *, struct duckVM_object_s *));
 
 /* Data accessors. Some of these directly fetch internal objects from external objects, but in exchange return an error

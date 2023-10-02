@@ -30,6 +30,10 @@ SOFTWARE.
 #include "duckLisp.h"
 #include <stdio.h>
 
+
+duckVM_object_t duckVM_object_makeUpvalueArray(duckVM_object_t **upvalues, dl_size_t length);
+
+
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 
@@ -346,6 +350,7 @@ static dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **o
 				if (!e) e = eError;
 				goto cleanup;
 			}
+			/* Don't copy the source array. */
 		}
 		else {
 			heapObject->value.upvalue_array.upvalues = dl_null;
@@ -364,6 +369,9 @@ static dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **o
 				if (!e) e = eError;
 				goto cleanup;
 			}
+			/**/ dl_memcopy_noOverlap(heapObject->value.internal_vector.values,
+			                          objectIn.value.internal_vector.values,
+			                          objectIn.value.internal_vector.length * sizeof(duckVM_object_t *));
 		}
 		else {
 			heapObject->value.internal_vector.values = dl_null;
@@ -4793,12 +4801,26 @@ duckVM_object_t duckVM_object_makeInternalVector(duckVM_object_t **values, dl_si
 	return o;
 }
 
-duckVM_object_t duckVM_object_makeVector(duckVM_object_t *internalVector, dl_ptrdiff_t offset) {
-	duckVM_object_t o;
-	o.type = duckVM_object_type_vector;
-	o.value.vector.internal_vector = internalVector;
-	o.value.vector.offset = offset;
-	return o;
+dl_error_t duckVM_object_makeVector(duckVM_t *duckVM,
+                                    duckVM_object_t *vectorOut,
+                                    dl_array_t elements /* dl_array_t:duckVM_object_t * */) {
+	dl_error_t e = dl_error_ok;
+
+	duckVM_object_t internalVectorObject = duckVM_object_makeInternalVector(elements.elements,
+	                                                                        elements.elements_length,
+	                                                                        dl_true);
+	duckVM_object_t *internalVectorObjectPointer = dl_null;
+	e = duckVM_gclist_pushObject(duckVM, &internalVectorObjectPointer, internalVectorObject);
+	if (e) goto cleanup;
+
+	duckVM_object_t vectorObject;
+	vectorObject.type = duckVM_object_type_vector;
+	vectorObject.value.vector.internal_vector = internalVectorObjectPointer;
+	vectorObject.value.vector.offset = 0;
+
+	*vectorOut = vectorObject;
+
+ cleanup: return e;
 }
 
 duckVM_object_t duckVM_object_makeBytecode(dl_uint8_t *bytecode, dl_size_t length) {
@@ -4810,8 +4832,8 @@ duckVM_object_t duckVM_object_makeBytecode(dl_uint8_t *bytecode, dl_size_t lengt
 }
 
 duckVM_object_t duckVM_object_makeInternalComposite(dl_size_t compositeType,
-                                                   duckVM_object_t *value,
-                                                   duckVM_object_t *function) {
+                                                    duckVM_object_t *value,
+                                                    duckVM_object_t *function) {
 	duckVM_object_t o;
 	o.type = duckVM_object_type_internalComposite;
 	o.value.internalComposite.type = compositeType;
@@ -4820,18 +4842,35 @@ duckVM_object_t duckVM_object_makeInternalComposite(dl_size_t compositeType,
 	return o;
 }
 
-duckVM_object_t duckVM_object_makeComposite(duckVM_object_t *internalComposite) {
-	duckVM_object_t o;
-	o.type = duckVM_object_type_composite;
-	o.value.composite = internalComposite;
-	return o;
+dl_error_t duckVM_object_makeComposite(duckVM_t *duckVM,
+                                       duckVM_object_t *compositeOut,
+                                       dl_size_t compositeType,
+                                       duckVM_object_t *value,
+                                       duckVM_object_t *function) {
+	dl_error_t e = dl_error_ok;
+
+	duckVM_object_t *internalCompositePointer = dl_null;
+	{
+		duckVM_object_t internalComposite = duckVM_object_makeInternalComposite(compositeType, value, function);
+		e = duckVM_allocateHeapObject(duckVM, &internalCompositePointer, internalComposite);
+		if (e) goto cleanup;
+	}
+
+	duckVM_object_t composite;
+	composite.type = duckVM_object_type_composite;
+	composite.value.composite = internalCompositePointer;
+	*compositeOut = composite;
+
+ cleanup: return e;
 }
 
 duckVM_object_t duckVM_object_makeUser(void *data,
-                                      dl_error_t (*destructor)(duckVM_gclist_t *, struct duckVM_object_s *)) {
+                                       dl_error_t (*marker)(duckVM_gclist_t *, dl_array_t *, struct duckVM_object_s *),
+                                       dl_error_t (*destructor)(duckVM_gclist_t *, struct duckVM_object_s *)) {
 	duckVM_object_t o;
 	o.type = duckVM_object_type_user;
 	o.value.user.data = data;
+	o.value.user.marker = marker;
 	o.value.user.destructor = destructor;
 	return o;
 }

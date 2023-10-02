@@ -829,10 +829,7 @@ dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
 		if (eError) e = eError;
 		goto cleanup;
 	}
-	internal.type = duckVM_object_type_user;
-	internal.value.user.marker = dl_null;
-	internal.value.user.destructor = duckLispDev_destructor_openFile;
-	internal.value.user.data = malloc(sizeof(duckLispDev_user_t));
+	internal = duckVM_object_makeUser(malloc(sizeof(duckLispDev_user_t)), dl_null, duckLispDev_destructor_openFile);
 	if (internal.value.user.data == NULL) {
 		e = dl_error_outOfMemory;
 		goto cleanup;
@@ -844,11 +841,7 @@ dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
 	e = duckVM_allocateHeapObject(duckVM, &internalPointer, internal);
 	if (e) goto cleanup;
 
-	ret.type = duckVM_object_type_user;
-	ret.value.user.marker = duckLispDev_marker_openFile;
-	ret.value.user.destructor = dl_null;
-	ret.value.user.data = internalPointer;
-
+	ret = duckVM_object_makeUser(internalPointer, duckLispDev_marker_openFile, dl_null);
 	e = duckVM_push(duckVM, &ret);
 	if (e) goto cleanup;
 
