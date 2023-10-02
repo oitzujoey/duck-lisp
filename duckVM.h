@@ -355,9 +355,9 @@ duckVM_object_t duckVM_object_makeList(duckVM_object_t *cons);
 /* Contrary to what they sound like, conses should never appear on the stack. Instead, a list should be placed on the
    stack that points to the cons. */
 duckVM_object_t duckVM_object_makeCons(duckVM_object_t *car, duckVM_object_t *cdr);
-/* dl_error_t duckVM_object_makeVector(duckVM_t *duckVM, */
-/*                                     duckVM_object_t *vectorOut, */
-/*                                     dl_array_t elements /\* dl_array_t:duckVM_object_t * *\/); */
+dl_error_t duckVM_object_makeVector(duckVM_t *duckVM,
+                                    duckVM_object_t *vectorOut,
+                                    dl_array_t elements /* dl_array_t:duckVM_object_t * */);
 /* Bytecode is not intended to ever appear on the stack. */
 duckVM_object_t duckVM_object_makeBytecode(dl_uint8_t *bytecode, dl_size_t length);
 /* Create a composite value. `compositeType` is the value that `type-of' will return. `value` is the object that goes in
