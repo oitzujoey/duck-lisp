@@ -109,56 +109,87 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	return e;
 }
 
-static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_object_t *object) {
-	// Bug: It is possible for object - gclist->objects to be negative during an OOM condition.
-	if (object && !gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)]) {
-		gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
-		if (object->type == duckVM_object_type_list) {
-			duckVM_gclist_markObject(gclist, object->value.list);
-		}
-		else if (object->type == duckVM_object_type_cons) {
-			duckVM_gclist_markObject(gclist, object->value.cons.car);
-			duckVM_gclist_markObject(gclist, object->value.cons.cdr);
-		}
-		else if (object->type == duckVM_object_type_closure) {
-			duckVM_gclist_markObject(gclist, object->value.closure.upvalue_array);
-			duckVM_gclist_markObject(gclist, object->value.closure.bytecode);
-		}
-		else if (object->type == duckVM_object_type_upvalue) {
-			if (object->value.upvalue.type == duckVM_upvalue_type_heap_object) {
-				duckVM_gclist_markObject(gclist, object->value.upvalue.value.heap_object);
+static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_object_t *object) {
+	dl_error_t e = dl_error_ok;
+
+	/* Array of pointers that need to be traced. */
+	dl_array_t dispatchStack;
+	(void) dl_array_init(&dispatchStack, gclist->memoryAllocation, sizeof(duckVM_object_t *), dl_array_strategy_double);
+
+	while (dl_true) {
+		// Bug: It is possible for object - gclist->objects to be negative during an OOM condition.
+		if (object && !gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)]) {
+			gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
+			if (object->type == duckVM_object_type_list) {
+				e = dl_array_pushElement(&dispatchStack, &object->value.list);
+				if (e) goto cleanup;
 			}
-			else if (object->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
-				duckVM_gclist_markObject(gclist, object->value.upvalue.value.heap_upvalue);
+			else if (object->type == duckVM_object_type_cons) {
+				e = dl_array_pushElement(&dispatchStack, &object->value.cons.car);
+				if (e) goto cleanup;
+				e = dl_array_pushElement(&dispatchStack, &object->value.cons.cdr);
+				if (e) goto cleanup;
 			}
-		}
-		else if (object->type == duckVM_object_type_upvalueArray) {
-			DL_DOTIMES(k, object->value.upvalue_array.length) {
-				duckVM_gclist_markObject(gclist, object->value.upvalue_array.upvalues[k]);
+			else if (object->type == duckVM_object_type_closure) {
+				e = dl_array_pushElement(&dispatchStack, &object->value.closure.upvalue_array);
+				if (e) goto cleanup;
+				e = dl_array_pushElement(&dispatchStack, &object->value.closure.bytecode);
+				if (e) goto cleanup;
 			}
-		}
-		else if (object->type == duckVM_object_type_vector) {
-			duckVM_gclist_markObject(gclist, object->value.vector.internal_vector);
-		}
-		else if (object->type == duckVM_object_type_internalVector) {
-			if (object->value.internal_vector.initialized) {
-				DL_DOTIMES(k, object->value.internal_vector.length) {
-					duckVM_gclist_markObject(gclist, object->value.internal_vector.values[k]);
+			else if (object->type == duckVM_object_type_upvalue) {
+				if (object->value.upvalue.type == duckVM_upvalue_type_heap_object) {
+					e = dl_array_pushElement(&dispatchStack, &object->value.upvalue.value.heap_object);
+					if (e) goto cleanup;
+				}
+				else if (object->value.upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+					e = dl_array_pushElement(&dispatchStack, &object->value.upvalue.value.heap_upvalue);
+					if (e) goto cleanup;
 				}
 			}
-		}
-		else if (object->type == duckVM_object_type_string) {
-			if (object->value.string.internalString) {
-				/**/ duckVM_gclist_markObject(gclist, object->value.string.internalString);
+			else if (object->type == duckVM_object_type_upvalueArray) {
+				DL_DOTIMES(k, object->value.upvalue_array.length) {
+					e = dl_array_pushElement(&dispatchStack, &object->value.upvalue_array.upvalues[k]);
+					if (e) goto cleanup;
+				}
 			}
-		}
-		else if (object->type == duckVM_object_type_symbol) {
-			if (object->value.symbol.internalString) {
-				/**/ duckVM_gclist_markObject(gclist, object->value.symbol.internalString);
+			else if (object->type == duckVM_object_type_vector) {
+				e = dl_array_pushElement(&dispatchStack, &object->value.vector.internal_vector);
+				if (e) goto cleanup;
 			}
+			else if (object->type == duckVM_object_type_internalVector) {
+				if (object->value.internal_vector.initialized) {
+					DL_DOTIMES(k, object->value.internal_vector.length) {
+						e = dl_array_pushElement(&dispatchStack, &object->value.internal_vector.values[k]);
+						if (e) goto cleanup;
+					}
+				}
+			}
+			else if (object->type == duckVM_object_type_string) {
+				if (object->value.string.internalString) {
+					e = dl_array_pushElement(&dispatchStack, &object->value.string.internalString);
+					if (e) goto cleanup;
+				}
+			}
+			else if (object->type == duckVM_object_type_symbol) {
+				if (object->value.symbol.internalString) {
+					e = dl_array_pushElement(&dispatchStack, &object->value.symbol.internalString);
+					if (e) goto cleanup;
+				}
+			}
+			/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 		}
-		/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
+
+		e = dl_array_popElement(&dispatchStack, &object);
+		if (e == dl_error_bufferUnderflow) {
+			e = dl_error_ok;
+			break;
+		}
+		if (e) goto cleanup;
 	}
+
+ cleanup:
+	e = dl_array_quit(&dispatchStack);
+	return e;
 }
 
 static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
@@ -178,20 +209,26 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	DL_DOTIMES(i, duckVM->stack.elements_length) {
 		duckVM_object_t *object = &DL_ARRAY_GETADDRESS(duckVM->stack, duckVM_object_t, i);
 		if (object->type == duckVM_object_type_list) {
-			 duckVM_gclist_markObject(gclistPointer, object->value.list);
+			e = duckVM_gclist_markObject(gclistPointer, object->value.list);
+			if (e) goto cleanup;
 		}
 		else if (object->type == duckVM_object_type_closure) {
-			duckVM_gclist_markObject(gclistPointer, object->value.closure.upvalue_array);
-			duckVM_gclist_markObject(gclistPointer, object->value.closure.bytecode);
+			e = duckVM_gclist_markObject(gclistPointer, object->value.closure.upvalue_array);
+			if (e) goto cleanup;
+			e = duckVM_gclist_markObject(gclistPointer, object->value.closure.bytecode);
+			if (e) goto cleanup;
 		}
 		else if (object->type == duckVM_object_type_vector) {
-			duckVM_gclist_markObject(gclistPointer, object->value.vector.internal_vector);
+			e = duckVM_gclist_markObject(gclistPointer, object->value.vector.internal_vector);
+			if (e) goto cleanup;
 		}
 		else if (object->type == duckVM_object_type_string) {
-			/**/ duckVM_gclist_markObject(gclistPointer, object->value.string.internalString);
+			e = duckVM_gclist_markObject(gclistPointer, object->value.string.internalString);
+			if (e) goto cleanup;
 		}
 		else if (object->type == duckVM_object_type_symbol) {
-			/**/ duckVM_gclist_markObject(gclistPointer, object->value.symbol.internalString);
+			e = duckVM_gclist_markObject(gclistPointer, object->value.symbol.internalString);
+			if (e) goto cleanup;
 		}
 		/* Don't check for conses, upvalues, upvalue arrays, or internal vectors since they should never be on the
 		   stack. */
@@ -201,7 +238,8 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	DL_DOTIMES(i, duckVM->upvalue_stack.elements_length) {
 		duckVM_object_t *object = DL_ARRAY_GETADDRESS(duckVM->upvalue_stack, duckVM_object_t *, i);
 		if (object != dl_null) {
-			duckVM_gclist_markObject(gclistPointer, object);
+			e = duckVM_gclist_markObject(gclistPointer, object);
+			if (e) goto cleanup;
 		}
 	}
 
@@ -209,7 +247,8 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	DL_DOTIMES(i, duckVM->globals.elements_length) {
 		duckVM_object_t *object = DL_ARRAY_GETADDRESS(duckVM->globals, duckVM_object_t *, i);
 		if (object != dl_null) {
-			duckVM_gclist_markObject(gclistPointer, object);
+			e = duckVM_gclist_markObject(gclistPointer, object);
+			if (e) goto cleanup;
 		}
 	}
 
@@ -218,13 +257,15 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		duckVM_object_t *object = (DL_ARRAY_GETADDRESS(duckVM->call_stack, duckVM_callFrame_t, i)
 		                             .bytecode);
 		if (object != dl_null) {
-			duckVM_gclist_markObject(gclistPointer, object);
+			e = duckVM_gclist_markObject(gclistPointer, object);
+			if (e) goto cleanup;
 		}
 	}
 
 	/* Current bytecode */
 	if (duckVM->currentBytecode != dl_null) {
-		duckVM_gclist_markObject(gclistPointer, duckVM->currentBytecode);
+		e = duckVM_gclist_markObject(gclistPointer, duckVM->currentBytecode);
+			if (e) goto cleanup;
 	}
 
 	/* Free cells if not marked. */

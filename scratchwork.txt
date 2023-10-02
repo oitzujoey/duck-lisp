@@ -2402,6 +2402,9 @@ And so we have a weird mix of lisp-1 and lisp-2. Macros are in their own namespa
 Functions and macros should reside in the same namespace. Normal variables will reside in their own namespace (along with functions). This may present a challenge since functions and variables can both be captured in closures.
 
 
+It seems that garbage collection of full memory causes a stack overflow. This is bad because stack overflows cannot be recovered from like full heaps can. The best solution would be to not allocate memory during traces, but the next best would be to use the heap.
+
+
 
 Todo:
     Finish parenthesis inference
@@ -2415,7 +2418,6 @@ Todo:
         Write lots of tests — M
         Disallow `__var`, `__defun` and, `__noscope` anywhere except in generators that call `__noscope`. — M
         Add user-defined destructors to the GC, or fix it if that feature already exists. — M
-        OOM seems to sometimes cause segfaults. — M
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
