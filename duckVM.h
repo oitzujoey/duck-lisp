@@ -157,6 +157,7 @@ typedef struct duckVM_object_s * duckVM_composite_t;
 typedef struct {
 	void *data;
 	dl_error_t (*destructor)(duckVM_gclist_t *, struct duckVM_object_s *);
+	dl_error_t (*marker)(duckVM_gclist_t *, dl_array_t *, struct duckVM_object_s *);
 } duckVM_user_t;
 
 

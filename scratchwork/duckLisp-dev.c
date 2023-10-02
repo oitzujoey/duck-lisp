@@ -750,10 +750,23 @@ dl_error_t duckLispDev_destructor_openFile(duckVM_gclist_t *gclist, struct duckV
 	if (fclose(fileUser->_.file)) {
 		e = dl_error_invalidValue;
 	}
-	/**/ free(fileUser);
+	(void) free(fileUser);
 	fileUser = dl_null;
 
 	return e;
+}
+
+static dl_error_t duckLispDev_marker_openFile(duckVM_gclist_t *gclist,
+                                              dl_array_t *dispatch,
+                                              struct duckVM_object_s *object) {
+	(void) gclist;
+	puts("MARK");
+	if (object->value.user.data) {
+		duckVM_object_t *internalObject = object->value.user.data;
+		// Mark the internal object.
+		return dl_array_pushElement(dispatch, &internalObject);
+	}
+	return dl_error_ok;
 }
 
 dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
@@ -817,6 +830,7 @@ dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
 		goto cleanup;
 	}
 	internal.type = duckVM_object_type_user;
+	internal.value.user.marker = dl_null;
 	internal.value.user.destructor = duckLispDev_destructor_openFile;
 	internal.value.user.data = malloc(sizeof(duckLispDev_user_t));
 	if (internal.value.user.data == NULL) {
@@ -831,6 +845,7 @@ dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
 	if (e) goto cleanup;
 
 	ret.type = duckVM_object_type_user;
+	ret.value.user.marker = duckLispDev_marker_openFile;
 	ret.value.user.destructor = dl_null;
 	ret.value.user.data = internalPointer;
 
@@ -1669,7 +1684,7 @@ int main(int argc, char *argv[]) {
 		printf("    (print-uv-stack)                        Print the upvalue stack in the current environment.\n");
 		printf("    (open-file <name> <mode>)               Call `fopen'.\n");
 		printf("    (close-file <file>)                     Call `fclose'.\n");
-		printf("    (fgetc file <file>)                     Call `fgetc'.\n");
+		printf("    (fgetc <file>)                          Call `fgetc'.\n");
 		printf("    (fwrite <file> <string>)                Call `fwrite'.\n");
 		while (1) {
 			duckVM_object_t return_value;

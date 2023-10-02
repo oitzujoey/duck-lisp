@@ -2417,7 +2417,6 @@ Todo:
     Fix bugs — L
         Write lots of tests — M
         Disallow `__var`, `__defun` and, `__noscope` anywhere except in generators that call `__noscope`. — M
-        Add user-defined destructors to the GC, or fix it if that feature already exists. — M
     Fix error handling? — L
         Fix generator error reporting. — L
         Fix VM error reporting? — M?
