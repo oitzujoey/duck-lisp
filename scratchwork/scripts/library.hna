@@ -1,5 +1,5 @@
-__comptime print "<comptime library.dl>\n"
-print "<library.dl>\n"
+__comptime print "<comptime library.hna>\n"
+print "<library.hna>\n"
 
 __defmacro declare (identifier type &rest script-body) ()
 (__declare declare (L L &rest 0 I)
@@ -566,8 +566,8 @@ bvar duckLisp-object-type-type type-of type-of ()
 (defmacro until (condition &rest body) (I &rest 1 I)
           ` (while (not , condition) ,@ body))
 
-comptime println "</comptime library.dl>"
-println "</library.dl>"
+comptime println "</comptime library.hna>"
+println "</library.hna>"
 
 ;; If we are going to pause anywhere, this is the place
 garbage-collect

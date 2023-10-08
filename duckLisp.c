@@ -22,6 +22,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifdef USE_STDLIB
+#include <stdio.h>
+#endif /* USE_STDLIB */
 #include "duckLisp.h"
 #include "DuckLib/array.h"
 #include "DuckLib/core.h"
@@ -35,7 +38,6 @@ SOFTWARE.
 #ifdef USE_PARENTHESIS_INFERENCE
 #include "parenthesis-inferrer.h"
 #endif /* USE_PARENTHESIS_INFERENCE */
-#include <stdio.h>
 
 /*
   ===============
@@ -1615,7 +1617,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		{DL_STR("__funcall"), duckLisp_generator_funcall2, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__apply"), duckLisp_generator_apply, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__var"),
-		 duckLisp_generator_createVar,
+		 duckLisp_generator_createVar_dummy,
 		 DL_STR("(L I)"),
 		 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
 		{DL_STR("__global"), duckLisp_generator_global, DL_STR("(L I)"), dl_null, 0},
@@ -1633,7 +1635,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		{DL_STR("__<"), duckLisp_generator_less, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__>"), duckLisp_generator_greater, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__defun"),
-		 duckLisp_generator_defun,
+		 duckLisp_generator_defun_dummy,
 		 DL_STR("(L L &rest 1 I)"),
 		 DL_STR(" \
 ( \
@@ -1722,7 +1724,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
   (__infer-and-get-next-argument)) \
  (__declare-identifier name type)) \
 ")},
-		{DL_STR("__noscope"), duckLisp_generator_noscope2, DL_STR("(&rest 0 I)"), dl_null, 0},
+		{DL_STR("__noscope"), duckLisp_generator_noscope2_dummy, DL_STR("(&rest 0 I)"), dl_null, 0},
 		{DL_STR("__comptime"), duckLisp_generator_comptime, DL_STR("(&rest 1 I)"), dl_null, 0},
 		{DL_STR("__quote"), duckLisp_generator_quote, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__list"), duckLisp_generator_list, DL_STR("(&rest 0 I)"), dl_null, 0},
@@ -2260,9 +2262,9 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 }
 
 dl_error_t duckLisp_serialize_errors(dl_memoryAllocation_t *memoryAllocation,
-                            dl_array_t *errorString,
-                            dl_array_t *errors,
-                            dl_array_t *sourceCode) {
+                                     dl_array_t *errorString,
+                                     dl_array_t *errors,
+                                     dl_array_t *sourceCode) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 

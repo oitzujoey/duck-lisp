@@ -2405,6 +2405,30 @@ Functions and macros should reside in the same namespace. Normal variables will 
 It seems that garbage collection of full memory causes a stack overflow. This is bad because stack overflows cannot be recovered from like full heaps can. The best solution would be to not allocate memory during traces, but the next best would be to use the heap.
 
 
+The C FFI sucks. There's no easy way I can make it not suck. It would probably suck even if I tried my best to fix it. I think Lua was able to do it well because it was designed from the start to interoperate with other languages.
+
+Lua stores everything on the stack, not only to provide a nice FFI to non-C languages, but also so the user doesn't have to worry about an object getting collected while he's working with it.
+
+
+Garbage collection doesn't work well on files since writing to a file can lock it from use by other programs.
+
+
+There is a commonly recognized set of primitive types that all decent languages have: integers (within a certain range), floats, strings.
+
+
+dispatch(duckLisp, compileState, generator_name, expression) {
+    return scope.lookup(generator_name)(duckLisp, compileState, expression);
+}
+
+
+`var`, `defun`, and `defmacro` in block-scoped languages should not be treated as global keywords. They should be treated as if they are transformed into global keywords by macroexpansion of the block. (block (var x 4) x) → (let ((x 4)) x), (block (+ 4 (var x 3)) x) → (let () (+ 4 (var x 3)) x). Since `var` is not a keyword in that last form, a compile error is raised.
+
+Have `noscope` perform dispatch on `var`, `defun`, `noscope`, and maybe `defmacro`.
+
+
+Need to copy expression instead of simply passing it to noscope since AST is no longer immutable.
+
+
 
 Todo:
     Finish parenthesis inference
@@ -2413,10 +2437,10 @@ Todo:
     Fix C API — L
         C: Add a bunch of `duckVM_object_make<type>` functions — M
         C: Add a bunch of `*_toString` functions — M
+        C: Switch to Lua-like API?
         SQUISH: Document C API — M
     Fix bugs — L
         C/DL: Write lots of tests — M
-        C: Disallow `__var`, `__defun` and, `__noscope` anywhere except in generators that call `__noscope`. — M
     Fix error handling? — L
         C: Fix generator error reporting. — L
         C: Fix VM error reporting? — M?

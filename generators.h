@@ -210,6 +210,10 @@ dl_error_t duckLisp_generator_noscope2(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,
                                        dl_array_t *assembly,
                                        duckLisp_ast_expression_t *expression);
+dl_error_t duckLisp_generator_noscope2_dummy(duckLisp_t *duckLisp,
+                                             duckLisp_compileState_t *compileState,
+                                             dl_array_t *assembly,
+                                             duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,
@@ -237,11 +241,14 @@ dl_error_t duckLisp_generator_createVar_raw(duckLisp_t *duckLisp,
                                             dl_array_t *assembly,
                                             duckLisp_ast_expression_t *expression,
                                             dl_bool_t *pure);
-
 dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
                                         duckLisp_compileState_t *compileState,
                                         dl_array_t *assembly,
                                         duckLisp_ast_expression_t *expression);
+dl_error_t duckLisp_generator_createVar_dummy(duckLisp_t *duckLisp,
+                                              duckLisp_compileState_t *compileState,
+                                              dl_array_t *assembly,
+                                              duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_generator_global(duckLisp_t *duckLisp,
                                      duckLisp_compileState_t *compileState,
@@ -252,6 +259,10 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
                                     duckLisp_compileState_t *compileState,
                                     dl_array_t *assembly,
                                     duckLisp_ast_expression_t *expression);
+dl_error_t duckLisp_generator_defun_dummy(duckLisp_t *duckLisp,
+                                          duckLisp_compileState_t *compileState,
+                                          dl_array_t *assembly,
+                                          duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_generator_error(duckLisp_t *duckLisp,
                                     duckLisp_compileState_t *compileState,

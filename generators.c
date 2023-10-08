@@ -22,6 +22,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifdef USE_STDLIB
+#include <stdio.h>
+#endif /* USE_STDLIB */
 #include "duckLisp.h"
 #include "generators.h"
 #include "DuckLib/string.h"
@@ -873,29 +876,40 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
-	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
+	(void) dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	dl_size_t startStack_length;
+	/* Only one of these can return true. */
 	dl_bool_t foundVar = dl_false;
 	dl_bool_t foundDefun = dl_false;
-	dl_bool_t foundInclude = dl_false;
 	dl_bool_t foundNoscope = dl_false;
-	dl_bool_t foundMacro = dl_false;
 	dl_ptrdiff_t pops = 0;
 
 	/* Compile */
 
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < expression->compoundExpressions_length; i++) {
-		duckLisp_ast_compoundExpression_t currentExpression = expression->compoundExpressions[i];
+		duckLisp_ast_compoundExpression_t currentExpression;
 		startStack_length = duckLisp_localsLength_get(compileState);
+		/* Always compile the form. This works with `__var`, `__defun` and `__noscope` because global dummy generators
+		   are defined that do nothing. The reason for always compiling is so that those keywords can be returned from
+		   macros. So this statement can be thought of as "compile form" or as "macroexpand all". */
+		e = duckLisp_compile_compoundExpression(duckLisp,
+		                                        compileState,
+		                                        assembly,
+		                                        DL_STR("noscope"),
+		                                        &expression->compoundExpressions[i],
+		                                        dl_null,
+		                                        dl_null,
+		                                        dl_true);
+		if (e) goto cleanup;
 		foundDefun = dl_false;
 		foundVar = dl_false;
-		foundInclude = dl_false;
 		foundNoscope = dl_false;
-		foundMacro = dl_false;
+		currentExpression = expression->compoundExpressions[i];
 		if ((currentExpression.type == duckLisp_ast_type_expression)
 		    && (currentExpression.value.expression.compoundExpressions_length > 0)
 		    && (currentExpression.value.expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)) {
+			/* Only one of these can return true. */
 			dl_string_compare(&foundVar,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
@@ -908,33 +922,22 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
 			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
 			                  DL_STR("__noscope"));
-			{
-				duckLisp_functionType_t functionType = duckLisp_functionType_none;
-				dl_ptrdiff_t functionIndex = -1;
-				e = duckLisp_scope_getFunctionFromName(duckLisp,
-				                                       compileState->currentCompileState,
-				                                       &functionType,
-				                                       &functionIndex,
-				                                       (currentExpression.value.expression.compoundExpressions[0]
-				                                        .value.identifier.value),
-				                                       (currentExpression.value.expression.compoundExpressions[0]
-				                                        .value.identifier.value_length));
-				if (e) goto cleanup;
-				foundMacro = (functionType == duckLisp_functionType_macro);
-			}
 		}
-		e = duckLisp_compile_compoundExpression(duckLisp,
-		                                        compileState,
-		                                        assembly,
-		                                        DL_STR("noscope"),
-		                                        &expression->compoundExpressions[i],
-		                                        dl_null,
-		                                        dl_null,
-		                                        dl_true);
+		/* Now, since `__var`, `__defun`, and `__noscope` are dummy generators, they have to be handled here. */
+		if (foundNoscope) e = duckLisp_generator_noscope2(duckLisp,
+		                                                  compileState,
+		                                                  assembly,
+		                                                  &expression->compoundExpressions[i].value.expression);
+		if (foundVar) e = duckLisp_generator_createVar(duckLisp,
+		                                               compileState,
+		                                               assembly,
+		                                               &expression->compoundExpressions[i].value.expression);
+		if (foundDefun) e = duckLisp_generator_defun(duckLisp,
+		                                             compileState,
+		                                             assembly,
+		                                             &expression->compoundExpressions[i].value.expression);
 		if (e) goto cleanup;
-		if (!(foundInclude
-		      || foundNoscope
-		      || foundMacro
+		if (!(foundNoscope
 		      || foundVar
 		      || foundDefun)) {
 			pops = (duckLisp_localsLength_get(compileState)
@@ -959,14 +962,11 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 				}
 			}
 		}
-		else if ((foundNoscope || foundMacro || foundVar || foundDefun)
+		else if ((foundNoscope || foundVar || foundDefun)
 		         && !((dl_size_t) i == expression->compoundExpressions_length - 1)) {
 			e = duckLisp_emit_pop(duckLisp, compileState, assembly, 1);
 			if (e) goto cleanup;
 		}
-		foundInclude = dl_false;
-		foundNoscope = dl_false;
-		foundMacro = dl_false;
 	}
 	if (expression->compoundExpressions_length == 0) e = duckLisp_emit_nil(duckLisp, compileState, assembly);
 
@@ -981,10 +981,45 @@ dl_error_t duckLisp_generator_noscope2(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,
                                        dl_array_t *assembly,
                                        duckLisp_ast_expression_t *expression) {
+	dl_error_t e = dl_error_ok;
+
 	duckLisp_ast_expression_t subExpression;
-	subExpression.compoundExpressions = &expression->compoundExpressions[1];
+	e = DL_MALLOC(duckLisp->memoryAllocation,
+	              &subExpression.compoundExpressions,
+	              expression->compoundExpressions_length - 1,
+	              duckLisp_ast_compoundExpression_t);
+	if (e) return e;  /* sic. */
+	(void) dl_memcopy_noOverlap(subExpression.compoundExpressions,
+	                            &expression->compoundExpressions[1],
+	                            ((expression->compoundExpressions_length - 1)
+	                             * sizeof(duckLisp_ast_compoundExpression_t)));
 	subExpression.compoundExpressions_length = expression->compoundExpressions_length - 1;
-	return duckLisp_generator_noscope(duckLisp, compileState, assembly, &subExpression);
+
+	e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &subExpression);
+	if (e) goto cleanup;
+
+	(void) dl_memcopy_noOverlap(&expression->compoundExpressions[1],
+	                            subExpression.compoundExpressions,
+	                            ((expression->compoundExpressions_length - 1)
+	                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+ cleanup:
+	e = DL_FREE(duckLisp->memoryAllocation, &subExpression.compoundExpressions);
+	if (e) goto cleanup;
+
+	return e;
+}
+
+dl_error_t duckLisp_generator_noscope2_dummy(duckLisp_t *duckLisp,
+                                             duckLisp_compileState_t *compileState,
+                                             dl_array_t *assembly,
+                                             duckLisp_ast_expression_t *expression) {
+	(void) duckLisp;
+	(void) compileState;
+	(void) assembly;
+	(void) expression;
+	/* Handle this in `duckLisp_generator_noscope`, which calls the real generator. */
+	return dl_error_ok;
 }
 
 dl_size_t duckLisp_consList_length(duckVM_object_t *cons) {
@@ -1158,22 +1193,18 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 	                   sizeof(dl_uint8_t),
 	                   dl_array_strategy_double);
 	duckVM_object_t returnValue;
-	duckLisp_ast_expression_t subExpression;
 	duckLisp_ast_compoundExpression_t returnCompoundExpression;
 	dl_uint8_t haltInstruction = duckLisp_instruction_halt;
-
-	subExpression.compoundExpressions = &expression->compoundExpressions[1];
-	subExpression.compoundExpressions_length = expression->compoundExpressions_length - 1;
 
 	duckLisp_subCompileState_t *lastSubCompileState = compileState->currentCompileState;
 	compileState->currentCompileState = &compileState->comptimeCompileState;
 
 	if (lastSubCompileState == &compileState->comptimeCompileState) {
-		e = duckLisp_generator_noscope(duckLisp, compileState, assembly, &subExpression);
+		e = duckLisp_generator_noscope2(duckLisp, compileState, assembly, expression);
 		if (e) goto cleanup;
 	}
 	else {
-		e = duckLisp_generator_noscope(duckLisp, compileState, &compAssembly, &subExpression);
+		e = duckLisp_generator_noscope2(duckLisp, compileState, &compAssembly, expression);
 		if (e) goto cleanup;
 
 		e = dl_array_pushElements(&compileState->currentCompileState->assembly,
@@ -1228,13 +1259,13 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 	compileState->currentCompileState = lastSubCompileState;
 
 	eError = dl_array_quit(&compAssembly);
-	if (!e) e = eError;
+	if (eError) e = eError;
 
 	eError = dl_array_quit(&bytecode);
-	if (!e) e = eError;
+	if (eError) e = eError;
 
 	eError = dl_array_quit(&eString);
-	if (!e) e = eError;
+	if (eError) e = eError;
 
 	return e;
 }
@@ -1411,7 +1442,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 		if (e) goto cleanup_gensym;
 
 		e = duckLisp_gensym(duckLisp, &selfGensym);
-		if (e) goto cleanup;
+		if (e) goto cleanup_gensym;
 
 		e = duckLisp_register_label(duckLisp,
 		                            compileState->currentCompileState,
@@ -1480,11 +1511,31 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 
 		/* Body */
 
-		duckLisp_ast_expression_t progn;
-		progn.compoundExpressions = &expression->compoundExpressions[2];
-		progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
-		e = duckLisp_generator_expression(duckLisp, compileState, &bodyAssembly, &progn);
-		if (e) goto cleanup_gensym;
+		{
+			duckLisp_ast_expression_t progn;
+			e = DL_MALLOC(duckLisp->memoryAllocation,
+			              &progn.compoundExpressions,
+			              expression->compoundExpressions_length - 2,
+			              duckLisp_ast_compoundExpression_t);
+			if (e) goto cleanup_gensym; /* sic. */
+			(void) dl_memcopy_noOverlap(progn.compoundExpressions,
+			                            &expression->compoundExpressions[2],
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
+			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+
+			e = duckLisp_generator_expression(duckLisp, compileState, &bodyAssembly, &progn);
+			if (e) goto cleanupProgn;
+
+			(void) dl_memcopy_noOverlap(&expression->compoundExpressions[2],
+			                            progn.compoundExpressions,
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+		cleanupProgn:
+			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			if (e) goto cleanup_gensym;
+		}
 
 		/* Footer */
 
@@ -1700,6 +1751,18 @@ dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
 	return duckLisp_generator_createVar_raw(duckLisp, compileState, assembly, expression, dl_null);
 }
 
+dl_error_t duckLisp_generator_createVar_dummy(duckLisp_t *duckLisp,
+                                              duckLisp_compileState_t *compileState,
+                                              dl_array_t *assembly,
+                                              duckLisp_ast_expression_t *expression) {
+	(void) duckLisp;
+	(void) compileState;
+	(void) assembly;
+	(void) expression;
+	/* Handle this in `duckLisp_generator_noscope`, which calls the real generator. */
+	return dl_error_ok;
+}
+
 dl_error_t duckLisp_generator_global(duckLisp_t *duckLisp,
                                      duckLisp_compileState_t *compileState,
                                      dl_array_t *assembly,
@@ -1817,6 +1880,11 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 		e = duckLisp_generator_createVar_raw(duckLisp, compileState, assembly, &var, &pure);
 		if (e) goto cleanup;
 
+		for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
+			expression->compoundExpressions[i] = lambda.compoundExpressions[i - 1];
+		}
+		expression->compoundExpressions[1] = var.compoundExpressions[1];
+
 		e = DL_FREE(duckLisp->memoryAllocation, (void **) &var.compoundExpressions);
 		if (e) goto cleanup;
 		e = DL_FREE(duckLisp->memoryAllocation, (void **) &lambda.compoundExpressions);
@@ -1841,6 +1909,18 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 	if (eError) e = eError;
 
 	return e;
+}
+
+dl_error_t duckLisp_generator_defun_dummy(duckLisp_t *duckLisp,
+                                          duckLisp_compileState_t *compileState,
+                                          dl_array_t *assembly,
+                                          duckLisp_ast_expression_t *expression) {
+	(void) duckLisp;
+	(void) compileState;
+	(void) assembly;
+	(void) expression;
+	/* Handle this in `duckLisp_generator_noscope`, which calls the real generator. */
+	return dl_error_ok;
 }
 
 dl_error_t duckLisp_generator_error(duckLisp_t *duckLisp,
@@ -2044,19 +2124,38 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp,
 		if (e) goto free_gensym_start;
 
 		{
-			duckLisp_ast_expression_t progn;
-
 			e = duckLisp_pushScope(duckLisp, compileState, dl_null, dl_false);
 			if (e) goto free_gensym_start;
 
-			// Arguments
+			/* Arguments */
 
 			startStack_length = duckLisp_localsLength_get(compileState);
 
-			progn.compoundExpressions = &expression->compoundExpressions[2];
-			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
-			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
-			if (e) goto free_gensym_start;
+			{
+				duckLisp_ast_expression_t progn;
+				e = DL_MALLOC(duckLisp->memoryAllocation,
+				              &progn.compoundExpressions,
+				              expression->compoundExpressions_length - 2,
+				              duckLisp_ast_compoundExpression_t);
+				if (e) goto free_gensym_start;
+				(void) dl_memcopy_noOverlap(progn.compoundExpressions,
+				                            &expression->compoundExpressions[2],
+				                            ((expression->compoundExpressions_length - 2)
+				                             * sizeof(duckLisp_ast_compoundExpression_t)));
+				progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+
+				e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+				if (e) goto cleanupProgn1;
+
+				(void) dl_memcopy_noOverlap(&expression->compoundExpressions[2],
+				                            progn.compoundExpressions,
+				                            ((expression->compoundExpressions_length - 2)
+				                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+			cleanupProgn1:
+				e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+				if (e) goto free_gensym_start;
+			}
 
 			if (duckLisp_localsLength_get(compileState) > startStack_length) {
 				e = duckLisp_emit_pop(duckLisp,
@@ -2102,8 +2201,6 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp,
 		if (e) goto free_gensym_end;
 
 		{
-			duckLisp_ast_expression_t progn;
-
 			e = duckLisp_pushScope(duckLisp, compileState, dl_null, dl_false);
 			if (e) goto free_gensym_end;
 
@@ -2111,10 +2208,31 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp,
 
 			startStack_length = duckLisp_localsLength_get(compileState);
 
-			progn.compoundExpressions = &expression->compoundExpressions[2];
-			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
-			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
-			if (e) goto free_gensym_end;
+			{
+				duckLisp_ast_expression_t progn;
+				e = DL_MALLOC(duckLisp->memoryAllocation,
+				              &progn.compoundExpressions,
+				              expression->compoundExpressions_length - 2,
+				              duckLisp_ast_compoundExpression_t);
+				if (e) goto free_gensym_end;
+				(void) dl_memcopy_noOverlap(progn.compoundExpressions,
+				                            &expression->compoundExpressions[2],
+				                            ((expression->compoundExpressions_length - 2)
+				                             * sizeof(duckLisp_ast_compoundExpression_t)));
+				progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+
+				e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+				if (e) goto cleanupProgn2;
+
+				(void) dl_memcopy_noOverlap(&expression->compoundExpressions[2],
+				                            progn.compoundExpressions,
+				                            ((expression->compoundExpressions_length - 2)
+				                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+			cleanupProgn2:
+				e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+				if (e) goto free_gensym_end;
+			}
 
 			if (duckLisp_localsLength_get(compileState) > startStack_length) {
 				e = duckLisp_emit_pop(duckLisp,
@@ -2263,9 +2381,27 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		}
 		else {
 			duckLisp_ast_expression_t progn;
-			progn.compoundExpressions = &expression->compoundExpressions[2];
+			e = DL_MALLOC(duckLisp->memoryAllocation,
+			              &progn.compoundExpressions,
+			              expression->compoundExpressions_length - 2,
+			              duckLisp_ast_compoundExpression_t);
+			if (e) goto cleanup;
+			(void) dl_memcopy_noOverlap(progn.compoundExpressions,
+			                            &expression->compoundExpressions[2],
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+
 			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+			if (e) goto cleanupProgn1;
+
+			(void) dl_memcopy_noOverlap(&expression->compoundExpressions[2],
+			                            progn.compoundExpressions,
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+		cleanupProgn1:
+			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
 			if (e) goto cleanup;
 		}
 		goto cleanup;
@@ -2292,9 +2428,27 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 		startStack_length = duckLisp_localsLength_get(compileState);
 		{
 			duckLisp_ast_expression_t progn;
-			progn.compoundExpressions = &expression->compoundExpressions[2];
+			e = DL_MALLOC(duckLisp->memoryAllocation,
+			              &progn.compoundExpressions,
+			              expression->compoundExpressions_length - 2,
+			              duckLisp_ast_compoundExpression_t);
+			if (e) goto free_gensym_end;
+			(void) dl_memcopy_noOverlap(progn.compoundExpressions,
+			                            &expression->compoundExpressions[2],
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+
 			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+			if (e) goto cleanupProgn2;
+
+			(void) dl_memcopy_noOverlap(&expression->compoundExpressions[2],
+			                            progn.compoundExpressions,
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+		cleanupProgn2:
+			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
 			if (e) goto free_gensym_end;
 		}
 		compileState->currentCompileState->locals_length = startStack_length;
@@ -2407,9 +2561,27 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp,
 	if (forceGoto) {
 		if (branch) {
 			duckLisp_ast_expression_t progn;
-			progn.compoundExpressions = &expression->compoundExpressions[2];
+			e = DL_MALLOC(duckLisp->memoryAllocation,
+			              &progn.compoundExpressions,
+			              expression->compoundExpressions_length - 2,
+			              duckLisp_ast_compoundExpression_t);
+			if (e) goto cleanup;
+			(void) dl_memcopy_noOverlap(progn.compoundExpressions,
+			                            &expression->compoundExpressions[2],
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+
 			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+			if (e) goto cleanupProgn1;
+
+			(void) dl_memcopy_noOverlap(&expression->compoundExpressions[2],
+			                            progn.compoundExpressions,
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+		cleanupProgn1:
+			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
 			if (e) goto cleanup;
 		}
 		else {
@@ -2446,9 +2618,27 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp,
 		if (e) goto free_gensym_end;
 		{
 			duckLisp_ast_expression_t progn;
-			progn.compoundExpressions = &expression->compoundExpressions[2];
+			e = DL_MALLOC(duckLisp->memoryAllocation,
+			              &progn.compoundExpressions,
+			              expression->compoundExpressions_length - 2,
+			              duckLisp_ast_compoundExpression_t);
+			if (e) goto free_gensym_end;
+			(void) dl_memcopy_noOverlap(progn.compoundExpressions,
+			                            &expression->compoundExpressions[2],
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 			progn.compoundExpressions_length = expression->compoundExpressions_length - 2;
+
 			e = duckLisp_generator_expression(duckLisp, compileState, assembly, &progn);
+			if (e) goto cleanupProgn2;
+
+			(void) dl_memcopy_noOverlap(&expression->compoundExpressions[2],
+			                            progn.compoundExpressions,
+			                            ((expression->compoundExpressions_length - 2)
+			                             * sizeof(duckLisp_ast_compoundExpression_t)));
+
+		cleanupProgn2:
+			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
 			if (e) goto free_gensym_end;
 		}
 		e = duckLisp_emit_label(duckLisp, compileState, assembly, gensym_end.value, gensym_end.value_length);
@@ -3580,10 +3770,23 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	                                        dl_false);
 	if (e) goto cleanupAST;
 
+	/* HACK: We can't pass a compound expression up, but we can pass an expression. This is so the noscope generator
+	   can inspect the returned expression and act if it sees a `__var`, `__defun`, or `__noscope`. */
+	if (ast.type == duckLisp_ast_type_expression) {
+		DL_DOTIMES(i, expression->compoundExpressions_length) {
+			eError = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation,
+			                                              &expression->compoundExpressions[i]);
+			if (eError) e = eError;
+		}
+		*expression = ast.value.expression;
+	}
+
  cleanupAST:
 
-	eError = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ast);
-	if (!e) e = eError;
+	if (ast.type != duckLisp_ast_type_expression) {
+		eError = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation, &ast);
+		if (eError) e = eError;
+	}
 
  cleanupArrays:
 

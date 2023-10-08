@@ -28,12 +28,14 @@ Duck-lisp is your typical hobby lisp with one or two twists. I started this proj
 * Variables are declared as they are in C-like languages. There is no `let`.
 * Parenthesis inference does not work with lisp auto-formatters.
 * Not quite a lisp-2.
+* Recursion is performed using they keyword `self`.
 
 ### Misfeatures
 
 * Error reporting is horrible. It will likely stay this way.
 * There are no debug features other than a disassembler.
 * Macros are unhygienic due to the inability of closures to be passed from the compilation VM to the runtime VM.
+* The C FFI isn't great. Use at your own risk.
 
 ## Examples
 
