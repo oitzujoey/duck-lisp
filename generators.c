@@ -3773,11 +3773,8 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	/* HACK: We can't pass a compound expression up, but we can pass an expression. This is so the noscope generator
 	   can inspect the returned expression and act if it sees a `__var`, `__defun`, or `__noscope`. */
 	if (ast.type == duckLisp_ast_type_expression) {
-		DL_DOTIMES(i, expression->compoundExpressions_length) {
-			eError = duckLisp_ast_compoundExpression_quit(duckLisp->memoryAllocation,
-			                                              &expression->compoundExpressions[i]);
-			if (eError) e = eError;
-		}
+		e = duckLisp_ast_expression_quit(duckLisp->memoryAllocation, expression);
+		if (e) goto cleanupAST;
 		*expression = ast.value.expression;
 	}
 
