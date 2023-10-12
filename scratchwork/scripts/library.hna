@@ -529,7 +529,7 @@ bvar duckLisp-object-type-type type-of type-of ()
 
 
 ;; Semi-functional quasiquote. Vectors and composites are not fully implemented. Better error checking is needed.
-;; Arity checking is not implemented for "," and ",@" .
+;; Nested quasiquotes don't work properly.
 ;; ",", and ",@" need to be called as functions in order to match properly.
 (defmacro quasiquote (form) (I)
     (switch (type-of form)

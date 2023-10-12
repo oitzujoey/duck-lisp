@@ -1,4 +1,4 @@
-(include "/home/joey/Documents/projects/duck-lisp/scratchwork/scripts/library.hna")
+(include "../scripts/library.hna")
 
 var stack ()
 
