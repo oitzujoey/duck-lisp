@@ -190,12 +190,16 @@ __defmacro declare (identifier type &rest script-body) ()
              (__infer-and-get-next-argument))
             (__declare-identifier name type)))
 
+
+bvar *epsilon* 1e-9
+
+
 defmacro ' (code) (L) (__list (__quote #__quote) code)
 defmacro list (&rest parameters) (&rest 0 I) (__cons ' __list parameters)
 bdefun cons (first second) __cons first second
 defmacro nop () () (list ' __nop)
 defmacro noscope (&rest body) (&rest 2 I) (cons ' __noscope body)
-defmacro comptime (&rest body) (&rest 1 I) (list (cons ' __comptime body))
+defmacro comptime (&rest body) (&rest 1 I) (cons ' __comptime body)
 defmacro quote (form) (I) (__list ' __quote form)
 defmacro setq (variable value) (L I) (list ' __setq variable value)
 defmacro funcall (function &rest arguments) (I &rest 1 I) (cons ' __funcall (cons function arguments))
@@ -205,6 +209,7 @@ defmacro when (condition &rest then) (I &rest 1 I) (cons ' __when (cons conditio
 defmacro unless (condition &rest else) (I &rest 1 I) (cons ' __unless (cons condition else))
 defmacro while (condition &rest body) (I &rest 1 I) (cons ' __while (cons condition body))
 defmacro vector (&rest arguments) (&rest 0 I) (cons ' __vector arguments)
+bdefun make-vector (size init) __make-vector size init
 bdefun get-vector-element (vector index) __get-vector-element vector index
 bdefun car (cons) __car cons
 bdefun cdr (cons) __cdr cons
@@ -212,7 +217,7 @@ bdefun set-car (cons value) __set-car cons value
 bdefun set-cdr (cons value) __set-cdr cons value
 bdefun length (sequence) __length sequence
 bdefun make-string (integer-sequence) __make-string integer-sequence
-(bdefun concatenate (first-string &rest 2 other-strings)
+(bdefun concatenate (first-string &rest 1 other-strings)
         (__if other-strings
               (__concatenate first-string (apply #self other-strings))
               first-string))
@@ -225,10 +230,18 @@ bdefun set-composite-function (composite function) (__set-composite-function com
 bdefun null? (value) __null? value
 bdefun type-of (value) __type-of value
 bdefun not (value) __not value
-bdefun * (a b) __* a b
-bdefun / (a b) __/ a b
-bdefun + (a b) __+ a b
-bdefun - (a b) __- a b
+bdefun * (a &rest 1 b) (if b
+                           __* a (apply #self b)
+                           a)
+bdefun / (a &rest 1 b) (if b
+                           __/ a (apply #self b)
+                           a)
+bdefun + (a &rest 1 b) (if b
+                           __+ a (apply #self b)
+                           a)
+bdefun - (a &rest 1 b) (if b
+                           __- a (apply #self b)
+                           a)
 bdefun = (a b) __= a b
 bdefun < (a b) __< a b
 bdefun > (a b) __> a b
@@ -245,6 +258,30 @@ bdefun != (x y) not = x y
 bdefun ≠ (x y) not = x y
 
 (defmacro incq (variable) (L) (list ' __setq variable (list ' __+ 1 variable)))
+
+(bdefun abs value
+        (if __< value 0
+            __- 0 value
+            value))
+
+(bdefun sqrt value
+        var target value
+        var running true
+        var result 0
+        var high target
+        var low 0
+        (while running
+          var delta (- 1 (/ target (* value value)))
+          (if < *epsilon* (abs delta)
+              (()
+               (if > 0 delta
+                   setq low value
+                   setq high value)
+               setq value (+ (/ (- high low) 2.0) low))
+              (()
+               setq result value
+               setq running false)))
+        result)
 
 bvar duckLisp-object-type-bool type-of false
 bvar duckLisp-object-type-int type-of 0
