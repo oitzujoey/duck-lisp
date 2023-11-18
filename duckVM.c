@@ -3453,7 +3453,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					else {
 						object2.value.string.internalString = object1.value.string.internalString;
 						object2.value.string.offset = object1.value.string.offset + 1;
-						object2.value.string.length = object1.value.string.length;
+						object2.value.string.length = object1.value.string.length - 1;
 					}
 				}
 				else {
@@ -4230,8 +4230,9 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (e) break;
 		if ((object1.type != duckVM_object_type_string) && (object1.type != duckVM_object_type_symbol)) {
 			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM,
-			                                  DL_STR("duckVM_execute->concatenate: First argument must be a string or symbol."));
+			(eError
+			 = duckVM_error_pushRuntime(duckVM,
+			                            DL_STR("duckVM_execute->concatenate: First argument must be a string or symbol.")));
 			if (!e) e = eError;
 			break;
 		}
