@@ -258,6 +258,8 @@ bdefun != (x y) not = x y
 bdefun ≠ (x y) not = x y
 
 (defmacro incq (variable) (L) (list ' __setq variable (list ' __+ 1 variable)))
+(defmacro decq (variable) (L) (list ' __setq variable (list ' __- variable 1)))
+
 
 (bdefun abs value
         (if __< value 0
