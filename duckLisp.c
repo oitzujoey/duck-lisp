@@ -1613,28 +1613,80 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		const dl_size_t declarationScript_length;
 	} generators[] = {
 		{DL_STR("__declare"), duckLisp_generator_declare, DL_STR("(L L &rest 0 I)"), dl_null, 0},
+		{DL_STR("declare"), duckLisp_generator_declare, DL_STR("(L L &rest 0 I)"), dl_null, 0},
 		{DL_STR("__nop"), duckLisp_generator_nop, DL_STR("()"), dl_null, 0},
+		{DL_STR("nop"), duckLisp_generator_nop, DL_STR("()"), dl_null, 0},
 		{DL_STR("__funcall"), duckLisp_generator_funcall2, DL_STR("(I &rest 1 I)"), dl_null, 0},
+		{DL_STR("funcall"), duckLisp_generator_funcall2, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__apply"), duckLisp_generator_apply, DL_STR("(I &rest 1 I)"), dl_null, 0},
+		{DL_STR("apply"), duckLisp_generator_apply, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__var"),
 		 duckLisp_generator_createVar_dummy,
 		 DL_STR("(L I)"),
 		 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
+		{DL_STR("var"),
+		 duckLisp_generator_createVar_dummy,
+		 DL_STR("(L I)"),
+		 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
 		{DL_STR("__global"), duckLisp_generator_global, DL_STR("(L I)"), dl_null, 0},
+		{DL_STR("global"), duckLisp_generator_global, DL_STR("(L I)"), dl_null, 0},
 		{DL_STR("__setq"), duckLisp_generator_setq, DL_STR("(L I)"), dl_null, 0},
+		{DL_STR("setq"), duckLisp_generator_setq, DL_STR("(L I)"), dl_null, 0},
 		{DL_STR("__not"), duckLisp_generator_not, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("not"), duckLisp_generator_not, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__*"), duckLisp_generator_multiply, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("*"), duckLisp_generator_multiply, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__/"), duckLisp_generator_divide, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("/"), duckLisp_generator_divide, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__+"), duckLisp_generator_add, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("+"), duckLisp_generator_add, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__-"), duckLisp_generator_sub, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("-"), duckLisp_generator_sub, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__while"), duckLisp_generator_while, DL_STR("(I &rest 1 I)"), dl_null, 0},
+		{DL_STR("while"), duckLisp_generator_while, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__if"), duckLisp_generator_if, DL_STR("(I I I)"), dl_null, 0},
+		{DL_STR("if"), duckLisp_generator_if, DL_STR("(I I I)"), dl_null, 0},
 		{DL_STR("__when"), duckLisp_generator_when, DL_STR("(I &rest 1 I)"), dl_null, 0},
+		{DL_STR("when"), duckLisp_generator_when, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__unless"), duckLisp_generator_unless, DL_STR("(I &rest 1 I)"), dl_null, 0},
+		{DL_STR("unless"), duckLisp_generator_unless, DL_STR("(I &rest 1 I)"), dl_null, 0},
 		{DL_STR("__="), duckLisp_generator_equal, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("="), duckLisp_generator_equal, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__<"), duckLisp_generator_less, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("<"), duckLisp_generator_less, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__>"), duckLisp_generator_greater, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR(">"), duckLisp_generator_greater, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__defun"),
+		 duckLisp_generator_defun_dummy,
+		 DL_STR("(L L &rest 1 I)"),
+		 DL_STR(" \
+( \
+ (__var name (__infer-and-get-next-argument)) \
+ (__var parameters (__infer-and-get-next-argument)) \
+ (__var type ()) \
+ ( \
+  (__var parameters parameters) \
+  (__while parameters \
+           (__if (__= (__quote &rest) (__car parameters)) \
+                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
+                 (__setq type (__cons (__quote I) type))) \
+           (__setq parameters (__cdr parameters)))) \
+ ( \
+  (__var type2 type) \
+  (__setq type ()) \
+  (__while type2 \
+           (__setq type (__cons (__car type2) type)) \
+           (__setq type2 (__cdr type2)))) \
+ (__declaration-scope \
+  (__while parameters \
+           (__unless (__= (__quote &rest) (__car parameters)) \
+                     (__declare-identifier (__car parameters) (__quote L))) \
+           (__setq parameters (__cdr parameters))) \
+  (__declare-identifier (__quote self) type) \
+  (__infer-and-get-next-argument)) \
+ (__declare-identifier name type)) \
+")},
+		{DL_STR("defun"),
 		 duckLisp_generator_defun_dummy,
 		 DL_STR("(L L &rest 1 I)"),
 		 DL_STR(" \
@@ -1694,6 +1746,34 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
   (__declare-identifier (__quote self) type) \
   (__infer-and-get-next-argument))) \
 ")},
+		{DL_STR("lambda"),
+		 duckLisp_generator_lambda,
+		 DL_STR("(L &rest 1 I)"),
+		 DL_STR(" \
+( \
+ (__var parameters (__infer-and-get-next-argument)) \
+ (__var type ()) \
+ ( \
+  (__var parameters parameters) \
+  (__while parameters \
+           (__if (__= (__quote &rest) (__car parameters)) \
+                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
+                 (__setq type (__cons (__quote I) type))) \
+           (__setq parameters (__cdr parameters)))) \
+ ( \
+  (__var type2 type) \
+  (__setq type ()) \
+  (__while type2 \
+           (__setq type (__cons (__car type2) type)) \
+           (__setq type2 (__cdr type2)))) \
+ (__declaration-scope \
+  (__while parameters \
+           (__unless (__= (__quote &rest) (__car parameters)) \
+                     (__declare-identifier (__car parameters) (__quote L))) \
+           (__setq parameters (__cdr parameters))) \
+  (__declare-identifier (__quote self) type) \
+  (__infer-and-get-next-argument))) \
+")},
 		{DL_STR("__defmacro"),
 		 duckLisp_generator_defmacro,
 		 DL_STR("(L L &rest 1 I)"),
@@ -1724,33 +1804,90 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
   (__infer-and-get-next-argument)) \
  (__declare-identifier name type)) \
 ")},
+		{DL_STR("defmacro"),
+		 duckLisp_generator_defmacro,
+		 DL_STR("(L L &rest 1 I)"),
+		 DL_STR(" \
+( \
+ (__var name (__infer-and-get-next-argument)) \
+ (__var parameters (__infer-and-get-next-argument)) \
+ (__var type ()) \
+ ( \
+  (__var parameters parameters) \
+  (__while parameters \
+           (__if (__= (__quote &rest) (__car parameters)) \
+                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
+                 (__setq type (__cons (__quote I) type))) \
+           (__setq parameters (__cdr parameters)))) \
+ ( \
+  (__var type2 type) \
+  (__setq type ()) \
+  (__while type2 \
+           (__setq type (__cons (__car type2) type)) \
+           (__setq type2 (__cdr type2)))) \
+ (__declaration-scope \
+  (__while parameters \
+           (__unless (__= (__quote &rest) (__car parameters)) \
+                     (__declare-identifier (__car parameters) (__quote L))) \
+           (__setq parameters (__cdr parameters))) \
+  (__declare-identifier (__quote self) type) \
+  (__infer-and-get-next-argument)) \
+ (__declare-identifier name type)) \
+")},
 		{DL_STR("__noscope"), duckLisp_generator_noscope2_dummy, DL_STR("(&rest 0 I)"), dl_null, 0},
+		{DL_STR("noscope"), duckLisp_generator_noscope2_dummy, DL_STR("(&rest 0 I)"), dl_null, 0},
 		{DL_STR("__comptime"), duckLisp_generator_comptime, DL_STR("(&rest 1 I)"), dl_null, 0},
+		{DL_STR("comptime"), duckLisp_generator_comptime, DL_STR("(&rest 1 I)"), dl_null, 0},
 		{DL_STR("__quote"), duckLisp_generator_quote, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("quote"), duckLisp_generator_quote, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__list"), duckLisp_generator_list, DL_STR("(&rest 0 I)"), dl_null, 0},
+		{DL_STR("list"), duckLisp_generator_list, DL_STR("(&rest 0 I)"), dl_null, 0},
 		{DL_STR("__vector"), duckLisp_generator_vector, DL_STR("(&rest 0 I)"), dl_null, 0},
+		{DL_STR("vector"), duckLisp_generator_vector, DL_STR("(&rest 0 I)"), dl_null, 0},
 		{DL_STR("__make-vector"), duckLisp_generator_makeVector, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("make-vector"), duckLisp_generator_makeVector, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__get-vector-element"), duckLisp_generator_getVecElt, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("get-vector-element"), duckLisp_generator_getVecElt, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__set-vector-element"), duckLisp_generator_setVecElt, DL_STR("(I I I)"), dl_null, 0},
+		{DL_STR("set-vector-element"), duckLisp_generator_setVecElt, DL_STR("(I I I)"), dl_null, 0},
 		{DL_STR("__cons"), duckLisp_generator_cons, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("cons"), duckLisp_generator_cons, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__car"), duckLisp_generator_car, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("car"), duckLisp_generator_car, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__cdr"), duckLisp_generator_cdr, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("cdr"), duckLisp_generator_cdr, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__set-car"), duckLisp_generator_setCar, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("set-car"), duckLisp_generator_setCar, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__set-cdr"), duckLisp_generator_setCdr, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("set-cdr"), duckLisp_generator_setCdr, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__null?"), duckLisp_generator_nullp, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("null?"), duckLisp_generator_nullp, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__type-of"), duckLisp_generator_typeof, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("type-of"), duckLisp_generator_typeof, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__make-type"), duckLisp_generator_makeType, DL_STR("()"), dl_null, 0},
+		{DL_STR("make-type"), duckLisp_generator_makeType, DL_STR("()"), dl_null, 0},
 		{DL_STR("__make-instance"), duckLisp_generator_makeInstance, DL_STR("(I I I)"), dl_null, 0},
+		{DL_STR("make-instance"), duckLisp_generator_makeInstance, DL_STR("(I I I)"), dl_null, 0},
 		{DL_STR("__composite-value"), duckLisp_generator_compositeValue, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("composite-value"), duckLisp_generator_compositeValue, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__composite-function"), duckLisp_generator_compositeFunction, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("composite-function"), duckLisp_generator_compositeFunction, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__set-composite-value"), duckLisp_generator_setCompositeValue, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("set-composite-value"), duckLisp_generator_setCompositeValue, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__set-composite-function"), duckLisp_generator_setCompositeFunction, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("set-composite-function"), duckLisp_generator_setCompositeFunction, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__make-string"), duckLisp_generator_makeString, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("make-string"), duckLisp_generator_makeString, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__concatenate"), duckLisp_generator_concatenate, DL_STR("(I I)"), dl_null, 0},
+		{DL_STR("concatenate"), duckLisp_generator_concatenate, DL_STR("(I I)"), dl_null, 0},
 		{DL_STR("__substring"), duckLisp_generator_substring, DL_STR("(I I I)"), dl_null, 0},
+		{DL_STR("substring"), duckLisp_generator_substring, DL_STR("(I I I)"), dl_null, 0},
 		{DL_STR("__length"), duckLisp_generator_length, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("length"), duckLisp_generator_length, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__symbol-string"), duckLisp_generator_symbolString, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("symbol-string"), duckLisp_generator_symbolString, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__symbol-id"), duckLisp_generator_symbolId, DL_STR("(I)"), dl_null, 0},
+		{DL_STR("symbol-id"), duckLisp_generator_symbolId, DL_STR("(I)"), dl_null, 0},
 		{DL_STR("__error"), duckLisp_generator_error, DL_STR("(I)"), dl_null, 0},
 		{dl_null, 0, dl_null, dl_null, 0, dl_null, 0}
 	};
