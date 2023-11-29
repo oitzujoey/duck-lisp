@@ -70,6 +70,6 @@ endif()
 
 target_compile_definitions(DuckLib PUBLIC "EXPORTING_DUCKLIB")
 
-target_link_libraries(DuckLisp PUBLIC DuckLib ubsan)
+target_link_libraries(DuckLisp PUBLIC DuckLib)
 
 target_compile_definitions(DuckLisp PUBLIC "EXPORTING_DUCKLISP")
