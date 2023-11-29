@@ -1,0 +1,23 @@
+(include "../scripts/library.dl")
+
+(defun mod (a b)
+  (- a (* b (/ a b))))
+
+(defun fizz-buzz (top)
+  (defun select (iteration)
+    (defun divisible-by? (value)
+      (zero? (mod iteration value)))
+    (cond (divisible-by? (* 3 5))
+          "FizzBuzz"
+          (divisible-by? 3)
+          "Fizz"
+          (divisible-by? 5)
+          "Buzz"
+          iteration))
+
+  (var results nil)
+  (dotimes iteration top
+           (push (select iteration) results))
+  (reverse results))
+
+(mapcar println (fizz-buzz 20))
