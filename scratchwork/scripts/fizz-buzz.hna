@@ -22,13 +22,13 @@ defun fizzbuzz? x
 
 defun fizzbuzz ()
   mapcar
-   lambda x
-     (cond
-      fizzbuzz? x  "fizzbuzz"
-      fizz? x      "fizz"
-      buzz? x      "buzz"
-      x)
-     countup 20
+    lambda x
+      (cond
+       fizzbuzz? x  "fizzbuzz"
+       fizz? x      "fizz"
+       buzz? x      "buzz"
+       x)
+    countup 20
 
 defun print-fizzbuzz ()
   mapcar #println fizzbuzz
