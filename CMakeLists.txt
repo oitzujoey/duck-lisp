@@ -30,8 +30,8 @@ if(MSVC)
   target_compile_options(DuckLisp PUBLIC /W4 /WX)
   target_compile_options(DuckLib PUBLIC /W4 /WX)
 else()
-  target_compile_options(DuckLisp PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
-  target_compile_options(DuckLib PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion -fsanitize=undefined)
+  target_compile_options(DuckLisp PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion)
+  target_compile_options(DuckLib PUBLIC -Wall -Wextra -Wpedantic -Werror -Wdouble-promotion)
 endif()
 
 target_include_directories(DuckLib PUBLIC
