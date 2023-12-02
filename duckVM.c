@@ -3453,7 +3453,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 					else {
 						object2.value.string.internalString = object1.value.string.internalString;
 						object2.value.string.offset = object1.value.string.offset + 1;
-						object2.value.string.length = object1.value.string.length - 1;
+						object2.value.string.length = object1.value.string.length;
 					}
 				}
 				else {
