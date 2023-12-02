@@ -4,30 +4,29 @@ var a 0
 var b 1
 var c 0
 
-defun get-a () a
-defun get-b () b
-defun get-c () c
+defun get-a ()  a
+defun get-b ()  b
+defun get-c ()  c
 
-defun set-a v setq a v
-defun set-b v setq b v
-defun set-c v setq c v
+defun set-a v  setq a v
+defun set-b v  setq b v
+defun set-c v  setq c v
 
 defmacro HAPPY (condition &rest body) (I &rest 1 I)
   cons ' while
        cons condition
             body
-defun ENDING (a b) < a b
+defun ENDING (a b)  < a b
 defun Mary ()  get-a
-defmacro had (a b) (L L) 35
-defun llama, v
-      println v
+defmacro had (a b) (L L)  35
+defun llama, v  println v
 defun put v set-c v
-defun it (a b) + a b
-defun in () get-b
-defun zoo v set-b v
-defun Thereby () get-a
-defun ends v set-a v
-defun our () get-c
+defun it (a b)  + a b
+defun in ()  get-b
+defun zoo v  set-b v
+defun Thereby ()  get-a
+defun ends v  set-a v
+defun our ()  get-c
 ;; I got a little lazy.
 defmacro little
          (I0 I1 I2 I3 I4 I5 I6 I7 I8 I9 I10 I11 I12 I13 I14 I15 I16 I17 I18 I19 I20 I21)
