@@ -13,7 +13,7 @@ defun factorial1 n
   funcall lambda pair
             noscope
               unless = car pair
-                         1
+                       1
                 set-cdr pair
                         self cons 1- car pair
                                   * car pair
