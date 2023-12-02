@@ -66,6 +66,7 @@
 (bdefun = (a b) (__= a b))
 (bdefun < (a b) (__< a b))
 (bdefun > (a b) (__> a b))
+(bvar nil ())
 
 (comptime (print "Sanity achieved!\n") ())
 
@@ -83,6 +84,7 @@
 
 (bdefun integer? (value)
         (= (type-of value) duckLisp-object-type-int))
+(bdefun zero? (value) (__null? value))
 
 (bdefun string? (value)
         (= (type-of value) duckLisp-object-type-str))
@@ -467,7 +469,7 @@
 (bdefun mapcar* (fun list)
         (unless (null? list)
           (cons (funcall fun (car list)) (self fun (cdr list)))))
-(bvar mapcar mapcar*)
+(bdefun mapcar (fun list) (mapcar* fun list))
 
 (bdefun filter* (fun list)
         (unless (null? list)

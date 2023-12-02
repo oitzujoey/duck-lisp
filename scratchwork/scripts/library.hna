@@ -215,6 +215,7 @@ bdefun car (cons) __car cons
 bdefun cdr (cons) __cdr cons
 bdefun set-car (cons value) __set-car cons value
 bdefun set-cdr (cons value) __set-cdr cons value
+bdefun substring (string start-index end-index) __substring string start-index end-index
 bdefun length (sequence) __length sequence
 bdefun make-string (integer-sequence) __make-string integer-sequence
 (bdefun concatenate (first-string &rest 1 other-strings)
@@ -257,8 +258,17 @@ bdefun <= (x y) not > x y
 bdefun != (x y) not = x y
 bdefun ≠ (x y) not = x y
 
-(defmacro incq (variable) (L) (list ' __setq variable (list ' __+ 1 variable)))
-(defmacro decq (variable) (L) (list ' __setq variable (list ' __- variable 1)))
+(defmacro incq (variable &rest value) (L &rest 0 I)
+          setq value car value
+          (if value
+              (list ' __setq variable (list ' __+ value variable))
+              (list ' __setq variable (list ' __+ 1 variable))))
+
+(defmacro decq (variable &rest value) (L &rest 0 I)
+          setq value car value
+          (if value
+              (list ' __setq variable (list ' __+ value variable))
+              (list ' __setq variable (list ' __- variable 1))))
 
 (bdefun mod (a b)
         (- a (* (/ a b) b)))
@@ -504,6 +514,11 @@ bvar duckLisp-object-type-type type-of type-of ()
 
 (bdefun elt (list n)
         (nth n list))
+
+(bdefun last (list)
+        (while (cdr list)
+          (pop list))
+        list)
 
 (bdefun append (list1 list2)
         (var appended-list ())
