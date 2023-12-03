@@ -4909,7 +4909,7 @@ dl_error_t duckVM_object_getString(dl_memoryAllocation_t *memoryAllocation,
 			}
 
 			duckVM_internalString_t internalString = internalStringObject->value.internalString;
-			(void) dl_memcopy_noOverlap(*string, &internalString.value[offset], length);
+			(void) dl_memcopy_noOverlap(*string, &internalString.value[offset], length - offset);
 		}
 		else {
 			*string = dl_null;
