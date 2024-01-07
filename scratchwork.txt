@@ -2429,15 +2429,93 @@ Have `noscope` perform dispatch on `var`, `defun`, `noscope`, and maybe `defmacr
 Need to copy expression instead of simply passing it to noscope since AST is no longer immutable.
 
 
+I should probably consider making `__apply' work on vectors.
+
+
+Requirements:
+  Consistent API usage for most objects. User objects may be an exception.
+  Objects never ever leave the stack/heap.
+Arbitrary requirements to help with the user's mental model:
+  Only objects on the stack may be operated on. No setting the nth element of a nested list without first directly linking it to the stack with a "list" object.
+  Only the top object of the stack may be operated on by type-specific functions.
+  Immutable types will have their value set only when pushed on the stack.
+  Mutable types will have their value set to a default value when pushed on the stack. The user may then set that object to a different value.
+  Using a function on an object that does not have a matching type will result in an error.
+
+
+Standard prototype for everything:
+  *_get_*(duckVM_t *duckVM, CurrentType *in/out, ...other_parameters);
+
+general
+  pop(number_to_pop)
+  push(source_stack_index)
+  copy(destination_stack_index, source_stack_index)
+  typeOf()
+  call(stack_index)
+bool
+  pushBool()
+  setBool(boolean)
+  copyBool(&boolean)
+integer  value
+  pushInteger()
+  setInteger(integer)
+  copyInteger(&integer)
+float  value
+  pushFloat()
+  setFloat(floatingPoint)
+  copyFloat(&floatingPoint)
+string
+  pushString(string, length)
+  copyString(&string, &length)
+list
+  pushNil()
+  pushCons()
+symbol
+  pushSymbol(id, name)
+  pushSymbolName()
+  pushSymbolId()
+closure
+  copyClosureName(&name)
+  pushClosureBytecode()
+  copyClosureArity(&arity)
+  copyClosureIsVariadic(&is_variadic)
+vector
+  pushVector()
+type
+  pushType()
+  pushExistingType(integer)
+  copyType(&type)
+composite
+  pushComposite()
+  pushCompositeValue()
+  pushCompositeFunction()
+  setCompositeValue(stack_index)
+  setCompositeFunction(stack_index)
+user
+
+sequence
+  pushCar()
+  pushCdr()
+  setCar(stack_index)
+  setCdr(stack_index)
+  pushElement(sequence_index)
+  setElement(stack_index, sequence_index)
+  length()
+
+upvalue
+upvalueArray
+
+
 
 Todo:
     Finish parenthesis inference
         C: Add support for nested types? — L
+          Alternatively I could rewrite the parser as some sort of dynamic Pratt parser.
         SQUISH: Document inference algorithm — M
     Fix C API — L
         C: Add a bunch of `duckVM_object_make<type>` functions — M
         C: Add a bunch of `*_toString` functions — M
-        C: Switch to Lua-like API?
+        C: Switch to Lua-like API. — M
         SQUISH: Document C API — M
     Fix bugs — L
         C/DL: Write lots of tests — M
@@ -2457,7 +2535,7 @@ Todo:
     Test on ARM — S
     Clean up. — S
     Create Hidey-Chess branch. — M
-    Release!!!
+    Release 1!!!
 
 Duck-lisp architecture:
 Parse source text into an AST.

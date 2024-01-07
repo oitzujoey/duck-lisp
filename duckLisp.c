@@ -1415,8 +1415,6 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	dl_error_t eError = dl_error_ok;
 
 	duckLisp_t *duckLisp = duckVM->duckLisp;
-	duckVM_object_t object;
-	duckVM_object_t *objectPointer;
 	duckLisp_ast_identifier_t identifier;
 
 	e = duckLisp_gensym(duckLisp, &identifier);
@@ -1425,15 +1423,10 @@ dl_error_t duckLisp_callback_gensym(duckVM_t *duckVM) {
 	e = duckLisp_symbol_create(duckLisp, identifier.value, identifier.value_length);
 	if (e) goto cleanup;
 
-	object.type = duckVM_object_type_internalString;
-	object.value.internalString.value_length = identifier.value_length;
-	object.value.internalString.value = (dl_uint8_t *) identifier.value;
-	e = duckVM_allocateHeapObject(duckVM, &objectPointer, object);
-	if (e) goto cleanup;
-	object.type = duckVM_object_type_symbol;
-	object.value.symbol.id = duckLisp_symbol_nameToValue(duckLisp, identifier.value, identifier.value_length);
-	object.value.symbol.internalString = objectPointer;
-	e = duckVM_push(duckVM, &object);
+	e = duckVM_pushSymbol(duckVM,
+	                      duckLisp_symbol_nameToValue(duckLisp, identifier.value, identifier.value_length),
+	                      (dl_uint8_t *) identifier.value,
+	                      identifier.value_length);
 	if (e) goto cleanup;
  cleanup:
 	if (identifier.value) {
@@ -1448,12 +1441,11 @@ dl_error_t duckLisp_callback_intern(duckVM_t *duckVM) {
 	dl_error_t eError = dl_error_ok;
 
 	duckLisp_t *duckLisp = duckVM->duckLisp;
-	duckVM_object_t object;
+	duckVM_object_type_t object_type;
 
-	e = duckVM_pop(duckVM, &object);
+	e = duckVM_typeOf(duckVM, &object_type);
 	if (e) goto cleanup;
-
-	if (!duckVM_object_isString(object)) {
+	if (duckVM_object_type_string != object_type) {
 		e = dl_error_invalidValue;
 		eError = duckVM_error_pushRuntime(duckVM, DL_STR("\"intern\" expects a string argument."));
 		if (eError) e = eError;
@@ -1464,26 +1456,25 @@ dl_error_t duckLisp_callback_intern(duckVM_t *duckVM) {
 		dl_uint8_t *string = dl_null;
 		dl_size_t string_length = 0;
 
-		e = duckVM_object_getString(duckVM->memoryAllocation, &string, &string_length, object);
+		e = duckVM_copyString(duckVM, &string, &string_length);
+		if (e) goto cleanupString;
+
+		e = duckVM_pop(duckVM);
 		if (e) goto cleanupString;
 
 		e = duckLisp_symbol_create(duckLisp, string, string_length);
 		if (e) goto cleanupString;
 
-		e = duckVM_object_makeSymbol(duckVM,
-		                             &object,
-		                             duckLisp_symbol_nameToValue(duckLisp, string, string_length),
-		                             string,
-		                             string_length);
+		e = duckVM_pushSymbol(duckVM,
+		                      duckLisp_symbol_nameToValue(duckLisp, string, string_length),
+		                      string,
+		                      string_length);
 		if (e) goto cleanupString;
 
 	cleanupString:
 		e = DL_FREE(duckVM->memoryAllocation, &string);
 		if (e) goto cleanup;
 	}
-
-	e = duckVM_push(duckVM, &object);
-	if (e) goto cleanup;
 
  cleanup: return e;
 }
@@ -1495,19 +1486,28 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 	duckLisp_t *duckLisp = duckVM->duckLisp;
 	dl_memoryAllocation_t *memoryAllocation = duckVM->memoryAllocation;
 
-	duckVM_object_t booleanObject;
-	e = duckVM_pop(duckVM, &booleanObject);
-	if (e) goto cleanup;
+	duckVM_object_type_t booleanObject_type;
+	dl_bool_t boolean;
 
-	if (!duckVM_object_isBoolean(booleanObject)) {
+	duckVM_object_type_t stringObject_type;
+
+	e = duckVM_typeOf(duckVM, &booleanObject_type);
+	if (e) goto cleanup;
+	if (duckVM_object_type_bool != booleanObject_type) {
 		e = dl_error_invalidValue;
 		eError = duckVM_error_pushRuntime(duckVM, DL_STR("Second argument of \"read\" should be a boolean."));
 		if (eError) e = eError;
 		goto cleanup;
 	}
 
+	e = duckVM_copyBoolean(duckVM, &boolean);
+	if (e) goto cleanup;
+	
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+
 #ifndef USE_PARENTHESIS_INFERENCE
-	if (duckVM_object_getBoolean(booleanObject)) {
+	if (boolean) {
 		e = dl_error_invalidValue;
 		(eError
 		 = duckVM_error_pushRuntime(duckVM,
@@ -1517,11 +1517,8 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 	}
 #endif /* USE_PARENTHESIS_INFERENCE */
 
-	duckVM_object_t stringObject;
-	e = duckVM_pop(duckVM, &stringObject);
-	if (e) goto cleanup;
-
-	if (!duckVM_object_isString(stringObject)) {
+	e = duckVM_typeOf(duckVM, &stringObject_type);
+	if (duckVM_object_type_string != stringObject_type) {
 		e = dl_error_invalidValue;
 		eError = duckVM_error_pushRuntime(duckVM, DL_STR("First argument of \"read\" should be a string."));
 		if (eError) e = eError;
@@ -1532,18 +1529,21 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 		dl_uint8_t *string = dl_null;
 		dl_size_t string_length = 0;
 
-		e = duckVM_object_getString(duckVM->memoryAllocation, &string, &string_length, stringObject);
+		e = duckVM_copyString(duckVM, &string, &string_length);
+		if (e) goto cleanupString;
+
+		e = duckVM_pop(duckVM);
 		if (e) goto cleanupString;
 
 		duckVM_object_t astObject;
-		duckVM_object_t statusObject;
+		dl_error_t status;
 		{
 			duckLisp_ast_compoundExpression_t ast;
 			(void) duckLisp_ast_compoundExpression_init(&ast);
 
 			e = duckLisp_read(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
-			                  duckVM_object_getBoolean(booleanObject),
+			                  boolean,
 			                  duckLisp->maxInferenceVmObjects,
 			                  dl_null,
 #endif /* USE_PARENTHESIS_INFERENCE */
@@ -1554,12 +1554,12 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 			                  0,
 			                  dl_true);
 			if (e) {
-				statusObject = duckVM_object_makeInteger(e);
+				status = e;
 				e = dl_error_ok;
 				astObject = duckVM_object_makeList(dl_null);
 			}
 			else {
-				statusObject = duckVM_object_makeInteger(0);
+				status = 0;
 				e = duckLisp_astToObject(duckLisp, duckVM, &astObject, ast);
 				if (e) goto cleanupAst;
 			}
@@ -1569,20 +1569,30 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 			if (e) goto cleanupString;
 		}
 
-		duckVM_object_t *astObjectPointer = dl_null;
-		duckVM_object_t *statusObjectPointer = dl_null;
-		e = duckVM_allocateHeapObject(duckVM, &astObjectPointer, astObject);
+		e = duckVM_pushCons(duckVM);
 		if (e) goto cleanupString;
-		e = duckVM_allocateHeapObject(duckVM, &statusObjectPointer, statusObject);
+		/* stack: (()) */
+		e = duckVM_pushInteger(duckVM);
 		if (e) goto cleanupString;
-		duckVM_object_t consObject = duckVM_object_makeCons(astObjectPointer, statusObjectPointer);
-		duckVM_object_t *consObjectPointer = dl_null;
-		e = duckVM_allocateHeapObject(duckVM, &consObjectPointer, consObject);
+		/* stack: (()) 0 */
+		e = duckVM_setInteger(duckVM, status);
 		if (e) goto cleanupString;
-		duckVM_object_t listObject = duckVM_object_makeList(consObjectPointer);
-
-		e = duckVM_push(duckVM, &listObject);
+		/* stack: (()) status */
+		e = duckVM_setRest(duckVM, -1);
 		if (e) goto cleanupString;
+		/* stack: (() . status) status */
+		e = duckVM_pop(duckVM);
+		if (e) goto cleanupString;
+		/* stack: (() . status) */
+		e = duckVM_object_push(duckVM, &astObject);
+		if (e) goto cleanupString;
+		/* stack: (() . status) ast */
+		e = duckVM_setFirst(duckVM, -1);
+		if (e) goto cleanupString;
+		/* stack: (ast . status) ast */
+		e = duckVM_pop(duckVM);
+		if (e) goto cleanupString;
+		/* stack: (ast . status) */
 
 	cleanupString:
 		e = DL_FREE(duckVM->memoryAllocation, &string);

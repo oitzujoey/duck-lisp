@@ -1231,7 +1231,8 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
-	duckVM_object_t identifierObject;
+	/* stack: identifier type */
+	duckVM_object_type_t identifierObject_type;
 	duckVM_object_t typeObject;
 	vmContext_t context;
 	inferrerState_t *state = dl_null;
@@ -1240,8 +1241,9 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	if (e) goto cleanup;
 	state = context.state;
 
-	e = duckVM_pop(vm, &typeObject);
+	e = duckVM_object_pop(vm, &typeObject);
 	if (e) goto cleanup;
+	/* stack: identifier */
 	if ((typeObject.type != duckVM_object_type_symbol)
 	    && (typeObject.type != duckVM_object_type_list)) {
 		e = dl_error_invalidValue;
@@ -1252,10 +1254,10 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		goto cleanup;
 	}
 
-	e = duckVM_pop(vm, &identifierObject);
+	e = duckVM_typeOf(vm, &identifierObject_type);
 	if (e) goto cleanup;
-	if ((identifierObject.type != duckVM_object_type_symbol)
-	    && (identifierObject.type != duckVM_object_type_string)) {
+	if ((identifierObject_type != duckVM_object_type_symbol)
+	    && (identifierObject_type != duckVM_object_type_string)) {
 		e = dl_error_invalidValue;
 		(eError
 		 = duckVM_error_pushRuntime(vm,
@@ -1268,33 +1270,35 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 	e = duckLisp_objectToAST(&state->duckLisp, &typeAst, &typeObject, dl_true);
 	if (e) goto cleanup;
 
-	if (identifierObject.type == duckVM_object_type_string) {
+	{
+		/* stack: identifier */
 		dl_uint8_t *string = dl_null;
 		dl_size_t length = 0;
-		e = duckVM_object_getString(vm->memoryAllocation, &string, &length, identifierObject);
+		if (identifierObject_type == duckVM_object_type_symbol) {
+			e = duckVM_copySymbolName(vm, &string, &length);
+			if (e) goto cleanup;
+		}
+		else {
+			e = duckVM_copyString(vm, &string, &length);
+			if (e) goto cleanup;
+		}
+		/* stack: identifier */
+		e = duckVM_pop(vm);
 		if (e) goto cleanup;
+		/* stack: _ */
 		e = addDeclaration(state, string, length, typeAst, dl_null, 0);
 		if (e) goto cleanup;
 		e = DL_FREE(vm->memoryAllocation, &string);
 		if (e) goto cleanup;
 	}
-	else {
-		dl_size_t id = 0;
-		dl_uint8_t *string = dl_null;
-		dl_size_t length = 0;
-		e = duckVM_object_getSymbol(vm->memoryAllocation, &id, &string, &length, identifierObject);
-		if (e) goto cleanup;
-		e = addDeclaration(state, string, length, typeAst, dl_null, 0);
-		if (e) goto cleanup;
-		e = DL_FREE(vm->memoryAllocation, &string);
-		if (e) goto cleanup;
-	}
+	/* stack: _ */
 
 	e = duckLisp_ast_compoundExpression_quit(state->memoryAllocation, &typeAst);
 	if (e) goto cleanup;
 
 	e = duckVM_pushNil(vm);
 	if (e) goto cleanup;
+	/* stack: () */
 
  cleanup: return e;
 }
@@ -1341,7 +1345,7 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	e = duckLisp_astToObject(duckLisp, vm, &object, expression->compoundExpressions[*expression_index - 1]);
 	if (e) goto postDefinitionCleanup;
 
-	e = duckVM_push(vm, &object);
+	e = duckVM_object_push(vm, &object);
 	if (e) goto postDefinitionCleanup;
 
  postDefinitionCleanup:

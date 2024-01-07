@@ -260,78 +260,176 @@ dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_obj
 /* Log a string into the errors array. */
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length);
 
-/* Push an object onto the stack. */
-dl_error_t duckVM_push(duckVM_t *duckVM, duckVM_object_t *object);
-/* Push a boolean onto the stack. */
-dl_error_t duckVM_pushBoolean(duckVM_t *duckVM, const dl_bool_t boolean);
-/* Push an integer onto the stack. */
-dl_error_t duckVM_pushInteger(duckVM_t *duckVM, const dl_ptrdiff_t integer);
-/* Push a double floating point value onto the stack. */
-dl_error_t duckVM_pushFloat(duckVM_t *duckVM, const double floatingPoint);
+/* General operations */
+/* Push an existing stack object onto the top of the stack. */
+dl_error_t duckVM_push(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
+/* Pop an object off of the stack. */
+dl_error_t duckVM_pop(duckVM_t *duckVM);
+/* Pop the specified number of objects off of the stack. */
+dl_error_t duckVM_popSeveral(duckVM_t *duckVM, dl_size_t number_to_pop);
+/* Copy a stack object from one position to another, overwriting the destination object. */
+dl_error_t duckVM_copyFromTop(duckVM_t *duckVM, dl_ptrdiff_t destination_stack_index);
+/* Return the type of the object on the top of the stack. */
+dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type);
+/* Call the object at the given index as a function. */
+dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t function_stack_index);
+
+/* Type-specific operations */
+
+/* Booleans */
+/* Push a boolean initialized to `false` onto the top of the stack. */
+dl_error_t duckVM_pushBoolean(duckVM_t *duckVM);
+/* Set the boolean at the top of the stack to the provided value. */
+dl_error_t duckVM_setBoolean(duckVM_t *duckVM, dl_bool_t value);
+/* Copy a boolean off the top of the stack into the provided variable. */
+dl_error_t duckVM_copyBoolean(duckVM_t *duckVM, dl_bool_t *value);
+
+/* Integers */
+/* Push an integer initialized to `0` onto the top of the stack. */
+dl_error_t duckVM_pushInteger(duckVM_t *duckVM);
+/* Set the integer at the top of the stack to the provided value. */
+dl_error_t duckVM_setInteger(duckVM_t *duckVM, dl_ptrdiff_t value);
+/* Copy an integer off the top of the stack into the provided variable. */
+dl_error_t duckVM_copySignedInteger(duckVM_t *duckVM, dl_ptrdiff_t *value);
+dl_error_t duckVM_copyUnsignedInteger(duckVM_t *duckVM, dl_size_t *value);
+
+/* Floats */
+/* Push a float initialized to `0.0` onto the top of the stack. */
+dl_error_t duckVM_pushFloat(duckVM_t *duckVM);
+/* Set the float at the top of the stack to the provided value. */
+dl_error_t duckVM_setFloat(duckVM_t *duckVM, double value);
+/* Copy a float off the top of the stack into the provided variable. */
+dl_error_t duckVM_copyFloat(duckVM_t *duckVM, double *value);
+
+/* Strings */
+/* Push a string onto the top of the stack. */
+dl_error_t duckVM_pushString(duckVM_t *duckVM, dl_uint8_t *string, dl_size_t string_length);
+/* Copy a string off the top of the stack into the provided variable. The user must free the string using the VM's
+   allocator. */
+dl_error_t duckVM_copyString(duckVM_t *duckVM, dl_uint8_t **string, dl_size_t *string_length);
+
+/* Symbols */
+/* Push a symbol onto the top of the stack. */
+dl_error_t duckVM_pushSymbol(duckVM_t *duckVM, dl_size_t id, dl_uint8_t *name, dl_size_t name_length);
+/* Push the name string of the symbol on the top of the stack onto the top of the stack. */
+dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t *name_length);
+/* Push the ID of the symbol on the top of the stack onto the top of the stack. */
+dl_error_t duckVM_copySymbolId(duckVM_t *duckVM, dl_size_t *id);
+
+/* Types */
+/* Create a new unique type and push it onto the top of the stack. */
+dl_error_t duckVM_pushNewType(duckVM_t *duckVM);
+/* Push the specified type onto the top of the stack. */
+dl_error_t duckVM_pushExistingType(duckVM_t *duckVM, dl_size_t type);
+/* Copy a type off the top of the stack into the provided variable. */
+dl_error_t duckVM_copyType(duckVM_t *duckVM, dl_size_t *type);
+
+/* Composites */
+/* Push a composite value with the specified type onto the top of the stack. The value and function slots are set to
+   nil. */
+dl_error_t duckVM_pushComposite(duckVM_t *duckVM, dl_size_t type);
+/* Push the type slot of the composite on the top of the stack onto the top of the stack. */
+dl_error_t duckVM_copyCompositeType(duckVM_t *duckVM, dl_size_t *type);
+/* Push the function slot of the composite on the top of the stack onto the top of the stack. */
+dl_error_t duckVM_pushCompositeValue(duckVM_t *duckVM);
+/* Push the function slot of the composite on the top of the stack onto the top of the stack. */
+dl_error_t duckVM_pushCompositeFunction(duckVM_t *duckVM);
+/* Set the value slot of the composite on the top of the stack to the value at the specified stack index. */
+dl_error_t duckVM_setCompositeValue(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
+/* Set the function slot of the composite on the top of the stack to the value at the specified stack index. */
+dl_error_t duckVM_setCompositeFunction(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
+
+/* Lists -- See sequence operations below that operate on these objects. */
 /* Push nil onto the stack. */
 dl_error_t duckVM_pushNil(duckVM_t *duckVM);
+/* Push a cons onto the stack with both CAR and CDR set to nil. */
+dl_error_t duckVM_pushCons(duckVM_t *duckVM);
 
-/* Pop an object off of the stack and into `object`. */
-dl_error_t duckVM_pop(duckVM_t *duckVM, duckVM_object_t *object);
+/* Vectors -- See sequence operations below that operate on these objects. */
+/* Push a vector with the specified length onto the stack with each element to nil. */
+dl_error_t duckVM_pushVector(duckVM_t *duckVM, dl_size_t length);
 
-/* Copy an object onto the heap. */
+/* Closures -- See sequence operations below that operate on these objects. */
+/* Copy the "name" of the closure into the provided variable. Note that different closures may share the same "name". */
+dl_error_t duckVM_copyClosureName(duckVM_t *duckVM, dl_ptrdiff_t *name);
+/* Push the closure's bytecode object on the top of the stack. */
+dl_error_t duckVM_pushClosureBytecode(duckVM_t *duckVM);
+/* Copy the arity of the closure into the provided variable. */
+dl_error_t duckVM_copyClosureArity(duckVM_t *duckVM, dl_uint8_t *arity);
+/* Return whether or not the closure is variadic in the provided variable. */
+dl_error_t duckVM_copyClosureIsVariadic(duckVM_t *duckVM, dl_bool_t *is_variadic);
+
+/* Sequences */
+/* These are operations for lists, vectors, strings, and closures. Not all sequence types support all operations. */
+/* Push the first element of the sequence on the top of the stack onto the top of the stack. */
+dl_error_t duckVM_pushCar(duckVM_t *duckVM);
+dl_error_t duckVM_pushFirst(duckVM_t *duckVM);
+/* Get all elements except the first from the sequence on top of the stack and push them on top of the stack.
+   Lists:
+     Nil: Push nil on top of the stack.
+     Cons: Push the CDR on top of the stack.
+   Vectors:
+     Push a new vector on top of the stack that contains all elements of the old vector except the first. These
+     like with the CDR of a list, these remaining elements are references to the elements of the original list.
+   Strings: Push a new string on top of the stack that contains all bytes of the old string except the first.
+   This operation fails on closures. */
+dl_error_t duckVM_pushCdr(duckVM_t *duckVM);
+dl_error_t duckVM_pushRest(duckVM_t *duckVM);
+/* Set the first element of the sequence at the specified stack index to the value of the object at the top of the
+   stack.
+   This operation fails on nil, strings, and closures. */
+dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
+/* Set the CDR of the list at the specified stack index to the value of the object at the top of the stack.
+   Only conses support this operation. */
+dl_error_t duckVM_setRest(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
+/* Get the specified element of the sequence on top of the stack, and push it on top of the stack.
+   Lists:Push the indexed element on top of the stack.
+   Vectors: Push the indexed element on top of the stack.
+   Strings: Push the indexed byte on top of the stack as an integer.
+   This operation fails on sequences are shorter than the index. */
+dl_error_t duckVM_pushElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index);
+/* Set the specified element of the sequence on top of the stack to the value at the specified stack index.
+   Lists:
+     Nil: Push nil on top of the stack.
+     Cons: Push the CAR on top of the stack if this is the cons referenced by the index.
+   Vectors: Push the indexed element on top of the stack.
+   Strings: Push the indexed byte on top of the stack as an integer.
+   This operation fails on lists and vectors that are shorter than the sequence index, and strings and closures. */
+dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_ptrdiff_t stack_index);
+/* Return the length of the sequence into the passed variable. */
+dl_error_t duckVM_length(duckVM_t *duckVM, dl_size_t *length);
+
+dl_error_t duckVM_isNone(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isBoolean(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isInteger(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isFloat(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isString(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isSymbol(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isType(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isComposite(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isList(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isNil(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isCons(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isVector(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isClosure(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isUser(duckVM_t *duckVM, dl_bool_t *result);
+dl_error_t duckVM_isEmpty(duckVM_t *duckVM, dl_bool_t *result);
+
+
+/* Advanced API
+   Here be dragons and use-after-frees. */
+
+/* It says "user" but: Advanced. */
+duckVM_object_t duckVM_object_makeUser(void *data,
+                                       dl_error_t (*marker)(duckVM_gclist_t *, dl_array_t *, struct duckVM_object_s *),
+                                       dl_error_t (*destructor)(duckVM_gclist_t *, struct duckVM_object_s *));
+
+/* Copy an object onto the heap. Advanced. */
 dl_error_t duckVM_allocateHeapObject(duckVM_t *duckVM, duckVM_object_t **heapObjectOut, duckVM_object_t objectIn);
 
-/* Return the type of an object. */
-duckVM_object_type_t duckVM_typeOf(duckVM_object_t object);
+dl_error_t duckVM_object_pop(duckVM_t *duckVM, duckVM_object_t *object);
+dl_error_t duckVM_object_push(duckVM_t *duckVM, duckVM_object_t *object);
 
-dl_bool_t duckVM_object_isNone(duckVM_object_t object);
-dl_bool_t duckVM_object_isBoolean(duckVM_object_t object);
-dl_bool_t duckVM_object_isInteger(duckVM_object_t object);
-dl_bool_t duckVM_object_isFloat(duckVM_object_t object);
-dl_bool_t duckVM_object_isString(duckVM_object_t object);
-dl_bool_t duckVM_object_isSymbol(duckVM_object_t object);
-dl_bool_t duckVM_object_isList(duckVM_object_t object);
-dl_bool_t duckVM_object_isClosure(duckVM_object_t object);
-dl_bool_t duckVM_object_isVector(duckVM_object_t object);
-dl_bool_t duckVM_object_isType(duckVM_object_t object);
-dl_bool_t duckVM_object_isComposite(duckVM_object_t object);
-dl_bool_t duckVM_object_isUser(duckVM_object_t object);
-dl_bool_t duckVM_object_isCons(duckVM_object_t object);
-dl_bool_t duckVM_object_isUpvalue(duckVM_object_t object);
-dl_bool_t duckVM_object_isUpvalueArray(duckVM_object_t object);
-dl_bool_t duckVM_object_isInternalVector(duckVM_object_t object);
-dl_bool_t duckVM_object_isBytecode(duckVM_object_t object);
-dl_bool_t duckVM_object_isInternalComposite(duckVM_object_t object);
-dl_bool_t duckVM_object_isInternalString(duckVM_object_t object);
-
-/* Pass an object to these functions to return the requested field. Use them if the save space. Or don't use them. Your
-   choice. */
-dl_bool_t duckVM_object_getBoolean(duckVM_object_t object);
-dl_ptrdiff_t duckVM_object_getInteger(duckVM_object_t object);
-double duckVM_object_getFloat(duckVM_object_t object);
-dl_error_t duckVM_object_getString(dl_memoryAllocation_t *memoryAllocation,
-                                   dl_uint8_t **string,
-                                   dl_size_t *length,
-                                   duckVM_object_t object);
-// hidden
-duckVM_internalString_t duckVM_object_getInternalString(duckVM_object_t object);
-duckVM_list_t duckVM_object_getList(duckVM_object_t object);
-duckVM_cons_t duckVM_object_getCons(duckVM_object_t object);
-dl_error_t duckVM_object_getSymbol(dl_memoryAllocation_t *memoryAllocation,
-                                   dl_size_t *id,
-                                   dl_uint8_t **string,
-                                   dl_size_t *length,
-                                   duckVM_object_t object);
-duckVM_function_t duckVM_object_getFunction(duckVM_object_t object);
-duckVM_upvalue_t duckVM_object_getUpvalue(duckVM_object_t object);
-duckVM_upvalueArray_t duckVM_object_getUpvalueArray(duckVM_object_t object);
-duckVM_closure_t duckVM_object_getClosure(duckVM_object_t object);
-duckVM_vector_t duckVM_object_getVector(duckVM_object_t object);
-duckVM_internalVector_t duckVM_object_getInternalVector(duckVM_object_t object);
-duckVM_bytecode_t duckVM_object_getBytecode(duckVM_object_t object);
-dl_size_t duckVM_object_getType(duckVM_object_t object);
-duckVM_composite_t duckVM_object_getComposite(duckVM_object_t object);
-duckVM_internalComposite_t duckVM_object_getInternalComposite(duckVM_object_t object);
-duckVM_user_t duckVM_object_getUser(duckVM_object_t object);
-
-/* Create an object of the type specified by the function. Some of these are convenient shortcuts. Others aren't as
-   much. */
 duckVM_object_t duckVM_object_makeBoolean(dl_bool_t boolean);
 duckVM_object_t duckVM_object_makeInteger(dl_ptrdiff_t integer);
 duckVM_object_t duckVM_object_makeFloat(double floatingPoint);
@@ -344,73 +442,26 @@ dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
                                     dl_size_t id,
                                     dl_uint8_t *string,
                                     dl_size_t string_length);
-duckVM_object_t duckVM_object_makeFunction(dl_error_t (*callback)(duckVM_t *));
-/* Advanced. In fact I don't recommend even attempting to use closures from C if you can help it. */
+duckVM_object_t duckVM_object_makeList(duckVM_object_t *cons);
+duckVM_object_t duckVM_object_makeCons(duckVM_object_t *car, duckVM_object_t *cdr);
 duckVM_object_t duckVM_object_makeClosure(dl_ptrdiff_t name,
                                           duckVM_object_t *bytecode,
                                           duckVM_object_t *upvalueArray,
                                           dl_uint8_t arity,
                                           dl_bool_t variadic);
-duckVM_object_t duckVM_object_makeList(duckVM_object_t *cons);
-/* Contrary to what they sound like, conses should never appear on the stack. Instead, a list should be placed on the
-   stack that points to the cons. */
-duckVM_object_t duckVM_object_makeCons(duckVM_object_t *car, duckVM_object_t *cdr);
-dl_error_t duckVM_object_makeVector(duckVM_t *duckVM,
-                                    duckVM_object_t *vectorOut,
-                                    dl_array_t elements /* dl_array_t:duckVM_object_t * */);
-/* Bytecode is not intended to ever appear on the stack. */
-duckVM_object_t duckVM_object_makeBytecode(dl_uint8_t *bytecode, dl_size_t length);
-/* Create a composite value. `compositeType` is the value that `type-of' will return. `value` is the object that goes in
-   the value slot. `function` is the value that goes in the function slot. */
-dl_error_t duckVM_object_makeComposite(duckVM_t *duckVM,
-                                       duckVM_object_t *compositeOut,
-                                       dl_size_t compositeType,
-                                       duckVM_object_t *value,
-                                       duckVM_object_t *function);
-/* It says "user" but: Advanced. */
-duckVM_object_t duckVM_object_makeUser(void *data,
-                                       dl_error_t (*marker)(duckVM_gclist_t *, dl_array_t *, struct duckVM_object_s *),
-                                       dl_error_t (*destructor)(duckVM_gclist_t *, struct duckVM_object_s *));
 
-/* Data accessors. Some of these directly fetch internal objects from external objects, but in exchange return an error
-   value. */
-
-dl_error_t duckVM_string_getInternalString(duckVM_string_t string, duckVM_internalString_t *internalString);
-dl_error_t duckVM_string_getElement(duckVM_string_t string, dl_uint8_t *byte, dl_ptrdiff_t index);
-
-dl_error_t duckVM_symbol_getInternalString(duckVM_symbol_t symbol, duckVM_internalString_t *internalString);
-
-dl_error_t duckVM_closure_getBytecode(duckVM_closure_t closure, duckVM_bytecode_t *bytecode);
 dl_error_t duckVM_closure_getUpvalueArray(duckVM_closure_t closure, duckVM_upvalueArray_t *upvalueArray);
-/* Will follow the chain of upvalues to the end to return the object. */
-dl_error_t duckVM_closure_getUpvalue(duckVM_t *duckVM,
+dl_error_t duckVM_closure_setUpvalue(duckVM_t *duckVM,
                                      duckVM_closure_t closure,
                                      duckVM_object_t *object,
                                      dl_ptrdiff_t index);
-
-dl_error_t duckVM_list_getCons(duckVM_list_t list, duckVM_cons_t *cons);
-
 dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_t *duckVM,
                                           duckVM_upvalueArray_t upvalueArray,
                                           duckVM_object_t *object,
                                           dl_ptrdiff_t index);
-
-dl_error_t duckVM_internalVector_getElement(duckVM_internalVector_t internalVector,
-                                            duckVM_object_t **object,
-                                            dl_ptrdiff_t index);
-
-dl_error_t duckVM_vector_getInternalVector(duckVM_vector_t vector, duckVM_internalVector_t *internalVector);
-dl_error_t duckVM_vector_getLength(duckVM_vector_t vector, dl_size_t *length);
-dl_error_t duckVM_vector_getElement(duckVM_vector_t vector,
-                                    duckVM_object_t **object,
-                                    dl_ptrdiff_t index);
-
-dl_error_t duckVM_bytecode_getElement(duckVM_bytecode_t bytecode, dl_uint8_t *byte, dl_ptrdiff_t index);
-
-dl_error_t duckVM_composite_getInternalComposite(duckVM_composite_t composite,
-                                                 duckVM_internalComposite_t *internalComposite);
-dl_error_t duckVM_composite_getType(duckVM_composite_t composite, dl_size_t *type);
-dl_error_t duckVM_composite_getValueObject(duckVM_composite_t composite, duckVM_object_t **value);
-dl_error_t duckVM_composite_getFunctionObject(duckVM_composite_t composite, duckVM_object_t **function);
+dl_error_t duckVM_upvalueArray_setUpvalue(duckVM_t *duckVM,
+                                          duckVM_upvalueArray_t upvalueArray,
+                                          duckVM_object_t *object,
+                                          dl_ptrdiff_t index);
 
 #endif /* DUCKVM_H */
