@@ -129,7 +129,7 @@ dl_error_t duckLispDev_callback_printCons(duckVM_t *duckVM) {
 		if (e) goto cleanup;
 		e = duckVM_typeOf(duckVM, &type);
 		if (e) goto cleanup;
-		if (nil || (type == duckVM_object_type_cons)) {
+		if (nil || (type == duckVM_object_type_list)) {
 			/* stack: (car . cdr) cdr */
 			if (!nil) {
 				/* stack: (car . (cadr . cddr)) (cadr . cddr) */
@@ -277,7 +277,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			if (nil) {
 				/* stack: (car ()) () */
 			}
-			else if (type == duckVM_object_type_cons) {
+			else if (type == duckVM_object_type_list) {
 				/* stack: (car cdr) cdr */
 				if (!nil) {
 					/* stack: (car (cadr cddr)) (cadr cddr) */

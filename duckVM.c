@@ -6054,8 +6054,18 @@ dl_error_t duckVM_pushFirst(duckVM_t *duckVM) {
 		case duckVM_object_type_list: {
 			duckVM_list_t list = sequence.value.list;
 			if (list) {
-				/* Probably not nil. */
-				first = duckVM_object_makeList(list->value.cons.car);
+				duckVM_object_t *car = list->value.cons.car;
+				if (car) {
+					if (duckVM_object_type_cons == car->type) {
+						first = duckVM_object_makeList(car);
+					}
+					else {
+						first = *car;
+					}
+				}
+				else {
+					first = duckVM_object_makeList(dl_null);
+				}
 			}
 			else {
 				/* Nil */
@@ -6133,27 +6143,29 @@ dl_error_t duckVM_pushRest(duckVM_t *duckVM) {
 	do {
 		duckVM_object_t rest;
 		duckVM_object_t sequence;
-		duckVM_object_type_t type;
 		e = dl_array_getTop(&duckVM->stack, &sequence);
 		if (e) break;
-		type = sequence.type;
-		switch (type) {
+		switch (sequence.type) {
 		case duckVM_object_type_list: {
 			duckVM_list_t list = sequence.value.list;
 			if (list) {
-				/* Probably not nil. */
-				rest = duckVM_object_makeList(list->value.cons.cdr);
+				duckVM_object_t *cdr = list->value.cons.cdr;
+				if (cdr) {
+					if (duckVM_object_type_cons == cdr->type) {
+						rest = duckVM_object_makeList(cdr);
+					}
+					else {
+						rest = *cdr;
+					}
+				}
+				else {
+					rest = duckVM_object_makeList(dl_null);
+				}
 			}
 			else {
 				/* Nil */
 				rest = duckVM_object_makeList(dl_null);
 			}
-			break;
-		}
-		case duckVM_object_type_cons: {
-			/* This shouldn't be on the stack, but I guess we can accommodate it anyway. */
-			duckVM_cons_t cons = sequence.value.cons;
-			rest = duckVM_object_makeList(cons.car);
 			break;
 		}
 		case duckVM_object_type_vector: {
