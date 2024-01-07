@@ -5260,37 +5260,62 @@ dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type) {
 }
 
 
-dl_bool_t duckVM_object_isNone(duckVM_object_t object) {
-	return object.type == duckVM_object_type_none;
-}
-
-dl_bool_t duckVM_object_isBoolean(duckVM_object_t object) {
-	return object.type == duckVM_object_type_bool;
-}
-
-dl_bool_t duckVM_object_isInteger(duckVM_object_t object) {
-	return object.type == duckVM_object_type_integer;
-}
-
-dl_bool_t duckVM_object_isFloat(duckVM_object_t object) {
-	return object.type == duckVM_object_type_float;
-}
-
-dl_bool_t duckVM_object_isString(duckVM_object_t object) {
-	return object.type == duckVM_object_type_string;
-}
-
-dl_bool_t duckVM_object_isSymbol(duckVM_object_t object) {
-	return object.type == duckVM_object_type_symbol;
-}
-
-dl_error_t duckVM_isList(duckVM_t *duckVM, dl_bool_t *result) {
+static dl_bool_t templateForIsThing(duckVM_t *duckVM, dl_bool_t *result, duckVM_object_type_t type) {
 	dl_error_t e = dl_error_ok;
 	duckVM_object_t object;
 	e = dl_array_getTop(&duckVM->stack, &object);
 	if (e) return e;
-	*result = (object.type == duckVM_object_type_list);
+	*result = (object.type == type);
 	return e;
+}
+
+
+dl_error_t duckVM_isNone(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_none);
+}
+
+dl_error_t duckVM_isBoolean(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_bool);
+}
+
+dl_error_t duckVM_isInteger(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_integer);
+}
+
+dl_error_t duckVM_isFloat(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_float);
+}
+
+dl_error_t duckVM_isString(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_string);
+}
+
+dl_error_t duckVM_isSymbol(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_symbol);
+}
+
+dl_error_t duckVM_isType(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_type);
+}
+
+dl_error_t duckVM_isComposite(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_composite);
+}
+
+dl_error_t duckVM_isCons(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_cons);
+}
+
+dl_error_t duckVM_isVector(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_vector);
+}
+
+dl_error_t duckVM_isClosure(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_closure);
+}
+
+dl_error_t duckVM_isList(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_list);
 }
 
 dl_error_t duckVM_isNil(duckVM_t *duckVM, dl_bool_t *result) {
@@ -5300,14 +5325,6 @@ dl_error_t duckVM_isNil(duckVM_t *duckVM, dl_bool_t *result) {
 	if (e) return e;
 	*result = ((object.type == duckVM_object_type_list) && (dl_null == object.value.list));
 	return e;
-}
-
-dl_bool_t duckVM_object_isClosure(duckVM_object_t object) {
-	return object.type == duckVM_object_type_closure;
-}
-
-dl_bool_t duckVM_object_isVector(duckVM_object_t object) {
-	return object.type == duckVM_object_type_vector;
 }
 
 dl_error_t duckVM_isEmptyVector(duckVM_t *duckVM, dl_bool_t *result) {
@@ -5330,44 +5347,32 @@ dl_error_t duckVM_isEmptyVector(duckVM_t *duckVM, dl_bool_t *result) {
 	return e;
 }
 
-dl_bool_t duckVM_object_isType(duckVM_object_t object) {
-	return object.type == duckVM_object_type_type;
+dl_error_t duckVM_isUser(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_user);
 }
 
-dl_bool_t duckVM_object_isComposite(duckVM_object_t object) {
-	return object.type == duckVM_object_type_composite;
+dl_error_t duckVM_isUpvalue(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_upvalue);
 }
 
-dl_bool_t duckVM_object_isUser(duckVM_object_t object) {
-	return object.type == duckVM_object_type_user;
+dl_error_t duckVM_isUpvalueArray(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_upvalueArray);
 }
 
-dl_bool_t duckVM_object_isCons(duckVM_object_t object) {
-	return object.type == duckVM_object_type_cons;
+dl_error_t duckVM_isInternalVector(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_internalVector);
 }
 
-dl_bool_t duckVM_object_isUpvalue(duckVM_object_t object) {
-	return object.type == duckVM_object_type_upvalue;
+dl_error_t duckVM_isBytecode(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_bytecode);
 }
 
-dl_bool_t duckVM_object_isUpvalueArray(duckVM_object_t object) {
-	return object.type == duckVM_object_type_upvalueArray;
+dl_error_t duckVM_isInternalComposite(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_internalComposite);
 }
 
-dl_bool_t duckVM_object_isInternalVector(duckVM_object_t object) {
-	return object.type == duckVM_object_type_internalVector;
-}
-
-dl_bool_t duckVM_object_isBytecode(duckVM_object_t object) {
-	return object.type == duckVM_object_type_bytecode;
-}
-
-dl_bool_t duckVM_object_isInternalComposite(duckVM_object_t object) {
-	return object.type == duckVM_object_type_internalComposite;
-}
-
-dl_bool_t duckVM_object_isInternalString(duckVM_object_t object) {
-	return object.type == duckVM_object_type_internalString;
+dl_error_t duckVM_isInternalString(duckVM_t *duckVM, dl_bool_t *result) {
+	return templateForIsThing(duckVM, result, duckVM_object_type_internalString);
 }
 
 dl_error_t duckVM_isEmpty(duckVM_t *duckVM, dl_bool_t *result) {
@@ -6196,21 +6201,3 @@ dl_error_t duckVM_length(duckVM_t *duckVM, dl_size_t *length) {
 	} while (0);
 	return e;
 }
-
-
-
-/* dl_error_t duckVM_isNone(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isBoolean(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isInteger(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isFloat(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isString(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isSymbol(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isType(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isComposite(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isList(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isCons(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isVector(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isClosure(duckVM_t *duckVM, dl_bool_t *result); */
-/* dl_error_t duckVM_isUser(duckVM_t *duckVM, dl_bool_t *result); */
-
-
