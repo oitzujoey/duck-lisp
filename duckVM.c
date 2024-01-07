@@ -5570,7 +5570,6 @@ dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t 
 	dl_error_t e = dl_error_ok;
 	do {
 		duckVM_object_t object;
-		duckVM_symbol_t symbol;
 		duckVM_internalString_t internal_string;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
@@ -5579,10 +5578,10 @@ dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t 
 			                                             DL_STR("duckVM_copySymbolName: Not a symbol."));
 			if (eError) e = eError;
 		}
-		symbol = object.value.symbol;
+		e = duckVM_symbol_getInternalString(object.value.symbol, &internal_string);
+		if (e) break;
 		e = DL_MALLOC(duckVM->memoryAllocation, name, internal_string.value_length, dl_uint8_t);
 		if (e) break;
-		duckVM_symbol_getInternalString(symbol, &internal_string);
 		(void) dl_memcopy_noOverlap(*name, internal_string.value, internal_string.value_length);
 		*name_length = internal_string.value_length;
 	} while (0);
