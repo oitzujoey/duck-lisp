@@ -84,7 +84,7 @@
 
 (bdefun integer? (value)
         (= (type-of value) duckLisp-object-type-int))
-(bdefun zero? (value) (__null? value))
+(bdefun zero? (value) (= 0 value))
 
 (bdefun string? (value)
         (= (type-of value) duckLisp-object-type-str))
