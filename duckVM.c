@@ -4650,35 +4650,6 @@ dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_obj
 }
 
 
-dl_error_t duckVM_object_pushBoolean(duckVM_t *duckVM) {
-	duckVM_object_t object;
-	object.type = duckVM_object_type_bool;
-	object.value.boolean = dl_false;
-	return duckVM_object_push(duckVM, &object);
-}
-
-dl_error_t duckVM_pushInteger(duckVM_t *duckVM) {
-	duckVM_object_t object;
-	object.type = duckVM_object_type_integer;
-	object.value.integer = 0;
-	return duckVM_object_push(duckVM, &object);
-}
-
-dl_error_t duckVM_pushFloat(duckVM_t *duckVM) {
-	duckVM_object_t object;
-	object.type = duckVM_object_type_float;
-	object.value.floatingPoint = 0.0;
-	return duckVM_object_push(duckVM, &object);
-}
-
-dl_error_t duckVM_pushNil(duckVM_t *duckVM) {
-	duckVM_object_t object;
-	object.type = duckVM_object_type_list;
-	object.value.list = dl_null;
-	return stack_push(duckVM, &object);
-}
-
-
 duckVM_object_t duckVM_object_makeBoolean(dl_bool_t boolean) {
 	duckVM_object_t o;
 	o.type = duckVM_object_type_bool;
@@ -5247,19 +5218,6 @@ dl_error_t duckVM_composite_getFunctionObject(duckVM_composite_t composite, duck
 }
 
 
-dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type) {
-	dl_error_t e = dl_error_ok;
-
-	duckVM_object_t object;
-
-	e = dl_array_getTop(&duckVM->stack, &object);
-	if (e) return e;
-	*type = object.type;
-
-	return e;
-}
-
-
 static dl_bool_t templateForIsThing(duckVM_t *duckVM, dl_bool_t *result, duckVM_object_type_t type) {
 	dl_error_t e = dl_error_ok;
 	duckVM_object_t object;
@@ -5430,34 +5388,88 @@ dl_error_t duckVM_pop(duckVM_t *duckVM) {
 	return stack_pop(duckVM, dl_null);
 }
 
-/* /\* Pop the specified number of objects off of the stack. *\/ */
-/* dl_error_t duckVM_popSeveral(duckVM_t *duckVM, dl_size_t number_to_pop); */
-/* /\* Copy a stack object from one position to another, overwriting the destination object. *\/ */
-/* dl_error_t duckVM_copyFromTop(duckVM_t *duckVM, dl_ptrdiff_t destination_stack_index); */
-/* /\* Return the type of the object on the top of the stack. *\/ */
-/* dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type); */
-/* /\* Call the object at the given index as a function. *\/ */
-/* dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t function_stack_index); */
+/* Pop the specified number of objects off of the stack. */
+dl_error_t duckVM_popSeveral(duckVM_t *duckVM, dl_size_t number_to_pop) {
+	return stack_pop_multiple(duckVM, number_to_pop);
+}
 
-/* /\* Type-specific operations *\/ */
-
-/* /\* Booleans *\/ */
-/* /\* Push a boolean initialized to `false` onto the top of the stack. *\/ */
-/* dl_error_t duckVM_pushBoolean(duckVM_t *duckVM); */
-/* /\* Set the boolean at the top of the stack to the provided value. *\/ */
-/* dl_error_t duckVM_setBoolean(duckVM_t *duckVM, dl_bool_t value); */
-
-/* Copy a boolean off the top of the stack into the provided variable. */
-dl_error_t duckVM_copyBoolean(duckVM_t *duckVM, dl_bool_t *value) {
+/* Copy a stack object from the top to the specified position, overwriting the destination object. */
+dl_error_t duckVM_copyFromTop(duckVM_t *duckVM, dl_ptrdiff_t destination_stack_index) {
 	dl_error_t e = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
+		e = dl_array_set(&duckVM->stack, &object, destination_stack_index);
+	} while (0);
+	return e;
+}
+
+/* Return the type of the object on the top of the stack. */
+dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type) {
+	dl_error_t e = dl_error_ok;
+
+	duckVM_object_t object;
+
+	e = dl_array_getTop(&duckVM->stack, &object);
+	if (e) return e;
+	*type = object.type;
+
+	return e;
+}
+
+/* /\* Call the object at the given index as a function. *\/ */
+/* dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t function_stack_index); */
+
+
+/* Type-specific operations */
+
+/* Booleans */
+
+/* Push a boolean initialized to `false` onto the top of the stack. */
+dl_error_t duckVM_pushBoolean(duckVM_t *duckVM) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_bool;
+	object.value.boolean = dl_false;
+	return stack_push(duckVM, &object);
+}
+
+/* Set the boolean at the top of the stack to the provided value. */
+dl_error_t duckVM_setBoolean(duckVM_t *duckVM, dl_bool_t value) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		e = dl_array_getTop(&duckVM->stack, &object);
+		if (e) break;
 		if (duckVM_object_type_bool != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyBoolean: Not a boolean."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setBoolean: Not a boolean."));
 			if (eError) e = eError;
+			break;
+		}
+		object = duckVM_object_makeBoolean(value);
+		e = dl_array_setTop(&duckVM->stack, &object);
+		if (e) break;
+	} while (0);
+	return e;
+}
+
+/* Copy a boolean off the top of the stack into the provided variable. */
+dl_error_t duckVM_copyBoolean(duckVM_t *duckVM, dl_bool_t *value) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		e = dl_array_getTop(&duckVM->stack, &object);
+		if (e) break;
+		if (duckVM_object_type_bool != object.type) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyBoolean: Not a boolean."));
+			if (eError) e = eError;
+			break;
 		}
 		*value = object.value.boolean;
 	} while (0);
@@ -5465,21 +5477,30 @@ dl_error_t duckVM_copyBoolean(duckVM_t *duckVM, dl_bool_t *value) {
 }
 
 
-/* /\* Integers *\/ */
-/* /\* Push an integer initialized to `0` onto the top of the stack. *\/ */
-/* dl_error_t duckVM_pushInteger(duckVM_t *duckVM); */
+/* Integers */
+
+/* Push an integer initialized to `0` onto the top of the stack. */
+dl_error_t duckVM_pushInteger(duckVM_t *duckVM) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_integer;
+	object.value.integer = 0;
+	return stack_push(duckVM, &object);
+}
 
 /* Set the integer at the top of the stack to the provided value. */
 dl_error_t duckVM_setInteger(duckVM_t *duckVM, dl_ptrdiff_t value) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_integer != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_setInteger: Not an integer."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setInteger: Not an integer."));
 			if (eError) e = eError;
+			break;
 		}
 		object = duckVM_object_makeInteger(value);
 		e = dl_array_setTop(&duckVM->stack, &object);
@@ -5491,14 +5512,17 @@ dl_error_t duckVM_setInteger(duckVM_t *duckVM, dl_ptrdiff_t value) {
 /* Copy an integer off the top of the stack into the provided variable. */
 dl_error_t duckVM_copySignedInteger(duckVM_t *duckVM, dl_ptrdiff_t *value) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_integer != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copySignedInteger: Not an integer."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copySignedInteger: Not an integer."));
 			if (eError) e = eError;
+			break;
 		}
 		*value = object.value.integer;
 	} while (0);
@@ -5506,25 +5530,71 @@ dl_error_t duckVM_copySignedInteger(duckVM_t *duckVM, dl_ptrdiff_t *value) {
 }
 
 /* Copy an integer off the top of the stack into the provided variable. */
-/* dl_error_t duckVM_copyUnsignedInteger(duckVM_t *duckVM, dl_size_t *value); */
-
-/* /\* Floats *\/ */
-/* /\* Push a float initialized to `0.0` onto the top of the stack. *\/ */
-/* dl_error_t duckVM_pushFloat(duckVM_t *duckVM); */
-/* /\* Set the float at the top of the stack to the provided value. *\/ */
-/* dl_error_t duckVM_setFloat(duckVM_t *duckVM, double value); */
-
-/* Copy a float off the top of the stack into the provided variable. */
-dl_error_t duckVM_copyFloat(duckVM_t *duckVM, double *value) {
+dl_error_t duckVM_copyUnsignedInteger(duckVM_t *duckVM, dl_size_t *value) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		e = dl_array_getTop(&duckVM->stack, &object);
+		if (e) break;
+		if (duckVM_object_type_integer != object.type) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyUnsignedInteger: Not an integer."));
+			if (eError) e = eError;
+			break;
+		}
+		*value = object.value.integer;
+	} while (0);
+	return e;
+}
+
+/* Floats */
+
+/* Push a float initialized to `0.0` onto the top of the stack. */
+dl_error_t duckVM_pushFloat(duckVM_t *duckVM) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_float;
+	object.value.floatingPoint = 0.0;
+	return stack_push(duckVM, &object);
+}
+
+/* Set the float at the top of the stack to the provided value. */
+dl_error_t duckVM_setFloat(duckVM_t *duckVM, double value) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_float != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyFloat: Not a float."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setFloat: Not a float."));
 			if (eError) e = eError;
+			break;
+		}
+		object = duckVM_object_makeFloat(value);
+		e = dl_array_setTop(&duckVM->stack, &object);
+		if (e) break;
+	} while (0);
+	return e;
+}
+
+/* Copy a float off the top of the stack into the provided variable. */
+dl_error_t duckVM_copyFloat(duckVM_t *duckVM, double *value) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		e = dl_array_getTop(&duckVM->stack, &object);
+		if (e) break;
+		if (duckVM_object_type_float != object.type) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyFloat: Not a float."));
+			if (eError) e = eError;
+			break;
 		}
 		*value = object.value.floatingPoint;
 	} while (0);
@@ -5532,22 +5602,36 @@ dl_error_t duckVM_copyFloat(duckVM_t *duckVM, double *value) {
 }
 
 
-/* /\* Strings *\/ */
-/* /\* Push a string onto the top of the stack. *\/ */
-/* dl_error_t duckVM_pushString(duckVM_t *duckVM, dl_uint8_t *string, dl_size_t string_length); */
+/* Strings */
+
+/* Push a string onto the top of the stack. */
+dl_error_t duckVM_pushString(duckVM_t *duckVM, dl_uint8_t *string, dl_size_t string_length) {
+	dl_error_t e = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		e = duckVM_object_makeString(duckVM, &object, string, string_length);
+		if (e) break;
+		e = duckVM_object_push(duckVM, &object);
+		if (e) break;
+	} while (0);
+	return e;
+}
 
 /* Copy a string off the top of the stack into the provided variable. The user must free the string using the VM's
    allocator. */
 dl_error_t duckVM_copyString(duckVM_t *duckVM, dl_uint8_t **string, dl_size_t *string_length) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_string != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyString: Not a string."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyString: Not a string."));
 			if (eError) e = eError;
+			break;
 		}
 		e = duckVM_object_getString(duckVM->memoryAllocation, string, string_length, object);
 		if (e) break;
@@ -5555,7 +5639,8 @@ dl_error_t duckVM_copyString(duckVM_t *duckVM, dl_uint8_t **string, dl_size_t *s
 	return e;
 }
 
-/* /\* Symbols *\/ */
+
+/* Symbols */
 
 /* Push a symbol onto the top of the stack. */
 dl_error_t duckVM_pushSymbol(duckVM_t *duckVM, dl_size_t id, dl_uint8_t *name, dl_size_t name_length) {
@@ -5573,15 +5658,18 @@ dl_error_t duckVM_pushSymbol(duckVM_t *duckVM, dl_size_t id, dl_uint8_t *name, d
 /* Push the name string of the symbol on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t *name_length) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		duckVM_internalString_t internal_string;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_symbol != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copySymbolName: Not a symbol."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copySymbolName: Not a symbol."));
 			if (eError) e = eError;
+			break;
 		}
 		e = duckVM_symbol_getInternalString(object.value.symbol, &internal_string);
 		if (e) break;
@@ -5596,14 +5684,17 @@ dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t 
 /* Push the ID of the symbol on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_copySymbolId(duckVM_t *duckVM, dl_size_t *id) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_symbol != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copySymbolId: Not a symbol."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copySymbolId: Not a symbol."));
 			if (eError) e = eError;
+			break;
 		}
 		*id = object.value.symbol.id;
 	} while (0);
@@ -5611,23 +5702,48 @@ dl_error_t duckVM_copySymbolId(duckVM_t *duckVM, dl_size_t *id) {
 }
 
 
-/* /\* Types *\/ */
-/* /\* Create a new unique type and push it onto the top of the stack. *\/ */
-/* dl_error_t duckVM_pushNewType(duckVM_t *duckVM); */
-/* /\* Push the specified type onto the top of the stack. *\/ */
-/* dl_error_t duckVM_pushExistingType(duckVM_t *duckVM, dl_size_t type); */
+/* Types */
+
+/* Create a new unique type and push it onto the top of the stack. */
+dl_error_t duckVM_pushNewType(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		object.type = duckVM_object_type_type;
+		object.value.type = duckVM->nextUserType++;
+		e = stack_push(duckVM, &object);
+		if (e) break;
+	} while (0);
+	return e;
+}
+
+/* Push the specified type onto the top of the stack. */
+dl_error_t duckVM_pushExistingType(duckVM_t *duckVM, dl_size_t type) {
+	dl_error_t e = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		object.type = duckVM_object_type_type;
+		object.value.type = type;
+		e = duckVM_object_push(duckVM, &object);
+		if (e) break;
+	} while (0);
+	return e;
+}
 
 /* Copy a type off the top of the stack into the provided variable. */
 dl_error_t duckVM_copyType(duckVM_t *duckVM, dl_size_t *type) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_type != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyType: Not a type."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyType: Not a type."));
 			if (eError) e = eError;
+			break;
 		}
 		*type = object.value.type;
 	} while (0);
@@ -5635,22 +5751,42 @@ dl_error_t duckVM_copyType(duckVM_t *duckVM, dl_size_t *type) {
 }
 
 
-/* /\* Composites *\/ */
-/* /\* Push a composite value with the specified type onto the top of the stack. The value and function slots are set to */
-/*    nil. *\/ */
-/* dl_error_t duckVM_pushComposite(duckVM_t *duckVM, dl_size_t type); */
+/* Composites */
+
+/* Push a composite value with the specified type onto the top of the stack. The value and function slots are set to
+   nil. */
+dl_error_t duckVM_pushComposite(duckVM_t *duckVM, dl_size_t type) {
+	dl_error_t e = dl_error_ok;
+	do {
+		duckVM_object_t nil;
+		duckVM_object_t *nil_pointer;
+		duckVM_object_t object;
+		nil.type = duckVM_object_type_list;
+		nil.value.list = dl_null;
+		e = duckVM_allocateHeapObject(duckVM, &nil_pointer, nil);
+		if (e) break;
+		e = duckVM_object_makeComposite(duckVM, &object, type, nil_pointer, nil_pointer);
+		if (e) break;
+		e = duckVM_object_push(duckVM, &object);
+		if (e) break;
+	} while (0);
+	return e;
+}
 
 /* Push the type slot of the composite on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_copyCompositeType(duckVM_t *duckVM, dl_size_t *type) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_composite != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyCompositeType: Not a composite."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyCompositeType: Not a composite."));
 			if (eError) e = eError;
+			break;
 		}
 		*type = object.value.composite->value.internalComposite.type;
 	} while (0);
@@ -5660,14 +5796,17 @@ dl_error_t duckVM_copyCompositeType(duckVM_t *duckVM, dl_size_t *type) {
 /* Push the function slot of the composite on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_pushCompositeValue(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_composite != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_pushCompositeValue: Not a composite."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_pushCompositeValue: Not a composite."));
 			if (eError) e = eError;
+			break;
 		}
 		e = duckVM_object_push(duckVM, object.value.composite->value.internalComposite.value);
 		if (e) break;
@@ -5679,14 +5818,17 @@ dl_error_t duckVM_pushCompositeValue(duckVM_t *duckVM) {
 /* Push the function slot of the composite on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_pushCompositeFunction(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_composite != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_pushCompositeFunction: Not a composite."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_pushCompositeFunction: Not a composite."));
 			if (eError) e = eError;
+			break;
 		}
 		e = duckVM_object_push(duckVM, object.value.composite->value.internalComposite.function);
 		if (e) break;
@@ -5694,14 +5836,68 @@ dl_error_t duckVM_pushCompositeFunction(duckVM_t *duckVM) {
 	return e;
 }
 
-/* /\* Set the value slot of the composite on the top of the stack to the value at the specified stack index. *\/ */
-/* dl_error_t duckVM_setCompositeValue(duckVM_t *duckVM, dl_ptrdiff_t stack_index); */
-/* /\* Set the function slot of the composite on the top of the stack to the value at the specified stack index. *\/ */
-/* dl_error_t duckVM_setCompositeFunction(duckVM_t *duckVM, dl_ptrdiff_t stack_index); */
+/* Set the value slot of the composite at the specified index to the value at the top of the stack. */
+dl_error_t duckVM_setCompositeValue(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t composite;
+		duckVM_object_t value;
+		duckVM_object_t *heap_value = dl_null;
+		e = dl_array_getTop(&duckVM->stack, &value);
+		if (e) break;
+		e = dl_array_get(&duckVM->stack, &composite, stack_index);
+		if (e) break;
+		if (duckVM_object_type_composite != composite.type) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setCompositeValue: Not a composite."));
+			if (eError) e = eError;
+			break;
+		}
+		e = duckVM_allocateHeapObject(duckVM, &heap_value, value);
+		if (e) break;
+		composite.value.composite->value.internalComposite.value = heap_value;
+	} while (0);
+        return e;
+}
 
-/* /\* Lists -- See sequence operations below that operate on these objects. *\/ */
-/* /\* Push nil onto the stack. *\/ */
-/* dl_error_t duckVM_pushNil(duckVM_t *duckVM); */
+/* Set the function slot of the composite at the specified index to the value at the top of the stack. */
+dl_error_t duckVM_setCompositeFunction(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t composite;
+		duckVM_object_t value;
+		duckVM_object_t *heap_value = dl_null;
+		e = dl_array_getTop(&duckVM->stack, &value);
+		if (e) break;
+		e = dl_array_get(&duckVM->stack, &composite, stack_index);
+		if (e) break;
+		if (duckVM_object_type_composite != composite.type) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setCompositeFunction: Not a composite."));
+			if (eError) e = eError;
+			break;
+		}
+		e = duckVM_allocateHeapObject(duckVM, &heap_value, value);
+		if (e) break;
+		composite.value.composite->value.internalComposite.function = heap_value;
+	} while (0);
+        return e;
+}
+
+
+/* Lists -- See sequence operations below that operate on these objects. */
+
+/* Push nil onto the stack. */
+dl_error_t duckVM_pushNil(duckVM_t *duckVM) {
+	duckVM_object_t object;
+	object.type = duckVM_object_type_list;
+	object.value.list = dl_null;
+	return duckVM_object_push(duckVM, &object);
+}
 
 /* Push a cons onto the stack with both CAR and CDR set to nil. */
 dl_error_t duckVM_pushCons(duckVM_t *duckVM) {
@@ -5721,9 +5917,34 @@ dl_error_t duckVM_pushCons(duckVM_t *duckVM) {
 }
 
 
-/* /\* Vectors -- See sequence operations below that operate on these objects. *\/ */
-/* /\* Push a vector with the specified length onto the stack with each element to nil. *\/ */
-/* dl_error_t duckVM_pushVector(duckVM_t *duckVM, dl_size_t length); */
+/* Vectors -- See sequence operations below that operate on these objects. */
+
+/* Push a vector with the specified length onto the stack with each element to nil. */
+dl_error_t duckVM_pushVector(duckVM_t *duckVM, dl_size_t length) {
+	dl_error_t e = dl_error_ok;
+	do {
+		duckVM_object_t vector;
+		dl_array_t array;
+		duckVM_object_t *nil_pointer = dl_null;
+		(void) dl_array_init(&array, duckVM->memoryAllocation, sizeof(duckVM_object_t *), dl_array_strategy_fit);
+		do {
+			DL_DOTIMES(k, length) {
+				e = dl_array_pushElement(&array, &nil_pointer);
+				if (e) break;
+			}
+			if (e) break;
+			e = duckVM_allocateHeapObject(duckVM, &nil_pointer, duckVM_object_makeList(dl_null));
+			if (e) break;
+			e = duckVM_object_makeVector(duckVM, &vector, array);
+			if (e) break;
+			e = stack_push(duckVM, &vector);
+			if (e) break;
+		} while (0);
+		e = dl_array_quit(&array);
+		if (e) break;
+	} while (0);
+	return e;
+}
 
 
 /* /\* Closures -- See sequence operations below that operate on these objects. *\/ */
@@ -5731,34 +5952,58 @@ dl_error_t duckVM_pushCons(duckVM_t *duckVM) {
 /* Copy the "name" of the closure into the provided variable. Note that different closures may share the same "name". */
 dl_error_t duckVM_copyClosureName(duckVM_t *duckVM, dl_ptrdiff_t *name) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_closure != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyClosureName: Not a closure."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyClosureName: Not a closure."));
 			if (eError) e = eError;
+			break;
 		}
 		*name = object.value.closure.name;
 	} while (0);
 	return e;
 }
 
-/* /\* Push the closure's bytecode object on the top of the stack. *\/ */
-/* dl_error_t duckVM_pushClosureBytecode(duckVM_t *duckVM); */
-
-/* Copy the arity of the closure into the provided variable. */
-dl_error_t duckVM_copyClosureArity(duckVM_t *duckVM, dl_uint8_t *arity) {
+/* Push the closure's bytecode object on the top of the stack. */
+dl_error_t duckVM_pushClosureBytecode(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_closure != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyClosureName: Not a closure."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_pushClosureBytecode: Not a closure."));
 			if (eError) e = eError;
+			break;
+		}
+		e = stack_push(duckVM, object.value.closure.bytecode);
+		if (e) break;
+	} while (0);
+	return e;
+}
+
+/* Copy the arity of the closure into the provided variable. */
+dl_error_t duckVM_copyClosureArity(duckVM_t *duckVM, dl_uint8_t *arity) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		e = dl_array_getTop(&duckVM->stack, &object);
+		if (e) break;
+		if (duckVM_object_type_closure != object.type) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyClosureArity: Not a closure."));
+			if (eError) e = eError;
+			break;
 		}
 		*arity = object.value.closure.arity;
 	} while (0);
@@ -5768,14 +6013,17 @@ dl_error_t duckVM_copyClosureArity(duckVM_t *duckVM, dl_uint8_t *arity) {
 /* Return whether or not the closure is variadic in the provided variable. */
 dl_error_t duckVM_copyClosureIsVariadic(duckVM_t *duckVM, dl_bool_t *is_variadic) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
 		if (duckVM_object_type_closure != object.type) {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_copyClosureName: Not a closure."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_copyClosureName: Not a closure."));
 			if (eError) e = eError;
+			break;
 		}
 		*is_variadic = object.value.closure.variadic;
 	} while (0);
@@ -5794,6 +6042,7 @@ dl_error_t duckVM_pushCar(duckVM_t *duckVM) {
 /* Push the first element of the sequence on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_pushFirst(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t first;
 		duckVM_object_t sequence;
@@ -5843,9 +6092,11 @@ dl_error_t duckVM_pushFirst(duckVM_t *duckVM) {
 			break;
 		}
 		default: {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_pushFirst: Unsupported object type."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_pushFirst: Unsupported object type."));
 			if (eError) e = eError;
+			break;
 		}
 		}
 		e = duckVM_object_push(duckVM, &first);
@@ -5878,6 +6129,7 @@ dl_error_t duckVM_pushCdr(duckVM_t *duckVM) {
    This operation fails on closures. */
 dl_error_t duckVM_pushRest(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t rest;
 		duckVM_object_t sequence;
@@ -5910,10 +6162,10 @@ dl_error_t duckVM_pushRest(duckVM_t *duckVM) {
 			rest = sequence;
 			offset++;
 			if ((dl_size_t) offset >= vector.internal_vector->value.internal_vector.length) {
-				e = duckVM_error_pushRuntime(duckVM,
-				                             DL_STR("duckVM_pushRest: Vector is empty."));
-				if (e) break;
 				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                             DL_STR("duckVM_pushRest: Vector is empty."));
+				if (eError) e = eError;
 				break;
 			}
 			rest.value.vector.offset = offset;
@@ -5925,24 +6177,28 @@ dl_error_t duckVM_pushRest(duckVM_t *duckVM) {
 			rest = sequence;
 			offset++;
 			if ((dl_size_t) offset >= string.length) {
-				e = duckVM_error_pushRuntime(duckVM,
-				                             DL_STR("duckVM_pushRest: String is empty."));
-				if (e) break;
 				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_pushRest: String is empty."));
+				if (eError) e = eError;
 				break;
 			}
 			rest.value.string.offset = offset;
 			break;
 		}
 		case duckVM_object_type_closure: {
-			e = duckVM_error_pushRuntime(duckVM,
-			                             DL_STR("duckVM_pushRest: Closures are not supported."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_pushRest: Closures are not supported."));
+			if (eError) e = eError;
 			break;
 		}
 		default: {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_pushRest: Unsupported object type."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_pushRest: Unsupported object type."));
 			if (eError) e = eError;
+			break;
 		}
 		}
 		e = duckVM_object_push(duckVM, &rest);
@@ -5956,6 +6212,7 @@ dl_error_t duckVM_pushRest(duckVM_t *duckVM) {
    This operation fails on nil, strings, and closures. */
 dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t value;
 		duckVM_object_t *value_pointer = dl_null;
@@ -5976,8 +6233,11 @@ dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 			}
 			else {
 				/* Nil */
-				e = duckVM_error_pushRuntime(duckVM,
-				                             DL_STR("duckVM_setFirst: List is nil."));
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_setFirst: List is nil."));
+				if (eError) e = eError;
+				break;
 			}
 			break;
 		}
@@ -5988,8 +6248,10 @@ dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 			break;
 		}
 		case duckVM_object_type_string: {
-			e = duckVM_error_pushRuntime(duckVM,
-			                             DL_STR("duckVM_setFirst: Strings are not supported."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setFirst: Strings are not supported."));
+			if (eError) e = eError;
 			break;
 		}
 		case duckVM_object_type_closure: {
@@ -5999,9 +6261,11 @@ dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 			break;
 		}
 		default: {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_setFirst: Unsupported object type."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setFirst: Unsupported object type."));
 			if (eError) e = eError;
+			break;
 		}
 		}
 		if (e) break;
@@ -6013,6 +6277,7 @@ dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
    Only conses support this operation. */
 dl_error_t duckVM_setRest(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t value;
 		duckVM_object_t *value_pointer = dl_null;
@@ -6032,30 +6297,41 @@ dl_error_t duckVM_setRest(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 				list->value.cons.cdr = value_pointer;
 			}
 			else {
-				e = duckVM_error_pushRuntime(duckVM,
-				                             DL_STR("duckVM_setRest: List is nil."));
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_setRest: List is nil."));
+				if (eError) e = eError;
+				break;
 			}
 			break;
 		}
 		case duckVM_object_type_vector: {
-			e = duckVM_error_pushRuntime(duckVM,
-			                             DL_STR("duckVM_setRest: Vectors are not supported."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setRest: Vectors are not supported."));
+			if (eError) e = eError;
 			break;
 		}
 		case duckVM_object_type_string: {
-			e = duckVM_error_pushRuntime(duckVM,
-			                             DL_STR("duckVM_setRest: Strings are not supported."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setRest: Strings are not supported."));
+			if (eError) e = eError;
 			break;
 		}
 		case duckVM_object_type_closure: {
-			e = duckVM_error_pushRuntime(duckVM,
-			                             DL_STR("duckVM_setRest: Closures are not supported."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setRest: Closures are not supported."));
+			if (eError) e = eError;
 			break;
 		}
 		default: {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_setRest: Unsupported object type."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setRest: Unsupported object type."));
 			if (eError) e = eError;
+			break;
 		}
 		}
 		if (e) break;
@@ -6070,6 +6346,7 @@ dl_error_t duckVM_setRest(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
    This operation fails on sequences are shorter than the index. */
 dl_error_t duckVM_pushElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	do {
 		duckVM_object_t sequence;
 		duckVM_object_type_t type;
@@ -6086,9 +6363,11 @@ dl_error_t duckVM_pushElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index) {
 						element_pointer = element_pointer->value.cons.cdr;
 					}
 					else {
-						dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-						                                             DL_STR("duckVM_pushElement: Ran out of elements in improper list."));
+						e = dl_error_invalidValue;
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_pushElement: Ran out of elements in improper list."));
 						if (eError) e = eError;
+						break;
 					}
 				}
 				else {
@@ -6122,23 +6401,128 @@ dl_error_t duckVM_pushElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index) {
 			break;
 		}
 		default: {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
-			                                             DL_STR("duckVM_pushElement: Unsupported object type."));
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_pushElement: Unsupported object type."));
 			if (eError) e = eError;
+			break;
 		}
 		}
 	} while (0);
 	return e;
 }
 
-/* /\* Set the specified element of the sequence on top of the stack to the value at the specified stack index. */
-/*    Lists: */
-/*      Nil: Push nil on top of the stack. */
-/*      Cons: Push the CAR on top of the stack if this is the cons referenced by the index. */
-/*    Vectors: Push the indexed element on top of the stack. */
-/*    Strings: Push the indexed byte on top of the stack as an integer. */
-/*    This operation fails on lists and vectors that are shorter than the sequence index, and strings and closures. *\/ */
-/* dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_ptrdiff_t stack_index); */
+/* Set the specified element of the sequence on top of the stack to the value at the specified stack index.
+   Lists:
+     Nil: Push nil on top of the stack.
+     Cons: Push the CAR on top of the stack if this is the cons referenced by the index.
+   Vectors: Push the indexed element on top of the stack.
+   Strings: Push the indexed byte on top of the stack as an integer.
+   This operation fails on lists and vectors that are shorter than the sequence index, and strings and closures. */
+dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_ptrdiff_t stack_index) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+		duckVM_object_t value;
+		duckVM_object_t *value_pointer = dl_null;
+		duckVM_object_t sequence;
+		duckVM_object_type_t type;
+		e = dl_array_getTop(&duckVM->stack, &value);
+		if (e) break;
+		e = duckVM_allocateHeapObject(duckVM, &value_pointer, value);
+		if (e) break;
+		e = dl_array_get(&duckVM->stack, &sequence, stack_index);
+		if (e) break;
+		type = sequence.type;
+		switch (type) {
+		case duckVM_object_type_list: {
+			duckVM_list_t list = sequence.value.list;
+			if (list) {
+				list->value.cons.car = value_pointer;
+			}
+			else {
+				/* Nil */
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_setElement: List is nil."));
+				break;
+			}
+			break;
+		}{
+			duckVM_object_t *element_pointer = sequence.value.list;
+			DL_DOTIMES(k, sequence_index) {
+				if (element_pointer) {
+					if (duckVM_object_type_cons == element_pointer->type) {
+						element_pointer = element_pointer->value.cons.cdr;
+					}
+					else {
+						e = dl_error_invalidValue;
+						eError = duckVM_error_pushRuntime(duckVM,
+						                                  DL_STR("duckVM_setElement: Ran out of elements in improper list."));
+						if (eError) e = eError;
+						break;
+					}
+				}
+				else {
+					e = dl_error_invalidValue;
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_setElement: Ran out of elements in list."));
+					if (eError) e = eError;
+					break;
+				}
+			}
+			if (e) break;
+			if (element_pointer) {
+				if (duckVM_object_type_cons == element_pointer->type) {
+					element_pointer->value.cons.car = value_pointer;
+				}
+				else {
+					e = dl_error_invalidValue;
+					eError = duckVM_error_pushRuntime(duckVM,
+					                                  DL_STR("duckVM_setElement: Ran out of elements in improper list."));
+					if (eError) e = eError;
+					break;
+				}
+			}
+			else {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_setElement: Ran out of elements in list."));
+				if (eError) e = eError;
+				break;
+			}
+			break;
+		}
+		case duckVM_object_type_vector: {
+			duckVM_vector_t vector = sequence.value.vector;
+			e = duckVM_vector_setElement(vector, value_pointer, stack_index);
+			if (e) break;
+			break;
+		}
+		case duckVM_object_type_string: {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setElement: Strings are not supported."));
+			if (eError) e = eError;
+			break;
+		}
+		case duckVM_object_type_closure: {
+			duckVM_closure_t closure = sequence.value.closure;
+			e = duckVM_closure_setUpvalue(duckVM, closure, value_pointer, stack_index);
+			if (e) break;
+			break;
+		}
+		default: {
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_setElement: Unsupported object type."));
+			if (eError) e = eError;
+			break;
+		}
+		}
+		if (e) break;
+	} while (0);
+	return e;
+}
 
 /* Return the length of the sequence into the passed variable. */
 dl_error_t duckVM_length(duckVM_t *duckVM, dl_size_t *length) {
@@ -6192,9 +6576,11 @@ dl_error_t duckVM_length(duckVM_t *duckVM, dl_size_t *length) {
 			break;
 		}
 		default: {
-			dl_error_t eError = duckVM_error_pushRuntime(duckVM,
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
 			                                             DL_STR("duckVM_pushRest: Unsupported object type."));
 			if (eError) e = eError;
+			break;
 		}
 		}
 		*length = local_length;
