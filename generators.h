@@ -347,11 +347,6 @@ dl_error_t duckLisp_generator_goto(duckLisp_t *duckLisp,
                                    dl_array_t *assembly,
                                    duckLisp_ast_expression_t *expression);
 
-dl_error_t duckLisp_generator_acall(duckLisp_t *duckLisp,
-                                    duckLisp_compileState_t *compileState,
-                                    dl_array_t *assembly,
-                                    duckLisp_ast_expression_t *expression);
-
 dl_error_t duckLisp_generator_funcall(duckLisp_t *duckLisp,
                                       duckLisp_compileState_t *compileState,
                                       dl_array_t *assembly,
