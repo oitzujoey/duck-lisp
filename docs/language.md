@@ -667,20 +667,18 @@ There are three helper functions for macros that are defined only at compile tim
 
 ```lisp
 (defmacro read! (string)
-  ;; Parse the string.
-  (var ast (read string true))
+  (var ast (read string false))
   (var error (cdr ast))
   (setq ast (car ast))
-  ;; Error handling
   (if error
-      (list (quote quote)
-            (quote error)
+      (list (quote #quote)
+            (quote #error)
             error)
       ast))
+
 (read! "
 (()
- __declare print (I)
- print \"Hello, world!\n\")
+ (print \"Hello, world!\n\"))
 ")  ; ⇒ Hello, world!
 ```
 
