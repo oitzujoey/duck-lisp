@@ -7522,6 +7522,7 @@ dl_error_t duckVM_object_prettyPrint(dl_array_t *string_array, duckVM_object_t o
 	case duckVM_object_type_float:
 		e = dl_array_pushElements(string_array, DL_STR("float: (double) ..."));
 		if (e) goto cleanup;
+		break;
 	case duckVM_object_type_internalString:
 		e = duckVM_internalString_prettyPrint(string_array, object.value.internalString);
 		if (e) goto cleanup;
