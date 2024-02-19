@@ -1,14 +1,14 @@
-(__defmacro if (condition then else)
-            (__list (__quote __if) condition then else))
-(__defmacro when (condition &rest then)
-            (__cons (__quote __when) (__cons condition then)))
-(__defmacro unless (condition &rest else)
-            (__cons (__quote __unless) (__cons condition else)))
+(defmacro if (condition then else)
+  (list (quote __if) condition then else))
+(defmacro when (condition &rest then)
+  (cons (quote __when) (cons condition then)))
+(defmacro unless (condition &rest else)
+  (cons (quote __unless) (cons condition else)))
 
-(__defun println (m)
-         (print m)
-         (print "\n")
-         m)
+(defun println (m)
+  (print m)
+  (print "\n")
+  m)
 
 (println (if true
 		     1
@@ -16,11 +16,11 @@
 (println (if false
 		     1
 		     0))
-(__var c true)
+(var c true)
 (println (if c
 		     true
 		     false))
-(println (if (__not c)
+(println (if (not c)
 		     true
 		     false))
 (println "")
@@ -28,19 +28,19 @@
 		   1))
 (println (when false
 		   1))
-(__var c true)
+(var c true)
 (println (when c
 		   true))
-(println (when (__not c)
+(println (when (not c)
 		   true))
 (println "")
 (println (unless true
 		   0))
 (println (unless false
 		   0))
-(__var c true)
+(var c true)
 (println (unless c
 		   false))
-(println (unless (__not c)
+(println (unless (not c)
            true
 		   false))

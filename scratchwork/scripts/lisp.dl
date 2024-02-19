@@ -1,11 +1,11 @@
-(comment The metacircular evaluator
-
-		 Adapted from Paul Graham's essay Roots of Lisp, which can be found at
-		 "http://languagelog.ldc.upenn.edu/myl/llog/jmc.pdf")
+;;; The metacircular evaluator
+;;;
+;;; Adapted from Paul Graham's essay Roots of Lisp, which can be found at
+;;; "http://languagelog.ldc.upenn.edu/myl/llog/jmc.pdf"
 
 (include "../scripts/library.dl")
 
-(var eval ())
+(defun eval () ())
 
 (defun test ()
   (eval 4 5))

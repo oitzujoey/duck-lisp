@@ -1,4 +1,4 @@
-(__comptime (print "<comptime underout.dl>\n"))
+(comptime (print "<comptime underout.dl>\n"))
 (print "<underout.dl>\n")
 (include "../scripts/library.dl")
 

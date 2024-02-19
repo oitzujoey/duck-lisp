@@ -3,25 +3,25 @@
 
 (defun lcons (a b)
   (lambda (f)
-	(f a b)))
+	(funcall f a b)))
 
 (defun lcar (f)
-  (f (lambda (a b) a)))
+  (funcall f (lambda (a b) a)))
 
 (defun lcdr (f)
-  (f (lambda (a b) b)))
+  (funcall f (lambda (a b) b)))
 
 (while true
 
-  (comment  Test stack)
+  ;; Test stack
   5
   ()
   (lambda () ())
-  (comment  Force conses to be popped)
+  ;; Force conses to be popped
   (setq x (cons (cons () ()) ()))
 
-  (comment  Force objects to be popped)
+  ;; Force objects to be popped
   (setq x (cons (cons 1 2) 3))
 
-  (comment Force closures (objects) to be popped)
+  ;; Force closures (objects) to be popped
   (setq x (lcons (lcons 1 2) 3)))

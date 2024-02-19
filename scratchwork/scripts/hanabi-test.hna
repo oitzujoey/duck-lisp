@@ -1,23 +1,23 @@
 (include "../scripts/library.hna")
-__defmacro declare (identifier type &rest script-body) ()
+defmacro declare (identifier type &rest script-body) (L L &rest 0 I) ()
 (__declare declare (L L &rest 0 I)
            (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
 
 bdefun + (a &rest 1 b)
        if b
-          __+ a (apply #self b)
+          + a (apply #self b)
           a
 
 bdefun * (a &rest 1 b)
        if b
-          (__* a (apply #self b))
+          (* a (apply #self b))
           a
 
 bdefun list (&rest 0 args) args
 
 bdefun map (f l)
        if l
-          cons (#f car l)
+          cons (funcall #f car l)
                self f (cdr l)
           ()
 
@@ -38,8 +38,8 @@ println f list 3
 println g list 3
 println (f list 3)
 println (g list 3)
-println #f list 3
-println #g list 3
+println "Omitted due to recursion" ; println #f list 3
+println "Omitted due to recursion" ; println #g list 3
 println (#f list 3)
 println (#g list 3)
 println #(f list 3)
@@ -61,6 +61,6 @@ defmacro x () () "Llama comma"  println x
 bdefun f (&rest -1 a) a
 println (f 1 2 3)
 
-__var z lambda () 4
+var z lambda () 4
 declare z L
-print (z)
+print (funcall z)

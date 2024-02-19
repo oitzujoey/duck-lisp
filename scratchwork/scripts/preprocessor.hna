@@ -16,19 +16,20 @@
         (make-string (nreverse char-list)))
 
 bvar declarations "
-__declare __defmacro (L L &rest 1 I)
-__declare __var (L I)
+__declare defmacro (L L &rest 1 I)
+__declare var (L I)
 __declare read (I I)
 __declare string I
-__declare __cdr (I)
+__declare cdr (I)
 __declare ast I
-__declare __setq (L I)
-__declare __car (I)
-__declare __if (I I I)
+__declare setq (L I)
+__declare car (I)
+__declare if (I I I)
 __declare error I
-__declare __list (&rest -1 I)
-__declare __quote (I)
+__declare list (&rest -1 I)
+__declare quote (I)
 __declare read! (I)
+__declare print (I)
 "
 
 (bdefun print-ast (ast)

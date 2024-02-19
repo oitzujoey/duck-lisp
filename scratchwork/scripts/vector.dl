@@ -27,7 +27,7 @@
 (println (last シ))
 (print "シ is a ") (println (type-to-string (type-of シ)))
 
-(comment "Pair and assoc")
+;; Pair and assoc
 
 (print "\n")
 (setq x (pair (vector "x" "y" "z") (vector "a" "b" "c")))
@@ -45,7 +45,7 @@
 (print "\n")
 (println シ)
 
-(comment The vector is filled with references to the single vector object.)
+;; The vector is filled with references to the single vector object.
 (println "Vectors:")
 (var y (make-vector 5 (vector 1 2 3 4 5)))
 (println y)
@@ -55,7 +55,7 @@
 (set-vector-element (get-vector-element y 0) 3 (quote *))
 (println y)
 
-(comment Same here, but it doesn't look any different for numbers.)
+;; Same here, but it doesn't look any different for numbers.
 (println "Integers:")
 (setq y (make-vector 5 5))
 (println y)

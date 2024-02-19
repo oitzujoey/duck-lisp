@@ -1,5 +1,5 @@
 (defun apply2 (f a b)
-  (f a b))
+  (funcall f a b))
 
 (
  (defun + (a b)
@@ -7,4 +7,4 @@
  
  (print (apply2 + 4 5)))
 
-(comment (print (apply2 + 4 5)))
+;; (print (apply2 + 4 5))

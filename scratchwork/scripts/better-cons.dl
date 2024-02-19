@@ -6,14 +6,15 @@
 
 (defun cons (car cdr)
   (lambda (selector)
-	(selector car
-			  cdr
-			  (lambda (v)
-				(setq car v)
-				v)
-			  (lambda (v)
-				(setq cdr v)
-				v))))
+	(funcall selector
+             car
+             cdr
+             (lambda (v)
+               (setq car v)
+               v)
+             (lambda (v)
+               (setq cdr v)
+               v))))
 
 (defun car (cons)
   (if (list? cons)
@@ -33,11 +34,11 @@
 
 (defun set-car (cons v)
   (cons (lambda (car cdr set-car set-cdr)
-		  (set-car v))))
+		  (funcall set-car v))))
 
 (defun set-cdr (cons v)
   (cons (lambda (car cdr set-car set-cdr)
-		  (set-cdr v))))
+		  (funcall set-cdr v))))
 
 (include "../scripts/library.dl")
 

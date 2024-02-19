@@ -1,4 +1,4 @@
-(comment Compile forms in both runtime and comptime environments)
+;; Compile forms in both runtime and comptime environments
 (defmacro bothtime (&rest body)
   (list (quote noscope)
         (cons (quote comptime)
@@ -6,7 +6,7 @@
         (cons (quote noscope)
               body)))
 
-(comment Define a function in both runtime and comptime environments)
+;; Define a function in both runtime and comptime environments
 (defmacro bdefun (name parameters &rest body)
   (var defun (list (quote defun) name parameters))
   (set-cdr (cdr (cdr defun)) body)
@@ -14,7 +14,7 @@
         defun
         ()))
 
-(comment Define some functions in both runtime and comptime environments)
+;; Define some functions in both runtime and comptime environments
 (bdefun first (list)
         (car list))
 (bdefun rest (x)
@@ -28,15 +28,15 @@
 (defmacro to (variable form)
   (list (quote setq) variable (list* (car form) variable (cdr form))))
 
-(comment Define a variable in both runtime and comptime environments)
+;; Define a variable in both runtime and comptime environments
 (bothtime
  (var both 5))
 
-(comment Expand a macro in code that is expanded by other macros)
+;; Expand a macro in code that is expanded by other macros
 (bdefun inc ()
         (to both (+ 4)))
 
-(comment Print 9)
+;; Print 9
 (print both)
 (comptime
  (print both))

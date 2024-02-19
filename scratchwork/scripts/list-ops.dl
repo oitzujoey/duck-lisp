@@ -23,13 +23,13 @@
 
 (defun remove-if (fun list)
   (unless (null? list)
-	  (if (fun (car list))
+	  (if (funcall fun (car list))
 		  (self fun (cdr list))
 		  (cons (car list)
 				(self fun (cdr list))))))
 
 (defun compose (f1 f2)
-  (lambda (value) (f1 (f2 value))))
+  (lambda (value) (funcall f1 (funcall f2 value))))
 
 (defun remove-if-not (fun list)
   (remove-if (compose not fun) list))
@@ -40,13 +40,13 @@
 (defun maplist (fun list)
   (if (null? list)
 	  ()
-	  (cons (fun list) (self fun (cdr list)))))
+	  (cons (funcall fun list) (self fun (cdr list)))))
 
 (defun mapcar (fun list)
   (maplist (compose fun car) list))
 
 (defun unary (fun value)
-  (lambda (v) (fun value v)))
+  (lambda (v) (funcall fun value v)))
 
 (defun times-table (n)
   (var seq (number-sequence 1 n))
@@ -75,5 +75,5 @@
 							(lambda (y)
 							  (* x y)))
 						  seq))))
-(print-stack)
+
 (times-table 20)

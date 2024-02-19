@@ -1,12 +1,12 @@
 
-(__var x 5)
+(var x 5)
 
-(__defun void-function ()
-         (print-stack)
-         (__+ 1 2))
+(defun void-function ()
+  (print-stack)
+  (+ 1 2))
 
-(__defun 1+ (a)
-         (__+ a 1))
+(defun 1+ (a)
+  (+ a 1))
 
 (print (void-function))
 (print "\n")

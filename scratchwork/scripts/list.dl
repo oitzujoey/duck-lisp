@@ -23,7 +23,7 @@
 (print "シ is a ") (println (type-to-string (type-of シ)))
 
 
-(comment "Pair and assoc")
+;; Pair and assoc
 
 (print "\n")
 (setq x (pair (cons "x" (cons "y" (cons "z" ()))) (cons "a" (cons "b" (cons "c" ())))))
@@ -35,7 +35,7 @@
 (println (assoc "7" x))
 
 
-(comment "Stack balance test")
+;; Stack balance test
 
 (print "\n")
 (println シ)

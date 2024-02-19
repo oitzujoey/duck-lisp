@@ -14,7 +14,7 @@
 
 (print "\n")
 
-(comment "And here we have it: code is data.")
+;; And here we have it: code is data.
 (defun make-cadar (v)
   (cons (quote car)
 		(cons (cons (quote cdr)

@@ -1,10 +1,11 @@
-(include ../scripts/library.dl)
+(include "../scripts/library.dl")
 
-(comment Under-Out
-		 `new-deck' generates a new deck of cards.
-		 `pseudo-shuffle' shoves a specified number of cards under the deck and then places the top card on a new deck.
-		 `find-cycles' determines which cards move where during a shuffle.
-		 `calculate-identity-shuffle' calculates how many times the deck must be shuffled to place it back in its original state.)
+;;; Under-Out
+;;; `new-deck' generates a new deck of cards.
+;;; `pseudo-shuffle' shoves a specified number of cards under the deck and then places the top card on a new deck.
+;;; `find-cycles' determines which cards move where during a shuffle.
+;;; `calculate-identity-shuffle' calculates how many times the deck must be shuffled to place it back in its original
+;;; state.
 
 (defun new-deck (size)
   (print "* <new-deck ") (print size) (println ">")

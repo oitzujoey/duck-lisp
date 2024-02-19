@@ -15,7 +15,7 @@
                  (+ (* 0x10000 (fgetc f))
                     (* 0x1000000 (fgetc f)))))
   (var error (close-file f))
-  (comment Monad!)
+  ;; Monad!
   (if error
       (make-error error)
       uint32))
