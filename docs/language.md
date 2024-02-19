@@ -8,7 +8,7 @@ I intend for you to read this manual top-down, but sometimes I felt the need to 
 
 S-expressions are taken to the extreme. Not even `quote` has special syntax. Every function and keyword follows the form `(verb noun noun …)`. `verb` must be an identifier. There's an alternative syntax available though, so take a look at "parenthesis-inference.md" when you tire of the parentheses.
 
-Despite what is shown in this document, all keywords are preceded by two underscores. "language-reference.md" contains the full list of keywords and built-in functions. Every form in that document is mentioned in this one as well, but without the underscores since underscores are unsightly.
+In addition to what is shown in this document, all keywords also have an alias which is the original keyword name but preceded by two underscores.
 
 ## Comments
 
@@ -20,6 +20,8 @@ Despite what is shown in this document, all keywords are preceded by two undersc
 
 Integers, floats, booleans, strings, cons, symbols, closures, vectors, types, composites
 
+Other types may be added to the language though the C API. I don't consider adding types trivial though.
+
 The type of a value can be queried using the `type-of` keyword. The type of the returned value is a type.
 
 ```lisp
@@ -30,7 +32,7 @@ The type of a value can be queried using the `type-of` keyword. The type of the 
 
 `+`, `-`, `*`, `/`, `>`, `<`, `=`, `not` are the built-in arithmetic operators. All arithmetic operators except `not` require exactly two arguments. `=` tests equality. It does not perform assignment.
 
-Arithmetic operators are generators, not functions, so they have no value. However, if you do want to treat them as functions, there is a decent workaround.
+Arithmetic operators are keywords, not functions, so they have no value. However, if you do want to treat them as functions, there is a decent workaround.
 
 ```lisp
 ;; Functions names are defined after the function body is defined, so the `+'
@@ -40,17 +42,17 @@ Arithmetic operators are generators, not functions, so they have no value. Howev
 
 ;; Now use it with a higher-order function
 (defun apply2 (f a b)
-  (f a b))
+  (funcall f a b))
 
 (print (apply2 + 4 5))  ; ⇒ 9
 ```
 
 ## Variables
 
-Duck-lisp has both lexically and globally scoped variables. Callbacks from C are created as globals and can be accessed by name from C. There is no way to create a global function from duck-lisp. Global variables persist between bytecode executions in the VM.
+Duck-lisp has both lexically and globally scoped variables. Callbacks from C are created as globals and can be accessed by name from C. Global functions are created in the same way as other global variables. Global variables persist between bytecode executions in the VM.
 
-Scopes are created as in C, but using parentheses instead of curly braces. Confusing? Yes.  
-Lexical variables are created as in C but using the `var` keyword. Global variables are created using the `global` keyword. The value argument is required for both `var` and `global`.
+Scopes are created as in C, but using parentheses instead of curly braces. Confusing? Yes. The result of all forms in a scope form are discarded except the last, which is returned from the scope as the result.  
+Lexical variables are created in the style of C (as opposed to lisp) but using the `var` keyword. Global variables are created using the `global` keyword. The value argument is required for both `var` and `global`.
 
 ```lisp
 (var x 5)
@@ -65,7 +67,7 @@ Lexical variables are created as in C but using the `var` keyword. Global variab
 (global y 7)
 ```
 
-Duck-lisp is a modified lisp-2. A lisp-2 separates functions and normal variables into two separate namespaces. Duck-lisp puts functions in their own namespace, but functions are also placed in the namespace for variables.
+Duck-lisp is a modified lisp-2. A lisp-2 separates functions and variables into two separate namespaces. Duck-lisp puts functions in their own namespace, but functions are also placed in the namespace for variables.
 
 ```lisp
 ;; `add-function' is placed into both the function and variable namespaces.
@@ -83,12 +85,12 @@ add-variable  ; ⇒ (closure $2 #2)
 
 These are the rules for each type of variable:
 
-* Global variables can be called as functions and used as normal variables.
-* Normal variables cannot be called as functions except using `funcall`.
-* Functions can be called as functions and used as normal variables.
-* Macros can be called as functions (triggering a macro expansion) and used as normal variables. Calling macros using funcall calls them like a normal function instead of causing a macro expansion.
+* Global variables can be called as functions and used in the same way as local variables.
+* Local variables cannot be called as functions except using `funcall`.
+* Functions can be called as functions and used in the same way as local variables.
+* Macros can be called as functions (triggering a macro expansion) and used in the same way as local variables. Calling macros using funcall calls them like a normal function instead of causing a macro expansion.
 
-If a variable, function, or macro is not found to be defined, then the identifier is assumed to be a global variable.
+If a variable, function, or macro is not found to be defined, then the identifier is assumed to be a global variable by the compiler.
 
 ### Functions
 
@@ -105,6 +107,7 @@ If a variable, function, or macro is not found to be defined, then the identifie
 (defun print-args (&rest args)
   (print (length args))
   (println args)
+  ;; The last form of a function definition provides the value to return.
   args)
 (print-args 1 2 3 4 5)  ; Prints 5(1 2 3 4 5)
 
@@ -112,6 +115,7 @@ If a variable, function, or macro is not found to be defined, then the identifie
 (defun fact (n)
   (if (= n 1)
     1
+    ;; `self' is an alias for `fact'.
     (* n (self (- n 1)))))
 (fact 5)  (; ⇒ 120)
 
@@ -124,8 +128,8 @@ If a variable, function, or macro is not found to be defined, then the identifie
 (f1)  ; Does not return
 
 ;; Higher-order functions
-(defun apply1 (f n) (f n))
-(apply1 fact 5)  ; ⇒ 120
+(defun call1 (f n) (funcall f n))
+(call1 fact 5)  ; ⇒ 120
 ```
 
 Anonymous functions are created with lambdas.
@@ -133,6 +137,9 @@ Anonymous functions are created with lambdas.
 ```lisp
 (var f (lambda () 5))
 (funcall f)  ; ⇒ 5
+;; Globals don't require `funcall'.
+(global g (lambda () 6))
+(g)  ; ⇒ 5
 ```
 
 Expressions are never treated as functions. Attempting to call them will wrap another scope around them, which does nothing.
@@ -153,7 +160,7 @@ If you need to destructure a list to use the elements as arguments, use `apply`.
 (apply >= (list 2 2))  ; ⇒ true
 ```
 
-`funcall` and `apply` do not work on function-like keywords.
+`funcall` and `apply` do not work on keywords.
 
 ```lisp
 ;; `+' is a keyword, not a function.
@@ -279,7 +286,7 @@ A list without a nil on the end is called a dotted list. In general, dotted list
 
 Vectors have O(1) element access, as opposed to lists which have O(n) element access.
 
-Most list operations work the same on vectors as on lists. Currently, the only major difference is that `set-cdr` works on vectors only if the "cdr" is being set to `()` or `[]`.
+Most list operations work the same on vectors as on lists. Currently, the only major difference is that `set-cdr` works on vectors only if the "cdr" (pronounced "coulder") is being set to `()` or `[]`.
 
 My guess is that the speed of `cdr`ing down a vector is similar to that of a list.
 
@@ -418,41 +425,42 @@ Combined with function redefinition, we now have the ability to create something
       (+ a b)))
 ```
 
-Using the ability to call composites like functions, we can simulate message passing.
+Using the ability to call composites like functions, we can also simulate message passing.
 
 ```lisp
 (var inc (quote inc))
 (var dec (quote dec))
 ;; Unfortunately, we need to declare the object beforehand so that the
-;; lambda can capture it, but this wordiness can be fixed with a macro
-(var object ())
+;; lambda can capture it. This wordiness can be fixed with a macro.
+(defun object () ())
 (setq object (make-instance (make-type)
                             0
                             (lambda (message)
-                              (set-composite-value (+ (if (= message inc)
+                              (set-composite-value object
+                                                   (+ (if (= message inc)
                                                           1
                                                           (if (= message dec)
                                                               -1
                                                               0))
                                                       (composite-value object))))))
-(print (funcall composite-value object))  ; ⇒ 0
+(print (composite-value object))  ; ⇒ 0
 (object inc)
-(print (funcall composite-value object))  ; ⇒ 1
+(print (composite-value object))  ; ⇒ 1
 (object dec)
 (object dec)
 (object dec)
-(print (funcall composite-value object))  ; ⇒ -2
+(print (composite-value object))  ; ⇒ -2
 ```
 
 
 ## Flow control
 
-`if`, `when`, and `unless` should act the same as in Common Lisp. And if you're feeling clever, you can use functions instead (untyped lambda calculus).
+`if`, `when`, and `unless` should act the same as in Common Lisp.
 
 ```lisp
 (if (> x 10)  ; condition
-  10  ; then
-  x)  ; else
+    10  ; then
+    x)  ; else
 ```
 
 ```lisp
@@ -488,7 +496,7 @@ Using the ability to call composites like functions, we can simulate message pas
 ```
 
 
-Compilation can be terminated with an error using `error`. A compile error occurs as soon as this form is encountered. The argument is the user-defined error message.
+Compilation can be terminated with an error using `error`. A compile error occurs as soon as this form is encountered. The argument is a user-defined error message.
 
 ```lisp
 (error "Compile error!")
@@ -503,7 +511,7 @@ Duck-lisp supports `quote` and the symbol data type. This is enough to implement
 (print (quote (+ 4 17)))  ; ⇒ (+→0 4 17)
 ```
 
-Common Lisp-like macros are also supported, with the major difference that functions cannot be hygienically used in macros (thus why duck-lisp is a lisp-2).
+Common Lisp-like macros are also supported, with the major difference that functions cannot be hygienically used in macros (thus why duck-lisp became a lisp-2).
 
 ```lisp
 (defmacro to (variable form)
@@ -518,8 +526,8 @@ Common Lisp-like macros are also supported, with the major difference that funct
 (defun nthcdr (n list)
   (var i 0)
   (while (< i n)
-	(to list (cdr))
-	(to i (1+)))
+    (to list (cdr))
+    (to i (1+)))
   list)
 ```
 
@@ -536,8 +544,8 @@ Macros, like functions, can be variadic.
 (defun nthcdr (n list)
   (var i 0)
   (while (< i n)
-	(to list cdr)
-	(to i 1+))
+    (to list cdr)
+    (to i 1+))
   list)
 ```
 
@@ -547,12 +555,12 @@ or alternatively,
 (defun nthcdr (n list)
   (var i 0)
   (while (< i n)
-	(to list cdr)
-	(to i + 1))
+    (to list cdr)
+    (to i + 1))
   list)
 ```
 
-The most significant limitation is that there are separate runtime and compile-time environments, which means that macros cannot call functions in the runtime environment, and functions in the runtime environment cannot call functions in the compile-time environment. The `comptime` keyword is provided to run code at compile-time. Another limitation is that macro definitions may not be nested or appear in a `comptime` form.
+The most significant limitation is that there are separate runtime and compile-time environments, meaning that macros cannot call functions in the runtime environment, and functions in the runtime environment cannot call functions in the compile-time environment. The `comptime` keyword is provided to run code at compile-time. Another limitation is that macro definitions may not be nested or appear in a `comptime` form.
 
 ```lisp
 (comptime
@@ -566,16 +574,16 @@ The most significant limitation is that there are separate runtime and compile-t
   (list (quote setq) variable (list* (car form) variable (cdr form))))
 ```
 
-Macros are compile-time functions declared in the runtime environment, so it is possible to call macros like functions at compile-time.
+Macros are compile-time functions declared in the runtime environment, so it is possible to use macros as functions at compile-time.
 
 ```lisp
 (defmacro and (&rest args)
   (if args
-	  (list (quote if) (car args)
+      (list (quote if) (car args)
             ;; `self' is always called as a function, and never as a macro.
-			(apply self (cdr args))
-			false)
-	  true))
+            (apply self (cdr args))
+            false)
+      true))
 ```
 
 Calling a macro using normal function call syntax at compile time still results in it being treated as a macro.
@@ -658,17 +666,17 @@ There are three helper functions for macros that are defined only at compile tim
 ```
 
 ```lisp
-(__defmacro read! (string)
-            ;; Parse the string.
-            (__var ast (read string true))
-            (__var error (__cdr ast))
-            (__setq ast (__car ast))
-            ;; Error handling
-            (__if error
-                  (__list (__quote __quote)
-                          (__quote error)
-                          error)
-                  ast))
+(defmacro read! (string)
+  ;; Parse the string.
+  (var ast (read string true))
+  (var error (cdr ast))
+  (setq ast (car ast))
+  ;; Error handling
+  (if error
+      (list (quote quote)
+            (quote error)
+            error)
+      ast))
 (read! "
 (()
  __declare print (I)
