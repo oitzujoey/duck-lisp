@@ -2530,7 +2530,6 @@ Todo:
         SQUISH: Document inference algorithm — M
         SQUISH: Write overview of VM?
     Clean up. — M
-        C: Remove `printf`s.
     Test on ARM — S
     Test on Windows — M
     Clean up. — S
