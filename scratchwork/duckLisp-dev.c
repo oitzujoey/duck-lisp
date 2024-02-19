@@ -323,15 +323,23 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 		if (e) break;
 		DL_DOTIMES(k, length) {
 			/* stack: closure */
-			putchar(' ');
-			e = duckVM_pushElement(duckVM, k);
+			duckVM_object_type_t type;
+			e = duckVM_typeOf(duckVM, &type);
 			if (e) break;
-			/* stack: closure closure[k] */
-			e = duckLispDev_callback_print(duckVM);
-			if (e) goto cleanup;
-			/* stack: closure closure[k] */
-			e = duckVM_pop(duckVM);
-			if (e) goto cleanup;
+			putchar(' ');
+			if (type == duckVM_object_type_closure) {
+				printf("#C");
+			}
+			else {
+				e = duckVM_pushElement(duckVM, k);
+				if (e) break;
+				/* stack: closure closure[k] */
+				e = duckLispDev_callback_print(duckVM);
+				if (e) break;
+				/* stack: closure closure[k] */
+				e = duckVM_pop(duckVM);
+				if (e) break;
+			}
 			/* stack: closure */
 		}
 		printf(")");
