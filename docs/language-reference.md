@@ -76,15 +76,15 @@ If `left` is less than `right`, return `true`, otherwise return `false.
 
 If `left` is greater than `right`, return `true`, otherwise return `false.
 
-### (defun name::Identifier (parameters::Identifier*) body::Any*)::Closure
+### (defun name::Identifier (parameters::Identifier*) body::Any+)::Closure
 
 Define a function and bind it to `name`. Return the closure.
 
-### (lambda (parameters::Identifier*) body::Any*)::Closure
+### (lambda (parameters::Identifier*) body::Any+)::Closure
 
 Return a function.
 
-### (defmacro name::Identifier (parameters::Identifier*) body::Any*)::(Nil Closure)
+### (defmacro name::Identifier (parameters::Identifier*) body::Any+)::(Nil Closure)
 
 Define a macro. Returns `()` if evaluated in the runtime environment, and returns the resulting closure in the compile-time environment.
 
