@@ -907,18 +907,45 @@ dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
 		    && (currentExpression.value.expression.compoundExpressions_length > 0)
 		    && (currentExpression.value.expression.compoundExpressions[0].type == duckLisp_ast_type_identifier)) {
 			/* Only one of these can return true. */
-			dl_string_compare(&foundVar,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
-			                  DL_STR("__var"));
-			dl_string_compare(&foundDefun,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
-			                  DL_STR("__defun"));
-			dl_string_compare(&foundNoscope,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
-			                  currentExpression.value.expression.compoundExpressions[0].value.identifier.value_length,
-			                  DL_STR("__noscope"));
+			(void) dl_string_compare(&foundVar,
+			                         currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
+			                         (currentExpression.value.expression.compoundExpressions[0]
+			                          .value.identifier.value_length),
+			                         DL_STR("__var"));
+			if (!foundVar) {
+				(void) dl_string_compare(&foundVar,
+				                         (currentExpression.value.expression.compoundExpressions[0]
+				                          .value.identifier.value),
+				                         (currentExpression.value.expression.compoundExpressions[0]
+				                          .value.identifier.value_length),
+				                         DL_STR("var"));
+			}
+			(void) dl_string_compare(&foundDefun,
+			                         currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
+			                         (currentExpression.value.expression.compoundExpressions[0]
+			                          .value.identifier.value_length),
+			                         DL_STR("__defun"));
+			if (!foundDefun) {
+				(void) dl_string_compare(&foundDefun,
+				                         (currentExpression.value.expression.compoundExpressions[0]
+				                          .value.identifier.value),
+				                         (currentExpression.value.expression.compoundExpressions[0]
+				                          .value.identifier.value_length),
+				                         DL_STR("defun"));
+			}
+			(void) dl_string_compare(&foundNoscope,
+			                         currentExpression.value.expression.compoundExpressions[0].value.identifier.value,
+			                         (currentExpression.value.expression.compoundExpressions[0]
+			                          .value.identifier.value_length),
+			                         DL_STR("__noscope"));
+			if (!foundNoscope) {
+				(void) dl_string_compare(&foundNoscope,
+				                         (currentExpression.value.expression.compoundExpressions[0]
+				                          .value.identifier.value),
+				                         (currentExpression.value.expression.compoundExpressions[0]
+				                          .value.identifier.value_length),
+				                         DL_STR("noscope"));
+			}
 		}
 		/* Now, since `__var`, `__defun`, and `__noscope` are dummy generators, they have to be handled here. */
 		if (foundNoscope) e = duckLisp_generator_noscope2(duckLisp,
