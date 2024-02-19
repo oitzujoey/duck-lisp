@@ -1301,6 +1301,7 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 		{.reader = parse_expression,        .type = duckLisp_ast_type_expression},
 	};
 
+	duckLisp->parser_recursion_depth++;
 	if (duckLisp->parser_recursion_depth >= duckLisp->parser_max_recursion_depth) {
 		e = dl_error_bufferOverflow;
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -1313,7 +1314,6 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 		if (eError) e = eError;
 		goto cleanup;
 	}
-	duckLisp->parser_recursion_depth++;
 
 	(void) parse_irrelevant(dl_null,
 	                        source,
@@ -1350,7 +1350,9 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 	}
 	/* Error */
 
- cleanup: return e;
+ cleanup:
+	--duckLisp->parser_recursion_depth;
+	return e;
 }
 
 

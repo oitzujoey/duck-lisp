@@ -927,13 +927,13 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 	dl_ptrdiff_t temp_index;
 	duckLisp_ast_type_t temp_type;
 
+	duckLisp->generators_recursion_depth++;
 	if (duckLisp->generators_recursion_depth >= duckLisp->generators_max_recursion_depth) {
 		e = dl_error_bufferOverflow;
 		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Max generator recursion depth met."));
 		if (eError) e = eError;
 		goto cleanup;
 	}
-	duckLisp->generators_recursion_depth++;
 
 	switch (compoundExpression->type) {
 	case duckLisp_ast_type_bool:
@@ -1081,6 +1081,7 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
  cleanup:
 	eError = dl_array_quit(&eString);
 	if (eError) e = eError;
+	--duckLisp->generators_recursion_depth;
 	return e;
 }
 
