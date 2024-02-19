@@ -1153,6 +1153,12 @@ int eval(duckLisp_t *duckLisp,
 		printf(COLOR_RED "Error loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
 	}
 
+#ifdef USE_PARENTHESIS_INFERENCE
+	DL_DOTIMES(i, duckLisp->inferrerLog.elements_length) {
+		putchar(DL_ARRAY_GETADDRESS(duckLisp->inferrerLog, dl_uint8_t, i));
+	}
+#endif /* USE_PARENTHESIS_INFERENCE */
+
 	{
 		dl_array_t errorString;
 		e = duckLisp_serialize_errors(duckLisp->memoryAllocation, &errorString, &duckLisp->errors, &sourceCode);
@@ -1433,6 +1439,19 @@ int main(int argc, char *argv[]) {
 	                  );
 	if (e) {
 		printf(COLOR_RED "Could not initialize DuckLisp. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
+		{
+			dl_array_t errorString;
+			dl_error_t eError = dl_error_ok;
+			eError = duckLisp_serialize_errors(duckLisp.memoryAllocation, &errorString, &duckLisp.errors, dl_null);
+			if (eError) e = eError;
+			printf(COLOR_RED);
+			DL_DOTIMES(i, errorString.elements_length) {
+				putchar(((char *) errorString.elements)[i]);
+			}
+			printf(COLOR_NORMAL);
+			e = dl_array_quit(&errorString);
+			if (e) goto cleanup;
+		}
 		goto cleanup;
 	}
 	d.duckLisp_init = dl_true;

@@ -22,9 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifdef USE_STDLIB
-#include <stdio.h>
-#endif /* USE_STDLIB */
 #include "duckLisp.h"
 #include "generators.h"
 #include "DuckLib/string.h"
@@ -982,6 +979,7 @@ dl_error_t duckLisp_generator_noscope2(duckLisp_t *duckLisp,
                                        dl_array_t *assembly,
                                        duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
 	duckLisp_ast_expression_t subExpression;
 	e = DL_MALLOC(duckLisp->memoryAllocation,
@@ -1004,8 +1002,8 @@ dl_error_t duckLisp_generator_noscope2(duckLisp_t *duckLisp,
 	                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
  cleanup:
-	e = DL_FREE(duckLisp->memoryAllocation, &subExpression.compoundExpressions);
-	if (e) goto cleanup;
+	eError = DL_FREE(duckLisp->memoryAllocation, &subExpression.compoundExpressions);
+	if (eError) e = eError;
 
 	return e;
 }
@@ -1391,7 +1389,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 	                   sizeof(duckLisp_instructionObject_t),
 	                   dl_array_strategy_double);
 
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 2, dl_true);
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3, dl_true);
 	if (e) goto cleanup;
 
 	if (expression->compoundExpressions[1].type != duckLisp_ast_type_expression) {

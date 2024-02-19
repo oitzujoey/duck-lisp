@@ -196,6 +196,7 @@ typedef struct {
 #ifdef USE_PARENTHESIS_INFERENCE
 	dl_array_t parenthesisInferrerTypes_array;  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */
 	dl_size_t maxInferenceVmObjects;
+	dl_array_t inferrerLog;  /* dl_array_t:dl_uint8_t */
 #endif /* USE_PARENTHESIS_INFERENCE */
 
 	dl_size_t gensym_number;

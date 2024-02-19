@@ -26,9 +26,6 @@ SOFTWARE.
 #ifdef USE_PARENTHESIS_INFERENCE
 #include "parenthesis-inferrer.h"
 #endif /* USE_PARENTHESIS_INFERENCE */
-#ifdef USE_STDLIB
-#include <stdio.h>
-#endif /* USE_STDLIB */
 #include "DuckLib/string.h"
 
 static dl_error_t duckLisp_error_pushSyntax(duckLisp_t *duckLisp,
@@ -409,35 +406,6 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t ast_print_expression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression) {
-	dl_error_t e = dl_error_ok;
-
-	if (expression.compoundExpressions_length == 0) {
-		printf("NIL");
-		goto cleanup;
-	}
-	putchar('(');
-	for (dl_size_t i = 0; i < expression.compoundExpressions_length; i++) {
-		e = ast_print_compoundExpression(duckLisp, expression.compoundExpressions[i]);
-		if (i == expression.compoundExpressions_length - 1) {
-			putchar(')');
-		}
-		else {
-			putchar(' ');
-		}
-		if (e) goto cleanup;
-	}
-
- cleanup: return e;
-}
-
-#ifdef USE_PARENTHESIS_INFERENCE
-static dl_error_t ast_print_literalExpression(duckLisp_t duckLisp, duckLisp_ast_expression_t expression) {
-	putchar('#');
-	return ast_print_expression(duckLisp, expression);
-}
-#endif /* USE_PARENTHESIS_INFERENCE */
-
 
 void ast_identifier_init(duckLisp_ast_identifier_t *identifier) {
 	identifier->value = dl_null;
@@ -531,36 +499,6 @@ static dl_error_t parse_identifier(duckLisp_t *duckLisp,
  cleanup: return e;
 }
 
-static void ast_print_identifier(duckLisp_t duckLisp, duckLisp_ast_identifier_t identifier) {
-	(void) duckLisp;
-
-	putchar('\'');
-	if (identifier.value_length == 0) {
-		printf("{NULL}");
-		return;
-	}
-
-	for (dl_size_t i = 0; i < identifier.value_length; i++) {
-		putchar(identifier.value[i]);
-	}
-}
-
-
-#ifdef USE_PARENTHESIS_INFERENCE
-static void ast_print_callback(duckLisp_t duckLisp, duckLisp_ast_identifier_t identifier) {
-	(void) duckLisp;
-
-	putchar('#');
-	if (identifier.value_length == 0) {
-		printf("{NULL}");
-		return;
-	}
-
-	for (dl_size_t i = 0; i < identifier.value_length; i++) {
-		putchar(identifier.value[i]);
-	}
-}
-#endif /* USE_PARENTHESIS_INFERENCE */
 
 static dl_error_t parse_callback(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
@@ -666,8 +604,8 @@ static dl_error_t parse_bool(duckLisp_t *duckLisp,
 	dl_ptrdiff_t indexCopy = start_index;
 	dl_ptrdiff_t stop_index = start_index;
 	dl_bool_t tempBool;
-	const size_t sizeOfTrue = sizeof("true") - 1;
-	const size_t sizeOfFalse = sizeof("false") - 1;
+	const dl_size_t sizeOfTrue = sizeof("true") - 1;
+	const dl_size_t sizeOfFalse = sizeof("false") - 1;
 
 	if (source_length <= indexCopy + sizeOfTrue) {
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -733,12 +671,6 @@ static dl_error_t parse_bool(duckLisp_t *duckLisp,
 
  cleanup:
 	return e;
-}
-
-static void ast_print_bool(duckLisp_t duckLisp, duckLisp_ast_bool_t boolean) {
-	(void) duckLisp;
-
-	printf("%s", boolean.value ? "true" : "false");
 }
 
 
@@ -875,12 +807,6 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
  cleanup: return e;
 }
 
-static void ast_print_int(duckLisp_t duckLisp, duckLisp_ast_integer_t integer) {
-	(void) duckLisp;
-
-	printf("%li", integer.value);
-}
-
 
 void ast_float_init(duckLisp_ast_float_t *floatingPoint) {
 	floatingPoint->value = 0.0;
@@ -914,6 +840,7 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 	dl_ptrdiff_t stop_index = start_index;
 	dl_bool_t tempBool;
 	dl_bool_t hasDecimalPointOrExponent = dl_false;
+	duckLisp_ast_float_t floatingPoint;
 
 	if (indexCopy >= (dl_ptrdiff_t) source_length) {
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -1088,7 +1015,6 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 
 	stop_index = indexCopy;
 
-	duckLisp_ast_float_t floatingPoint;
 	e = dl_string_toDouble(&floatingPoint.value, &source[start_index], stop_index - start_index);
 	if (e) {
 		eError = duckLisp_error_pushSyntax(duckLisp,
@@ -1107,12 +1033,6 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 	*index = stop_index;
 
  cleanup: return e;
-}
-
-static void ast_print_float(duckLisp_t duckLisp, duckLisp_ast_float_t floatingPoint) {
-	(void) duckLisp;
-
-	printf("%e", floatingPoint.value);
 }
 
 
@@ -1264,32 +1184,6 @@ static dl_error_t parse_string(duckLisp_t *duckLisp,
 	*index = stop_index;
 
  cleanup: return e;
-}
-
-static void ast_print_string(duckLisp_t duckLisp, duckLisp_ast_string_t string) {
-	(void) duckLisp;
-
-	if (string.value_length == 0) {
-		printf("{NULL}");
-		return;
-	}
-
-	putchar('"');
-	for (dl_size_t i = 0; i < string.value_length; i++) {
-		if (string.value[i] == '\n') {
-			putchar ('\\');
-			putchar ('n');
-		}
-		else {
-			switch (string.value[i]) {
-			case '"':
-			case '\\':
-				putchar('\\');
-			}
-			putchar(string.value[i]);
-		}
-	}
-	putchar('"');
 }
 
 
@@ -1444,46 +1338,6 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
  cleanup: return e;
 }
 
-dl_error_t ast_print_compoundExpression(duckLisp_t duckLisp, duckLisp_ast_compoundExpression_t compoundExpression) {
-	dl_error_t e = dl_error_ok;
-
-	switch (compoundExpression.type) {
-	case duckLisp_ast_type_bool:
-		/**/ ast_print_bool(duckLisp, compoundExpression.value.boolean);
-		break;
-	case duckLisp_ast_type_int:
-		/**/ ast_print_int(duckLisp, compoundExpression.value.integer);
-		break;
-	case duckLisp_ast_type_float:
-		/**/ ast_print_float(duckLisp, compoundExpression.value.floatingPoint);
-		break;
-	case duckLisp_ast_type_string:
-		/**/ ast_print_string(duckLisp, compoundExpression.value.string);
-		break;
-#ifdef USE_PARENTHESIS_INFERENCE
-	case duckLisp_ast_type_callback:
-		/**/ ast_print_callback(duckLisp, compoundExpression.value.identifier);
-		break;
-#endif /* USE_PARENTHESIS_INFERENCE */
-	case duckLisp_ast_type_identifier:
-		/**/ ast_print_identifier(duckLisp, compoundExpression.value.identifier);
-		break;
-#ifdef USE_PARENTHESIS_INFERENCE
-	case duckLisp_ast_type_literalExpression:
-		e = ast_print_literalExpression(duckLisp, compoundExpression.value.expression);
-		break;
-#endif /* USE_PARENTHESIS_INFERENCE */
-	case duckLisp_ast_type_expression:
-		e = ast_print_expression(duckLisp, compoundExpression.value.expression);
-		break;
-	default:
-		printf("Compound expression: Type %u\n", compoundExpression.type);
-		e = dl_error_shouldntHappen;
-	}
-
-	return e;
-}
-
 
 void parser_postprocess_compoundExpression(duckLisp_ast_compoundExpression_t *compoundExpression) {
 	if (compoundExpression->type == duckLisp_ast_type_callback) {
@@ -1532,6 +1386,7 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
 		e = duckLisp_inferParentheses(duckLisp->memoryAllocation,
 		                     maxComptimeVmObjects,
 		                     &duckLisp->errors,
+		                     &duckLisp->inferrerLog,
 		                     fileName,
 		                     fileName_length,
 		                     ast,

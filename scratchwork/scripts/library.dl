@@ -75,7 +75,7 @@
 (bvar duckLisp-object-type-str (type-of ""))
 (bvar duckLisp-object-type-list (type-of ()))
 (bvar duckLisp-object-type-symbol (type-of (quote _)))
-(bvar duckLisp-object-type-closure (type-of (lambda ())))
+(bvar duckLisp-object-type-closure (type-of (lambda () ())))
 (bvar duckLisp-object-type-vector (type-of (vector)))
 (bvar duckLisp-object-type-type (type-of (type-of ())))
 

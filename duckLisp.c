@@ -22,9 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifdef USE_STDLIB
-#include <stdio.h>
-#endif /* USE_STDLIB */
 #include "duckLisp.h"
 #include "DuckLib/array.h"
 #include "DuckLib/core.h"
@@ -1609,6 +1606,9 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 #endif /* USE_PARENTHESIS_INFERENCE */
                          ) {
 	dl_error_t error = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	dl_array_t eString;
+	(void) dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	/* All language-defined generators go here. */
 	struct {
@@ -1942,6 +1942,10 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                     duckLisp->memoryAllocation,
 	                     sizeof(duckLisp_parenthesisInferrer_declarationPrototype_t),
 	                     dl_array_strategy_double);
+	(void) dl_array_init(&duckLisp->inferrerLog,
+	                     duckLisp->memoryAllocation,
+	                     sizeof(dl_uint8_t),
+	                     dl_array_strategy_double);
 #endif /* USE_PARENTHESIS_INFERENCE */
 	/* No error */ dl_trie_init(&duckLisp->comptimeGlobals_trie, duckLisp->memoryAllocation, -1);
 	/* No error */ dl_trie_init(&duckLisp->runtimeGlobals_trie, duckLisp->memoryAllocation, -1);
@@ -1973,7 +1977,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 #endif /* USE_PARENTHESIS_INFERENCE */
 		                              );
 		if (error) {
-			printf("Could not register generator. (%s)\n", dl_errorString[error]);
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Could not register generator."));
+			if (eError) error = eError;
 			goto cleanup;
 		}
 	}
@@ -1995,7 +2000,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 #endif /* USE_PARENTHESIS_INFERENCE */
 		                               );
 		if (error) {
-			printf("Could not create function. (%s)\n", dl_errorString[error]);
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Could not create C callback."));
+			if (eError) error = eError;
 			goto cleanup;
 		}
 	}
@@ -2005,12 +2011,15 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		                         duckLisp_symbol_nameToValue(duckLisp, callbacks[i].name, callbacks[i].name_length),
 		                         callbacks[i].callback);
 		if (error) {
-			printf("Could not link callback into VM. (%s)\n", dl_errorString[error]);
+			eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Could not link callback into VM."));
+			if (eError) error = eError;
 			goto cleanup;
 		}
 	}
 
  cleanup:
+	eError = dl_array_quit(&eString);
+	if (eError) error = eError;
 	return error;
 }
 
@@ -2030,9 +2039,12 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 		e = dl_array_get(&duckLisp->parenthesisInferrerTypes_array, &prototype, i);
 		e = DL_FREE(memoryAllocation, &prototype.name);
 		e = DL_FREE(memoryAllocation, &prototype.type);
-		e = DL_FREE(memoryAllocation, &prototype.script);
+		if (prototype.script != dl_null) {
+			e = DL_FREE(memoryAllocation, &prototype.script);
+		}
 	}
 	e = dl_array_quit(&duckLisp->parenthesisInferrerTypes_array);
+	e = dl_array_quit(&duckLisp->inferrerLog);
 #endif /* USE_PARENTHESIS_INFERENCE */
 	e = dl_trie_quit(&duckLisp->comptimeGlobals_trie);
 	e = dl_trie_quit(&duckLisp->runtimeGlobals_trie);
@@ -2050,21 +2062,6 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 	e = dl_trie_quit(&duckLisp->parser_actions_trie);
 	e = dl_array_quit(&duckLisp->parser_actions_array);
 	(void) e;
-}
-
-
-dl_error_t duckLisp_ast_print(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t ast) {
-	dl_error_t e = dl_error_ok;
-
-	e = ast_print_compoundExpression(*duckLisp, ast);
-	putchar('\n');
-	if (e) {
-		goto l_cleanup;
-	}
-
- l_cleanup:
-
-	return e;
 }
 
 
@@ -2344,9 +2341,14 @@ dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
 		(void) dl_memcopy_noOverlap(prototype.type, typeString, typeString_length);
 		prototype.type_length = typeString_length;
 		/* Functions can't declare variables, except globals, which I'm ignoring for now. */
-		e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.script, declarationScript_length, dl_uint8_t);
-		if (e) goto cleanup;
-		(void) dl_memcopy_noOverlap(prototype.script, declarationScript, declarationScript_length);
+		if (declarationScript_length > 0) {
+			e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.script, declarationScript_length, dl_uint8_t);
+			if (e) goto cleanup;
+			(void) dl_memcopy_noOverlap(prototype.script, declarationScript, declarationScript_length);
+		}
+		else {
+			prototype.script = dl_null;
+		}
 		prototype.script_length = declarationScript_length;
 		e = dl_array_pushElement(&duckLisp->parenthesisInferrerTypes_array, &prototype);
 		if (e) goto cleanup;
@@ -2383,9 +2385,14 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 	if (e) goto cleanup;
 	(void) dl_memcopy_noOverlap(prototype.name, name, name_length);
 	prototype.name_length = name_length;
-	e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.type, typeString_length, dl_uint8_t);
-	if (e) goto cleanup;
-	(void) dl_memcopy_noOverlap(prototype.type, typeString, typeString_length);
+	if (typeString_length > 0) {
+		e = DL_MALLOC(duckLisp->memoryAllocation, &prototype.type, typeString_length, dl_uint8_t);
+		if (e) goto cleanup;
+		(void) dl_memcopy_noOverlap(prototype.type, typeString, typeString_length);
+	}
+	else {
+		prototype.type = dl_null;
+	}
 	prototype.type_length = typeString_length;
 	/* Functions can't declare variables, except globals, which I'm ignoring for now. */
 	prototype.script = dl_null;
@@ -3100,6 +3107,20 @@ dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp) {
 	e = dl_array_pushElements(string_array, DL_STR("maxInferenceVmObjects = "));
 	if (e) goto cleanup;
 	e = dl_string_fromSize(string_array, duckLisp.maxInferenceVmObjects);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("inferrerLog["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.inferrerLog.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = \""));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, duckLisp.inferrerLog.elements, duckLisp.inferrerLog.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));

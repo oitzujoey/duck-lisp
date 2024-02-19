@@ -28,7 +28,6 @@ SOFTWARE.
 #include "DuckLib/memory.h"
 #include "DuckLib/string.h"
 #include "duckLisp.h"
-#include <stdio.h>
 
 
 duckVM_object_t duckVM_object_makeUpvalueArray(duckVM_object_t **upvalues, dl_size_t length);
@@ -318,7 +317,6 @@ static dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **o
 	// Try once
 	if (gclist->freeObjects_length == 0) {
 		// STOP THE WORLD
-		puts("Collect");
 		e = duckVM_gclist_garbageCollect(duckVM);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_gclist_pushObject: Garbage collection failed."));
@@ -811,7 +809,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	case duckLisp_instruction_pushUpvalue8:
 		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
 		{
-			// Like to live dangerously?
+			duckVM_upvalueArray_t upvalueArray;
 			if (ptrdiff1 < 0) {
 				e = dl_error_invalidValue;
 				eError = duckVM_error_pushRuntime(duckVM,
@@ -819,7 +817,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				if (!e) e = eError;
 				break;
 			}
-			duckVM_upvalueArray_t upvalueArray;
 			e = dl_array_getTop(&duckVM->upvalue_array_call_stack, &upvalueArray);
 			if (e) {
 				eError = duckVM_error_pushRuntime(duckVM,
@@ -4535,27 +4532,28 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 
  cleanup:
 
-	if (e) {
-		puts("VM ERROR");
-		printf("ip 0x%lX\n", (dl_size_t) (ip - bytecode));
-		printf("*ip 0x%X\n", *ip);
-	}
-	else if (halt == duckVM_halt_mode_yield) {
-		if (return_value != dl_null) {
-			/* Don't pop anything here so that the compiler can predict the starting stack length for the next run. */
-			if (duckVM->stack.elements_length == 0) {
-				/* Return nil if nothing on stack. */
-				return_value->type = duckVM_object_type_list;
-				return_value->value.list = dl_null;
-			}
-			else {
-				*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t);
+	if (!e) {
+		if (halt == duckVM_halt_mode_yield) {
+			if (return_value != dl_null) {
+				/* Don't pop anything here so that the compiler can predict the starting stack length for the next
+				   run. */
+				if (duckVM->stack.elements_length == 0) {
+					/* Return nil if nothing on stack. */
+					return_value->type = duckVM_object_type_list;
+					return_value->value.list = dl_null;
+				}
+				else {
+					*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t);
+				}
 			}
 		}
-	}
-	else {
-		if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
-		e = stack_pop(duckVM, return_value);
+		else if (halt == duckVM_halt_mode_halt) {
+			if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
+			e = stack_pop(duckVM, return_value);
+		}
+		else {
+			*return_value = duckVM_object_makeList(dl_null);
+		}
 	}
 
 	return e;
@@ -4587,7 +4585,6 @@ dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (
 ///////////////////////////////////////
 
 dl_error_t duckVM_garbageCollect(duckVM_t *duckVM) {
-	puts("Force collect");
 	return duckVM_gclist_garbageCollect(duckVM);
 }
 

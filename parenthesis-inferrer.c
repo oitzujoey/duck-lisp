@@ -28,8 +28,6 @@ SOFTWARE.
 #include "duckVM.h"
 #include "parser.h"
 
-#include <stdio.h>
-
 
 /* This contains the parenthesis inferrer for duck-lisp. When Forth-like syntax mode is enabled the raw AST from the
    reader is only partially complete. Forth syntax is not context free, so another stage (this one) is desirable. It
@@ -292,7 +290,7 @@ static dl_error_t inferrerType_prettyPrint(dl_array_t *string_array, inferrerTyp
 	e = inferrerTypeSignature_prettyPrint(string_array, inferrerType.type);
 	if (e) goto cleanup;
 
-	/* e = duckVM_bytecode_prettyPrint(string_array, inferrerType.bytecode); */
+	e = duckVM_bytecode_prettyPrint(string_array, inferrerType.bytecode);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR("}"));
@@ -347,6 +345,7 @@ typedef struct {
 	duckLisp_t duckLisp;
 	duckVM_t duckVM;
 	dl_array_t *errors;  /* dl_array_t:duckLisp_error_t */
+	dl_array_t *log;  /* dl_array_t:dl_uint8_t */
 	const dl_uint8_t *fileName;
 	dl_size_t fileName_length;
 	dl_array_t scopeStack;  /* dl_array_t:inferrerScope_t */
@@ -361,7 +360,7 @@ static dl_error_t inferrerState_prettyPrint(dl_array_t *string_array, inferrerSt
 
 	e = dl_array_pushElements(string_array, DL_STR("duckLisp = "));
 	if (e) goto cleanup;
-	/* e = duckLisp_duckLisp_prettyPrint(string_array, inferrerState.duckLisp); */
+	e = duckLisp_prettyPrint(string_array, inferrerState.duckLisp);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));
@@ -369,7 +368,7 @@ static dl_error_t inferrerState_prettyPrint(dl_array_t *string_array, inferrerSt
 
 	e = dl_array_pushElements(string_array, DL_STR("duckVM = "));
 	if (e) goto cleanup;
-	/* e = duckVM_duckVM_prettyPrint(string_array, inferrerState.duckVM); */
+	e = duckVM_prettyPrint(string_array, inferrerState.duckVM);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));
@@ -386,7 +385,8 @@ static dl_error_t inferrerState_prettyPrint(dl_array_t *string_array, inferrerSt
 		if (e) goto cleanup;
 
 		DL_DOTIMES(i, inferrerState.errors->elements_length) {
-			/* e = duckLisp_error_prettyPrint(string_array, DL_ARRAY_GETADDRESS(*inferrerState.errors, duckLisp_error_t, i)); */
+			e = duckLisp_error_prettyPrint(string_array,
+			                               DL_ARRAY_GETADDRESS(*inferrerState.errors, duckLisp_error_t, i));
 			if (e) goto cleanup;
 			if ((dl_size_t) i != inferrerState.errors->elements_length - 1) {
 				e = dl_array_pushElements(string_array, DL_STR(", "));
@@ -395,6 +395,24 @@ static dl_error_t inferrerState_prettyPrint(dl_array_t *string_array, inferrerSt
 		}
 
 		e = dl_array_pushElements(string_array, DL_STR("}"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("log = "));
+	if (e) goto cleanup;
+	if (inferrerState.log == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("\""));
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, inferrerState.log->elements, inferrerState.log->elements_length);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("\""));
 		if (e) goto cleanup;
 	}
 
@@ -502,7 +520,7 @@ static dl_error_t vmContext_prettyPrint(dl_array_t *string_array, vmContext_t vm
 		e = dl_array_pushElements(string_array, DL_STR("NULL"));
 	}
 	else {
-		/* e = duckLisp_ast_expression_prettyPrint(string_array, *vmContext.expression); */
+		e = duckLisp_ast_expression_prettyPrint(string_array, *vmContext.expression);
 	}
 	if (e) goto cleanup;
 
@@ -533,7 +551,7 @@ static dl_error_t vmContext_prettyPrint(dl_array_t *string_array, vmContext_t vm
 		if (e) goto cleanup;
 
 		DL_DOTIMES(i, vmContext.newExpression->elements_length) {
-			/* e = duckLisp_ast_compoundExpression_prettyPrint(string_array, DL_ARRAY_GETADDRESS(*vmContext.newExpression, duckLisp_ast_compoundExpression_t, i)); */
+			e = duckLisp_ast_compoundExpression_prettyPrint(string_array, DL_ARRAY_GETADDRESS(*vmContext.newExpression, duckLisp_ast_compoundExpression_t, i));
 			if (e) goto cleanup;
 			if ((dl_size_t) i != vmContext.newExpression->elements_length - 1) {
 				e = dl_array_pushElements(string_array, DL_STR(", "));
@@ -587,6 +605,13 @@ static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
                                                const dl_size_t message_length);
 
 
+static dl_error_t inferrerState_log(inferrerState_t *inferrerState,
+                                    const dl_uint8_t *message,
+                                    const dl_size_t message_length) {
+	return dl_array_pushElements(inferrerState->log, message, message_length);
+}
+
+
 static void inferrerTypeSignature_init(inferrerTypeSignature_t *inferrerTypeSignature) {
 	inferrerTypeSignature->type = inferrerTypeSignature_type_symbol;
 	inferrerTypeSignature->value.symbol = inferrerTypeSymbol_L;
@@ -624,34 +649,49 @@ static dl_error_t inferrerTypeSignature_quit(inferrerTypeSignature_t *inferrerTy
 	return e;
 }
 
-void inferrerTypeSignature_print(inferrerTypeSignature_t inferrerTypeSignature) {
+dl_error_t inferrerTypeSignature_serialize(inferrerState_t *state, inferrerTypeSignature_t inferrerTypeSignature) {
+	dl_error_t e = dl_error_ok;
+
 	if (inferrerTypeSignature.type == inferrerTypeSignature_type_symbol) {
 		if (inferrerTypeSignature.value.symbol == inferrerTypeSymbol_L) {
-			printf("L");
+			e = inferrerState_log(state, DL_STR("L"));
 		}
 		else {
-			printf("I");
+			e = inferrerState_log(state, DL_STR("I"));
 		}
+		if (e) goto cleanup;
 	}
 	else {
-		printf("(");
 		dl_bool_t first = dl_true;
+		e = inferrerState_log(state, DL_STR("("));
+		if (e) goto cleanup;
 		DL_DOTIMES(j, inferrerTypeSignature.value.expression.positionalSignatures_length) {
 			if (first) {
 				first = dl_false;
 			}
 			else {
-				printf(" ");
+				e = inferrerState_log(state, DL_STR(" "));
+				if (e) goto cleanup;
 			}
-			inferrerTypeSignature_print(inferrerTypeSignature.value.expression.positionalSignatures[j]);
+			inferrerTypeSignature_serialize(state, inferrerTypeSignature.value.expression.positionalSignatures[j]);
 		}
 		if (inferrerTypeSignature.value.expression.variadic) {
-			if (inferrerTypeSignature.value.expression.positionalSignatures_length > 0) putchar(' ');
-			printf("&rest %zi ", inferrerTypeSignature.value.expression.defaultRestLength);
-			inferrerTypeSignature_print(*inferrerTypeSignature.value.expression.restSignature);
+			if (inferrerTypeSignature.value.expression.positionalSignatures_length > 0) {
+				e = inferrerState_log(state, DL_STR(" "));
+				if (e) goto cleanup;
+			}
+			e = inferrerState_log(state, DL_STR("&rest "));
+			if (e) goto cleanup;
+			e = dl_string_fromPtrdiff(state->log, inferrerTypeSignature.value.expression.defaultRestLength);
+			if (e) goto cleanup;
+			e = inferrerState_log(state, DL_STR(" "));
+			if (e) goto cleanup;
+			inferrerTypeSignature_serialize(state, *inferrerTypeSignature.value.expression.restSignature);
 		}
-		printf(")");
+		if (e) goto cleanup;
+		e = inferrerState_log(state, DL_STR(")"));
 	}
+ cleanup: return e;
 }
 
 static dl_error_t inferrerTypeSignature_fromAst(inferrerState_t *state,
@@ -834,15 +874,16 @@ static dl_error_t inferrerState_init(inferrerState_t *inferrerState,
                                      dl_memoryAllocation_t *memoryAllocation,
                                      dl_size_t maxComptimeVmObjects,
                                      dl_array_t *errors,
+                                     dl_array_t *log,
                                      const dl_uint8_t *fileName,
                                      const dl_size_t fileName_length) {
 	dl_error_t e = dl_error_ok;
 
 	dl_array_t *inferrerContext = dl_null;
-	e = DL_MALLOC(inferrerState->memoryAllocation, &inferrerContext, 1, vmContext_t);
+	e = DL_MALLOC(memoryAllocation, &inferrerContext, 1, vmContext_t);
 	if (e) goto cleanup;
 	(void) dl_array_init(inferrerContext,
-	                     inferrerState->memoryAllocation,
+	                     memoryAllocation,
 	                     sizeof(vmContext_t),
 	                     dl_array_strategy_double);
 	inferrerState->memoryAllocation = memoryAllocation;
@@ -852,6 +893,7 @@ static dl_error_t inferrerState_init(inferrerState_t *inferrerState,
 	if (e) goto cleanup;
 	inferrerState->duckVM.inferrerContext = inferrerContext;
 	inferrerState->errors = errors;
+	inferrerState->log = log;
 	inferrerState->fileName = fileName;
 	inferrerState->fileName_length = fileName_length;
 	(void) dl_array_init(&inferrerState->scopeStack,
@@ -879,6 +921,7 @@ static dl_error_t inferrerState_quit(inferrerState_t *inferrerState) {
 	inferrerState->fileName_length = 0;
 	inferrerState->fileName = dl_null;
 	inferrerState->errors = dl_null;
+	inferrerState->log = dl_null;
 	e = dl_array_quit((dl_array_t *) inferrerState->duckVM.inferrerContext);
 	eError = DL_FREE(inferrerState->memoryAllocation, &inferrerState->duckVM.inferrerContext);
 	if (eError) e = eError;
@@ -1296,17 +1339,19 @@ static dl_error_t inferArgument(inferrerState_t *state,
 		if (e) goto cleanup;
 
 		if (!infer) {
-			printf("\x1B[34m");
+			e = inferrerState_log(state, DL_STR("\x1B[34m"));
 		}
 		else if (found && infer) {
-			printf("\x1B[32m");
+			e = inferrerState_log(state, DL_STR("\x1B[32m"));
 		}
 		else {
-			printf("\x1B[31m");
+			e = inferrerState_log(state, DL_STR("\x1B[31m"));
 		}
-		DL_DOTIMES(i, compoundExpression->value.identifier.value_length) {
-			putchar(compoundExpression->value.identifier.value[i]);
-		}
+		if (e) goto cleanup;
+		e = inferrerState_log(state,
+		                      compoundExpression->value.identifier.value,
+		                      compoundExpression->value.identifier.value_length);
+		if (e) goto cleanup;
 
 		if (found && infer) {
 			/* Declared */
@@ -1314,9 +1359,12 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				/* Execute bytecode */
 			}
 
-			printf("::");
-			inferrerTypeSignature_print(type.type);
-			puts("\x1B[0m");
+			e = inferrerState_log(state, DL_STR("::"));
+			if (e) goto cleanup;
+			e = inferrerTypeSignature_serialize(state, type.type);
+			if (e) goto cleanup;
+			e = inferrerState_log(state, DL_STR("\x1B[0m\n"));
+			if (e) goto cleanup;
 
 			/* lol */
 			if (type.type.type == inferrerTypeSignature_type_expression) {
@@ -1420,17 +1468,22 @@ static dl_error_t inferArgument(inferrerState_t *state,
 		else {
 			if (found) {
 				/* Inference disabled */
-				printf("::");
-				inferrerTypeSignature_print(type.type);
-				puts("\x1B[0m");
+				e = inferrerState_log(state, DL_STR("::"));
+				if (e) goto cleanup;
+				inferrerTypeSignature_serialize(state, type.type);
+				inferrerState_log(state, DL_STR("\x1B[0m\n"));
 				e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 				if (e) goto cleanup;
 			}
 			else {
 				/* Undeclared */
-				puts("::Undeclared\x1B[0m");
+				inferrerState_log(state, DL_STR("::Undeclared\x1B[0m\n"));
 				e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 				if (e) goto cleanup;
+				if (infer) {
+					e = dl_error_invalidValue;
+					goto cleanup;
+				}
 			}
 		}
 	}
@@ -1546,14 +1599,14 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		}
 		else {
 			/* Undeclared. */
-			printf("\x1B[31m");
-			DL_DOTIMES(i, expressionIdentifier.value_length) {
-				putchar(expressionIdentifier.value[i]);
-			}
-			puts("::Undeclared\x1B[0m");
+			inferrerState_log(state, DL_STR("\x1B[31m"));
+			inferrerState_log(state, expressionIdentifier.value, expressionIdentifier.value_length);
+			inferrerState_log(state, DL_STR("::Undeclared\x1B[0m\n"));
 			/* Argument inference stuff goes here. */
 			e = inferArguments(state, fileName, fileName_length, expression, 1, infer);
 			if (e) goto cleanup;
+			e = dl_error_invalidValue;
+			goto cleanup;
 		}
 	}
 	else {
@@ -1842,6 +1895,7 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 dl_error_t duckLisp_inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                                      const dl_size_t maxComptimeVmObjects,
                                      dl_array_t *errors,
+                                     dl_array_t *log,
                                      const dl_uint8_t *fileName,
                                      const dl_size_t fileName_length,
                                      duckLisp_ast_compoundExpression_t *ast,
@@ -1850,8 +1904,8 @@ dl_error_t duckLisp_inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	dl_error_t eError = dl_error_ok;
 
 	inferrerState_t state;
-	e = inferrerState_init(&state, memoryAllocation, maxComptimeVmObjects, errors, fileName, fileName_length);
-	if (e) goto cleanup;
+	e = inferrerState_init(&state, memoryAllocation, maxComptimeVmObjects, errors, log, fileName, fileName_length);
+	if (e) return e;
 
 	struct {
 		dl_uint8_t *name;
