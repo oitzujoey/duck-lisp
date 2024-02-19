@@ -829,7 +829,9 @@ dl_error_t duckLisp_functionType_prettyPrint(dl_array_t *string_array, duckLisp_
 dl_error_t duckLisp_scope_prettyPrint(dl_array_t *string_array, duckLisp_scope_t scope);
 dl_error_t duckLisp_subCompileState_prettyPrint(dl_array_t *string_array, duckLisp_subCompileState_t subCompileState);
 dl_error_t duckLisp_compileState_prettyPrint(dl_array_t *string_array, duckLisp_compileState_t compileState);
+#ifdef USE_DATALOGGING
 dl_error_t duckLisp_datalog_prettyPrint(dl_array_t *string_array, duckLisp_datalog_t datalog);
+#endif /* USE_DATALOGGING */
 dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp);
 dl_error_t duckLisp_instructionArgClass_type_prettyPrint(dl_array_t *string_array,
                                                          duckLisp_instructionArgClass_type_t type);
