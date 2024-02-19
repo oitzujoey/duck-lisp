@@ -2064,6 +2064,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			break;
 		}
 		case duckLisp_instructionClass_releaseUpvalues: {
+			byte_length = 1;
 			DL_DOTIMES(k, instruction.args.elements_length) {
 				dl_size_t arg = args[k].value.integer;
 				if (arg < 0x00000100UL) {
