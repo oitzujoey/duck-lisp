@@ -367,9 +367,11 @@ static dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **o
 				if (!e) e = eError;
 				goto cleanup;
 			}
-			/**/ dl_memcopy_noOverlap(heapObject->value.internal_vector.values,
-			                          objectIn.value.internal_vector.values,
-			                          objectIn.value.internal_vector.length * sizeof(duckVM_object_t *));
+			if (objectIn.value.internal_vector.initialized) {
+				(void) dl_memcopy_noOverlap(heapObject->value.internal_vector.values,
+				                            objectIn.value.internal_vector.values,
+				                            objectIn.value.internal_vector.length * sizeof(duckVM_object_t *));
+			}
 		}
 		else {
 			heapObject->value.internal_vector.values = dl_null;
