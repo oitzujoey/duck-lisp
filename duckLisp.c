@@ -1960,6 +1960,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                     duckLisp->memoryAllocation,
 	                     sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
 	                     dl_array_strategy_double);
+	duckLisp->parser_max_recursion_depth = 1000;  /* This is the default. It is OK for the user to change. */
+	duckLisp->parser_recursion_depth = 0;  /* Don't change this. */
 
 	duckLisp->gensym_number = 0;
 
@@ -3195,6 +3197,22 @@ dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp) {
 	e = dl_string_fromSize(string_array, duckLisp.parser_actions_array.elements_length);
 	if (e) goto cleanup;
 	e = dl_array_pushElements(string_array, DL_STR("] = {...}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("parser_recursion_depth = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.parser_recursion_depth);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("parser_max_recursion_depth = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.parser_max_recursion_depth);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));

@@ -1269,6 +1269,7 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
                                              dl_ptrdiff_t *index,
                                              dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 	(void) throwErrors;
 
 	dl_ptrdiff_t start_index = *index;
@@ -1299,6 +1300,20 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 		{.reader = parse_identifier,        .type = duckLisp_ast_type_identifier},
 		{.reader = parse_expression,        .type = duckLisp_ast_type_expression},
 	};
+
+	if (duckLisp->parser_recursion_depth >= duckLisp->parser_max_recursion_depth) {
+		e = dl_error_bufferOverflow;
+		eError = duckLisp_error_pushSyntax(duckLisp,
+		                                   DL_STR("Max expression recursion depth met."),
+		                                   fileName,
+		                                   fileName_length,
+		                                   *index,
+		                                   *index,
+		                                   dl_true);
+		if (eError) e = eError;
+		goto cleanup;
+	}
+	duckLisp->parser_recursion_depth++;
 
 	(void) parse_irrelevant(dl_null,
 	                        source,
@@ -1368,6 +1383,7 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
                          duckLisp_ast_compoundExpression_t *ast,
                          dl_ptrdiff_t index,
                          dl_bool_t throwErrors) {
+	duckLisp->parser_recursion_depth = 0;
 	dl_error_t e = duckLisp_parse_compoundExpression(duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 	                                                 parenthesisInferenceEnabled,

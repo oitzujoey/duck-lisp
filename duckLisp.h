@@ -209,6 +209,8 @@ typedef struct {
 
 	dl_trie_t parser_actions_trie;  /* Index points to the C callback in `parser_actions_array` */
 	dl_array_t parser_actions_array;  /* dl_array_t:dl_error_t(*)(duckLisp_t*, duckLisp_ast_expression_t*) */
+	dl_size_t parser_recursion_depth;
+	dl_size_t parser_max_recursion_depth;
 
 	/* A VM instance for macros. */
 	duckVM_t vm;
