@@ -2164,7 +2164,8 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp,
 				                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
 			cleanupProgn1:
-				e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+				eError = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+				if (eError) e = eError;
 				if (e) goto free_gensym_start;
 			}
 
@@ -2241,7 +2242,8 @@ dl_error_t duckLisp_generator_while(duckLisp_t *duckLisp,
 				                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
 			cleanupProgn2:
-				e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+				eError = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+				if (eError) e = eError;
 				if (e) goto free_gensym_end;
 			}
 
@@ -2412,7 +2414,8 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
 		cleanupProgn1:
-			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			eError = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			if (eError) e = eError;
 			if (e) goto cleanup;
 		}
 		goto cleanup;
@@ -2459,7 +2462,8 @@ dl_error_t duckLisp_generator_unless(duckLisp_t *duckLisp,
 			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
 		cleanupProgn2:
-			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			eError = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			if (eError) e = eError;
 			if (e) goto free_gensym_end;
 		}
 		compileState->currentCompileState->locals_length = startStack_length;
@@ -2592,7 +2596,8 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp,
 			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
 		cleanupProgn1:
-			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			eError = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			if (eError) e = eError;
 			if (e) goto cleanup;
 		}
 		else {
@@ -2649,7 +2654,8 @@ dl_error_t duckLisp_generator_when(duckLisp_t *duckLisp,
 			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
 		cleanupProgn2:
-			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			eError = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			if (eError) e = eError;
 			if (e) goto free_gensym_end;
 		}
 		e = duckLisp_emit_label(duckLisp, compileState, assembly, gensym_end.value, gensym_end.value_length);
