@@ -1148,8 +1148,6 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 		}
 		switch (functionType) {
 		case duckLisp_functionType_ducklisp:
-			/* Fall through */
-		case duckLisp_functionType_ducklisp_pure:
 			e = duckLisp_generator_funcall(duckLisp, compileState, assembly, expression);
 			if (e) goto cleanup;
 			break;
@@ -2229,8 +2227,7 @@ dl_error_t duckLisp_addGlobal(duckLisp_t *duckLisp,
 
 dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
                                            duckLisp_compileState_t *compileState,
-                                           const duckLisp_ast_identifier_t name,
-                                           const dl_bool_t pure) {
+                                           const duckLisp_ast_identifier_t name) {
 	dl_error_t e = dl_error_ok;
 
 	duckLisp_scope_t scope;
@@ -2246,10 +2243,7 @@ dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
 	                   duckLisp_localsLength_get(compileState));
 	if (e) goto cleanup;
 
-	e = dl_trie_insert(&scope.functions_trie,
-	                   name.value,
-	                   name.value_length,
-	                   pure ? duckLisp_functionType_ducklisp_pure : duckLisp_functionType_ducklisp);
+	e = dl_trie_insert(&scope.functions_trie, name.value, name.value_length, duckLisp_functionType_ducklisp);
 	if (e) goto cleanup;
 
 	e = scope_setTop(compileState->currentCompileState, &scope);
@@ -2766,8 +2760,6 @@ dl_error_t duckLisp_functionType_prettyPrint(dl_array_t *string_array, duckLisp_
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_c"));
 	case duckLisp_functionType_ducklisp:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_ducklisp"));
-	case duckLisp_functionType_ducklisp_pure:
-		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_ducklisp_pure"));
 	case duckLisp_functionType_generator:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_generator"));
 	case duckLisp_functionType_macro:

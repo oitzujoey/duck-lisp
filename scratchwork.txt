@@ -2511,30 +2511,28 @@ All pretty printing functions should include value, type, and name.
 
 
 Todo:
-    Finish parenthesis inference
-        C: Add support for nested types? — L
+    Finish parenthesis inference?
+        C: Add support for nested types — L
             Alternatively I could rewrite the parser as some sort of dynamic Pratt parser.
-        SQUISH: Document inference algorithm — M
-    Fix C API — L
-        C: Add a bunch of `*_toString` functions — M
-        SQUISH: Document C API — M
     Fix bugs — L
         C/DL: Write lots of tests — M
     Fix error handling? — L
         C: Fix generator error reporting. — L
         C: Fix VM error reporting? — M?
-    Optimization?
+    Optimization? Should probably save for hypothetical DL2.
         C: Hash tables/Tries? — M
         C: Switch to stack VM? — M
         C: String interning? — M
         C: Rewrite memory allocator? — L
         C: Add option to strip symbols of their name in the runtime bytecode. — S
-    Document everything else? — L
-        SQUISH: Write overview of VM
+    Document — L
+        SQUISH: Document C API — M
+        SQUISH: Document inference algorithm — M
+        SQUISH: Write overview of VM?
     Clean up. — M
-        C: Remove "pure" function type or use it to make efficient functions.
         C: Remove `printf`s.
     Test on ARM — S
+    Test on Windows — M
     Clean up. — S
     Release 1!!!
     Create Hidey-Chess branch. — M

@@ -125,7 +125,6 @@ typedef enum {
 	duckLisp_functionType_c,
 	duckLisp_functionType_ducklisp,
 	/* Indicates that this procedure captures no upvalues. */
-	duckLisp_functionType_ducklisp_pure,
 	duckLisp_functionType_generator,
 	duckLisp_functionType_macro
 } duckLisp_functionType_t;
@@ -766,8 +765,7 @@ dl_error_t DECLSPEC duckLisp_scope_addObject(duckLisp_t *duckLisp,
                                              const dl_size_t name_length);
 dl_error_t duckLisp_addInterpretedFunction(duckLisp_t *duckLisp,
                                            duckLisp_compileState_t *compileState,
-                                           const duckLisp_ast_identifier_t name,
-                                           const dl_bool_t pure);
+                                           const duckLisp_ast_identifier_t name);
 dl_error_t duckLisp_addInterpretedGenerator(duckLisp_t *duckLisp,
                                             duckLisp_compileState_t *compileState,
                                             const duckLisp_ast_identifier_t name);

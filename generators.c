@@ -1375,8 +1375,7 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
                                          duckLisp_compileState_t *compileState,
                                          dl_array_t *assembly,
-                                         duckLisp_ast_expression_t *expression,
-                                         dl_bool_t *pure) {
+                                         duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -1423,7 +1422,7 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			duckLisp_ast_identifier_t identifier = {DL_STR("self")};
 			/* Since this is effectively a single pass compiler, I don't see a good way to determine purity before
 			   compilation of the body. */
-			e = duckLisp_addInterpretedFunction(duckLisp, compileState, identifier, dl_false);
+			e = duckLisp_addInterpretedFunction(duckLisp, compileState, identifier);
 			if (e) goto cleanup;
 		}
 		duckLisp_localsLength_increment(compileState);
@@ -1594,7 +1593,6 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			                              scope.function_uvs,
 			                              scope.function_uvs_length);
 			if (e) goto cleanup_gensym;
-			if (pure != dl_null) *pure = scope.function_uvs_length == 0;
 		}
 
 		{
@@ -1659,15 +1657,13 @@ dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
                                      duckLisp_compileState_t *compileState,
                                      dl_array_t *assembly,
                                      duckLisp_ast_expression_t *expression) {
-	return duckLisp_generator_lambda_raw(duckLisp, compileState, assembly, expression, dl_null);
+	return duckLisp_generator_lambda_raw(duckLisp, compileState, assembly, expression);
 }
 
-/* If `pure` is non-null, then it will treat the value form as a lambda NO MATTER WHAT. */
 dl_error_t duckLisp_generator_createVar_raw(duckLisp_t *duckLisp,
                                             duckLisp_compileState_t *compileState,
                                             dl_array_t *assembly,
-                                            duckLisp_ast_expression_t *expression,
-                                            dl_bool_t *pure) {
+                                            duckLisp_ast_expression_t *expression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -1698,24 +1694,15 @@ dl_error_t duckLisp_generator_createVar_raw(duckLisp_t *duckLisp,
 	/* This is not actually where stack variables are allocated. The magic happens in
 	   `duckLisp_generator_expression`. */
 	dl_size_t startLocals_length = duckLisp_localsLength_get(compileState);
-	if (pure != dl_null) {
-		e = duckLisp_generator_lambda_raw(duckLisp,
-		                                  compileState,
-		                                  assembly,
-		                                  &expression->compoundExpressions[2].value.expression,
-		                                  pure);
-	}
-	else {
-		e = duckLisp_compile_compoundExpression(duckLisp,
-		                                        compileState,
-		                                        assembly,
-		                                        expression->compoundExpressions[0].value.identifier.value,
-		                                        expression->compoundExpressions[0].value.identifier.value_length,
-		                                        &expression->compoundExpressions[2],
-		                                        dl_null,
-		                                        dl_null,
-		                                        dl_true);
-	}
+	e = duckLisp_compile_compoundExpression(duckLisp,
+	                                        compileState,
+	                                        assembly,
+	                                        expression->compoundExpressions[0].value.identifier.value,
+	                                        expression->compoundExpressions[0].value.identifier.value_length,
+	                                        &expression->compoundExpressions[2],
+	                                        dl_null,
+	                                        dl_null,
+	                                        dl_true);
 	if (e) goto cleanup;
 	dl_size_t endLocals_length = duckLisp_localsLength_get(compileState);
 	compileState->currentCompileState->locals_length = startLocals_length;
@@ -1748,7 +1735,7 @@ dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
                                         dl_array_t *assembly,
                                         duckLisp_ast_expression_t *expression) {
 	/* Sort of like partial application... */
-	return duckLisp_generator_createVar_raw(duckLisp, compileState, assembly, expression, dl_null);
+	return duckLisp_generator_createVar_raw(duckLisp, compileState, assembly, expression);
 }
 
 dl_error_t duckLisp_generator_createVar_dummy(duckLisp_t *duckLisp,
@@ -1876,8 +1863,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 	var.compoundExpressions[2].type = duckLisp_ast_type_expression;
 	var.compoundExpressions[2].value.expression = lambda;
 	{
-		dl_bool_t pure;
-		e = duckLisp_generator_createVar_raw(duckLisp, compileState, assembly, &var, &pure);
+		e = duckLisp_generator_createVar_raw(duckLisp, compileState, assembly, &var);
 		if (e) goto cleanup;
 
 		for (dl_ptrdiff_t i = 2; (dl_size_t) i < expression->compoundExpressions_length; i++) {
@@ -1896,8 +1882,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 		(void) duckLisp_localsLength_decrement(compileState);
 		e = duckLisp_addInterpretedFunction(duckLisp,
 		                                    compileState,
-		                                    expression->compoundExpressions[1].value.identifier,
-		                                    pure);
+		                                    expression->compoundExpressions[1].value.identifier);
 		if (e) goto cleanup;
 		(void) duckLisp_localsLength_increment(compileState);
 		(void) duckLisp_localsLength_increment(compileState);
