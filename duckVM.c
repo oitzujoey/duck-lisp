@@ -524,7 +524,14 @@ static dl_error_t stack_pop_multiple(duckVM_t *duckVM, dl_size_t pops) {
 		if (!e) e = eError;
 	}
 	return e;
- }
+}
+
+static dl_error_t stack_get(duckVM_t *duckVM, duckVM_object_t *element, dl_ptrdiff_t index) {
+	if (index < 0) {
+		index = duckVM->stack.elements_length + index;
+	}
+	return dl_array_get(&duckVM->stack, element, index);
+}
 
 static dl_error_t call_stack_push(duckVM_t *duckVM,
                                   dl_uint8_t *ip,
@@ -6233,7 +6240,7 @@ dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 		if (e) break;
 		e = duckVM_allocateHeapObject(duckVM, &value_pointer, value);
 		if (e) break;
-		e = dl_array_get(&duckVM->stack, &sequence, stack_index);
+		e = stack_get(duckVM, &sequence, stack_index);
 		if (e) break;
 		type = sequence.type;
 		switch (type) {
@@ -6294,11 +6301,12 @@ dl_error_t duckVM_setRest(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 		duckVM_object_t *value_pointer = dl_null;
 		duckVM_object_t sequence;
 		duckVM_object_type_t type;
+
 		e = dl_array_getTop(&duckVM->stack, &value);
 		if (e) break;
 		e = duckVM_allocateHeapObject(duckVM, &value_pointer, value);
 		if (e) break;
-		e = dl_array_get(&duckVM->stack, &sequence, stack_index);
+		e = stack_get(duckVM, &sequence, stack_index);
 		if (e) break;
 		type = sequence.type;
 		switch (type) {
@@ -6419,6 +6427,9 @@ dl_error_t duckVM_pushElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index) {
 			break;
 		}
 		}
+		if (e) break;
+		e = stack_push(duckVM, &element);
+		if (e) break;
 	} while (0);
 	return e;
 }

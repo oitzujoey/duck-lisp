@@ -434,8 +434,10 @@ dl_error_t duckLispDev_callback_printStack(duckVM_t *duckVM) {
 		e = duckVM_push(duckVM, i);
 		if (e) goto cleanup;
 		/* stack: object */
+		printf("%li: ", i);
 		e = duckLispDev_callback_print(duckVM);
 		if (e) goto cleanup;
+		putchar('\n');
 		/* stack: object */
 		e = duckVM_pop(duckVM);
 		if (e) goto cleanup;
@@ -1162,8 +1164,10 @@ int eval(duckLisp_t *duckLisp,
 	}
 
 #ifdef USE_PARENTHESIS_INFERENCE
-	DL_DOTIMES(i, duckLisp->inferrerLog.elements_length) {
-		putchar(DL_ARRAY_GETADDRESS(duckLisp->inferrerLog, dl_uint8_t, i));
+	if (loadError) {
+		DL_DOTIMES(i, duckLisp->inferrerLog.elements_length) {
+			putchar(DL_ARRAY_GETADDRESS(duckLisp->inferrerLog, dl_uint8_t, i));
+		}
 	}
 #endif /* USE_PARENTHESIS_INFERENCE */
 
