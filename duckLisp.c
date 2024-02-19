@@ -2520,3 +2520,920 @@ dl_error_t duckLisp_serialize_errors(dl_memoryAllocation_t *memoryAllocation,
 	}
  cleanup:return e;
 }
+
+dl_error_t duckLisp_ast_type_prettyPrint(dl_array_t *string_array, duckLisp_ast_type_t type) {
+	switch (type) {
+	case duckLisp_ast_type_none:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_none"));
+	case duckLisp_ast_type_expression:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_expression"));
+	case duckLisp_ast_type_literalExpression:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_literalExpression"));
+	case duckLisp_ast_type_identifier:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_identifier"));
+	case duckLisp_ast_type_callback:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_callback"));
+	case duckLisp_ast_type_string:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_string"));
+	case duckLisp_ast_type_float:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_float"));
+	case duckLisp_ast_type_int:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_int"));
+	case duckLisp_ast_type_bool:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_ast_type_bool"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+
+dl_error_t duckLisp_ast_bool_prettyPrint(dl_array_t *string_array, duckLisp_ast_bool_t boolean) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_ast_bool_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_string_fromBool(string_array, boolean.value);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_ast_integer_prettyPrint(dl_array_t *string_array, duckLisp_ast_integer_t integer) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_ast_integer_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_string_fromPtrdiff(string_array, integer.value);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_ast_float_prettyPrint(dl_array_t *string_array, duckLisp_ast_float_t floatingPoint) {
+	(void) floatingPoint;
+	return dl_array_pushElements(string_array, DL_STR("(duckLisp_ast_float_t) {...}"));
+}
+
+dl_error_t duckLisp_ast_string_prettyPrint(dl_array_t *string_array, duckLisp_ast_string_t string) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_ast_string_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, string.value, string.value_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_ast_identifier_prettyPrint(dl_array_t *string_array, duckLisp_ast_identifier_t identifier) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_ast_identifier_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, identifier.value, identifier.value_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_ast_expression_prettyPrint(dl_array_t *string_array, duckLisp_ast_expression_t expression) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_ast_expression_t) {"));
+	if (e) goto cleanup;
+
+	DL_DOTIMES(i, expression.compoundExpressions_length) {
+		e = duckLisp_ast_compoundExpression_prettyPrint(string_array, expression.compoundExpressions[i]);
+		if (e) goto cleanup;
+		if ((dl_size_t) i == expression.compoundExpressions_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_ast_compoundExpression_prettyPrint(dl_array_t *string_array,
+                                                       duckLisp_ast_compoundExpression_t compoundExpression) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_ast_compoundExpression_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("type = "));
+	if (e) goto cleanup;
+	e = duckLisp_ast_type_prettyPrint(string_array, compoundExpression.type);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("value = "));
+	if (e) goto cleanup;
+	switch (compoundExpression.type) {
+	case duckLisp_ast_type_none:
+		e = dl_array_pushElements(string_array, DL_STR("NONE"));
+		if (e) goto cleanup;
+		break;
+	case duckLisp_ast_type_expression:
+		/* Fall through. */
+	case duckLisp_ast_type_literalExpression:
+		e = duckLisp_ast_expression_prettyPrint(string_array, compoundExpression.value.expression);
+		if (e) goto cleanup;
+		break;
+	case duckLisp_ast_type_identifier:
+		/* Fall through. */
+	case duckLisp_ast_type_callback:
+		e = duckLisp_ast_identifier_prettyPrint(string_array, compoundExpression.value.identifier);
+		if (e) goto cleanup;
+		break;
+	case duckLisp_ast_type_string:
+		e = duckLisp_ast_string_prettyPrint(string_array, compoundExpression.value.string);
+		if (e) goto cleanup;
+		break;
+	case duckLisp_ast_type_float:
+		e = duckLisp_ast_float_prettyPrint(string_array, compoundExpression.value.floatingPoint);
+		if (e) goto cleanup;
+		break;
+	case duckLisp_ast_type_int:
+		e = duckLisp_ast_integer_prettyPrint(string_array, compoundExpression.value.integer);
+		if (e) goto cleanup;
+		break;
+	case duckLisp_ast_type_bool:
+		e = duckLisp_ast_bool_prettyPrint(string_array, compoundExpression.value.boolean);
+		if (e) goto cleanup;
+		break;
+	default:
+		e = dl_array_pushElements(string_array, DL_STR("INVALID"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_error_prettyPrint(dl_array_t *string_array, duckLisp_error_t error) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_error_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("message["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, error.message_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = \""));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, error.message, error.message_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("start_index = "));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(string_array, error.start_index);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("end_index = "));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(string_array, error.end_index);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("fileName["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, error.fileName_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = \""));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, error.fileName, error.fileName_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_functionType_prettyPrint(dl_array_t *string_array, duckLisp_functionType_t functionType) {
+	switch (functionType) {
+	case duckLisp_functionType_none:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_none"));
+	case duckLisp_functionType_c:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_c"));
+	case duckLisp_functionType_ducklisp:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_ducklisp"));
+	case duckLisp_functionType_ducklisp_pure:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_ducklisp_pure"));
+	case duckLisp_functionType_generator:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_generator"));
+	case duckLisp_functionType_macro:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_functionType_macro"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+
+dl_error_t duckLisp_scope_prettyPrint(dl_array_t *string_array, duckLisp_scope_t scope) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_scope_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("locals_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, scope.locals_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("functionLocals_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, scope.functionLocals_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("functions_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, scope.functions_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("functions_length = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, scope.functions_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("macros_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, scope.macros_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("macros_length = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, scope.macros_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("labels_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, scope.labels_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("function_scope = "));
+	if (e) goto cleanup;
+	e = dl_string_fromBool(string_array, scope.function_scope);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("scope_uvs = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, scope.scope_uvs_length) {
+		e = dl_string_fromPtrdiff(string_array, scope.scope_uvs[i]);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != scope.scope_uvs_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("function_uvs = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, scope.function_uvs_length) {
+		e = dl_string_fromPtrdiff(string_array, scope.function_uvs[i]);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != scope.function_uvs_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_subCompileState_prettyPrint(dl_array_t *string_array, duckLisp_subCompileState_t subCompileState) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_subCompileState_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("scope_stack = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, subCompileState.scope_stack.elements_length) {
+		e = duckLisp_scope_prettyPrint(string_array,
+		                               DL_ARRAY_GETADDRESS(subCompileState.scope_stack, duckLisp_scope_t, i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != subCompileState.scope_stack.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("locals_length = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, subCompileState.locals_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("label_number = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, subCompileState.label_number);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("assembly["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, subCompileState.assembly.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {...}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_compileState_prettyPrint(dl_array_t *string_array, duckLisp_compileState_t compileState) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_compileState_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("currentCompileState = "));
+	if (e) goto cleanup;
+	if (compileState.currentCompileState == &compileState.comptimeCompileState) {
+		e = dl_array_pushElements(string_array, DL_STR("&comptimeCompileState"));
+	}
+	else if (compileState.currentCompileState == &compileState.runtimeCompileState) {
+		e = dl_array_pushElements(string_array, DL_STR("&runtimeCompileState"));
+	}
+	else if (compileState.currentCompileState == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("runtimeCompileState = "));
+	if (e) goto cleanup;
+	e = duckLisp_subCompileState_prettyPrint(string_array, compileState.runtimeCompileState);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("comptimeCompileState = "));
+	if (e) goto cleanup;
+	e = duckLisp_subCompileState_prettyPrint(string_array, compileState.comptimeCompileState);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+#ifdef USE_DATALOGGING
+dl_error_t duckLisp_datalog_prettyPrint(dl_array_t *string_array, duckLisp_datalog_t datalog) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_datalog_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("total_instructions_generated = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, datalog.total_instructions_generated);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("total_bytes_generated = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, datalog.total_bytes_generated);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("jumpsize_bytes_removed = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, datalog.jumpsize_bytes_removed);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("pushpop_instructions_removed = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, datalog.pushpop_instructions_removed);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif /* USE_DATALOGGING */
+
+dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("errors["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.errors.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckLisp.errors.elements_length) {
+		e = duckLisp_error_prettyPrint(string_array, DL_ARRAY_GETADDRESS(duckLisp.errors, duckLisp_error_t, i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckLisp.errors.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("generators_stack["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.generators_stack.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {...}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("generators_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, duckLisp.generators_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("generators_length = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.generators_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("callbacks_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, duckLisp.callbacks_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+#ifdef USE_PARENTHESIS_INFERENCE
+	e = dl_array_pushElements(string_array, DL_STR("parenthesisInferrerTypes_array["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.parenthesisInferrerTypes_array.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckLisp.parenthesisInferrerTypes_array.elements_length) {
+		e = duckLisp_parenthesisInferrer_declarationPrototype_prettyPrint(string_array,
+		                                                                  DL_ARRAY_GETADDRESS((duckLisp
+		                                                                                       .parenthesisInferrerTypes_array),
+		                                                                                      duckLisp_parenthesisInferrer_declarationPrototype_t,
+		                                                                                      i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckLisp.parenthesisInferrerTypes_array.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("maxInferenceVmObjects = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.maxInferenceVmObjects);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+#endif /* USE_PARENTHESIS_INFERENCE */
+
+	e = dl_array_pushElements(string_array, DL_STR("gensym_number = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.gensym_number);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("comptimeGlobals_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, duckLisp.comptimeGlobals_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("runtimeGlobals_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, duckLisp.runtimeGlobals_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("symbols_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, duckLisp.symbols_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("symbols_array["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.symbols_array.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckLisp.symbols_array.elements_length) {
+		e = duckLisp_ast_identifier_prettyPrint(string_array,
+		                                        DL_ARRAY_GETADDRESS(duckLisp.symbols_array,
+		                                                            duckLisp_ast_identifier_t,
+		                                                            i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckLisp.symbols_array.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("parser_actions_trie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, duckLisp.parser_actions_trie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("parser_actions_array["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.parser_actions_array.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {...}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("vm = "));
+	if (e) goto cleanup;
+	e = duckVM_prettyPrint(string_array, duckLisp.vm);
+	if (e) goto cleanup;
+
+#ifdef USE_DATALOGGING
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("datalog = "));
+	if (e) goto cleanup;
+	e = duckLisp_datalog_prettyPrint(string_array, duckLisp.datalog);
+	if (e) goto cleanup;
+#endif /* USE_DATALOGGING */
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_instructionArgClass_type_prettyPrint(dl_array_t *string_array,
+                                                         duckLisp_instructionArgClass_type_t type) {
+	switch (type) {
+	case duckLisp_instructionArgClass_type_none:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionArgClass_type_none"));
+	case duckLisp_instructionArgClass_type_integer:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionArgClass_type_integer"));
+	case duckLisp_instructionArgClass_type_doubleFloat:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionArgClass_type_doubleFloat"));
+	case duckLisp_instructionArgClass_type_index:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionArgClass_type_index"));
+	case duckLisp_instructionArgClass_type_string:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionArgClass_type_string"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+
+dl_error_t duckLisp_instructionArgClass_prettyPrint(dl_array_t *string_array,
+                                                    duckLisp_instructionArgClass_t instructionArgClass) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_instructionArgClass_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("type = "));
+	if (e) goto cleanup;
+	e = duckLisp_instructionArgClass_type_prettyPrint(string_array, instructionArgClass.type);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("value = "));
+	if (e) goto cleanup;
+	switch (instructionArgClass.type) {
+	case duckLisp_instructionArgClass_type_integer:
+		e = dl_string_fromPtrdiff(string_array, instructionArgClass.value.integer);
+		if (e) goto cleanup;
+		break;
+	case duckLisp_instructionArgClass_type_index:
+		e = dl_string_fromPtrdiff(string_array, instructionArgClass.value.index);
+		if (e) goto cleanup;
+		break;
+	case duckLisp_instructionArgClass_type_doubleFloat:
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+		break;
+	case duckLisp_instructionArgClass_type_string:
+		e = dl_array_pushElements(string_array,
+		                          instructionArgClass.value.string.value,
+		                          instructionArgClass.value.string.value_length);
+		if (e) goto cleanup;
+		break;
+	default:
+		e = dl_array_pushElements(string_array, DL_STR("INVALID"));
+		if (e) goto cleanup;
+	}
+
+ cleanup: return e;
+}
+
+dl_error_t duckLisp_instructionClass_prettyPrint(dl_array_t *string_array,
+                                                 duckLisp_instructionClass_t instructionClass) {
+	switch (instructionClass) {
+	case duckLisp_instructionClass_nop:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_nop"));
+	case duckLisp_instructionClass_pushString:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushString"));
+	case duckLisp_instructionClass_pushBoolean:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushBoolean"));
+	case duckLisp_instructionClass_pushInteger:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushInteger"));
+	case duckLisp_instructionClass_pushDoubleFloat:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushDoubleFloat"));
+	case duckLisp_instructionClass_pushIndex:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushIndex"));
+	case duckLisp_instructionClass_pushSymbol:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushSymbol"));
+	case duckLisp_instructionClass_pushUpvalue:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushUpvalue"));
+	case duckLisp_instructionClass_pushClosure:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushClosure"));
+	case duckLisp_instructionClass_pushVaClosure:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushVaClosure"));
+	case duckLisp_instructionClass_pushGlobal:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushGlobal"));
+	case duckLisp_instructionClass_setUpvalue:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setUpvalue"));
+	case duckLisp_instructionClass_setStatic:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setStatic"));
+	case duckLisp_instructionClass_releaseUpvalues:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_releaseUpvalues"));
+	case duckLisp_instructionClass_funcall:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_funcall"));
+	case duckLisp_instructionClass_apply:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_apply"));
+	case duckLisp_instructionClass_call:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_call"));
+	case duckLisp_instructionClass_ccall:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_ccall"));
+	case duckLisp_instructionClass_acall:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_acall"));
+	case duckLisp_instructionClass_jump:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_jump"));
+	case duckLisp_instructionClass_brz:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_brz"));
+	case duckLisp_instructionClass_brnz:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_brnz"));
+	case duckLisp_instructionClass_move:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_move"));
+	case duckLisp_instructionClass_not:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_not"));
+	case duckLisp_instructionClass_mul:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_mul"));
+	case duckLisp_instructionClass_div:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_div"));
+	case duckLisp_instructionClass_add:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_add"));
+	case duckLisp_instructionClass_sub:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_sub"));
+	case duckLisp_instructionClass_equal:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_equal"));
+	case duckLisp_instructionClass_less:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_less"));
+	case duckLisp_instructionClass_greater:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_greater"));
+	case duckLisp_instructionClass_cons:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_cons"));
+	case duckLisp_instructionClass_vector:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_vector"));
+	case duckLisp_instructionClass_makeVector:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_makeVector"));
+	case duckLisp_instructionClass_getVecElt:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_getVecElt"));
+	case duckLisp_instructionClass_setVecElt:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setVecElt"));
+	case duckLisp_instructionClass_car:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_car"));
+	case duckLisp_instructionClass_cdr:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_cdr"));
+	case duckLisp_instructionClass_setCar:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setCar"));
+	case duckLisp_instructionClass_setCdr:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setCdr"));
+	case duckLisp_instructionClass_nullp:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_nullp"));
+	case duckLisp_instructionClass_typeof:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_typeof"));
+	case duckLisp_instructionClass_makeType:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_makeType"));
+	case duckLisp_instructionClass_makeInstance:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_makeInstance"));
+	case duckLisp_instructionClass_compositeValue:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_compositeValue"));
+	case duckLisp_instructionClass_compositeFunction:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_compositeFunction"));
+	case duckLisp_instructionClass_setCompositeValue:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setCompositeValue"));
+	case duckLisp_instructionClass_setCompositeFunction:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setCompositeFunction"));
+	case duckLisp_instructionClass_makeString:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_makeString"));
+	case duckLisp_instructionClass_concatenate:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_concatenate"));
+	case duckLisp_instructionClass_substring:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_substring"));
+	case duckLisp_instructionClass_length:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_length"));
+	case duckLisp_instructionClass_symbolString:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_symbolString"));
+	case duckLisp_instructionClass_symbolId:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_symbolId"));
+	case duckLisp_instructionClass_pop:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pop"));
+	case duckLisp_instructionClass_return:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_return"));
+	case duckLisp_instructionClass_yield:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_yield"));
+	case duckLisp_instructionClass_halt:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_halt"));
+	case duckLisp_instructionClass_nil:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_nil"));
+	case duckLisp_instructionClass_pseudo_label:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pseudo_label"));
+	case duckLisp_instructionClass_internalNop:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_internalNop"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+
+dl_error_t duckLisp_instructionObject_prettyPrint(dl_array_t *string_array,
+                                                  duckLisp_instructionObject_t instructionObject) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_instructionObject_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("instructionClass = "));
+	if (e) goto cleanup;
+	e = duckLisp_instructionClass_prettyPrint(string_array, instructionObject.instructionClass);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("args["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, instructionObject.args.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, instructionObject.args.elements_length) {
+		e = duckLisp_instructionArgClass_prettyPrint(string_array,
+		                                             DL_ARRAY_GETADDRESS(instructionObject.args,
+		                                                                 duckLisp_instructionArgClass_t,
+		                                                                 i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != instructionObject.args.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}

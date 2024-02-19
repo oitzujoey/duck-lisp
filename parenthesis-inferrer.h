@@ -36,6 +36,9 @@ typedef struct {
 	dl_size_t script_length;
 } duckLisp_parenthesisInferrer_declarationPrototype_t;
 
+dl_error_t duckLisp_parenthesisInferrer_declarationPrototype_prettyPrint(dl_array_t *string_array,
+                                                                         duckLisp_parenthesisInferrer_declarationPrototype_t declarationPrototype);
+
 dl_error_t duckLisp_inferParentheses(dl_memoryAllocation_t *memoryAllocation,
                                      const dl_size_t maxComptimeVmObjects,
                                      dl_array_t *errors,

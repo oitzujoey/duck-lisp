@@ -125,6 +125,51 @@ SOFTWARE.
    This system cannot recognize some macros due to the simplicity of the parsing functions used in inference-time
    scripts. It can correctly infer a complicated form like `let`, but is unable to infer `let*`. */
 
+dl_error_t duckLisp_parenthesisInferrer_declarationPrototype_prettyPrint(dl_array_t *string_array,
+                                                                         duckLisp_parenthesisInferrer_declarationPrototype_t declarationPrototype) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_parenthesisInferrer_declarationPrototype_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_uint8_t name["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, declarationPrototype.name_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = "));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, declarationPrototype.name, declarationPrototype.name_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_uint8_t type["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, declarationPrototype.type_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = "));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, declarationPrototype.type, declarationPrototype.type_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_uint8_t script["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, declarationPrototype.script_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = "));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, declarationPrototype.script, declarationPrototype.script_length);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
 
 #ifdef USE_PARENTHESIS_INFERENCE
 
@@ -133,10 +178,37 @@ typedef enum {
 	inferrerTypeSymbol_I
 } inferrerTypeSymbol_t;
 
+#if 0
+static dl_error_t inferrerTypeSymbol_prettyPrint(dl_array_t *string_array, inferrerTypeSymbol_t inferrerTypeSymbol) {
+	switch (inferrerTypeSymbol) {
+	case inferrerTypeSymbol_L:
+		return dl_array_pushElements(string_array, DL_STR("inferrerTypeSymbol_L"));
+	case inferrerTypeSymbol_I:
+		return dl_array_pushElements(string_array, DL_STR("inferrerTypeSymbol_I"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+#endif
+
 typedef enum {
 	inferrerTypeSignature_type_expression,
 	inferrerTypeSignature_type_symbol
 } inferrerTypeSignature_type_t;
+
+#if 0
+static dl_error_t inferrerTypeSignature_type_prettyPrint(dl_array_t *string_array,
+                                                  inferrerTypeSignature_type_t inferrerTypeSignature_type) {
+	switch (inferrerTypeSignature_type) {
+	case inferrerTypeSignature_type_expression:
+		return dl_array_pushElements(string_array, DL_STR("inferrerTypeSignature_type_expression"));
+	case inferrerTypeSignature_type_symbol:
+		return dl_array_pushElements(string_array, DL_STR("inferrerTypeSignature_type_symbol"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+#endif
 
 typedef struct inferrerTypeSignature_s {
 	inferrerTypeSignature_type_t type;
@@ -154,6 +226,55 @@ typedef struct inferrerTypeSignature_s {
 	} value;
 } inferrerTypeSignature_t;
 
+#if 0
+static dl_error_t inferrerTypeSignature_prettyPrint(dl_array_t *string_array,
+                                                    inferrerTypeSignature_t inferrerTypeSignature) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(inferrerTypeSignature_t) {"));
+	if (e) goto cleanup;
+
+	if (inferrerTypeSignature.type == inferrerTypeSignature_type_symbol) {
+		e = inferrerTypeSymbol_prettyPrint(string_array, inferrerTypeSignature.value.symbol);
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("("));
+		if (e) goto cleanup;
+
+		DL_DOTIMES(j, inferrerTypeSignature.value.expression.positionalSignatures_length) {
+			e = inferrerTypeSignature_prettyPrint(string_array,
+			                                      inferrerTypeSignature.value.expression.positionalSignatures[j]);
+			if (e) goto cleanup;
+			if ((dl_size_t) j != inferrerTypeSignature.value.expression.positionalSignatures_length - 1) {
+				e = dl_array_pushElements(string_array, DL_STR(" "));
+				if (e) goto cleanup;
+			}
+		}
+
+		if (inferrerTypeSignature.value.expression.variadic) {
+			e = dl_array_pushElements(string_array, DL_STR(" "));
+			if (e) goto cleanup;
+
+			e = dl_string_fromPtrdiff(string_array, inferrerTypeSignature.value.expression.defaultRestLength);
+			if (e) goto cleanup;
+
+			e = dl_array_pushElements(string_array, DL_STR(" "));
+			if (e) goto cleanup;
+
+			e = inferrerTypeSignature_prettyPrint(string_array,
+			                                      *inferrerTypeSignature.value.expression.restSignature);
+			if (e) goto cleanup;
+		}
+
+		e = dl_array_pushElements(string_array, DL_STR(")"));
+		if (e) goto cleanup;
+	}
+
+ cleanup: return e;
+}
+#endif
+
 
 typedef struct {
 	dl_uint8_t *bytecode;
@@ -161,10 +282,65 @@ typedef struct {
 	inferrerTypeSignature_t type;
 } inferrerType_t;
 
+#if 0
+static dl_error_t inferrerType_prettyPrint(dl_array_t *string_array, inferrerType_t inferrerType) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(inferrerType_t) {"));
+	if (e) goto cleanup;
+
+	e = inferrerTypeSignature_prettyPrint(string_array, inferrerType.type);
+	if (e) goto cleanup;
+
+	/* e = duckVM_bytecode_prettyPrint(string_array, inferrerType.bytecode); */
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif
+
 typedef struct {
 	dl_trie_t identifiersTrie;  /* A:int-->types[A],bytecode[A] */
 	dl_array_t types;  /* dl_array_t:inferrerType_t */
 } inferrerScope_t;
+
+#if 0
+static dl_error_t inferrerScope_prettyPrint(dl_array_t *string_array, inferrerScope_t inferrerScope) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(inferrerScope_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("identifiersTrie = "));
+	if (e) goto cleanup;
+	e = dl_trie_prettyPrint(string_array, inferrerScope.identifiersTrie);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("types = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, inferrerScope.types.elements_length) {
+		e = inferrerType_prettyPrint(string_array, DL_ARRAY_GETADDRESS(inferrerScope.types, inferrerType_t, i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != inferrerScope.types.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif
 
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
@@ -176,6 +352,85 @@ typedef struct {
 	dl_array_t scopeStack;  /* dl_array_t:inferrerScope_t */
 } inferrerState_t;
 
+#if 0
+static dl_error_t inferrerState_prettyPrint(dl_array_t *string_array, inferrerState_t inferrerState) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(inferrerState_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("duckLisp = "));
+	if (e) goto cleanup;
+	/* e = duckLisp_duckLisp_prettyPrint(string_array, inferrerState.duckLisp); */
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("duckVM = "));
+	if (e) goto cleanup;
+	/* e = duckVM_duckVM_prettyPrint(string_array, inferrerState.duckVM); */
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("error = "));
+	if (e) goto cleanup;
+	if (inferrerState.errors == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("{"));
+		if (e) goto cleanup;
+
+		DL_DOTIMES(i, inferrerState.errors->elements_length) {
+			/* e = duckLisp_error_prettyPrint(string_array, DL_ARRAY_GETADDRESS(*inferrerState.errors, duckLisp_error_t, i)); */
+			if (e) goto cleanup;
+			if ((dl_size_t) i != inferrerState.errors->elements_length - 1) {
+				e = dl_array_pushElements(string_array, DL_STR(", "));
+				if (e) goto cleanup;
+			}
+		}
+
+		e = dl_array_pushElements(string_array, DL_STR("}"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("fileName = \""));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, inferrerState.fileName, inferrerState.fileName_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("scopeStack = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, inferrerState.scopeStack.elements_length) {
+		e = inferrerScope_prettyPrint(string_array, DL_ARRAY_GETADDRESS(inferrerState.scopeStack, inferrerScope_t, i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != inferrerState.scopeStack.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif
+
 typedef struct {
 	inferrerState_t *state;
 	dl_uint8_t *fileName;
@@ -184,11 +439,147 @@ typedef struct {
 	dl_ptrdiff_t *type_index;
 	duckLisp_ast_expression_t *expression;
 	dl_ptrdiff_t *expression_index;
-	dl_array_t *newExpression;
+	dl_array_t *newExpression;  /* dl_array_t:duckLisp_ast_compoundExpression_t */
 	dl_size_t *newLength;
 	dl_bool_t parenthesized;
 	dl_bool_t infer;
 } vmContext_t;
+
+#if 0
+static dl_error_t vmContext_prettyPrint(dl_array_t *string_array, vmContext_t vmContext) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(vmContext_t) {"));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("state = "));
+	if (e) goto cleanup;
+	if (vmContext.state == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = inferrerState_prettyPrint(string_array, *vmContext.state);
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("fileName = \""));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, vmContext.fileName, vmContext.fileName_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("type = "));
+	if (e) goto cleanup;
+	e = inferrerType_prettyPrint(string_array, vmContext.type);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("type_index = "));
+	if (e) goto cleanup;
+	if (vmContext.type_index == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+	}
+	else {
+		e = dl_string_fromPtrdiff(string_array, *vmContext.type_index);
+	}
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("expression = "));
+	if (e) goto cleanup;
+	if (vmContext.expression == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+	}
+	else {
+		/* e = duckLisp_ast_expression_prettyPrint(string_array, *vmContext.expression); */
+	}
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("expression_index = "));
+	if (e) goto cleanup;
+	if (vmContext.expression_index == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+	}
+	else {
+		e = dl_string_fromPtrdiff(string_array, *vmContext.expression_index);
+	}
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("newExpression = "));
+	if (e) goto cleanup;
+	if (vmContext.newExpression == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("{"));
+		if (e) goto cleanup;
+
+		DL_DOTIMES(i, vmContext.newExpression->elements_length) {
+			/* e = duckLisp_ast_compoundExpression_prettyPrint(string_array, DL_ARRAY_GETADDRESS(*vmContext.newExpression, duckLisp_ast_compoundExpression_t, i)); */
+			if (e) goto cleanup;
+			if ((dl_size_t) i != vmContext.newExpression->elements_length - 1) {
+				e = dl_array_pushElements(string_array, DL_STR(", "));
+				if (e) goto cleanup;
+			}
+		}
+
+		e = dl_array_pushElements(string_array, DL_STR("}"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("newLength = "));
+	if (e) goto cleanup;
+	if (vmContext.newLength == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+	}
+	else {
+		e = dl_string_fromSize(string_array, *vmContext.newLength);
+	}
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("parenthesized = "));
+	if (e) goto cleanup;
+	e = dl_string_fromBool(string_array, vmContext.parenthesized);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("infer = "));
+	if (e) goto cleanup;
+	e = dl_string_fromBool(string_array, vmContext.infer);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif
 
 
 static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
@@ -701,7 +1092,7 @@ static dl_error_t runVm(inferrerState_t *state,
                         dl_ptrdiff_t *type_index,
                         duckLisp_ast_expression_t *expression,
                         dl_ptrdiff_t *expression_index,
-                        dl_array_t *newExpression,
+                        dl_array_t *newExpression,  /* dl_array_t:duckLisp_ast_compoundExpression_t */
                         dl_size_t *newLength,
                         dl_bool_t parenthesized,
                         dl_bool_t infer) {
@@ -929,7 +1320,7 @@ static dl_error_t inferArgument(inferrerState_t *state,
 
 			/* lol */
 			if (type.type.type == inferrerTypeSignature_type_expression) {
-				dl_array_t newExpression;
+				dl_array_t newExpression;  /* dl_array_t:duckLisp_ast_compoundExpression_t */
 				(void) dl_array_init(&newExpression,
 				                     state->memoryAllocation,
 				                     sizeof(duckLisp_ast_compoundExpression_t),
@@ -1317,7 +1708,7 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	dl_ptrdiff_t *type_index = context.type_index;
 	duckLisp_ast_expression_t *expression = context.expression;
 	dl_ptrdiff_t *expression_index = context.expression_index;
-	dl_array_t *newExpression = context.newExpression;
+	dl_array_t *newExpression = context.newExpression;  /* dl_array_t:duckLisp_ast_compoundExpression_t */
 	dl_size_t *newLength = context.newLength;
 	const dl_bool_t parenthesized = context.parenthesized;
 	const dl_bool_t infer = context.infer;

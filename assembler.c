@@ -59,20 +59,139 @@ typedef struct {
 	dl_bool_t absolute;  /* Indicates an absolute address, which is always 32 bits. i.e. Do not mung. */
 } jumpLink_t;
 
+#if 0
+static dl_error_t jumpLink_prettyPrint(dl_array_t *string_array, jumpLink_t jumpLink) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(jumpLink_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_ptrdiff_t source = "));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(string_array, jumpLink.source);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_ptrdiff_t target = "));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(string_array, jumpLink.target);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_uint8_t size = "));
+	if (e) goto cleanup;
+	e = dl_string_fromUint8(string_array, jumpLink.size);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_bool_t forward = "));
+	if (e) goto cleanup;
+	e = dl_string_fromBool(string_array, jumpLink.forward);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_bool_t absolute = "));
+	if (e) goto cleanup;
+	e = dl_string_fromBool(string_array, jumpLink.absolute);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif
+
 typedef struct {
 	jumpLink_t *links;
 	dl_size_t links_length;
 } linkArray_t;
+
+#if 0
+static dl_error_t linkArray_prettyPrint(dl_array_t *string_array, linkArray_t linkArray) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(linkArray_t) {jumpLink_t links["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, linkArray.links_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, linkArray.links_length) {
+		e = jumpLink_prettyPrint(string_array, linkArray.links[i]);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != linkArray.links_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif
 
 typedef enum {
 	jumpLinkPointers_type_address,
 	jumpLinkPointers_type_target,
 } jumpLinkPointer_type_t;
 
+#if 0
+static dl_error_t jumpLinkPointer_type_prettyPrint(dl_array_t *string_array,
+                                                   jumpLinkPointer_type_t jumpLinkPointer_type) {
+	switch (jumpLinkPointer_type) {
+	case jumpLinkPointers_type_address:
+		return dl_array_pushElements(string_array, DL_STR("jumpLinkPointers_type_address"));
+		break;
+	case jumpLinkPointers_type_target:
+		return dl_array_pushElements(string_array, DL_STR("jumpLinkPointers_type_target"));
+		break;
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+#endif
+
 typedef struct {
 	dl_ptrdiff_t index;
 	jumpLinkPointer_type_t type;
 } jumpLinkPointer_t;
+
+#if 0
+static dl_error_t jumpLinkPointer_prettyPrint(dl_array_t *string_array, jumpLinkPointer_t jumpLinkPointer) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(jumpLinkPointer_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_ptrdiff_t index = "));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(string_array, jumpLinkPointer.index);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("jumpLinkPointer_type_t type = "));
+	if (e) goto cleanup;
+	e = jumpLinkPointer_type_prettyPrint(string_array, jumpLinkPointer.type);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+#endif
 
 int jumpLink_less(const void *l, const void *r, const void *context) {
 	/* Array of links. */

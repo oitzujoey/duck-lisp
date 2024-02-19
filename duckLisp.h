@@ -522,9 +522,9 @@ typedef enum {
 	duckLisp_instructionArg_type_string,
 } duckLisp_instructionArg_type_t;
 
-typedef struct duckLisp_instructionArgs_s {
+typedef struct {
 	union {
-		int integer;
+		dl_ptrdiff_t integer;
 		dl_ptrdiff_t index;
 		double doubleFloat;
 		struct {
@@ -811,5 +811,33 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
                                 dl_memoryAllocation_t *memoryAllocation,
                                 const dl_uint8_t *bytecode,
                                 const dl_size_t length);
+
+
+/* Pretty printing functions for debugging. */
+
+dl_error_t duckLisp_ast_type_prettyPrint(dl_array_t *string_array, duckLisp_ast_type_t type);
+dl_error_t duckLisp_ast_bool_prettyPrint(dl_array_t *string_array, duckLisp_ast_bool_t boolean);
+dl_error_t duckLisp_ast_integer_prettyPrint(dl_array_t *string_array, duckLisp_ast_integer_t integer);
+dl_error_t duckLisp_ast_float_prettyPrint(dl_array_t *string_array, duckLisp_ast_float_t floatingPoint);
+dl_error_t duckLisp_ast_string_prettyPrint(dl_array_t *string_array, duckLisp_ast_string_t string);
+dl_error_t duckLisp_ast_identifier_prettyPrint(dl_array_t *string_array, duckLisp_ast_identifier_t identifier);
+dl_error_t duckLisp_ast_expression_prettyPrint(dl_array_t *string_array, duckLisp_ast_expression_t expression);
+dl_error_t duckLisp_ast_compoundExpression_prettyPrint(dl_array_t *string_array,
+                                                       duckLisp_ast_compoundExpression_t compoundExpression);
+dl_error_t duckLisp_error_prettyPrint(dl_array_t *string_array, duckLisp_error_t error);
+dl_error_t duckLisp_functionType_prettyPrint(dl_array_t *string_array, duckLisp_functionType_t functionType);
+dl_error_t duckLisp_scope_prettyPrint(dl_array_t *string_array, duckLisp_scope_t scope);
+dl_error_t duckLisp_subCompileState_prettyPrint(dl_array_t *string_array, duckLisp_subCompileState_t subCompileState);
+dl_error_t duckLisp_compileState_prettyPrint(dl_array_t *string_array, duckLisp_compileState_t compileState);
+dl_error_t duckLisp_datalog_prettyPrint(dl_array_t *string_array, duckLisp_datalog_t datalog);
+dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp);
+dl_error_t duckLisp_instructionArgClass_type_prettyPrint(dl_array_t *string_array,
+                                                         duckLisp_instructionArgClass_type_t type);
+dl_error_t duckLisp_instructionArgClass_prettyPrint(dl_array_t *string_array,
+                                                    duckLisp_instructionArgClass_t instructionArgClass);
+dl_error_t duckLisp_instructionClass_prettyPrint(dl_array_t *string_array,
+                                                 duckLisp_instructionClass_t instructionClass);
+dl_error_t duckLisp_instructionObject_prettyPrint(dl_array_t *string_array,
+                                                  duckLisp_instructionObject_t instructionObject);
 
 #endif /* DUCKLISP_H */

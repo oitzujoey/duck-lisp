@@ -6599,3 +6599,1002 @@ dl_error_t duckVM_length(duckVM_t *duckVM, dl_size_t *length) {
 	} while (0);
 	return e;
 }
+
+
+/* Pretty printing functions for debugging. */
+
+dl_error_t duckVM_upvalue_type_prettyPrint(dl_array_t *string_array, duckVM_upvalue_type_t type) {
+	switch (type) {
+	case duckVM_upvalue_type_stack_index:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_upvalue_type_stack_index"));
+	case duckVM_upvalue_type_heap_object:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_upvalue_type_heap_object"));
+	case duckVM_upvalue_type_heap_upvalue:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_upvalue_type_heap_upvalue"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+
+dl_error_t duckVM_gclist_prettyPrint(dl_array_t *string_array, duckVM_gclist_t gclist) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_gclist_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("objects["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, gclist.objects_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = "));
+	if (e) goto cleanup;
+	if (gclist.objects == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("{...}"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("freeObjects["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, gclist.freeObjects_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = "));
+	if (e) goto cleanup;
+	if (gclist.freeObjects == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("{...}"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("objectInUse["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, gclist.objects_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = "));
+	if (e) goto cleanup;
+	if (gclist.objectInUse == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("{...}"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_callFrame_prettyPrint(dl_array_t *string_array, duckVM_callFrame_t callFrame) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_callFrame_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("dl_uint8_t *ip = "));
+	if (e) goto cleanup;
+	if (callFrame.bytecode == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_string_fromPtrdiff(string_array, callFrame.ip - callFrame.bytecode->value.bytecode.bytecode);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR(" + bytecode"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("bytecode = "));
+	if (e) goto cleanup;
+	if (callFrame.bytecode == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_prettyPrint(dl_array_t *string_array, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("errors = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckVM.errors.elements_length) {
+		e = duckLisp_error_prettyPrint(string_array, DL_ARRAY_GETADDRESS(duckVM.errors, duckLisp_error_t, i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckVM.errors.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("stack = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckVM.stack.elements_length) {
+		e = duckVM_object_prettyPrint(string_array, DL_ARRAY_GETADDRESS(duckVM.stack, duckVM_object_t, i), duckVM);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckVM.stack.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("call_stack = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckVM.call_stack.elements_length) {
+		e = duckVM_callFrame_prettyPrint(string_array, DL_ARRAY_GETADDRESS(duckVM.call_stack, duckVM_callFrame_t, i));
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckVM.call_stack.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("currentBytecode = "));
+	if (e) goto cleanup;
+	if (duckVM.currentBytecode == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("upvalue_stack = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckVM.upvalue_stack.elements_length) {
+		e = duckVM_upvalue_prettyPrint(string_array,
+		                               DL_ARRAY_GETADDRESS(duckVM.upvalue_stack, duckVM_upvalue_t, i),
+		                               duckVM);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckVM.upvalue_stack.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("upvalue_array_call_stack = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckVM.upvalue_array_call_stack.elements_length) {
+		e = duckVM_upvalueArray_prettyPrint(string_array,
+		                                    DL_ARRAY_GETADDRESS(duckVM.upvalue_array_call_stack,
+		                                                        duckVM_upvalueArray_t,
+		                                                        i),
+		                                    duckVM);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckVM.upvalue_array_call_stack.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("globals = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, duckVM.globals.elements_length) {
+		DL_DOTIMES(j, duckVM.globals_map.elements_length) {
+			dl_ptrdiff_t target_index = DL_ARRAY_GETADDRESS(duckVM.globals, dl_ptrdiff_t, i);
+			if (target_index == i) {
+				e = dl_string_fromPtrdiff(string_array, j);
+				if (e) goto cleanup;
+				e = dl_array_pushElements(string_array, DL_STR(": "));
+				if (e) goto cleanup;
+			}
+		}
+		e = duckVM_object_prettyPrint(string_array, DL_ARRAY_GETADDRESS(duckVM.globals, duckVM_object_t, i), duckVM);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != duckVM.globals.elements_length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("gclist = "));
+	if (e) goto cleanup;
+	e = duckVM_gclist_prettyPrint(string_array, duckVM.gclist);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("nextUserType = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckVM.nextUserType);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("duckLisp = "));
+	if (e) goto cleanup;
+	/* *Don't* print *.duckLisp so we don't recurse infinitely. */
+	if (duckVM.duckLisp == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+	}
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+#ifdef USE_PARENTHESIS_INFERENCE
+	e = dl_array_pushElements(string_array, DL_STR("inferrerContext = "));
+	if (e) goto cleanup;
+	if (duckVM.inferrerContext == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+#endif /* USE_PARENTHESIS_INFERENCE */
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_internalString_prettyPrint(dl_array_t *string_array, duckVM_internalString_t internalString) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_internalString_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("value["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, internalString.value_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = \""));
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, internalString.value, internalString.value_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_string_prettyPrint(dl_array_t *string_array, duckVM_string_t string) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_string_t) {"));
+	if (e) goto cleanup;
+
+	if (string.internalString == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("\""));
+		if (e) goto cleanup;
+		e = duckVM_internalString_prettyPrint(string_array, string.internalString->value.internalString);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("\"["));
+		if (e) goto cleanup;
+		e = dl_string_fromPtrdiff(string_array, string.offset);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR(":"));
+		if (e) goto cleanup;
+		e = dl_string_fromSize(string_array, string.length);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("]"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_symbol_prettyPrint(dl_array_t *string_array, duckVM_symbol_t symbol) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_symbol_t) {"));
+	if (e) goto cleanup;
+
+	if (symbol.internalString == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("\""));
+		if (e) goto cleanup;
+		e = duckVM_internalString_prettyPrint(string_array, symbol.internalString->value.internalString);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("\""));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("id = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, symbol.id);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_function_prettyPrint(dl_array_t *string_array, duckVM_function_t function) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_function_t) {"));
+	if (e) goto cleanup;
+
+	if (function.callback == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_closure_prettyPrint(dl_array_t *string_array, duckVM_closure_t closure, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_closure_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("name = "));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(string_array, closure.name);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	if (closure.bytecode == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("bytecode = NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("bytecode["));
+		if (e) goto cleanup;
+		e = dl_string_fromSize(string_array, closure.bytecode->value.bytecode.bytecode_length);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("] = "));
+		if (e) goto cleanup;
+		if (closure.bytecode->value.bytecode.bytecode == dl_null) {
+			e = dl_array_pushElements(string_array, DL_STR("NULL"));
+			if (e) goto cleanup;
+		}
+		else {
+			e = dl_array_pushElements(string_array, DL_STR("..."));
+			if (e) goto cleanup;
+		}
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	if (closure.upvalue_array == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("upvalue_array = NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("upvalue_array["));
+		if (e) goto cleanup;
+		e = dl_string_fromSize(string_array, closure.upvalue_array->value.upvalue_array.length);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("] = "));
+		if (e) goto cleanup;
+		if (closure.upvalue_array->value.upvalue_array.upvalues == dl_null) {
+			e = dl_array_pushElements(string_array, DL_STR("NULL"));
+			if (e) goto cleanup;
+		}
+		else {
+			DL_DOTIMES(k, closure.upvalue_array->value.upvalue_array.length) {
+				e = duckVM_object_prettyPrint(string_array,
+				                              *closure.upvalue_array->value.upvalue_array.upvalues[k],
+				                              duckVM);
+				if (e) goto cleanup;
+				if ((dl_size_t) k != closure.upvalue_array->value.upvalue_array.length - 1) {
+					e = dl_array_pushElements(string_array, DL_STR(", "));
+					if (e) goto cleanup;
+				}
+			}
+		}
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("arity = "));
+	if (e) goto cleanup;
+	e = dl_string_fromUint8(string_array, closure.arity);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("variadic = "));
+	if (e) goto cleanup;
+	e = dl_string_fromBool(string_array, closure.variadic);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_list_prettyPrint(dl_array_t *string_array, duckVM_list_t list, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_list_t) {"));
+	if (e) goto cleanup;
+
+	if (list == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = duckVM_object_prettyPrint(string_array, *list, duckVM);
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_cons_prettyPrint(dl_array_t *string_array, duckVM_cons_t cons, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_cons_t) {"));
+	if (e) goto cleanup;
+
+	if (cons.car == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = duckVM_object_prettyPrint(string_array, *cons.car, duckVM);
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("."));
+	if (e) goto cleanup;
+
+	if (cons.cdr == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = duckVM_object_prettyPrint(string_array, *cons.cdr, duckVM);
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_upvalue_prettyPrint(dl_array_t *string_array, duckVM_upvalue_t upvalue, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+	(void) duckVM;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_upvalue_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("value = "));
+	if (e) goto cleanup;
+	{
+		while (upvalue.type == duckVM_upvalue_type_heap_upvalue) {
+			e = dl_array_pushElements(string_array, DL_STR("-> "));
+			if (e) goto cleanup;
+			if (upvalue.value.heap_upvalue == dl_null) {
+				break;
+			}
+			upvalue = upvalue.value.heap_upvalue->value.upvalue;
+		}
+	}
+	switch (upvalue.type) {
+	case duckVM_upvalue_type_stack_index:
+		e = duckVM_object_prettyPrint(string_array,
+		                              DL_ARRAY_GETADDRESS(duckVM.stack, duckVM_object_t, upvalue.value.stack_index),
+		                              duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_upvalue_type_heap_object:
+		e = duckVM_object_prettyPrint(string_array, *upvalue.value.heap_object, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_upvalue_type_heap_upvalue:
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+		break;
+	default:
+		e = dl_array_pushElements(string_array, DL_STR("INVALID"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("type = "));
+	if (e) goto cleanup;
+	e = duckVM_upvalue_type_prettyPrint(string_array, upvalue.type);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_upvalueArray_prettyPrint(dl_array_t *string_array,
+                                           duckVM_upvalueArray_t upvalueArray,
+                                           duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_upvalueArray_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("upvalues["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, upvalueArray.length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, upvalueArray.length) {
+		e = duckVM_object_prettyPrint(string_array, *upvalueArray.upvalues[i], duckVM);
+		if (e) goto cleanup;
+		if ((dl_size_t) i != upvalueArray.length - 1) {
+			e = dl_array_pushElements(string_array, DL_STR(", "));
+			if (e) goto cleanup;
+		}
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_internalVector_prettyPrint(dl_array_t *string_array,
+                                             duckVM_internalVector_t internalVector,
+                                             duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_internalVector_t) {"));
+	if (e) goto cleanup;
+
+	if (internalVector.initialized) {
+		e = dl_array_pushElements(string_array, DL_STR("values["));
+		if (e) goto cleanup;
+		e = dl_string_fromSize(string_array, internalVector.length);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("] = {"));
+		if (e) goto cleanup;
+		DL_DOTIMES(i, internalVector.length) {
+			e = duckVM_object_prettyPrint(string_array, *internalVector.values[i], duckVM);
+			if (e) goto cleanup;
+			if ((dl_size_t) i != internalVector.length - 1) {
+				e = dl_array_pushElements(string_array, DL_STR(", "));
+				if (e) goto cleanup;
+			}
+		}
+		e = dl_array_pushElements(string_array, DL_STR("}"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("values = UNINITIALIZED"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_vector_prettyPrint(dl_array_t *string_array, duckVM_vector_t vector, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_vector_t) {"));
+	if (e) goto cleanup;
+
+	if (vector.internal_vector == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = duckVM_internalVector_prettyPrint(string_array, vector.internal_vector->value.internal_vector, duckVM);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR("["));
+		if (e) goto cleanup;
+		e = dl_string_fromPtrdiff(string_array, vector.offset);
+		if (e) goto cleanup;
+		e = dl_array_pushElements(string_array, DL_STR(":]"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_bytecode_prettyPrint(dl_array_t *string_array, duckVM_bytecode_t bytecode) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_bytecode_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("bytecode["));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, bytecode.bytecode_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	if (e) goto cleanup;
+	if (bytecode.bytecode == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_internalComposite_prettyPrint(dl_array_t *string_array,
+                                                duckVM_internalComposite_t internalComposite,
+                                                duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_internalComposite_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("type = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, internalComposite.type);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("value = "));
+	if (e) goto cleanup;
+	if (internalComposite.value == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = duckVM_object_prettyPrint(string_array, *internalComposite.value, duckVM);
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("function = "));
+	if (e) goto cleanup;
+	if (internalComposite.function == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = duckVM_object_prettyPrint(string_array, *internalComposite.function, duckVM);
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_composite_prettyPrint(dl_array_t *string_array, duckVM_composite_t composite, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_composite_t) {"));
+	if (e) goto cleanup;
+
+	if (composite == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = duckVM_internalComposite_prettyPrint(string_array, composite->value.internalComposite, duckVM);
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_user_prettyPrint(dl_array_t *string_array, duckVM_user_t user) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_user_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("data = "));
+	if (e) goto cleanup;
+	if (user.data == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("destructor = "));
+	if (e) goto cleanup;
+	if (user.destructor == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("marker = "));
+	if (e) goto cleanup;
+	if (user.marker == dl_null) {
+		e = dl_array_pushElements(string_array, DL_STR("NULL"));
+		if (e) goto cleanup;
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("..."));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}
+
+dl_error_t duckVM_object_type_prettyPrint(dl_array_t *string_array, duckVM_object_type_t object_type) {
+	switch (object_type) {
+	case duckVM_object_type_none:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_none"));
+	case duckVM_object_type_bool:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_bool"));
+	case duckVM_object_type_integer:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_integer"));
+	case duckVM_object_type_float:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_float"));
+	case duckVM_object_type_string:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_string"));
+	case duckVM_object_type_list:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_list"));
+	case duckVM_object_type_symbol:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_symbol"));
+	case duckVM_object_type_function:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_function"));
+	case duckVM_object_type_closure:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_closure"));
+	case duckVM_object_type_vector:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_vector"));
+	case duckVM_object_type_type:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_type"));
+	case duckVM_object_type_composite:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_composite"));
+	case duckVM_object_type_user:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_user"));
+	case duckVM_object_type_cons:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_cons"));
+	case duckVM_object_type_upvalue:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_upvalue"));
+	case duckVM_object_type_upvalueArray:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_upvalueArray"));
+	case duckVM_object_type_internalVector:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_internalVector"));
+	case duckVM_object_type_bytecode:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_bytecode"));
+	case duckVM_object_type_internalComposite:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_internalComposite"));
+	case duckVM_object_type_internalString:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_internalString"));
+	case duckVM_object_type_last:
+		return dl_array_pushElements(string_array, DL_STR("duckVM_object_type_last"));
+	default:
+		return dl_array_pushElements(string_array, DL_STR("INVALID"));
+	}
+}
+
+dl_error_t duckVM_object_prettyPrint(dl_array_t *string_array, duckVM_object_t object, duckVM_t duckVM) {
+	dl_error_t e = dl_error_ok;
+
+	e = dl_array_pushElements(string_array, DL_STR("(duckVM_object_t) {"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("inUse = "));
+	if (e) goto cleanup;
+	if (object.inUse) {
+		e = dl_array_pushElements(string_array, DL_STR("true"));
+	}
+	else {
+		e = dl_array_pushElements(string_array, DL_STR("false"));
+	}
+	if (e) goto cleanup;
+
+	switch (object.type) {
+	case duckVM_object_type_bool:
+		e = dl_array_pushElements(string_array, DL_STR("bool: (dl_bool_t) "));
+		if (e) goto cleanup;
+		e = dl_string_fromBool(string_array, object.value.boolean);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_integer:
+		e = dl_array_pushElements(string_array, DL_STR("integer: (dl_ptrdiff_t) "));
+		if (e) goto cleanup;
+		e = dl_string_fromPtrdiff(string_array, object.value.integer);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_float:
+		e = dl_array_pushElements(string_array, DL_STR("float: (double) ..."));
+		if (e) goto cleanup;
+	case duckVM_object_type_internalString:
+		e = duckVM_internalString_prettyPrint(string_array, object.value.internalString);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_string:
+		e = duckVM_string_prettyPrint(string_array, object.value.string);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_symbol:
+		e = duckVM_symbol_prettyPrint(string_array, object.value.symbol);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_function:
+		e = duckVM_function_prettyPrint(string_array, object.value.function);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_closure:
+		e = duckVM_closure_prettyPrint(string_array, object.value.closure, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_list:
+		e = duckVM_list_prettyPrint(string_array, object.value.list, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_cons:
+		e = duckVM_cons_prettyPrint(string_array, object.value.cons, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_upvalue:
+		e = duckVM_upvalue_prettyPrint(string_array, object.value.upvalue, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_upvalueArray:
+		e = duckVM_upvalueArray_prettyPrint(string_array, object.value.upvalue_array, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_internalVector:
+		e = duckVM_internalVector_prettyPrint(string_array, object.value.internal_vector, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_vector:
+		e = duckVM_vector_prettyPrint(string_array, object.value.vector, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_bytecode:
+		e = duckVM_bytecode_prettyPrint(string_array, object.value.bytecode);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_type:
+		e = dl_array_pushElements(string_array, DL_STR("type: (dl_size_t) "));
+		if (e) goto cleanup;
+		e = dl_string_fromSize(string_array, object.value.type);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_internalComposite:
+		e = duckVM_internalComposite_prettyPrint(string_array, object.value.internalComposite, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_composite:
+		e = duckVM_composite_prettyPrint(string_array, object.value.composite, duckVM);
+		if (e) goto cleanup;
+		break;
+	case duckVM_object_type_user:
+		e = duckVM_user_prettyPrint(string_array, object.value.user);
+		if (e) goto cleanup;
+		break;
+	default:
+		e = dl_array_pushElements(string_array, DL_STR("INVALID"));
+		if (e) goto cleanup;
+	}
+
+	e = dl_array_pushElements(string_array, DL_STR("}"));
+	if (e) goto cleanup;
+
+ cleanup: return e;
+}

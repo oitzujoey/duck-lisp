@@ -2506,16 +2506,17 @@ upvalue
 upvalueArray
 
 
+All pretty printing functions should include value, type, and name.
+
+
 
 Todo:
     Finish parenthesis inference
         C: Add support for nested types? — L
-          Alternatively I could rewrite the parser as some sort of dynamic Pratt parser.
+            Alternatively I could rewrite the parser as some sort of dynamic Pratt parser.
         SQUISH: Document inference algorithm — M
     Fix C API — L
-        C: Add a bunch of `duckVM_object_make<type>` functions — M
         C: Add a bunch of `*_toString` functions — M
-        C: Switch to Lua-like API. — M
         SQUISH: Document C API — M
     Fix bugs — L
         C/DL: Write lots of tests — M
@@ -2532,10 +2533,11 @@ Todo:
         SQUISH: Write overview of VM
     Clean up. — M
         C: Remove "pure" function type or use it to make efficient functions.
+        C: Remove `printf`s.
     Test on ARM — S
     Clean up. — S
-    Create Hidey-Chess branch. — M
     Release 1!!!
+    Create Hidey-Chess branch. — M
 
 Duck-lisp architecture:
 Parse source text into an AST.

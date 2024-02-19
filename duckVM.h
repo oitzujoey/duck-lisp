@@ -53,7 +53,7 @@ typedef struct {
 typedef struct duckVM_s {
 	dl_memoryAllocation_t *memoryAllocation;
 	dl_array_t errors;  /* Runtime errors. */
-	dl_array_t stack;  /* dl_array_t:duckLisp_object_t For data. */
+	dl_array_t stack;  /* dl_array_t:duckVM_object_t For data. */
 	dl_array_t call_stack;  /* duckVM_callFrame_t */
 	/* I'm lazy and I don't want to bother with correct GC. */
 	struct duckVM_object_s *currentBytecode;
@@ -463,5 +463,36 @@ dl_error_t duckVM_upvalueArray_setUpvalue(duckVM_t *duckVM,
                                           duckVM_upvalueArray_t upvalueArray,
                                           duckVM_object_t *object,
                                           dl_ptrdiff_t index);
+
+
+/* Pretty printing functions for debugging. */
+
+dl_error_t duckVM_upvalue_type_prettyPrint(dl_array_t *string_array, duckVM_upvalue_type_t type);
+dl_error_t duckVM_gclist_prettyPrint(dl_array_t *string_array, duckVM_gclist_t gclist);
+dl_error_t duckVM_callFrame_prettyPrint(dl_array_t *string_array, duckVM_callFrame_t callFrame);
+dl_error_t duckVM_prettyPrint(dl_array_t *string_array, duckVM_t duckVM);
+dl_error_t duckVM_internalString_prettyPrint(dl_array_t *string_array, duckVM_internalString_t internalString);
+dl_error_t duckVM_string_prettyPrint(dl_array_t *string_array, duckVM_string_t string);
+dl_error_t duckVM_symbol_prettyPrint(dl_array_t *string_array, duckVM_symbol_t symbol);
+dl_error_t duckVM_function_prettyPrint(dl_array_t *string_array, duckVM_function_t function);
+dl_error_t duckVM_closure_prettyPrint(dl_array_t *string_array, duckVM_closure_t closure, duckVM_t duckVM);
+dl_error_t duckVM_list_prettyPrint(dl_array_t *string_array, duckVM_list_t list, duckVM_t duckVM);
+dl_error_t duckVM_cons_prettyPrint(dl_array_t *string_array, duckVM_cons_t cons, duckVM_t duckVM);
+dl_error_t duckVM_upvalue_prettyPrint(dl_array_t *string_array, duckVM_upvalue_t upvalue, duckVM_t duckVM);
+dl_error_t duckVM_upvalueArray_prettyPrint(dl_array_t *string_array,
+                                           duckVM_upvalueArray_t upvalueArray,
+                                           duckVM_t duckVM);
+dl_error_t duckVM_internalVector_prettyPrint(dl_array_t *string_array,
+                                             duckVM_internalVector_t internalVector,
+                                             duckVM_t duckVM);
+dl_error_t duckVM_vector_prettyPrint(dl_array_t *string_array, duckVM_vector_t vector, duckVM_t duckVM);
+dl_error_t duckVM_bytecode_prettyPrint(dl_array_t *string_array, duckVM_bytecode_t bytecode);
+dl_error_t duckVM_internalComposite_prettyPrint(dl_array_t *string_array,
+                                                duckVM_internalComposite_t internalComposite,
+                                                duckVM_t duckVM);
+dl_error_t duckVM_composite_prettyPrint(dl_array_t *string_array, duckVM_composite_t composite, duckVM_t duckVM);
+dl_error_t duckVM_user_prettyPrint(dl_array_t *string_array, duckVM_user_t user);
+dl_error_t duckVM_object_type_prettyPrint(dl_array_t *string_array, duckVM_object_type_t object_type);
+dl_error_t duckVM_object_prettyPrint(dl_array_t *string_array, duckVM_object_t object, duckVM_t duckVM);
 
 #endif /* DUCKVM_H */
