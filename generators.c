@@ -1844,7 +1844,7 @@ dl_error_t duckLisp_generator_defun(duckLisp_t *duckLisp,
 	dl_array_t eString;
 	/**/ dl_array_init(&eString, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
-	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 3, dl_true);
+	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 4, dl_true);
 	if (e) goto cleanup;
 
 	if (expression->compoundExpressions[1].type != duckLisp_ast_type_identifier) {
@@ -3614,6 +3614,7 @@ dl_error_t duckLisp_generator_callback(duckLisp_t *duckLisp,
 	return e;
 }
 
+/* This function mutates `expression`. */
 dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
                                     duckLisp_compileState_t *compileState,
                                     dl_array_t *assembly,
@@ -3781,7 +3782,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	                                        dl_false);
 	if (e) goto cleanupAST;
 
-	/* HACK: We can't pass a compound expression up, but we can pass an expression. This is so the noscope generator
+	/* HACK: We can't pass a compound expression up, but we can replace an expression. This is so the noscope generator
 	   can inspect the returned expression and act if it sees a `__var`, `__defun`, or `__noscope`. */
 	if (ast.type == duckLisp_ast_type_expression) {
 		e = duckLisp_ast_expression_quit(duckLisp->memoryAllocation, expression);
