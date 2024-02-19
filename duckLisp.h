@@ -212,6 +212,9 @@ typedef struct {
 	dl_size_t parser_recursion_depth;
 	dl_size_t parser_max_recursion_depth;
 
+	dl_size_t generators_max_recursion_depth;
+	dl_size_t generators_recursion_depth;
+
 	/* A VM instance for macros. */
 	duckVM_t vm;
 

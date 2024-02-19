@@ -927,6 +927,14 @@ dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
 	dl_ptrdiff_t temp_index;
 	duckLisp_ast_type_t temp_type;
 
+	if (duckLisp->generators_recursion_depth >= duckLisp->generators_max_recursion_depth) {
+		e = dl_error_bufferOverflow;
+		eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Max generator recursion depth met."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+	duckLisp->generators_recursion_depth++;
+
 	switch (compoundExpression->type) {
 	case duckLisp_ast_type_bool:
 		e = duckLisp_emit_pushBoolean(duckLisp,
@@ -1227,6 +1235,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 
 	/**/ dl_array_init(bytecode, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
 
+	duckLisp->generators_recursion_depth = 0;
 
 	/* * * * * *
 	 * Compile *
@@ -1962,6 +1971,9 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                     dl_array_strategy_double);
 	duckLisp->parser_max_recursion_depth = 1000;  /* This is the default. It is OK for the user to change. */
 	duckLisp->parser_recursion_depth = 0;  /* Don't change this. */
+
+	duckLisp->generators_max_recursion_depth = 1000;  /* This is the default. It is OK for the user to change. */
+	duckLisp->generators_recursion_depth = 0;  /* Don't change this. */
 
 	duckLisp->gensym_number = 0;
 
@@ -3213,6 +3225,22 @@ dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp) {
 	e = dl_array_pushElements(string_array, DL_STR("parser_max_recursion_depth = "));
 	if (e) goto cleanup;
 	e = dl_string_fromSize(string_array, duckLisp.parser_max_recursion_depth);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("generators_recursion_depth = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.generators_recursion_depth);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR(", "));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(string_array, DL_STR("generators_max_recursion_depth = "));
+	if (e) goto cleanup;
+	e = dl_string_fromSize(string_array, duckLisp.generators_max_recursion_depth);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));

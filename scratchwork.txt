@@ -2512,7 +2512,7 @@ All pretty printing functions should include value, type, and name.
 There are several ways to achieve infinite recursion.
  Nest too many parentheses. — Cap at 1000.
  Do infinite recursion in the VM. I'll have to check, but this may result in an OOM error, not a stack overflow.
- Do infinite macro expansion in the compiler.
+ Do infinite macro expansion in the compiler. — I think I will instead cap absolute recursion. So every time an expression is compiled the counter will increment. Cap at 1000.
 
 
 
@@ -2536,7 +2536,7 @@ Todo:
         SQUISH: Document inference algorithm — M
         SQUISH: Write overview of VM?
     Clean up. — M
-        C: Add max recursion depths.
+        C: Add max recursion depths. — S
     Test on ARM — S
     Test on Windows — M
     Clean up. — S
