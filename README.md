@@ -87,9 +87,9 @@ Examples and other junk can be found in the scratchwork directory.
 
 ## Usage
 
-"language.md" contains a brief description of the language.  
-"language-reference.md" contains a description of all duck-lisp keywords.  
-"api.md" contains the C API documentation. (incomplete)  
+"docs/language.md" contains a brief description of the language.  
+"docs/language-reference.md" contains a description of all duck-lisp keywords.  
+"docs/api.md" contains the C API documentation. (incomplete)  
 
 "duckLisp.h" contains everything needed for normal usage of the compiler.  
 "parser.h" contains declarations for the reader.  
