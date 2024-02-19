@@ -1557,7 +1557,8 @@ dl_error_t duckLisp_generator_lambda_raw(duckLisp_t *duckLisp,
 			                             * sizeof(duckLisp_ast_compoundExpression_t)));
 
 		cleanupProgn:
-			e = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			eError = DL_FREE(duckLisp->memoryAllocation, &progn.compoundExpressions);
+			if (eError) e = eError;
 			if (e) goto cleanup_gensym;
 		}
 
