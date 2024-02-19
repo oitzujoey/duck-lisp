@@ -1570,7 +1570,8 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 			}
 
 		cleanupAst:
-			e = duckLisp_ast_compoundExpression_quit(memoryAllocation, &ast);
+			eError = duckLisp_ast_compoundExpression_quit(memoryAllocation, &ast);
+			if (eError) e = eError;
 			if (e) goto cleanupString;
 		}
 
@@ -1583,7 +1584,7 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 		e = duckVM_setInteger(duckVM, status);
 		if (e) goto cleanupString;
 		/* stack: (()) status */
-		e = duckVM_setRest(duckVM, -1);
+		e = duckVM_setRest(duckVM, -2);
 		if (e) goto cleanupString;
 		/* stack: (() . status) status */
 		e = duckVM_pop(duckVM);
@@ -1592,7 +1593,7 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 		e = duckVM_object_push(duckVM, &astObject);
 		if (e) goto cleanupString;
 		/* stack: (() . status) ast */
-		e = duckVM_setFirst(duckVM, -1);
+		e = duckVM_setFirst(duckVM, -2);
 		if (e) goto cleanupString;
 		/* stack: (ast . status) ast */
 		e = duckVM_pop(duckVM);
@@ -1600,7 +1601,8 @@ dl_error_t duckLisp_callback_read(duckVM_t *duckVM) {
 		/* stack: (ast . status) */
 
 	cleanupString:
-		e = DL_FREE(duckVM->memoryAllocation, &string);
+		eError = DL_FREE(duckVM->memoryAllocation, &string);
+		if (eError) e = eError;
 		if (e) goto cleanup;
 	}
 
