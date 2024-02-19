@@ -2,7 +2,7 @@
 
 A simple scripting language for Hidey-Chess and similar projects.
 
-Duck-lisp is your typical hobby lisp with one or two twists. I started this project before I knew what lisp was, choosing the syntax solely for parsability, so variable declaration has a bit of a JavaScript-like feel. Macros are also a little weird since the language is split into separate runtime and compile-time environments. Also, parentheses are optional.
+Duck-lisp is your typical hobby lisp with one or two twists. I started this project before I knew what lisp was, choosing the syntax solely for parsability, so variable declaration has a bit of a JavaScript-like feel. Macros are also a little weird since the language is split into separate runtime and compile-time environments. Parentheses are optional.
 
 ## Features
 
@@ -13,12 +13,12 @@ Duck-lisp is your typical hobby lisp with one or two twists. I started this proj
 * UTF-8 compatible
 * C FFI
 * Split compiler and VM
+* Compilation with the C standard library is optional
 * Tested on x64 (Linux) and ARM (Linux)
 * A simplified VM has been used on an ATmega328P, and the full VM runs on an LPC1769.
 
 ### Planned features
 
-* Independent of the standard library
 * Independent of OS
 
 ### Quirks
@@ -26,7 +26,7 @@ Duck-lisp is your typical hobby lisp with one or two twists. I started this proj
 * Functions created by `defun` and `defmacro` are lexically scoped.
 * Built-in keywords can be overridden using `var`, `defun` and `defmacro`.
 * Variables are declared as they are in C-like languages. There is no `let`.
-* Parenthesis inference does not work with lisp auto-formatters.
+* Parenthesis inference does not work well with lisp auto-formatters.
 * Not quite a lisp-2.
 * Recursion is performed using they keyword `self`.
 
@@ -34,22 +34,11 @@ Duck-lisp is your typical hobby lisp with one or two twists. I started this proj
 
 * Error reporting is horrible. It will likely stay this way.
 * There are no debug features other than a disassembler.
-* Macros are unhygienic due to the inability of closures to be passed from the compilation VM to the runtime VM.
-* The C FFI isn't great. Use at your own risk.
+* Macros are unhygienic due to the inability of closures to be passed from the compilation VM to the runtime VM. Thus the lisp-2.
 
 ## Examples
 
 ### Building
-
-You can ignore compile flags, but in case you want them, here are all of them:
-
-To enable parenthesis inference and compile-time arity checks, configure the project with `cmake .. -DUSE_PARENTHESIS_INFERENCE=ON` instead of `cmake ..`.  
-To build with shared libraries, set `-DBUILD_SHARED_LIBS=ON` as with the option above.  
-To use DuckLib's memory allocator instead of the system's, set `-DUSE_DUCKLIB_MALLOC=ON`.  
-It is intended to be possible to use duck-lisp without the standard library if necessary. Duck-lisp is not quite in a state where it will work without the standard library, but if you want to try compiling without support the option is `USE_STDLIB=OFF`.  
-Advanced option: `NO_OPTIMIZE_JUMPS=ON`  
-Advanced option: `NO_OPTIMIZE_PUSHPOPS=ON`  
-If you need maximum performance out of the compiler, then `USE_DATALOGGING=ON` might be helpful. `duckLisp-dev` is setup to print the data collected when this flag is enabled.
 
 ```bash
 git clone --recurse-submodules https://github.com/oitzujoey/duck-lisp
@@ -59,7 +48,19 @@ cmake ..
 cmake --build .
 ```
 
-Examples and other junk can be found in the scratchwork directory. The large collection of scripts is mostly out of date. Only a few run without modification.
+You can generally ignore compile flags, but they are here in case you want them:
+
+To enable parenthesis inference and compile-time arity checks, configure the project with `cmake .. -DUSE_PARENTHESIS_INFERENCE=ON` instead of `cmake ..`.  
+To build with shared libraries, set `-DBUILD_SHARED_LIBS=ON` as with the option above.  
+To use DuckLib's memory allocator instead of the system's, set `-DUSE_DUCKLIB_MALLOC=ON`. DuckLib's allocator is sluggish.  
+Duck-lisp may be used without the standard library if necessary. Use the option `USE_STDLIB=OFF`. This will result in decreased performance.  
+Advanced options: The settings `NO_OPTIMIZE_JUMPS=ON` and `NO_OPTIMIZE_PUSHPOPS=ON` disable peephole optimizations. I suggest ignoring these variables.  
+If you need maximum performance out of the compiler, then `USE_DATALOGGING=ON` might be helpful. `duckLisp-dev` is setup to print the data collected when this flag is enabled.  
+
+For maximum performance, I suggest using `-DUSE_DUCKLIB_MALLOC=OFF -DUSE_STDLIB=ON -DNO_OPTIMIZE_JUMPS=OFF -DNO_OPTIMIZE_PUSHPOPS=OFF`. This is the default.  
+For maximum portability, I suggest using `-DUSE_DUCKLIB_MALLOC=ON -DUSE_STDLIB=OFF`.  
+
+Examples and other junk can be found in the scratchwork directory.
 
 ### Running
 
@@ -72,8 +73,6 @@ Examples and other junk can be found in the scratchwork directory. The large col
 # Run the duck-lisp program "factorial.dl".
 ./duckLisp-dev ../scripts/factorial.dl
 ```
-
-Note: Multiplication is defined in the VM, but this program was written pre-multiplication, so it reimplements it.
 
 ```bash
 # Run a script with arguments.
@@ -107,10 +106,6 @@ Note: Multiplication is defined in the VM, but this program was written pre-mult
 "compiler-debug.c" contains a single 7500 line function that disassembles bytecode.  
 "duckVM.c" contains the VM.  
 
-Typical usage of the language only requires including "duckLisp.h" and "duckVM.h". Adding new user-defined generators that generate bytecode requires "emitters.h". Some user-defined generators may want to call existing generators which can be called by including "generators.h". Reader function declarations can be found in "parser.h".
+Typical usage of the language only requires including "duckLisp.h" and "duckVM.h". Adding new user-defined generators that generate bytecode requires "emitters.h". Some user-defined generators may want to call existing generators, which are declared in "generators.h". Function declarations for the reader can be found in "parser.h".
 
 Examples on how to extend the language can be found in `scratchwork/duckLisp-dev.c`.
-
-## Is it any good?
-
-Yes.
