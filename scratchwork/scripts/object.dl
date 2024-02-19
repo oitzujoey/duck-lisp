@@ -1,0 +1,22 @@
+(var inc (quote inc))
+(var dec (quote dec))
+;; Unfortunately, we need to declare the object beforehand so that the
+;; lambda can capture it. This wordiness can be fixed with a macro.
+(defun object () ())
+(setq object (make-instance (make-type)
+                            0
+                            (lambda (message)
+                              (set-composite-value object
+                                                   (+ (if (= message inc)
+                                                          1
+                                                          (if (= message dec)
+                                                              -1
+                                                              0))
+                                                      (composite-value object))))))
+(print (composite-value object))  ; ⇒ 0
+(object inc)
+(print (composite-value object))  ; ⇒ 1
+(object dec)
+(object dec)
+(object dec)
+(print (composite-value object))  ; ⇒ -2
