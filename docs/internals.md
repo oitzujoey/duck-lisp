@@ -4,7 +4,7 @@
 
 VM — Virtual Machine, specifically the one that executes duck-lisp bytecode.  
 AST — Abstract Syntax Tree  
-HLA — High-Level Assembly, an intermediate representation.  
+HLA — High-Level Assembly, an intermediate representation specific to duck-lisp.  
 Assembly — HLA  
 Inference, Parenthesis Inference — The module and algorithm that infers the structure of the code using type declarations.  
 Form — A lisp form.  
@@ -55,7 +55,7 @@ Some of this separation is natural, the parser and assembler are naturally disti
 
 The Inferrer is separate from the parser and generators because it is designed to be relatively easy to remove and insert onto the backend of a foreign parser. How practical it is to transplant the inferrer remains to be seen.
 
-Generators are compilers that are generally dedicated to a single keyword. They accept the compiler state and AST and return HLA. Emitters are compilers that are dedicated to a single class of bytecode instruction. The emitted instruction class and associated arguments are used by the assembler to generate the final bytecode. These two divisions provide two benefits. The first is that the mappings of generators to keywords and emitters to instruction classes is a reasonably nice abstraction. The second is that it makes the compiler more modular, providing users with the possibility to add their own generators that extend the language without modifying the compiler itself.
+Generators are compilers that are usually dedicated to a single keyword. They accept the compiler state and AST and return HLA. Emitters are compilers that are dedicated to a single class of bytecode instruction. The emitted instruction class and associated arguments are used by the assembler to generate the final bytecode. These two divisions provide two benefits. The first is that the mappings of generators to keywords and emitters to instruction classes is a reasonably nice model. The second is that it makes the compiler more modular, providing users with the possibility of injecting their own generators to extend the language without modifying the compiler itself.
 
 ## Walkthrough of compilation process
 
