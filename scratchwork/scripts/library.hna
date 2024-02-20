@@ -1,252 +1,234 @@
-__comptime print "<comptime library.hna>\n"
+comptime print "<comptime library.hna>\n"
 print "<library.hna>\n"
 
-__defmacro declare (identifier type &rest script-body) ()
-(__declare declare (L L &rest 0 I)
-           (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
+(declare var (L I) (declare-identifier (infer-and-get-next-argument) (quote #I)))
 
-(__defmacro var (name value)
-            (__list (__quote #__var) name value))
-(__declare var (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
+(defmacro lvar (name value)
+  (list (quote #__var) name value))
+(declare lvar (L I) (declare-identifier (infer-and-get-next-argument) (quote #L)))
 
-(__defmacro lvar (name value)
-            (__list (__quote #__var) name value))
-(__declare lvar (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote #L)))
-
-(__defmacro defmacro (name parameters type &rest body)
-            (__when (__not __= (__type-of parameters) (__type-of ()))
-                    __setq parameters (__list parameters))
-            (__when (__not __= (__type-of type) (__type-of ()))
-                    __setq type (__list type))
-            __cons (__quote #__defmacro) (__cons name (__cons parameters body)))
-(__declare defmacro (L L L &rest 1 I)
-           (
-            (__var name (__infer-and-get-next-argument))
-            (__var parameters (__infer-and-get-next-argument))
-            (__when (__not __= (__type-of parameters) (__type-of ()))
-                    __setq parameters (__list parameters))
-            (__var type (__infer-and-get-next-argument))
-            (__when (__not __= (__type-of type) (__type-of ()))
-                    __setq type (__list type))
-            (__declaration-scope
-             (__while parameters
-                      __var parameter __car parameters
-                      (__unless (__= (__quote #&rest) parameter)
-                                (__declare-identifier parameter (__quote #I)))
-                      (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote #self) type)
-             (__infer-and-get-next-argument))
-            (__declare-identifier name type)))
+(defmacro defmacro (name parameters type &rest body)
+  (when (not = (type-of parameters) (type-of ()))
+    setq parameters (list parameters))
+  (when (not = (type-of type) (type-of ()))
+    setq type (list type))
+  cons (quote #__defmacro) (cons name (cons parameters body)))
+(declare defmacro (L L L &rest 1 I)
+         (
+          (var name (infer-and-get-next-argument))
+          (var parameters (infer-and-get-next-argument))
+          (when (not = (type-of parameters) (type-of ()))
+            setq parameters (list parameters))
+          (var type (infer-and-get-next-argument))
+          (when (not = (type-of type) (type-of ()))
+            setq type (list type))
+          (declaration-scope
+           (while parameters
+                  var parameter car parameters
+                  (unless (= (quote #&rest) parameter)
+                    (declare-identifier parameter (quote #I)))
+                  (setq parameters (cdr parameters)))
+           (declare-identifier (quote #self) type)
+           (infer-and-get-next-argument))
+          (declare-identifier name type)))
 
 (defmacro defun (name parameters &rest body) (L L &rest 1 I)
-          (__when (__not __= (__type-of parameters) (__type-of ()))
-                  __setq parameters (__list parameters))
-          __var new-parameters ()
-          ;; Dump `&rest's argument.
-          (()
-           __var p2 parameters
-           (__while p2
-                    __setq new-parameters (__cons (__car p2) new-parameters)
-                    __when __= (__car p2) (__quote #&rest)
-                    __setq p2 __cdr p2
-                    __setq p2 __cdr p2))
-          (()
-           __var np2 new-parameters
-           __setq new-parameters ()
-           (__while np2
-                    __setq new-parameters (__cons (__car np2) new-parameters)
-                    __setq np2 __cdr np2))
-          __cons (__quote #__defun) (__cons name (__cons new-parameters body)))
-(__declare defun (L L &rest 1 I)
-           (
-            (__var name (__infer-and-get-next-argument))
-            (__var parameters (__infer-and-get-next-argument))
-            (__when (__not __= (__type-of parameters) (__type-of ()))
-                    __setq parameters (__list parameters))
-            (__var type ())
-            (
-             (__var parameters parameters)
-             (__while parameters
-                      (__if (__if (__= (__quote #&rest) (__car parameters))
-                                  true
-                                  (__= (__type-of __car parameters) (__type-of 0)))
-                            (__setq type (__cons __car parameters type))
-                            (__setq type (__cons (__quote #I) type)))
-                      (__setq parameters (__cdr parameters))))
-            (
-             (__var type2 type)
-             (__setq type ())
-             (__while type2
-                      (__setq type (__cons (__car type2) type))
-                      (__setq type2 (__cdr type2))))
-            (__declaration-scope
-             (__while parameters
-                      __var parameter __car parameters
-                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
-                                      (__not (__= (__quote #&rest) parameter)))
-                              (__declare-identifier parameter (__quote #I)))
-                      (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote #self) type)
-             (__infer-and-get-next-argument))
-            (__declare-identifier name type)))
+  (when (not = (type-of parameters) (type-of ()))
+    setq parameters (list parameters))
+  var new-parameters ()
+  ;; Dump `&rest's argument.
+  (()
+   var p2 parameters
+   (while p2
+          setq new-parameters (cons (car p2) new-parameters)
+          when = (car p2) (quote #&rest)
+          setq p2 cdr p2
+          setq p2 cdr p2))
+  (()
+   var np2 new-parameters
+   setq new-parameters ()
+   (while np2
+          setq new-parameters (cons (car np2) new-parameters)
+          setq np2 cdr np2))
+  cons (quote #__defun) (cons name (cons new-parameters body)))
+(declare defun (L L &rest 1 I)
+         (
+          (var name (infer-and-get-next-argument))
+          (var parameters (infer-and-get-next-argument))
+          (when (not = (type-of parameters) (type-of ()))
+            setq parameters (list parameters))
+          (var type ())
+          (
+           (var parameters parameters)
+           (while parameters
+                  (if (if (= (quote #&rest) (car parameters))
+                          true
+                          (= (type-of car parameters) (type-of 0)))
+                      (setq type (cons car parameters type))
+                      (setq type (cons (quote #I) type)))
+                  (setq parameters (cdr parameters))))
+          (
+           (var type2 type)
+           (setq type ())
+           (while type2
+                  (setq type (cons (car type2) type))
+                  (setq type2 (cdr type2))))
+          (declaration-scope
+           (while parameters
+                  var parameter car parameters
+                  (when (when (= (type-of parameter) (type-of quote #a))
+                          (not (= (quote #&rest) parameter)))
+                    (declare-identifier parameter (quote #I)))
+                  (setq parameters (cdr parameters)))
+           (declare-identifier (quote #self) type)
+           (infer-and-get-next-argument))
+          (declare-identifier name type)))
 
 (defmacro lambda (parameters &rest body) (L &rest 1 I)
-          (__when (__not __= (__type-of parameters) (__type-of ()))
-                  __setq parameters (__list parameters))
-          __var new-parameters ()
-          ;; Dump `&rest's argument.
-          (()
-           __var p2 parameters
-           (__while p2
-                    __setq new-parameters (__cons (__car p2) new-parameters)
-                    __when __= (__car p2) (__quote #&rest)
-                    __setq p2 __cdr p2
-                    __setq p2 __cdr p2))
-          (()
-           __var np2 new-parameters
-           __setq new-parameters ()
-           (__while np2
-                    __setq new-parameters (__cons (__car np2) new-parameters)
-                    __setq np2 __cdr np2))
-          __cons (__quote #__lambda) (__cons new-parameters body))
-(__declare lambda (L &rest 1 I)
-           (
-            (__var parameters (__infer-and-get-next-argument))
-            (__when (__not __= (__type-of parameters) (__type-of ()))
-                    __setq parameters (__list parameters))
-            (__var type ())
-            (
-             (__var parameters parameters)
-             (__while parameters
-                      (__if (__if (__= (__quote #&rest) (__car parameters))
-                                  true
-                                  (__= (__type-of __car parameters) (__type-of 0)))
-                            (__setq type (__cons __car parameters type))
-                            (__setq type (__cons (__quote #I) type)))
-                      (__setq parameters (__cdr parameters))))
-            (
-             (__var type2 type)
-             (__setq type ())
-             (__while type2
-                      (__setq type (__cons (__car type2) type))
-                      (__setq type2 (__cdr type2))))
-            (__declaration-scope
-             (__while parameters
-                      __var parameter __car parameters
-                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
-                                      (__not (__= (__quote #&rest) parameter)))
-                              (__declare-identifier parameter (__quote #I)))
-                      (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote #self) type)
-             (__infer-and-get-next-argument))))
+  (when (not = (type-of parameters) (type-of ()))
+    setq parameters (list parameters))
+  var new-parameters ()
+  ;; Dump `&rest's argument.
+  (()
+   var p2 parameters
+   (while p2
+          setq new-parameters (cons (car p2) new-parameters)
+          when = (car p2) (quote #&rest)
+          setq p2 cdr p2
+          setq p2 cdr p2))
+  (()
+   var np2 new-parameters
+   setq new-parameters ()
+   (while np2
+          setq new-parameters (cons (car np2) new-parameters)
+          setq np2 cdr np2))
+  cons (quote #__lambda) (cons new-parameters body))
+(declare lambda (L &rest 1 I)
+         (
+          (var parameters (infer-and-get-next-argument))
+          (when (not = (type-of parameters) (type-of ()))
+            setq parameters (list parameters))
+          (var type ())
+          (
+           (var parameters parameters)
+           (while parameters
+                  (if (if (= (quote #&rest) (car parameters))
+                          true
+                          (= (type-of car parameters) (type-of 0)))
+                      (setq type (cons car parameters type))
+                      (setq type (cons (quote #I) type)))
+                  (setq parameters (cdr parameters))))
+          (
+           (var type2 type)
+           (setq type ())
+           (while type2
+                  (setq type (cons (car type2) type))
+                  (setq type2 (cdr type2))))
+          (declaration-scope
+           (while parameters
+                  var parameter car parameters
+                  (when (when (= (type-of parameter) (type-of quote #a))
+                          (not (= (quote #&rest) parameter)))
+                    (declare-identifier parameter (quote #I)))
+                  (setq parameters (cdr parameters)))
+           (declare-identifier (quote #self) type)
+           (infer-and-get-next-argument))))
 
-(defmacro scope (&rest body) (&rest 2 I) (__cons () body))
+(defmacro scope (&rest body) (&rest 2 I) (cons () body))
 
 (defmacro bothtime (&rest body) (&rest 1 I)
-          (__list (__quote #__noscope)
-                  (__cons (__quote #__comptime)
-                          body)
-                  (__cons (__quote #__noscope)
-                          body)))
+  (list (quote #__noscope)
+        (cons (quote #__comptime)
+              body)
+        (cons (quote #__noscope)
+              body)))
 
 (defmacro bvar (name value) (L I)
-  (__funcall #bothtime (__list (__quote #var) name value) ()))
-(__declare bvar (L I) (__declare-identifier (__infer-and-get-next-argument) (__quote #L)))
+  (funcall #bothtime (list (quote #__var) name value) ()))
+(declare bvar (L I) (declare-identifier (infer-and-get-next-argument) (quote #L)))
 
 (defmacro bdefun (name parameters &rest body) (L L &rest 1 I)
-  (__var defun (__list (__quote #defun) name parameters))
-  (__set-cdr (__cdr (__cdr defun)) body)
-  (__funcall #bothtime defun ()))
-(__declare bdefun (L L &rest 1 I)
-           (
-            (__var name (__infer-and-get-next-argument))
-            (__var parameters (__infer-and-get-next-argument))
-            (__when (__not __= (__type-of parameters) (__type-of ()))
-                    __setq parameters (__list parameters))
-            (__var type ())
-            (
-             (__var parameters parameters)
-             (__while parameters
-                      (__if (__if (__= (__quote #&rest) (__car parameters))
-                                  true
-                                  (__= (__type-of __car parameters) (__type-of 0)))
-                            (__setq type (__cons __car parameters type))
-                            (__setq type (__cons (__quote #I) type)))
-                      (__setq parameters (__cdr parameters))))
-            (
-             (__var type2 type)
-             (__setq type ())
-             (__while type2
-                      (__setq type (__cons (__car type2) type))
-                      (__setq type2 (__cdr type2))))
-            (__declaration-scope
-             (__while parameters
-                      __var parameter __car parameters
-                      (__when (__when (__= (__type-of parameter) (__type-of __quote #a))
-                                      (__not (__= (__quote #&rest) parameter)))
-                              (__declare-identifier parameter (__quote #I)))
-                      (__setq parameters (__cdr parameters)))
-             (__declare-identifier (__quote #self) type)
-             (__infer-and-get-next-argument))
-            (__declare-identifier name type)))
+  (var defun (list (quote #defun) name parameters))
+  (set-cdr (cdr (cdr defun)) body)
+  (funcall #bothtime defun ()))
+(declare bdefun (L L &rest 1 I)
+         (
+          (var name (infer-and-get-next-argument))
+          (var parameters (infer-and-get-next-argument))
+          (when (not = (type-of parameters) (type-of ()))
+            setq parameters (list parameters))
+          (var type ())
+          (
+           (var parameters parameters)
+           (while parameters
+                  (if (if (= (quote #&rest) (car parameters))
+                          true
+                          (= (type-of car parameters) (type-of 0)))
+                      (setq type (cons car parameters type))
+                      (setq type (cons (quote #I) type)))
+                  (setq parameters (cdr parameters))))
+          (
+           (var type2 type)
+           (setq type ())
+           (while type2
+                  (setq type (cons (car type2) type))
+                  (setq type2 (cdr type2))))
+          (declaration-scope
+           (while parameters
+                  var parameter car parameters
+                  (when (when (= (type-of parameter) (type-of quote #a))
+                          (not (= (quote #&rest) parameter)))
+                    (declare-identifier parameter (quote #I)))
+                  (setq parameters (cdr parameters)))
+           (declare-identifier (quote #self) type)
+           (infer-and-get-next-argument))
+          (declare-identifier name type)))
 
 
 bvar *epsilon* 1e-9
 
 
-defmacro ' (code) (L) (__list (__quote #__quote) code)
-defmacro list (&rest parameters) (&rest 0 I) (__cons ' __list parameters)
-bdefun cons (first second) __cons first second
-defmacro nop () () (list ' __nop)
+defmacro ' (code) (L) (list (quote #__quote) code)
+bdefun cons (first second) cons first second
 defmacro noscope (&rest body) (&rest 2 I) (cons ' __noscope body)
-defmacro comptime (&rest body) (&rest 1 I) (cons ' __comptime body)
-defmacro quote (form) (I) (__list ' __quote form)
-defmacro setq (variable value) (L I) (list ' __setq variable value)
-defmacro funcall (function &rest arguments) (I &rest 1 I) (cons ' __funcall (cons function arguments))
-defmacro apply (function &rest arguments) (I &rest 1 I) (cons ' __apply (cons function arguments))
-defmacro if (condition then else) (I I I) (list ' __if condition then else)
-defmacro when (condition &rest then) (I &rest 1 I) (cons ' __when (cons condition then))
-defmacro unless (condition &rest else) (I &rest 1 I) (cons ' __unless (cons condition else))
-defmacro while (condition &rest body) (I &rest 1 I) (cons ' __while (cons condition body))
-defmacro vector (&rest arguments) (&rest 0 I) (cons ' __vector arguments)
-bdefun make-vector (size init) __make-vector size init
-bdefun get-vector-element (vector index) __get-vector-element vector index
-bdefun car (cons) __car cons
-bdefun cdr (cons) __cdr cons
-bdefun set-car (cons value) __set-car cons value
-bdefun set-cdr (cons value) __set-cdr cons value
-bdefun substring (string start-index end-index) __substring string start-index end-index
-bdefun length (sequence) __length sequence
-bdefun make-string (integer-sequence) __make-string integer-sequence
+bdefun make-vector (size init) make-vector size init
+bdefun get-vector-element (vector index) get-vector-element vector index
+bdefun car (cons) car cons
+bdefun cdr (cons) cdr cons
+bdefun set-car (cons value) set-car cons value
+bdefun set-cdr (cons value) set-cdr cons value
+bdefun substring (string start-index end-index) substring string start-index end-index
+bdefun length (sequence) length sequence
+bdefun make-string (integer-sequence) make-string integer-sequence
 (bdefun concatenate (first-string &rest 1 other-strings)
-        (__if other-strings
-              (__concatenate first-string (apply #self other-strings))
-              first-string))
-bdefun make-type () __make-type
-bdefun make-instance (type value-slot function-slot) (__make-instance type value-slot function-slot)
-bdefun composite-value (composite) (__composite-value composite)
-bdefun composite-function (composite) (__composite-function composite)
-bdefun set-composite-value (composite value) (__set-composite-value composite value)
-bdefun set-composite-function (composite function) (__set-composite-function composite function)
-bdefun null? (value) __null? value
-bdefun type-of (value) __type-of value
-bdefun not (value) __not value
+        (if other-strings
+            (concatenate first-string (apply #self other-strings))
+            first-string))
+bdefun make-type () make-type
+bdefun make-instance (type value-slot function-slot) (make-instance type value-slot function-slot)
+bdefun composite-value (composite) (composite-value composite)
+bdefun composite-function (composite) (composite-function composite)
+bdefun set-composite-value (composite value) (set-composite-value composite value)
+bdefun set-composite-function (composite function) (set-composite-function composite function)
+bdefun null? (value) null? value
+bdefun type-of (value) type-of value
+bdefun not (value) not value
 bdefun * (a &rest 1 b) (if b
-                           __* a (apply #self b)
+                           * a (apply #self b)
                            a)
 bdefun / (a &rest 1 b) (if b
-                           __/ a (apply #self b)
+                           / a (apply #self b)
                            a)
 bdefun + (a &rest 1 b) (if b
-                           __+ a (apply #self b)
+                           + a (apply #self b)
                            a)
 bdefun - (a &rest 1 b) (if b
-                           __- a (apply #self b)
+                           - a (apply #self b)
                            a)
-bdefun = (a b) __= a b
-bdefun < (a b) __< a b
-bdefun > (a b) __> a b
-bdefun symbol-string (symbol) __symbol-string symbol
+bdefun = (a b) = a b
+bdefun < (a b) < a b
+bdefun > (a b) > a b
+bdefun symbol-string (symbol) symbol-string symbol
 
 defmacro nil () () ()
 
@@ -259,23 +241,23 @@ bdefun != (x y) not = x y
 bdefun ≠ (x y) not = x y
 
 (defmacro incq (variable &rest value) (L &rest 0 I)
-          setq value car value
-          (if value
-              (list ' __setq variable (list ' __+ value variable))
-              (list ' __setq variable (list ' __+ 1 variable))))
+  setq value car value
+  (if value
+      (list ' __setq variable (list ' __+ value variable))
+      (list ' __setq variable (list ' __+ 1 variable))))
 
 (defmacro decq (variable &rest value) (L &rest 0 I)
-          setq value car value
-          (if value
-              (list ' __setq variable (list ' __+ value variable))
-              (list ' __setq variable (list ' __- variable 1))))
+  setq value car value
+  (if value
+      (list ' __setq variable (list ' __+ value variable))
+      (list ' __setq variable (list ' __- variable 1))))
 
 (bdefun mod (a b)
         (- a (* (/ a b) b)))
 
 (bdefun abs value
-        (if __< value 0
-            __- 0 value
+        (if < value 0
+            - 0 value
             value))
 
 (bdefun sqrt value
@@ -285,16 +267,16 @@ bdefun ≠ (x y) not = x y
         var high target
         var low 0
         (while running
-          var delta (- 1 (/ target (* value value)))
-          (if < *epsilon* (abs delta)
-              (()
-               (if > 0 delta
-                   setq low value
-                   setq high value)
-               setq value (+ (/ (- high low) 2.0) low))
-              (()
-               setq result value
-               setq running false)))
+               var delta (- 1 (/ target (* value value)))
+               (if < *epsilon* (abs delta)
+                   (()
+                    (if > 0 delta
+                        setq low value
+                        setq high value)
+                    setq value (+ (/ (- high low) 2.0) low))
+                   (()
+                    setq result value
+                    setq running false)))
         result)
 
 bvar duckLisp-object-type-bool type-of false
@@ -424,8 +406,8 @@ bvar duckLisp-object-type-type type-of type-of ()
 (bdefun print (&rest 1 vs)
         (var vs2 vs)
         (while (not (null? vs2))
-          (print (car vs2))
-          (setq vs2 (cdr vs2)))
+               (print (car vs2))
+               (setq vs2 (cdr vs2)))
         vs)
 
 (bdefun println (&rest 1 vs)
@@ -445,24 +427,24 @@ bvar duckLisp-object-type-type type-of type-of ()
 (bdefun reverse (list)
         (var reversed-list ())
         (while (not (null? list))
-          (setq reversed-list (cons (car list)
-                                    reversed-list))
-          pop list)
+               (setq reversed-list (cons (car list)
+                                         reversed-list))
+               pop list)
         reversed-list)
 (bdefun nreverse (list) reverse list)
 
 (defmacro and (&rest args) (&rest 2 I)
   (if args
 	  (list ' if (car args)
-			(apply #self (cdr args))
-			false)
+              (apply #self (cdr args))
+              false)
 	  true))
 
 (defmacro or (&rest args) (&rest 2 I)
   (if args
 	  (list ' if (car args)
-			true
-			(apply #self (cdr args)))
+              true
+              (apply #self (cdr args)))
 	  false))
 
 (bdefun truthy-constant? (value)
@@ -489,27 +471,27 @@ bvar duckLisp-object-type-type type-of type-of ()
                (if (falsy-constant? condition)
                    (apply #self (cddr body))
                    (list ' if
-                         condition
-                         (second body)
-                         (apply #self (cddr body))))))
+                           condition
+                           (second body)
+                           (apply #self (cddr body))))))
           (first body))
       ()))
 
 (defmacro switch (constant &rest body) (I &rest -1 I)
-          (if body
-              (if (cdr body)
-                  (list ' if
-                          (list ' = constant (first body))
-                          (second body)
-                          (apply #self constant (cddr body)))
-                  (first body))
-              ()))
+  (if body
+      (if (cdr body)
+          (list ' if
+                  (list ' = constant (first body))
+                  (second body)
+                  (apply #self constant (cddr body)))
+          (first body))
+      ()))
 
 (bdefun nth (n list)
         (var i 0)
         (while (< i n)
-          (pop list)
-          (incq i))
+               (pop list)
+               (incq i))
         (car list))
 
 (bdefun elt (list n)
@@ -517,19 +499,19 @@ bvar duckLisp-object-type-type type-of type-of ()
 
 (bdefun last (list)
         (while (cdr list)
-          (pop list))
+               (pop list))
         list)
 
 (bdefun append (list1 list2)
         (var appended-list ())
         (while (not (null? list1))
-          (setq appended-list (cons (car list1)
-                                    appended-list))
-          (pop list1))
+               (setq appended-list (cons (car list1)
+                                         appended-list))
+               (pop list1))
         (while (not (null? list2))
-          (setq appended-list (cons (car list2)
-                                    appended-list))
-          (pop list2))
+               (setq appended-list (cons (car list2)
+                                         appended-list))
+               (pop list2))
         (nreverse appended-list))
 
 (bdefun mapcar* (fun list)
@@ -548,10 +530,10 @@ bvar duckLisp-object-type-type type-of type-of ()
    (list ' var variable 0)
    (list ' var top-var top)
    (list ' while (list ' < variable top-var)
-         (list* ' noscope body)
-         (list ' incq variable))
+           (list* ' noscope body)
+           (list ' incq variable))
    top-var))
-(__declare dotimes (L I &rest 1 I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
+(declare dotimes (L I &rest 1 I) (declare-identifier (infer-and-get-next-argument) (quote #I)))
 
 ;; Like `dolist`, but for generic sequences.
 ;;   (dosequence i (list 1 2 3)
@@ -559,19 +541,19 @@ bvar duckLisp-object-type-type type-of type-of ()
 ;; In the above example, the numbers 1-3 are printed.
 ;; Returns the sequence. It is only evaluated once.
 (defmacro dosequence (variable sequence &rest body) (L I &rest 1 I)
-          (var sequence-var (gensym))
-          (var return-var (gensym))
-          (list
-           (list (' var) sequence-var sequence)
-           (list (' var) return-var sequence)
-           (list (' var) variable ())
-           (list (' while) (list (' not) (list (' null?) sequence-var))
-                 (list (' setq) variable (list (' car) sequence-var))
-                 (apply #noscope
-                        body)
-                 (list ' setq sequence-var (list ' cdr sequence-var)))
-           return-var))
-(__declare dosequence (L I &rest 1 I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
+  (var sequence-var (gensym))
+  (var return-var (gensym))
+  (list
+   (list (' var) sequence-var sequence)
+   (list (' var) return-var sequence)
+   (list (' var) variable ())
+   (list (' while) (list (' not) (list (' null?) sequence-var))
+         (list (' setq) variable (list (' car) sequence-var))
+         (apply #noscope
+                body)
+         (list ' setq sequence-var (list ' cdr sequence-var)))
+   return-var))
+(declare dosequence (L I &rest 1 I) (declare-identifier (infer-and-get-next-argument) (quote #I)))
 
 ;; Not the typical `dolist'.
 ;;   (dolist i (list 1 2 3)
@@ -580,7 +562,7 @@ bvar duckLisp-object-type-type type-of type-of ()
 ;; Returns the list. It is only evaluated once.
 (defmacro dolist (variable sequence &rest body) (L I &rest 1 I)
   (apply #dosequence variable sequence body))
-(__declare dolist (L I &rest 1 I) (__declare-identifier (__infer-and-get-next-argument) (__quote #I)))
+(declare dolist (L I &rest 1 I) (declare-identifier (infer-and-get-next-argument) (quote #I)))
 
 
 
@@ -588,39 +570,39 @@ bvar duckLisp-object-type-type type-of type-of ()
 ;; Nested quasiquotes don't work properly.
 ;; ",", and ",@" need to be called as functions in order to match properly.
 (defmacro quasiquote (form) (I)
-    (switch (type-of form)
-            duckLisp-object-type-list (when form
-                                        (
-                                         (var sub-form (car form))
-                                         (if (list? sub-form)
-                                             (switch (car sub-form)
-                                                     ' , (list ' cons (cadr sub-form) (self (cdr form)))
-                                                     ' ,@ (list ' append
-                                                                      (cadr sub-form)
-                                                                      (self (cdr form)))
-                                                     (list ' cons (self (car form)) (self (cdr form))))
-                                             (list ' cons (self (car form)) (self (cdr form))))))
-            duckLisp-object-type-symbol (list ' quote form)
-            duckLisp-object-type-closure (list ' error "`: Cannot quote closure object")
-            duckLisp-object-type-vector (list ' quote form)
-            duckLisp-object-type-type (list ' error "`: Cannot quote type object")
-            form))
-(__declare quasiquote (I)
-           (__declaration-scope
-            (__declare-identifier (__quote #,) (__quote #I))
-            (__declare-identifier (__quote #,@) (__quote #I))
-            __infer-and-get-next-argument))
+  (switch (type-of form)
+    duckLisp-object-type-list (when form
+                                (
+                                 (var sub-form (car form))
+                                 (if (list? sub-form)
+                                     (switch (car sub-form)
+                                       ' , (list ' cons (cadr sub-form) (self (cdr form)))
+                                       ' ,@ (list ' append
+                                                    (cadr sub-form)
+                                                    (self (cdr form)))
+                                       (list ' cons (self (car form)) (self (cdr form))))
+                                     (list ' cons (self (car form)) (self (cdr form))))))
+    duckLisp-object-type-symbol (list ' quote form)
+    duckLisp-object-type-closure (list ' error "`: Cannot quote closure object")
+    duckLisp-object-type-vector (list ' quote form)
+    duckLisp-object-type-type (list ' error "`: Cannot quote type object")
+    form))
+(declare quasiquote (I)
+         (declaration-scope
+          (declare-identifier (quote #,) (quote #I))
+          (declare-identifier (quote #,@) (quote #I))
+          infer-and-get-next-argument))
 ;; See above description of the backtick character.
 (defmacro ` (form) (I) (funcall #quasiquote form))
-(__declare ` (I)
-             (__declaration-scope
-              (__declare-identifier (__quote #,) (__quote #(I)))
-              (__declare-identifier (__quote #,@) (__quote #(I)))
-              __infer-and-get-next-argument))
+(declare ` (I)
+           (declaration-scope
+            (declare-identifier (quote #,) (quote #(I)))
+            (declare-identifier (quote #,@) (quote #(I)))
+            infer-and-get-next-argument))
 
 
 (defmacro until (condition &rest body) (I &rest 1 I)
-          ` (while (not , condition) ,@ body))
+  ` (while (not , condition) ,@ body))
 
 comptime println "</comptime library.hna>"
 println "</library.hna>"

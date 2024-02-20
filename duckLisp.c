@@ -1643,11 +1643,11 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		{DL_STR("__var"),
 		 duckLisp_generator_createVar_dummy,
 		 DL_STR("(L I)"),
-		 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
+		 DL_STR("(declare-identifier (infer-and-get-next-argument) (quote L))")},
 		{DL_STR("var"),
 		 duckLisp_generator_createVar_dummy,
 		 DL_STR("(L I)"),
-		 DL_STR("(__declare-identifier (__infer-and-get-next-argument) (__quote L))")},
+		 DL_STR("(declare-identifier (infer-and-get-next-argument) (quote L))")},
 		{DL_STR("__global"), duckLisp_generator_global, DL_STR("(L I)"), dl_null, 0},
 		{DL_STR("global"), duckLisp_generator_global, DL_STR("(L I)"), dl_null, 0},
 		{DL_STR("__setq"), duckLisp_generator_setq, DL_STR("(L I)"), dl_null, 0},
@@ -1681,60 +1681,60 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		 DL_STR("(L L &rest 1 I)"),
 		 DL_STR(" \
 ( \
- (__var name (__infer-and-get-next-argument)) \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
+ (var name (infer-and-get-next-argument)) \
+ (var parameters (infer-and-get-next-argument)) \
+ (var type ()) \
  ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
+  (var parameters parameters) \
+  (while parameters \
+         (if (= (quote &rest) (car parameters)) \
+             (setq type (cons 0 (cons (quote &rest) type))) \
+             (setq type (cons (quote I) type))) \
+         (setq parameters (cdr parameters)))) \
  ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument)) \
- (__declare-identifier name type)) \
+  (var type2 type) \
+  (setq type ()) \
+  (while type2 \
+         (setq type (cons (car type2) type)) \
+         (setq type2 (cdr type2)))) \
+ (declaration-scope \
+  (while parameters \
+         (unless (= (quote &rest) (car parameters)) \
+                 (declare-identifier (car parameters) (quote L))) \
+         (setq parameters (cdr parameters))) \
+  (declare-identifier (quote self) type) \
+  (infer-and-get-next-argument)) \
+ (declare-identifier name type)) \
 ")},
 		{DL_STR("defun"),
 		 duckLisp_generator_defun_dummy,
 		 DL_STR("(L L &rest 1 I)"),
 		 DL_STR(" \
 ( \
- (__var name (__infer-and-get-next-argument)) \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
+ (var name (infer-and-get-next-argument)) \
+ (var parameters (infer-and-get-next-argument)) \
+ (var type ()) \
  ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
+  (var parameters parameters) \
+  (while parameters \
+         (if (= (quote &rest) (car parameters)) \
+             (setq type (cons 0 (cons (quote &rest) type))) \
+             (setq type (cons (quote I) type))) \
+         (setq parameters (cdr parameters)))) \
  ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument)) \
- (__declare-identifier name type)) \
+  (var type2 type) \
+  (setq type ()) \
+  (while type2 \
+         (setq type (cons (car type2) type)) \
+         (setq type2 (cdr type2)))) \
+ (declaration-scope \
+  (while parameters \
+         (unless (= (quote &rest) (car parameters)) \
+                 (declare-identifier (car parameters) (quote L))) \
+         (setq parameters (cdr parameters))) \
+  (declare-identifier (quote self) type) \
+  (infer-and-get-next-argument)) \
+ (declare-identifier name type)) \
 ")},
 		{DL_STR("\0defun:lambda"), duckLisp_generator_lambda, dl_null, 0, dl_null, 0},
 		{DL_STR("\0defmacro:lambda"), duckLisp_generator_lambda, dl_null, 0, dl_null, 0},
@@ -1743,116 +1743,116 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 		 DL_STR("(L &rest 1 I)"),
 		 DL_STR(" \
 ( \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
+ (var parameters (infer-and-get-next-argument)) \
+ (var type ()) \
  ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
+  (var parameters parameters) \
+  (while parameters \
+         (if (= (quote &rest) (car parameters)) \
+             (setq type (cons 0 (cons (quote &rest) type))) \
+             (setq type (cons (quote I) type))) \
+         (setq parameters (cdr parameters)))) \
  ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument))) \
+  (var type2 type) \
+  (setq type ()) \
+  (while type2 \
+         (setq type (cons (car type2) type)) \
+         (setq type2 (cdr type2)))) \
+ (declaration-scope \
+  (while parameters \
+         (unless (= (quote &rest) (car parameters)) \
+                 (declare-identifier (car parameters) (quote L))) \
+         (setq parameters (cdr parameters))) \
+  (declare-identifier (quote self) type) \
+  (infer-and-get-next-argument))) \
 ")},
 		{DL_STR("lambda"),
 		 duckLisp_generator_lambda,
 		 DL_STR("(L &rest 1 I)"),
 		 DL_STR(" \
 ( \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
+ (var parameters (infer-and-get-next-argument)) \
+ (var type ()) \
  ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
+  (var parameters parameters) \
+  (while parameters \
+         (if (= (quote &rest) (car parameters)) \
+             (setq type (cons 0 (cons (quote &rest) type))) \
+             (setq type (cons (quote I) type))) \
+         (setq parameters (cdr parameters)))) \
  ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument))) \
+  (var type2 type) \
+  (setq type ()) \
+  (while type2 \
+         (setq type (cons (car type2) type)) \
+         (setq type2 (cdr type2)))) \
+ (declaration-scope \
+  (while parameters \
+         (unless (= (quote &rest) (car parameters)) \
+                 (declare-identifier (car parameters) (quote L))) \
+         (setq parameters (cdr parameters))) \
+  (declare-identifier (quote self) type) \
+  (infer-and-get-next-argument))) \
 ")},
 		{DL_STR("__defmacro"),
 		 duckLisp_generator_defmacro,
 		 DL_STR("(L L &rest 1 I)"),
 		 DL_STR(" \
 ( \
- (__var name (__infer-and-get-next-argument)) \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
+ (var name (infer-and-get-next-argument)) \
+ (var parameters (infer-and-get-next-argument)) \
+ (var type ()) \
  ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
+  (var parameters parameters) \
+  (while parameters \
+         (if (= (quote &rest) (car parameters)) \
+             (setq type (cons 0 (cons (quote &rest) type))) \
+             (setq type (cons (quote I) type))) \
+         (setq parameters (cdr parameters)))) \
  ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument)) \
- (__declare-identifier name type)) \
+  (var type2 type) \
+  (setq type ()) \
+  (while type2 \
+         (setq type (cons (car type2) type)) \
+         (setq type2 (cdr type2)))) \
+ (declaration-scope \
+  (while parameters \
+         (unless (= (quote &rest) (car parameters)) \
+                 (declare-identifier (car parameters) (quote L))) \
+         (setq parameters (cdr parameters))) \
+  (declare-identifier (quote self) type) \
+  (infer-and-get-next-argument)) \
+ (declare-identifier name type)) \
 ")},
 		{DL_STR("defmacro"),
 		 duckLisp_generator_defmacro,
 		 DL_STR("(L L &rest 1 I)"),
 		 DL_STR(" \
 ( \
- (__var name (__infer-and-get-next-argument)) \
- (__var parameters (__infer-and-get-next-argument)) \
- (__var type ()) \
+ (var name (infer-and-get-next-argument)) \
+ (var parameters (infer-and-get-next-argument)) \
+ (var type ()) \
  ( \
-  (__var parameters parameters) \
-  (__while parameters \
-           (__if (__= (__quote &rest) (__car parameters)) \
-                 (__setq type (__cons 0 (__cons (__quote &rest) type))) \
-                 (__setq type (__cons (__quote I) type))) \
-           (__setq parameters (__cdr parameters)))) \
+  (var parameters parameters) \
+  (while parameters \
+         (if (= (quote &rest) (car parameters)) \
+             (setq type (cons 0 (cons (quote &rest) type))) \
+             (setq type (cons (quote I) type))) \
+         (setq parameters (cdr parameters)))) \
  ( \
-  (__var type2 type) \
-  (__setq type ()) \
-  (__while type2 \
-           (__setq type (__cons (__car type2) type)) \
-           (__setq type2 (__cdr type2)))) \
- (__declaration-scope \
-  (__while parameters \
-           (__unless (__= (__quote &rest) (__car parameters)) \
-                     (__declare-identifier (__car parameters) (__quote L))) \
-           (__setq parameters (__cdr parameters))) \
-  (__declare-identifier (__quote self) type) \
-  (__infer-and-get-next-argument)) \
- (__declare-identifier name type)) \
+  (var type2 type) \
+  (setq type ()) \
+  (while type2 \
+         (setq type (cons (car type2) type)) \
+         (setq type2 (cdr type2)))) \
+ (declaration-scope \
+  (while parameters \
+         (unless (= (quote &rest) (car parameters)) \
+                 (declare-identifier (car parameters) (quote L))) \
+         (setq parameters (cdr parameters))) \
+  (declare-identifier (quote self) type) \
+  (infer-and-get-next-argument)) \
+ (declare-identifier name type)) \
 ")},
 		{DL_STR("__noscope"), duckLisp_generator_noscope2_dummy, DL_STR("(&rest 0 I)"), dl_null, 0},
 		{DL_STR("noscope"), duckLisp_generator_noscope2_dummy, DL_STR("(&rest 0 I)"), dl_null, 0},

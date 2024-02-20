@@ -60,65 +60,65 @@ SOFTWARE.
    type. The default number of arguments for a variadic function is in the second-to-last position.
    Some examples: `()`, `(I I I)`, `(L I)`, `(L L L &rest 1 I)`.
 
-   Types are declared with the keyword `__declare`. It accepts two arguments by default.
+   Types are declared with the keyword `declare`. It accepts two arguments by default.
 
-   __declare __* (I I)
-   __declare __if (I I I)
-   __declare __setq (L I)
+   declare * (I I)
+   declare if (I I I)
+   declare setq (L I)
 
    Unfortunately the use of these static type declarations is limited due to the existence of macros. To allow the type
-   system to understand macros such as `defun`, `__declare` can be passed a duck-lisp script. When `__declare` is passed
+   system to understand macros such as `defun`, `declare` can be passed a duck-lisp script. When `declare` is passed
    four arguments, the last argument is interpreted as the body of the script. When the declared function is used in a
    call, the script should parse and analyze the arguments in order to declare additional identifiers used by arguments
-   or by forms that occur in the same declaration scope. The duck-lisp scripts that occur in the body of a `__declare`
+   or by forms that occur in the same declaration scope. The duck-lisp scripts that occur in the body of a `declare`
    form are run at inference-time. This is a separate instance of the duck-lisp compiler and VM than is used in the rest
    of the language. This instance is used solely in the inferrer.
 
    The inference-time instance of duck-lisp is defined with three additional functions:
 
-   (__infer-and-get-next-argument)::Any -- C callback -- Switches to the next argument and runs inference on the current
+   (infer-and-get-next-argument)::Any -- C callback -- Switches to the next argument and runs inference on the current
    argument. Returns the resulting AST.
-   (__declare-identifier name::(Symbol String) type::(Symbol List))::Nil -- C callback -- Declares the provided symbol
+   (declare-identifier name::(Symbol String) type::(Symbol List))::Nil -- C callback -- Declares the provided symbol
    `name` as an identifier in the current declaration scope with a type specified by `type`.
-   (__declaration-scope body::Any*)::Any -- Generator -- Create a new declaration scope. Identifiers declared in the
-   body using `__declare-identifier` are automatically deleted when the scope is exited.
+   (declaration-scope body::Any*)::Any -- Generator -- Create a new declaration scope. Identifiers declared in the
+   body using `declare-identifier` are automatically deleted when the scope is exited.
 
    Examples:
 
    ;; `var' itself makes a declaration, so it requires a script. This declaration will persist until the end of the
    ;; scope `var' was used in.
-   (__declare var (L I)
-              (__declare-identifier (__infer-and-get-next-argument)
-                                    (__quote #L)))
+   (declare var (L I)
+            (declare-identifier (infer-and-get-next-argument)
+                                (quote #L)))
 
    ;; `defmacro' declares each of its parameters as a normal variable, and the provided name and `self` as functions of
    ;; the specified type. `self` and the parameters are scoped to the body while the declaration of the macro itself
    ;; persists until the end of the scope `defmacro' was used in.
-   (__declare defmacro (L L L &rest 1 I)
-              (
-               (__var name (__infer-and-get-next-argument))
-               (__var parameters (__infer-and-get-next-argument))
-               (__var type (__infer-and-get-next-argument))
-               (__declaration-scope
-                (__while parameters
-                         __var parameter __car parameters
-                         (__unless (__= (__quote #&rest) parameter)
-                                   (__declare-identifier parameter (__quote #L)))
-                         (__setq parameters (__cdr parameters)))
-                (__declare-identifier (__quote #self) type)
-                (__infer-and-get-next-argument))
-               (__declare-identifier name type)))
+   (declare defmacro (L L L &rest 1 I)
+            (
+             (var name (infer-and-get-next-argument))
+             (var parameters (infer-and-get-next-argument))
+             (var type (infer-and-get-next-argument))
+             (declaration-scope
+              (while parameters
+                     var parameter car parameters
+                     (unless (= (quote #&rest) parameter)
+                             (declare-identifier parameter (quote #L)))
+                     (setq parameters (cdr parameters)))
+              (declare-identifier (quote #self) type)
+              (infer-and-get-next-argument))
+             (declare-identifier name type)))
 
-   (__declare let ((&rest 1 (L I)) &rest 1 I)
-              ;; The bindings of the `let' statement is the first argument. It will be inferred using the type above.
-              (__var bindings (__infer-and-get-next-argument))
-              ;; Create a new scope. All declarations in the scope will be deleted when the scope exits.
-              (__declaration-scope
-               (dolist binding bindings
-                       ;; Declare each new identifier in the `let' as a variable.
-                       (__declare-identifier (first binding) (__quote L)))
-               ;; Infer body in scope.
-               (__infer-and-get-next-argument)))
+   (declare let ((&rest 1 (L I)) &rest 1 I)
+            ;; The bindings of the `let' statement is the first argument. It will be inferred using the type above.
+            (var bindings (infer-and-get-next-argument))
+            ;; Create a new scope. All declarations in the scope will be deleted when the scope exits.
+            (declaration-scope
+             (dolist binding bindings
+                     ;; Declare each new identifier in the `let' as a variable.
+                     (declare-identifier (first binding) (quote L)))
+             ;; Infer body in scope.
+             (infer-and-get-next-argument)))
 
    This system cannot recognize some macros due to the simplicity of the parsing functions used in inference-time
    scripts. It can correctly infer a complicated form like `let`, but is unable to infer `let*`. */
@@ -1275,7 +1275,7 @@ dl_error_t interpretDeclare(inferrerState_t *state,
                             duckLisp_ast_compoundExpression_t compoundExpression) {
 	dl_error_t e = dl_error_ok;
 
-	/* `__declare` interpreter */
+	/* `declare` interpreter */
 	if ((compoundExpression.type == duckLisp_ast_type_expression)
 	    && ((compoundExpression.value.expression.compoundExpressions_length == 3)
 	        || (compoundExpression.value.expression.compoundExpressions_length == 4))
@@ -1290,6 +1290,12 @@ dl_error_t interpretDeclare(inferrerState_t *state,
 		                         DL_STR("__declare"),
 		                         keyword.value,
 		                         keyword.value_length);
+		if (!result) {
+			(void) dl_string_compare(&result,
+			                         DL_STR("declare"),
+			                         keyword.value,
+			                         keyword.value_length);
+		}
 		if (result) {
 			duckLisp_ast_compoundExpression_t scriptAst;
 			(void) duckLisp_ast_compoundExpression_init(&scriptAst);
@@ -1693,7 +1699,7 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		e = dl_error_invalidValue;
 		(eError
 		 = duckVM_error_pushRuntime(vm,
-		                            DL_STR("Second argument of `__declare-identifier` should be a type signature.")));
+		                            DL_STR("Second argument of `declare-identifier` should be a type signature.")));
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -1705,7 +1711,7 @@ static dl_error_t callback_declareIdentifier(duckVM_t *vm) {
 		e = dl_error_invalidValue;
 		(eError
 		 = duckVM_error_pushRuntime(vm,
-		                            DL_STR("First argument of `__declare-identifier` should be an identifier or a string.")));
+		                            DL_STR("First argument of `declare-identifier` should be an identifier or a string.")));
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -1839,11 +1845,11 @@ static dl_error_t generator_declarationScope(duckLisp_t *duckLisp,
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
-	/* `(__declaration-scope ,@body) */
+	/* `(declaration-scope ,@body) */
 	/* `(
-	     (__push-declaration-scope)
+	     (push-declaration-scope)
 	     ,@body
-	     (__pop-declaration-scope)) */
+	     (pop-declaration-scope)) */
 
 	duckLisp_ast_compoundExpression_t pushC;
 	pushC.type = duckLisp_ast_type_identifier;
@@ -1913,7 +1919,9 @@ dl_error_t duckLisp_inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
 		{DL_STR("__declare-identifier"),          callback_declareIdentifier},
+		{DL_STR("declare-identifier"),            callback_declareIdentifier},
 		{DL_STR("__infer-and-get-next-argument"), callback_inferAndGetNextArgument},
+		{DL_STR("infer-and-get-next-argument"),   callback_inferAndGetNextArgument},
 		{DL_STR("\0__push-declaration-scope"),    callback_pushScope},
 		{DL_STR("\0__pop-declaration-scope"),     callback_popScope},
 	};
@@ -1938,6 +1946,14 @@ dl_error_t duckLisp_inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	                          dl_null,
 	                          0);
 	if (e) goto cleanup;
+	e = duckLisp_addGenerator(&state.duckLisp,
+	                          generator_declarationScope,
+	                          DL_STR("declaration-scope"),
+	                          dl_null,
+	                          0,
+	                          dl_null,
+	                          0);
+	if (e) goto cleanup;
 
 	{
 		inferrerScope_t scope;
@@ -1949,9 +1965,13 @@ dl_error_t duckLisp_inferParentheses(dl_memoryAllocation_t *memoryAllocation,
 	{
 		duckLisp_parenthesisInferrer_declarationPrototype_t declarations[] = {
 			{DL_STR("__declare"),                     DL_STR("(L L &rest 0 I)"), dl_null, 0},
+			{DL_STR("declare"),                       DL_STR("(L L &rest 0 I)"), dl_null, 0},
 			{DL_STR("__infer-and-get-next-argument"), DL_STR("()"),              dl_null, 0},
+			{DL_STR("infer-and-get-next-argument"),   DL_STR("()"),              dl_null, 0},
 			{DL_STR("__declare-identifier"),          DL_STR("(I I)"),           dl_null, 0},
-			{DL_STR("__declaration-scope"),           DL_STR("(&rest 1 I)"),     dl_null, 0}};
+			{DL_STR("declare-identifier"),            DL_STR("(I I)"),           dl_null, 0},
+			{DL_STR("__declaration-scope"),           DL_STR("(&rest 1 I)"),     dl_null, 0},
+			{DL_STR("declaration-scope"),             DL_STR("(&rest 1 I)"),     dl_null, 0}};
 		DL_DOTIMES(i, sizeof(declarations)/sizeof(*declarations)) {
 			duckLisp_ast_compoundExpression_t typeAst;
 			duckLisp_ast_compoundExpression_t scriptAst;

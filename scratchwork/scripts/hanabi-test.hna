@@ -1,7 +1,4 @@
 (include "../scripts/library.hna")
-defmacro declare (identifier type &rest script-body) (L L &rest 0 I) ()
-(__declare declare (L L &rest 0 I)
-           (__declare-identifier (__infer-and-get-next-argument) (__infer-and-get-next-argument)))
 
 bdefun + (a &rest 1 b)
        if b

@@ -9,6 +9,6 @@
       ast))
 read! "
 (()
- __declare print (I)
+ declare print (I)
  print \"Hello, world!\n\")
 "
