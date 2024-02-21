@@ -68,6 +68,7 @@ typedef struct duckVM_s {
 #ifdef USE_PARENTHESIS_INFERENCE
 	void *inferrerContext;
 #endif /* USE_PARENTHESIS_INFERENCE */
+	void *userData;
 } duckVM_t;
 
 

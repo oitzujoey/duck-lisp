@@ -2535,6 +2535,7 @@ Todo:
         SQUISH: Document C API — M
         SQUISH: Document inference algorithm — M
         SQUISH: Write overview of VM?
+        SQUISH: Document usage of memory allocator. — M
     Clean up. — M
         C: Add max recursion depths. — S
     Test on ARM — S

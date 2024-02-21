@@ -221,6 +221,8 @@ typedef struct {
 #ifdef USE_DATALOGGING
 	duckLisp_datalog_t datalog;
 #endif /* USE_DATALOGGING */
+
+	void *userData;
 } duckLisp_t;
 
 typedef enum {
