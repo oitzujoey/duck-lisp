@@ -45,18 +45,11 @@ SOFTWARE.
 dl_error_t duckLisp_error_pushRuntime(duckLisp_t *duckLisp, const dl_uint8_t *message, const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 
-	duckLisp_error_t error;
-
-	e = dl_malloc(duckLisp->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
-	if (e) goto cleanup;
-	e = dl_memcopy((void *) error.message, (void *) message, message_length * sizeof(char));
-	if (e) goto cleanup;
-
-	error.message_length = message_length;
-	error.start_index = -1;
-	error.end_index = -1;
-
-	e = dl_array_pushElement(&duckLisp->errors, &error);
+	if (duckLisp->errors.elements_length > 0) {
+		e = dl_array_pushElements(&duckLisp->errors, DL_STR("\n"));
+		if (e) goto cleanup;
+	}
+	e = dl_array_pushElements(&duckLisp->errors, message, message_length);
 	if (e) goto cleanup;
 
  cleanup: return e;
@@ -1940,7 +1933,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 
 	/* No error */ dl_array_init(&duckLisp->errors,
 	                             duckLisp->memoryAllocation,
-	                             sizeof(duckLisp_error_t),
+	                             sizeof(dl_uint8_t),
 	                             dl_array_strategy_double);
 	/* No error */ dl_array_init(&duckLisp->generators_stack,
 	                             duckLisp->memoryAllocation,
@@ -1979,6 +1972,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	duckLisp->generators_recursion_depth = 0;  /* Don't change this. */
 
 	duckLisp->gensym_number = 0;
+
+	duckLisp->userData = dl_null;
 
 	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
 		error = duckLisp_addGenerator(duckLisp,
@@ -2071,10 +2066,6 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 		            &DL_ARRAY_GETADDRESS(duckLisp->symbols_array, duckLisp_ast_identifier_t, i).value);
 	}
 	e = dl_array_quit(&duckLisp->symbols_array);
-	DL_DOTIMES(i, duckLisp->errors.elements_length) {
-		e = DL_FREE(memoryAllocation,
-		            &DL_ARRAY_GETADDRESS(duckLisp->errors, duckLisp_error_t, i).message);
-	}
 	e = dl_array_quit(&duckLisp->errors);
 	e = dl_trie_quit(&duckLisp->parser_actions_trie);
 	e = dl_array_quit(&duckLisp->parser_actions_array);
@@ -2426,118 +2417,6 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 	return e;
 }
 
-dl_error_t duckLisp_serialize_errors(dl_memoryAllocation_t *memoryAllocation,
-                                     dl_array_t *errorString,
-                                     dl_array_t *errors,
-                                     dl_array_t *sourceCode) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
-
-	(void) dl_array_init(errorString, memoryAllocation, sizeof(char), dl_array_strategy_double);
-
-	char tempChar;
-	dl_bool_t firstLoop = dl_true;
-	while (errors->elements_length > 0) {
-		if (!firstLoop) {
-			tempChar = '\n';
-			e = dl_array_pushElement(errorString, &tempChar);
-			if (e) goto cleanup;
-		}
-		firstLoop = dl_false;
-
-		duckLisp_error_t error;  /* Compile errors */
-		e = dl_array_popElement(errors, (void *) &error);
-		if (e) break;
-
-		e = dl_array_pushElements(errorString, error.message, error.message_length);
-		if (e) goto cleanup;
-		tempChar = '\n';
-		e = dl_array_pushElement(errorString, &tempChar);
-		if (e) goto cleanup;
-
-		if (error.start_index == -1) {
-			goto whileCleanup;
-		}
-
-		if (sourceCode) {
-			dl_ptrdiff_t line = 1;
-			dl_ptrdiff_t start_column = 0;
-			dl_ptrdiff_t end_column = 0;
-			dl_ptrdiff_t column0Index = 0;
-
-			DL_DOTIMES(i, error.start_index) {
-				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
-					line++;
-					start_column = 0;
-					column0Index = i + 1;
-				}
-				else {
-					start_column++;
-				}
-			}
-			end_column = start_column;
-			for (dl_ptrdiff_t i = column0Index + start_column; i < (dl_ptrdiff_t) sourceCode->elements_length; i++) {
-				if (DL_ARRAY_GETADDRESS(*sourceCode, char, i) == '\n') {
-					break;
-				}
-				end_column++;
-			}
-			e = dl_array_pushElements(errorString, error.fileName, error.fileName_length);
-			if (e) goto cleanup;
-			tempChar = ':';
-			e = dl_array_pushElement(errorString, &tempChar);
-			if (e) goto cleanup;
-			e = dl_string_fromPtrdiff(errorString, line);
-			if (e) goto cleanup;
-			tempChar = ':';
-			e = dl_array_pushElement(errorString, &tempChar);
-			if (e) goto cleanup;
-			e = dl_string_fromPtrdiff(errorString, start_column);
-			if (e) goto cleanup;
-			/* dl_string_ */
-			tempChar = '\n';
-			e = dl_array_pushElement(errorString, &tempChar);
-			if (e) goto cleanup;
-			e = dl_array_pushElements(errorString,
-			                          (char *) sourceCode->elements + column0Index,
-			                          end_column);
-			if (e) goto cleanup;
-
-			tempChar = '\n';
-			e = dl_array_pushElement(errorString, &tempChar);
-			if (e) goto cleanup;
-			DL_DOTIMES(i, start_column) {
-					tempChar = ' ';
-					e = dl_array_pushElement(errorString, &tempChar);
-					if (e) goto cleanup;
-			}
-			if (error.end_index == -1) {
-				tempChar = '^';
-				e = dl_array_pushElement(errorString, &tempChar);
-				if (e) goto cleanup;
-			}
-			else {
-				for (dl_ptrdiff_t i = error.start_index; i < error.end_index; i++) {
-					tempChar = '^';
-					e = dl_array_pushElement(errorString, &tempChar);
-					if (e) goto cleanup;
-				}
-			}
-			tempChar = '\n';
-			e = dl_array_pushElement(errorString, &tempChar);
-			if (e) goto cleanup;
-		}
-
-	whileCleanup:
-		error.message_length = 0;
-		eError = DL_FREE(memoryAllocation, &error.message);
-		if (eError) {
-			e = eError;
-			break;
-		}
-	}
- cleanup:return e;
-}
 
 dl_error_t duckLisp_ast_type_prettyPrint(dl_array_t *string_array, duckLisp_ast_type_t type) {
 	switch (type) {
@@ -2716,59 +2595,6 @@ dl_error_t duckLisp_ast_compoundExpression_prettyPrint(dl_array_t *string_array,
 		e = dl_array_pushElements(string_array, DL_STR("INVALID"));
 		if (e) goto cleanup;
 	}
-
-	e = dl_array_pushElements(string_array, DL_STR("}"));
-	if (e) goto cleanup;
-
- cleanup: return e;
-}
-
-dl_error_t duckLisp_error_prettyPrint(dl_array_t *string_array, duckLisp_error_t error) {
-	dl_error_t e = dl_error_ok;
-
-	e = dl_array_pushElements(string_array, DL_STR("(duckLisp_error_t) {"));
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR("message["));
-	if (e) goto cleanup;
-	e = dl_string_fromSize(string_array, error.message_length);
-	if (e) goto cleanup;
-	e = dl_array_pushElements(string_array, DL_STR("] = \""));
-	if (e) goto cleanup;
-	e = dl_array_pushElements(string_array, error.message, error.message_length);
-	if (e) goto cleanup;
-	e = dl_array_pushElements(string_array, DL_STR("\""));
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR(", "));
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR("start_index = "));
-	if (e) goto cleanup;
-	e = dl_string_fromPtrdiff(string_array, error.start_index);
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR(", "));
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR("end_index = "));
-	if (e) goto cleanup;
-	e = dl_string_fromPtrdiff(string_array, error.end_index);
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR(", "));
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR("fileName["));
-	if (e) goto cleanup;
-	e = dl_string_fromSize(string_array, error.fileName_length);
-	if (e) goto cleanup;
-	e = dl_array_pushElements(string_array, DL_STR("] = \""));
-	if (e) goto cleanup;
-	e = dl_array_pushElements(string_array, error.fileName, error.fileName_length);
-	if (e) goto cleanup;
-	e = dl_array_pushElements(string_array, DL_STR("\""));
-	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR("}"));
 	if (e) goto cleanup;
@@ -3046,17 +2872,11 @@ dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp) {
 	if (e) goto cleanup;
 	e = dl_string_fromSize(string_array, duckLisp.errors.elements_length);
 	if (e) goto cleanup;
-	e = dl_array_pushElements(string_array, DL_STR("] = {"));
+	e = dl_array_pushElements(string_array, DL_STR("] = \""));
 	if (e) goto cleanup;
-	DL_DOTIMES(i, duckLisp.errors.elements_length) {
-		e = duckLisp_error_prettyPrint(string_array, DL_ARRAY_GETADDRESS(duckLisp.errors, duckLisp_error_t, i));
-		if (e) goto cleanup;
-		if ((dl_size_t) i != duckLisp.errors.elements_length - 1) {
-			e = dl_array_pushElements(string_array, DL_STR(", "));
-			if (e) goto cleanup;
-		}
-	}
-	e = dl_array_pushElements(string_array, DL_STR("}"));
+	e = dl_array_pushElements(string_array, duckLisp.errors.elements, duckLisp.errors.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));

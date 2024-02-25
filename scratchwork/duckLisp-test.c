@@ -407,13 +407,11 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 void printErrors(dl_array_t errors) {
 	printf(COLOR_YELLOW);
 	DL_DOTIMES(i, errors.elements_length) {
-		duckLisp_error_t error;
+		dl_uint8_t error;
 		dl_array_popElement(&errors, &error);
-		DL_DOTIMES(j, error.message_length) {
-			putchar(error.message[j]);
-		}
-		putchar('\n');
+		putchar(error);
 	}
+	putchar('\n');
 	printf(COLOR_NORMAL);
 }
 

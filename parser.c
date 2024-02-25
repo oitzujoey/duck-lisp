@@ -28,33 +28,86 @@ SOFTWARE.
 #endif /* USE_PARENTHESIS_INFERENCE */
 #include "DuckLib/string.h"
 
+
 static dl_error_t duckLisp_error_pushSyntax(duckLisp_t *duckLisp,
                                             const dl_uint8_t *message,
                                             const dl_size_t message_length,
                                             const dl_uint8_t *fileName,
                                             const dl_size_t fileName_length,
+                                            const dl_uint8_t *source,
+                                            const dl_size_t source_length,
                                             const dl_ptrdiff_t start_index,
                                             const dl_ptrdiff_t end_index,
-                                            dl_bool_t throwErrors) {
+                                            const dl_bool_t throwErrors) {
 	dl_error_t e = dl_error_ok;
 
-	duckLisp_error_t error;
+	dl_ptrdiff_t line = 1;
+	dl_ptrdiff_t start_column = 0;
+	dl_ptrdiff_t end_column = 0;
+	dl_ptrdiff_t column0Index = 0;
 
 	if (!throwErrors) goto cleanup;
 
-	e = dl_malloc(duckLisp->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
+	if (duckLisp->errors.elements_length > 0) {
+		e = dl_array_pushElements(&duckLisp->errors, DL_STR("\n"));
+		if (e) goto cleanup;
+	}
+
+	/* This is inefficient. That should be OK as this is only run a few times max per compile. */
+	DL_DOTIMES(i, start_index) {
+		if (source[i] == '\n') {
+			line++;
+			start_column = 0;
+			column0Index = i + 1;
+		}
+		else {
+			start_column++;
+		}
+	}
+	end_column = start_column;
+	for (dl_ptrdiff_t i = column0Index + start_column; i < (dl_ptrdiff_t) source_length; i++) {
+		if (source[i] == '\n') {
+			break;
+		}
+		end_column++;
+	}
+	e = dl_array_pushElements(&duckLisp->errors, fileName, fileName_length);
 	if (e) goto cleanup;
-	e = dl_memcopy((void *) error.message, (void *) message, message_length * sizeof(char));
+	e = dl_array_pushElements(&duckLisp->errors, DL_STR(":"));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(&duckLisp->errors, line);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(&duckLisp->errors, DL_STR(":"));
+	if (e) goto cleanup;
+	e = dl_string_fromPtrdiff(&duckLisp->errors, start_column);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(&duckLisp->errors, DL_STR("\n"));
 	if (e) goto cleanup;
 
-	error.message_length = message_length;
-	error.fileName = fileName;
-	error.fileName_length = fileName_length;
-	error.start_index = start_index;
-	error.end_index = end_index;
-
-	e = dl_array_pushElement(&duckLisp->errors, &error);
+	e = dl_array_pushElements(&duckLisp->errors, message, message_length);
 	if (e) goto cleanup;
+	e = dl_array_pushElements(&duckLisp->errors, DL_STR("\n"));
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(&duckLisp->errors, source + column0Index, end_column);
+	if (e) goto cleanup;
+
+	e = dl_array_pushElements(&duckLisp->errors, DL_STR("\n"));
+	if (e) goto cleanup;
+	DL_DOTIMES(i, start_column) {
+		e = dl_array_pushElements(&duckLisp->errors, DL_STR(" "));
+		if (e) goto cleanup;
+	}
+	if (end_index == -1) {
+		e = dl_array_pushElements(&duckLisp->errors, DL_STR("^"));
+		if (e) goto cleanup;
+	}
+	else {
+		for (dl_ptrdiff_t i = start_index; i < end_index; i++) {
+			e = dl_array_pushElements(&duckLisp->errors, DL_STR("^"));
+			if (e) goto cleanup;
+		}
+	}
 
  cleanup: return e;
 }
@@ -185,6 +238,8 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 		                                   DL_STR("Not an expression: file too short."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -197,6 +252,8 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 		                                   DL_STR("Expected first character to be '#'."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -207,14 +264,17 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 	indexCopy++;
 
 	if (source[indexCopy] != '(') {
+		e = dl_error_invalidValue;
 		eError = duckLisp_error_pushSyntax(duckLisp,
 		                                   DL_STR("Unbalanced parenthesis."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
-		e = eError ? eError : dl_error_invalidValue;
+		if (eError) e = eError;
 		goto cleanup;
 	}
 
@@ -225,6 +285,8 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 		                                   DL_STR("Not an expression: file too short."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -242,6 +304,8 @@ static dl_error_t parse_literalExpression(duckLisp_t *duckLisp,
 			                                   DL_STR("Unmatched parenthesis."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   -1,
 			                                   -1,
 			                                   dl_true);
@@ -316,6 +380,8 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 		                                   DL_STR("Not an expression: file too short."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   *index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -328,6 +394,8 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 		                                   DL_STR("Unbalanced parenthesis."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   *index,
 		                                   indexCopy,
 		                                   dl_true);
@@ -342,6 +410,8 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 		                                   DL_STR("Not an expression: file too short."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   *index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -359,6 +429,8 @@ static dl_error_t parse_expression(duckLisp_t *duckLisp,
 			                                   DL_STR("Unmatched parenthesis."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   -1,
 			                                   -1,
 			                                   dl_true);
@@ -455,6 +527,8 @@ static dl_error_t parse_identifier(duckLisp_t *duckLisp,
 		                                   DL_STR("Unexpected end of file in identifier."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -468,6 +542,8 @@ static dl_error_t parse_identifier(duckLisp_t *duckLisp,
 		                                   DL_STR("Expected an alpha or allowed symbol in identifier."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -526,6 +602,8 @@ static dl_error_t parse_callback(duckLisp_t *duckLisp,
 		                                   DL_STR("Unexpected end of file in identifier."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -538,6 +616,8 @@ static dl_error_t parse_callback(duckLisp_t *duckLisp,
 		                                   DL_STR("Expected first character to be '#'."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -612,6 +692,8 @@ static dl_error_t parse_bool(duckLisp_t *duckLisp,
 		                                   DL_STR("Encountered EOF"),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -628,6 +710,8 @@ static dl_error_t parse_bool(duckLisp_t *duckLisp,
 			                                   DL_STR("Encountered EOF"),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -643,6 +727,8 @@ static dl_error_t parse_bool(duckLisp_t *duckLisp,
 			                                   DL_STR("Expected a \"true\" or \"false\" in boolean."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -658,6 +744,8 @@ static dl_error_t parse_bool(duckLisp_t *duckLisp,
 		                                   DL_STR("Could not convert token to bool."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -714,6 +802,8 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 		                                   DL_STR("Unexpected end of file in integer."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -729,6 +819,8 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 			                                   DL_STR("Unexpected end of file in integer."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -742,6 +834,8 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 		                                   DL_STR("Expected a digit in integer."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -761,6 +855,8 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 				                                   DL_STR("Expected a digit in integer."),
 				                                   fileName,
 				                                   fileName_length,
+				                                   source,
+				                                   source_length,
 				                                   start_index,
 				                                   indexCopy,
 				                                   throwErrors);
@@ -793,6 +889,8 @@ static dl_error_t parse_int(duckLisp_t *duckLisp,
 		                                   DL_STR("Could not convert token to int."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -847,6 +945,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 		                                   DL_STR("Unexpected end of fragment in float."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -862,6 +962,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 			                                   DL_STR("Expected a digit after minus sign."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -880,6 +982,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 			                                   DL_STR("Expected a digit after decimal point."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -893,6 +997,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 			                                   DL_STR("Expected digit in float."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -917,6 +1023,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 			                                   DL_STR("Expected digit in float."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -965,6 +1073,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 			                                   DL_STR("Expected an integer in exponent of float."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -980,6 +1090,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 				                                   DL_STR("Expected a digit after minus sign."),
 				                                   fileName,
 				                                   fileName_length,
+				                                   source,
+				                                   source_length,
 				                                   start_index,
 				                                   indexCopy,
 				                                   throwErrors);
@@ -993,6 +1105,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 			                                   DL_STR("Expected a digit in exponent of float."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   indexCopy,
 			                                   throwErrors);
@@ -1021,6 +1135,8 @@ static dl_error_t parse_float(duckLisp_t *duckLisp,
 		                                   DL_STR("Could not convert token to float."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -1080,6 +1196,8 @@ static dl_error_t parse_string(duckLisp_t *duckLisp,
 		                                   DL_STR("Zero length fragment."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -1100,6 +1218,8 @@ static dl_error_t parse_string(duckLisp_t *duckLisp,
 					                                   DL_STR("Expected character in string escape sequence."),
 					                                   fileName,
 					                                   fileName_length,
+					                                   source,
+					                                   source_length,
 					                                   start_index,
 					                                   indexCopy,
 					                                   throwErrors);
@@ -1121,10 +1241,12 @@ static dl_error_t parse_string(duckLisp_t *duckLisp,
 			                                   DL_STR("String missing closing quote."),
 			                                   fileName,
 			                                   fileName_length,
+			                                   source,
+			                                   source_length,
 			                                   start_index,
 			                                   -1,
 			                                   dl_true);
-			e = eError ? eError : dl_error_invalidValue;
+			if (eError) e = eError;
 			goto cleanup;
 		}
 	}
@@ -1133,6 +1255,8 @@ static dl_error_t parse_string(duckLisp_t *duckLisp,
 		                                   DL_STR("Not a string."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   start_index,
 		                                   indexCopy,
 		                                   throwErrors);
@@ -1308,6 +1432,8 @@ dl_error_t duckLisp_parse_compoundExpression(duckLisp_t *duckLisp,
 		                                   DL_STR("Max expression recursion depth met."),
 		                                   fileName,
 		                                   fileName_length,
+		                                   source,
+		                                   source_length,
 		                                   *index,
 		                                   *index,
 		                                   dl_true);
@@ -1402,13 +1528,13 @@ dl_error_t duckLisp_read(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
 	if (parenthesisInferenceEnabled) {
 		e = duckLisp_inferParentheses(duckLisp->memoryAllocation,
-		                     maxComptimeVmObjects,
-		                     &duckLisp->errors,
-		                     &duckLisp->inferrerLog,
-		                     fileName,
-		                     fileName_length,
-		                     ast,
-		                     externalDeclarations  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */);
+		                              maxComptimeVmObjects,
+		                              &duckLisp->errors,
+		                              &duckLisp->inferrerLog,
+		                              fileName,
+		                              fileName_length,
+		                              ast,
+		                              externalDeclarations  /* dl_array_t:duckLisp_parenthesisInferrer_declarationPrototype_t */);
 		if (e) goto cleanup;
 	}
 #endif /* USE_PARENTHESIS_INFERENCE */

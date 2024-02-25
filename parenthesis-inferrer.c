@@ -1056,41 +1056,25 @@ static dl_error_t compileAndAddDeclaration(inferrerState_t *state,
 }
 
 
-
 static dl_error_t duckLisp_error_pushInference(inferrerState_t *inferrerState,
                                                const dl_uint8_t *message,
                                                const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 
-	duckLisp_error_t error;
-
 	const dl_uint8_t inferrerPrefix[] = "Inference error: ";
 	const dl_size_t inferrerPrefix_length = sizeof(inferrerPrefix)/sizeof(*inferrerPrefix) - 1;
 
-	e = dl_malloc(inferrerState->memoryAllocation,
-	              (void **) &error.message,
-	              (inferrerPrefix_length + message_length) * sizeof(dl_uint8_t));
+	if (inferrerState->errors->elements_length > 0) {
+		e = dl_array_pushElements(inferrerState->errors, DL_STR("\n"));
+		if (e) goto cleanup;
+	}
+	e = dl_array_pushElements(inferrerState->errors, inferrerState->fileName, inferrerState->fileName_length);
 	if (e) goto cleanup;
-	e = dl_memcopy((void *) error.message, (void *) inferrerPrefix, inferrerPrefix_length * sizeof(dl_uint8_t));
+	e = dl_array_pushElements(inferrerState->errors, DL_STR("\n"));
 	if (e) goto cleanup;
-	e = dl_memcopy((void *) (error.message + inferrerPrefix_length),
-	               (void *) message,
-	               message_length * sizeof(dl_uint8_t));
+	e = dl_array_pushElements(inferrerState->errors, inferrerPrefix, inferrerPrefix_length);
 	if (e) goto cleanup;
-
-	e = DL_MALLOC(inferrerState->memoryAllocation, &error.fileName, inferrerState->fileName_length, dl_uint8_t);
-	if (e) goto cleanup;
-	e = dl_memcopy((void *) error.fileName,
-	               (void *) inferrerState->fileName,
-	               inferrerState->fileName_length * sizeof(dl_uint8_t));
-	if (e) goto cleanup;
-
-	error.message_length = inferrerPrefix_length + message_length;
-	error.fileName_length = inferrerState->fileName_length;
-	error.start_index = -1;
-	error.end_index = -1;
-
-	e = dl_array_pushElement(inferrerState->errors, &error);
+	e = dl_array_pushElements(inferrerState->errors, message, message_length);
 	if (e) goto cleanup;
 
  cleanup: return e;
@@ -1477,13 +1461,17 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				e = inferrerState_log(state, DL_STR("::"));
 				if (e) goto cleanup;
 				inferrerTypeSignature_serialize(state, type.type);
-				inferrerState_log(state, DL_STR("\x1B[0m\n"));
+				e = inferrerState_log(state, DL_STR("\x1B[0m\n"));
+				if (e) goto cleanup;
 				e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 				if (e) goto cleanup;
 			}
 			else {
 				/* Undeclared */
-				inferrerState_log(state, DL_STR("::Undeclared\x1B[0m\n"));
+				e = inferrerState_log(state, DL_STR("::Undeclared\x1B[0m\n"));
+				if (e) goto cleanup;
+				e = duckLisp_error_pushInference(state, DL_STR("Undeclared identifier. See inference log.\n"));
+				if (e) goto cleanup;
 				e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 				if (e) goto cleanup;
 				if (infer) {
@@ -1605,9 +1593,14 @@ static dl_error_t infer_expression(inferrerState_t *state,
 		}
 		else {
 			/* Undeclared. */
-			inferrerState_log(state, DL_STR("\x1B[31m"));
-			inferrerState_log(state, expressionIdentifier.value, expressionIdentifier.value_length);
-			inferrerState_log(state, DL_STR("::Undeclared\x1B[0m\n"));
+			e = inferrerState_log(state, DL_STR("\x1B[31m"));
+			if (e) goto cleanup;
+			e = inferrerState_log(state, expressionIdentifier.value, expressionIdentifier.value_length);
+			if (e) goto cleanup;
+			e = inferrerState_log(state, DL_STR("::Undeclared\x1B[0m\n"));
+			if (e) goto cleanup;
+			e = duckLisp_error_pushInference(state, DL_STR("Undeclared identifier. See inference log.\n"));
+			if (e) goto cleanup;
 			/* Argument inference stuff goes here. */
 			e = inferArguments(state, fileName, fileName_length, expression, 1, infer);
 			if (e) goto cleanup;

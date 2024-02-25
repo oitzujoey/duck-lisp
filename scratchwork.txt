@@ -2538,6 +2538,8 @@ Todo:
         SQUISH: Document usage of memory allocator. — M
     Clean up. — M
         C: Add max recursion depths. — S
+        C: Don't pop return value off of stack. — S
+        C: Return errors as a single string. — S
     Test on ARM — S
     Test on Windows — M
     Clean up. — S

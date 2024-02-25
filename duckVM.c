@@ -32,26 +32,17 @@ SOFTWARE.
 
 duckVM_object_t duckVM_object_makeUpvalueArray(duckVM_object_t **upvalues, dl_size_t length);
 
-
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 
-	duckLisp_error_t error;
-
-	e = dl_malloc(duckVM->memoryAllocation, (void **) &error.message, message_length * sizeof(char));
-	if (e) goto cleanup;
-	e = dl_memcopy(error.message, message, message_length * sizeof(char));
-	if (e) goto cleanup;
-
-	error.message_length = message_length;
-	error.start_index = -1;
-	error.end_index = -1;
-
-	e = dl_array_pushElement(&duckVM->errors, &error);
+	if (duckVM->errors.elements_length > 0) {
+		e = dl_array_pushElements(&duckVM->errors, DL_STR("\n"));
+		if (e) goto cleanup;
+	}
+	e = dl_array_pushElements(&duckVM->errors, message, message_length);
 	if (e) goto cleanup;
 
- cleanup:
-	return e;
+ cleanup: return e;
 }
 
 dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
@@ -436,7 +427,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 	duckVM->memoryAllocation = memoryAllocation;
 	duckVM->currentBytecode = dl_null;
 	duckVM->nextUserType = duckVM_object_type_last;
-	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(duckLisp_error_t), dl_array_strategy_double);
+	/**/ dl_array_init(&duckVM->errors, duckVM->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
 	/**/ dl_array_init(&duckVM->stack, duckVM->memoryAllocation, sizeof(duckVM_object_t), dl_array_strategy_double);
 	/**/ dl_array_init(&duckVM->call_stack,
 	                   duckVM->memoryAllocation,
@@ -462,6 +453,8 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 	                   dl_array_strategy_double);
 	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxObjects);
 	if (e) goto cleanup;
+	duckVM->duckLisp = dl_null;
+	duckVM->userData = dl_null;
 
  cleanup:
 	return e;
@@ -478,11 +471,9 @@ void duckVM_quit(duckVM_t *duckVM) {
 	e = duckVM_gclist_garbageCollect(duckVM);
 	e = dl_array_quit(&duckVM->upvalue_array_call_stack);
 	/**/ duckVM_gclist_quit(&duckVM->gclist);
-	DL_DOTIMES(i, duckVM->errors.elements_length) {
-		e = DL_FREE(duckVM->memoryAllocation,
-		            &DL_ARRAY_GETADDRESS(duckVM->errors, duckLisp_error_t, i).message);
-	}
 	e = dl_array_quit(&duckVM->errors);
+	duckVM->duckLisp = dl_null;
+	duckVM->userData = dl_null;
 	(void) e;
 }
 
@@ -6734,17 +6725,11 @@ dl_error_t duckVM_prettyPrint(dl_array_t *string_array, duckVM_t duckVM) {
 	e = dl_array_pushElements(string_array, DL_STR("(duckVM_t) {"));
 	if (e) goto cleanup;
 
-	e = dl_array_pushElements(string_array, DL_STR("errors = {"));
+	e = dl_array_pushElements(string_array, DL_STR("errors = \""));
 	if (e) goto cleanup;
-	DL_DOTIMES(i, duckVM.errors.elements_length) {
-		e = duckLisp_error_prettyPrint(string_array, DL_ARRAY_GETADDRESS(duckVM.errors, duckLisp_error_t, i));
-		if (e) goto cleanup;
-		if ((dl_size_t) i != duckVM.errors.elements_length - 1) {
-			e = dl_array_pushElements(string_array, DL_STR(", "));
-			if (e) goto cleanup;
-		}
-	}
-	e = dl_array_pushElements(string_array, DL_STR("}"));
+	e = dl_array_pushElements(string_array, duckVM.errors.elements, duckVM.errors.elements_length);
+	if (e) goto cleanup;
+	e = dl_array_pushElements(string_array, DL_STR("\""));
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));

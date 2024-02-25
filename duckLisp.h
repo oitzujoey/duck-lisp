@@ -111,15 +111,6 @@ Variables
 // 	duckLisp_error_code_syntax
 // } duckLisp_error_code_t;
 
-typedef struct {
-	char *message;
-	dl_size_t message_length;
-	dl_ptrdiff_t end_index;
-	dl_ptrdiff_t start_index;
-	const dl_uint8_t *fileName;
-	dl_size_t fileName_length;
-} duckLisp_error_t;
-
 typedef enum {
 	duckLisp_functionType_none = 0,
 	duckLisp_functionType_c,
@@ -185,7 +176,7 @@ typedef struct {
 typedef struct {
 	dl_memoryAllocation_t *memoryAllocation;
 
-	dl_array_t errors;  /* duckLisp_error_t */
+	dl_array_t errors;  /* dl_array_t:dl_uint8_t */
 
 	dl_array_t generators_stack; /* dl_array_t:dl_error_t(*)(duckLisp_t*, const duckLisp_ast_expression_t) */
 	dl_trie_t generators_trie;  /* Points to generator stack callbacks. */
@@ -807,11 +798,6 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 #endif /* USE_PARENTHESIS_INFERENCE */
                                   );
 
-dl_error_t duckLisp_serialize_errors(dl_memoryAllocation_t *memoryAllocation,
-                            dl_array_t *errorString,
-                            dl_array_t *errors,
-                            dl_array_t *sourceCode);
-
 dl_error_t duckLisp_disassemble(dl_uint8_t **string,
                                 dl_size_t *string_length,
                                 dl_memoryAllocation_t *memoryAllocation,
@@ -830,7 +816,6 @@ dl_error_t duckLisp_ast_identifier_prettyPrint(dl_array_t *string_array, duckLis
 dl_error_t duckLisp_ast_expression_prettyPrint(dl_array_t *string_array, duckLisp_ast_expression_t expression);
 dl_error_t duckLisp_ast_compoundExpression_prettyPrint(dl_array_t *string_array,
                                                        duckLisp_ast_compoundExpression_t compoundExpression);
-dl_error_t duckLisp_error_prettyPrint(dl_array_t *string_array, duckLisp_error_t error);
 dl_error_t duckLisp_functionType_prettyPrint(dl_array_t *string_array, duckLisp_functionType_t functionType);
 dl_error_t duckLisp_scope_prettyPrint(dl_array_t *string_array, duckLisp_scope_t scope);
 dl_error_t duckLisp_subCompileState_prettyPrint(dl_array_t *string_array, duckLisp_subCompileState_t subCompileState);

@@ -1172,15 +1172,14 @@ int eval(duckLisp_t *duckLisp,
 #endif /* USE_PARENTHESIS_INFERENCE */
 
 	{
-		dl_array_t errorString;
-		e = duckLisp_serialize_errors(duckLisp->memoryAllocation, &errorString, &duckLisp->errors, &sourceCode);
-		if (e) goto cleanup;
+		dl_uint8_t *errorString = duckLisp->errors.elements;
+		dl_size_t errorString_length = duckLisp->errors.elements_length;
 		printf(COLOR_RED);
-		DL_DOTIMES(i, errorString.elements_length) {
-			putchar(((char *) errorString.elements)[i]);
+		DL_DOTIMES(i, errorString_length) {
+			putchar(errorString[i]);
 		}
 		printf(COLOR_NORMAL);
-		e = dl_array_quit(&errorString);
+		(void) free(errorString);
 		if (e) goto cleanup;
 	}
 	/* printf(COLOR_CYAN); */
@@ -1218,15 +1217,14 @@ int eval(duckLisp_t *duckLisp,
 
 	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
 	{
-		dl_array_t errorString;
-		e = duckLisp_serialize_errors(duckVM->memoryAllocation, &errorString, &duckVM->errors, dl_null);
-		if (e) goto cleanup;
+		dl_uint8_t *errorString = duckVM->errors.elements;
+		dl_size_t errorString_length = duckVM->errors.elements_length;
 		printf(COLOR_RED);
-		DL_DOTIMES(i, errorString.elements_length) {
-			putchar(((char *) errorString.elements)[i]);
+		DL_DOTIMES(i, errorString_length) {
+			putchar(errorString[i]);
 		}
 		printf(COLOR_NORMAL);
-		e = dl_array_quit(&errorString);
+		(void) free(errorString);
 		if (e) goto cleanup;
 	}
 	if (e) goto cleanup;
@@ -1452,16 +1450,16 @@ int main(int argc, char *argv[]) {
 	if (e) {
 		printf(COLOR_RED "Could not initialize DuckLisp. (%s)\n" COLOR_NORMAL, dl_errorString[e]);
 		{
-			dl_array_t errorString;
+			dl_uint8_t *errorString = duckLisp.errors.elements;
+			dl_size_t errorString_length = duckLisp.errors.elements_length;
 			dl_error_t eError = dl_error_ok;
-			eError = duckLisp_serialize_errors(duckLisp.memoryAllocation, &errorString, &duckLisp.errors, dl_null);
 			if (eError) e = eError;
 			printf(COLOR_RED);
-			DL_DOTIMES(i, errorString.elements_length) {
-				putchar(((char *) errorString.elements)[i]);
+			DL_DOTIMES(i, errorString_length) {
+				putchar(errorString[i]);
 			}
 			printf(COLOR_NORMAL);
-			e = dl_array_quit(&errorString);
+			(void) free(errorString);
 			if (e) goto cleanup;
 		}
 		goto cleanup;
