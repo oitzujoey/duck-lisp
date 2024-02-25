@@ -13,8 +13,8 @@
 
 
 // Print compilation errors.
-dl_error_t serialize_errors(char *message, dl_array_t *errors){
-	printf("%s\n", message);
+dl_error_t print_errors(char *message, dl_array_t *errors){
+	puts(message);
 
 	dl_uint8_t *errorString = errors->elements;
 	dl_size_t errorString_length = errors->elements_length;
@@ -23,10 +23,6 @@ dl_error_t serialize_errors(char *message, dl_array_t *errors){
 		putchar(errorString[i]);
 	}
 	putchar('\n');
-
-	errorString_length = 0;
-	/* if (errorString) free(errorString); */
-	errorString = NULL;
 
 	return dl_error_invalidValue;
 }
@@ -48,8 +44,9 @@ dl_error_t callback_println(duckVM_t *duckVM) {
 	if (e) goto cleanup;
 	if (!isString) {
 		e = dl_error_invalidValue;
-		eError = duckVM_error_pushRuntime(duckVM,
-		                                  DL_STR("print: Argument is not a string."));
+		(eError
+		 = duckVM_error_pushRuntime(duckVM,
+		                            DL_STR("print: Argument is not a string.")));
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -121,8 +118,8 @@ int main(void) {
 	// 100. This last parameter only exists if you built with inference enabled.
 	e = duckLisp_init(&duckLisp, &duckLispMemoryAllocation, 100, 100);
 	if (e) {
-		e = serialize_errors("Failed to initialize duck-lisp compiler.",
-		                     &duckLisp.errors);
+		e = print_errors("Failed to initialize duck-lisp compiler.",
+		                 &duckLisp.errors);
 		goto cleanup;
 	}
 
@@ -182,7 +179,7 @@ int main(void) {
 	                                           source_length,
 	                                           DL_STR("<No file>"));
 	if (loadError) {
-		e = serialize_errors("Compilation failed.", &duckLisp.errors);
+		e = print_errors("Compilation failed.", &duckLisp.errors);
 		goto cleanup;
 	}
 
@@ -204,24 +201,31 @@ int main(void) {
 		}
 	}
 
-	duckVM_object_t returnValue;
 	dl_error_t runtimeError = duckVM_execute(&duckVM,
-	                                         &returnValue,
 	                                         bytecode,
 	                                         bytecode_length);
 	if (runtimeError) {
-		e = serialize_errors("VM execution failed.", &duckVM.errors);
+		e = print_errors("VM execution failed.", &duckVM.errors);
 		goto cleanup;
 	}
 
-	if (returnValue.type != duckVM_object_type_integer) {
+	dl_bool_t isInteger;
+	e = duckVM_isInteger(&duckVM, &isInteger);
+	if (e) goto cleanup;
+	if (!isInteger) {
 		printf("Returned object is not an integer.\n");
 		e = dl_error_invalidValue;
 		goto cleanup;
 	}
+	dl_ptrdiff_t returnedInteger;
+	e = duckVM_copySignedInteger(&duckVM, &returnedInteger);
+	if (e) goto cleanup;
+	/* Pop return value to balance the stack. */
+	e = duckVM_pop(&duckVM);
+	if (e) goto cleanup;
 
 	// Adjust format string for your platform. The result should be 36.
-	printf("VM: %li\n", returnValue.value.integer);
+	printf("VM: %li\n", returnedInteger);
 
  cleanup:
 	(void) duckVM_quit(&duckVM);

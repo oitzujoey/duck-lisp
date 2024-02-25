@@ -4506,10 +4506,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	return e;
 }
 
-dl_error_t duckVM_execute(duckVM_t *duckVM,
-                          duckVM_object_t *return_value,
-                          dl_uint8_t *bytecode,
-                          dl_size_t bytecode_length) {
+dl_error_t duckVM_execute(duckVM_t *duckVM, dl_uint8_t *bytecode, dl_size_t bytecode_length) {
 	dl_error_t e = dl_error_ok;
 
 	duckVM_halt_mode_t halt = duckVM_halt_mode_run;
@@ -4524,39 +4521,17 @@ dl_error_t duckVM_execute(duckVM_t *duckVM,
 		if (e) goto cleanup;
 	}
 	dl_uint8_t *ip = bytecodeObject->value.bytecode.bytecode;
+	if (bytecode_length == 0) {
+		halt = duckVM_halt_mode_abort;
+		goto cleanup;
+	}
 	duckVM->currentBytecode = bytecodeObject;
 	do {
 		e = duckVM_executeInstruction(duckVM, bytecodeObject, &ip, &halt);
 	} while (!e && (halt == duckVM_halt_mode_run));
 	duckVM->currentBytecode = dl_null;
 
- cleanup:
-
-	if (!e) {
-		if (halt == duckVM_halt_mode_yield) {
-			if (return_value != dl_null) {
-				/* Don't pop anything here so that the compiler can predict the starting stack length for the next
-				   run. */
-				if (duckVM->stack.elements_length == 0) {
-					/* Return nil if nothing on stack. */
-					return_value->type = duckVM_object_type_list;
-					return_value->value.list = dl_null;
-				}
-				else {
-					*return_value = DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t);
-				}
-			}
-		}
-		else if (halt == duckVM_halt_mode_halt) {
-			if (duckVM->stack.elements_length == 0) e = duckVM_pushNil(duckVM);
-			e = stack_pop(duckVM, return_value);
-		}
-		else {
-			*return_value = duckVM_object_makeList(dl_null);
-		}
-	}
-
-	return e;
+ cleanup: return e;
 }
 
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (*callback)(duckVM_t *)) {
@@ -5371,6 +5346,10 @@ dl_error_t duckVM_isEmpty(duckVM_t *duckVM, dl_bool_t *result) {
 
 
 /* General operations */
+
+dl_size_t duckVM_stackLength(duckVM_t *duckVM) {
+	return duckVM->stack.elements_length;
+}
 
 /* Push an existing stack object onto the top of the stack. */
 dl_error_t duckVM_push(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {

@@ -225,6 +225,7 @@ typedef enum {
 	duckVM_halt_mode_run,
 	duckVM_halt_mode_yield,
 	duckVM_halt_mode_halt,
+	duckVM_halt_mode_abort,
 } duckVM_halt_mode_t;
 
 
@@ -236,10 +237,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 /* Destroy the VM. This will free up any external resources that the VM is currently using. */
 void duckVM_quit(duckVM_t *duckVM);
 /* Execute bytecode. */
-dl_error_t duckVM_execute(duckVM_t *duckVM,
-                          duckVM_object_t *return_value,
-                          dl_uint8_t *bytecode,
-                          dl_size_t bytecode_length);
+dl_error_t duckVM_execute(duckVM_t *duckVM, dl_uint8_t *bytecode, dl_size_t bytecode_length);
 /* Pass a C callback to the VM. `key` can be found by querying the compiler. */
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (*callback)(duckVM_t *));
 
@@ -262,6 +260,8 @@ dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_obj
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length);
 
 /* General operations */
+/* Get the length of the stack. */
+dl_size_t duckVM_stackLength(duckVM_t *duckVM);
 /* Push an existing stack object onto the top of the stack. */
 dl_error_t duckVM_push(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
 /* Pop an object off of the stack. */

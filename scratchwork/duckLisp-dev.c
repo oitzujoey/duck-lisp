@@ -1068,7 +1068,6 @@ dl_error_t duckLispDev_action_include(duckLisp_t *duckLisp, duckLisp_ast_compoun
 
 int eval(duckLisp_t *duckLisp,
          duckVM_t *duckVM,
-         duckVM_object_t *return_value,
 #ifdef USE_PARENTHESIS_INFERENCE
          const dl_bool_t parenthesisInferenceEnabled,
 #endif /* USE_PARENTHESIS_INFERENCE */
@@ -1215,7 +1214,7 @@ int eval(duckLisp_t *duckLisp,
 	/* putchar('\n'); */
 	/* puts(COLOR_CYAN "VM: {" COLOR_NORMAL); */
 
-	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
+	runtimeError = duckVM_execute(duckVM, bytecode, bytecode_length);
 	{
 		dl_uint8_t *errorString = duckVM->errors.elements;
 		dl_size_t errorString_length = duckVM->errors.elements_length;
@@ -1268,7 +1267,7 @@ int eval(duckLisp_t *duckLisp,
 	return e;
 }
 
-int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_value, const dl_uint8_t *filename) {
+int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, const dl_uint8_t *filename) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -1322,7 +1321,6 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 
 	e = eval(duckLisp,
 	         duckVM,
-	         return_value,
 #ifdef USE_PARENTHESIS_INFERENCE
 	         filetype == filetype_hanabi,
 #endif /* USE_PARENTHESIS_INFERENCE */
@@ -1330,6 +1328,10 @@ int evalFile(duckLisp_t *duckLisp, duckVM_t *duckVM, duckVM_object_t *return_val
 	         sourceCode.elements_length,
 	         filename,
 	         filename_length);
+	if (e) goto cleanup;
+	/* Pop return value. */
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
 
  cleanup:
 
@@ -1555,16 +1557,19 @@ int main(int argc, char *argv[]) {
 		if (sourceFile == NULL) {
 			e = eval(&duckLisp,
 			         &duckVM,
-			         dl_null,
 #ifdef USE_PARENTHESIS_INFERENCE
 			         dl_true,
 #endif /* USE_PARENTHESIS_INFERENCE */
 			         (unsigned char *) argv[1],
 			         strlen(argv[1]),
 			         DL_STR("<ARGV>"));
+			if (e) goto cleanup;
+			/* Pop return value. */
+			e = duckVM_pop(&duckVM);
+			if (e) goto cleanup;
 		}
 		else {
-			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, dl_null, (const unsigned char *) argv[1]);
+			if (fclose(sourceFile) == 0) e = evalFile(&duckLisp, &duckVM, (const unsigned char *) argv[1]);
 		}
 	}
 	/* REPL */
@@ -1589,7 +1594,6 @@ int main(int argc, char *argv[]) {
 		printf("    (fgetc <file>)                          Call `fgetc'.\n");
 		printf("    (fwrite <file> <string>)                Call `fwrite'.\n");
 		while (1) {
-			duckVM_object_t return_value;
 			if (duckVM.stack.elements_length > 0) {
 				printf(COLOR_YELLOW
 				       "A runtime error has occured. Use (print-stack) to inspect the stack, or press\n"
@@ -1601,7 +1605,6 @@ int main(int argc, char *argv[]) {
 			if ((length = getline((char **) &line, &buffer_length, stdin)) < 0) break;
 			e = eval(&duckLisp,
 			         &duckVM,
-			         &return_value,
 #ifdef USE_PARENTHESIS_INFERENCE
 			         g_hanabi,
 #endif /* USE_PARENTHESIS_INFERENCE */
@@ -1609,12 +1612,11 @@ int main(int argc, char *argv[]) {
 			         length,
 			         DL_STR("<REPL>"));
 			free(line); line = NULL;
-			e = duckVM_object_push(&duckVM, &return_value);
-			if (e) break;
 			e = duckLispDev_callback_print(&duckVM);
 			if (e) break;
+			/* Pop return value. */
 			e = duckVM_pop(&duckVM);
-			if (e) break;
+			if (e) goto cleanup;
 
 			puts(COLOR_CYAN);
 			/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);

@@ -1139,8 +1139,14 @@ static dl_error_t runVm(inferrerState_t *state,
 	e = dl_array_pushElement((dl_array_t *) state->duckVM.inferrerContext, &context);
 	if (e) goto cleanup;
 	/* puts(duckLisp_disassemble(state->memoryAllocation, type.bytecode, type.bytecode_length)); */
-	e = duckVM_execute(&state->duckVM, dl_null, type.bytecode, type.bytecode_length);
+	e = duckVM_execute(&state->duckVM, type.bytecode, type.bytecode_length);
 	if (e) goto cleanup;
+	/* Pop return value. */
+	if (duckVM_stackLength(&state->duckVM)) {
+		e = duckVM_pop(&state->duckVM);
+		if (e) goto cleanup;
+	}
+
 	e = dl_array_popElement((dl_array_t *) state->duckVM.inferrerContext, dl_null);
 	if (e) goto cleanup;
 

@@ -427,7 +427,7 @@ dl_error_t runTest(const unsigned char *fileBaseName, dl_uint8_t *text, size_t t
 	unsigned char *bytecode = NULL;
 	dl_size_t bytecode_length;
 	duckVM_t duckVM = {0};
-	duckVM_object_t return_value;
+	duckVM_object_type_t objectType;
 
 	memory = malloc(duckLispMemory_size);
 	if (memory == NULL) {
@@ -479,7 +479,7 @@ dl_error_t runTest(const unsigned char *fileBaseName, dl_uint8_t *text, size_t t
 		goto cleanup;
 	}
 
-	e = duckVM_execute(&duckVM, &return_value, bytecode, bytecode_length);
+	e = duckVM_execute(&duckVM, bytecode, bytecode_length);
 	if (e) {
 		puts(COLOR_YELLOW "Execution failed" COLOR_NORMAL);
 
@@ -488,8 +488,13 @@ dl_error_t runTest(const unsigned char *fileBaseName, dl_uint8_t *text, size_t t
 		goto cleanup;
 	}
 
-	if (return_value.type == duckVM_object_type_bool) {
-		if (return_value.value.boolean) {
+	e = duckVM_typeOf(&duckVM, &objectType);
+	if (e) goto cleanup;
+	if (objectType == duckVM_object_type_bool) {
+		dl_bool_t returnedBoolean;
+		e = duckVM_copyBoolean(&duckVM, &returnedBoolean);
+		if (e) goto cleanup;
+		if (returnedBoolean) {
 			printf(COLOR_GREEN "PASS" COLOR_NORMAL " %s\n" , fileBaseName);
 		}
 		else {
@@ -499,8 +504,11 @@ dl_error_t runTest(const unsigned char *fileBaseName, dl_uint8_t *text, size_t t
 	}
 	else {
 		e = dl_error_invalidValue;
-		printf(COLOR_YELLOW "Test didn't return a boolean. type: %i\n" COLOR_NORMAL, return_value.type);
+		printf(COLOR_YELLOW "Test didn't return a boolean. type: %i\n" COLOR_NORMAL, objectType);
 	}
+	/* Pop return value. */
+	e = duckVM_pop(&duckVM);
+	if (e) goto cleanup;
 
  cleanup:
 

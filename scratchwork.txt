@@ -2515,6 +2515,12 @@ There are several ways to achieve infinite recursion.
  Do infinite macro expansion in the compiler. — I think I will instead cap absolute recursion. So every time an expression is compiled the counter will increment. Cap at 1000.
 
 
+To prevent the user from touching `duckVM_object_t` I have to keep `duckVM_execute` from passing back a return value.
+
+My current code expects a return value to be popped off. Now that will have to be done manually.
+Yields don't pop anything off. I think that remains the same.
+
+
 
 Todo:
     Finish parenthesis inference?

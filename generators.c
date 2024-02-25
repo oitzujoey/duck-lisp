@@ -1249,7 +1249,8 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 
 		/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */
 
-		e = duckVM_execute(&duckLisp->vm, &returnValue, bytecode.elements, bytecode.elements_length);
+		e = duckVM_execute(&duckLisp->vm, bytecode.elements, bytecode.elements_length);
+		returnValue = DL_ARRAY_GETTOPADDRESS(duckLisp->vm.stack, duckVM_object_t);
 		eError = dl_array_pushElements(&duckLisp->errors,
 		                               duckLisp->vm.errors.elements,
 		                               duckLisp->vm.errors.elements_length);
@@ -1259,6 +1260,9 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 
 		e = duckLisp_objectToAST(duckLisp, &returnCompoundExpression, &returnValue, dl_false);
+		if (e) goto cleanup;
+		/* Pop return value. */
+		e = duckVM_pop(&duckLisp->vm);
 		if (e) goto cleanup;
 
 		/**/ duckLisp_localsLength_decrement(compileState);
@@ -1357,7 +1361,7 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	/*                           macroBytecode.elements, */
 	/*                           macroBytecode.elements_length)); */
 
-	e = duckVM_execute(&duckLisp->vm, dl_null, macroBytecode.elements, macroBytecode.elements_length);
+	e = duckVM_execute(&duckLisp->vm, macroBytecode.elements, macroBytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,
 	                               duckLisp->vm.errors.elements,
 	                               duckLisp->vm.errors.elements_length);
@@ -1365,6 +1369,11 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	eError = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
 	if (eError) e = eError;
 	if (e) goto cleanup;
+	/* Pop return value. */
+	if (duckVM_stackLength(&duckLisp->vm)) {
+		e = duckVM_pop(&duckLisp->vm);
+		if (e) goto cleanup;
+	}
 
 	/* Save macro program. */
 	if (lastCompileState == &compileState->runtimeCompileState) {
@@ -3645,7 +3654,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	/* 	puts(string); */
 	/* } */
 
-	e = duckVM_execute(&duckLisp->vm, &return_value, bytecode.elements, bytecode.elements_length);
+	e = duckVM_execute(&duckLisp->vm, bytecode.elements, bytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,
 	                               duckLisp->vm.errors.elements,
 	                               duckLisp->vm.errors.elements_length);
@@ -3653,10 +3662,14 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	eError = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
 	if (eError) e = eError;
 	if (e) goto cleanupArrays;
+	return_value = DL_ARRAY_GETTOPADDRESS(duckLisp->vm.stack, duckVM_object_t);
 
 	/* Compile macro expansion. */
 
 	e = duckLisp_objectToAST(duckLisp, &ast, &return_value, dl_true);
+	if (e) goto cleanupArrays;
+	/* Pop return value. */
+	e = duckVM_pop(&duckLisp->vm);
 	if (e) goto cleanupArrays;
 
 	/* duckLisp_ast_print(duckLisp, ast); */
