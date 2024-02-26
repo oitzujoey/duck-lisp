@@ -39,11 +39,15 @@ dl_error_t callback_println(duckVM_t *duckVM) {
 
 	// stack: object
 
+	dl_uint8_t *string = NULL;
+	dl_size_t string_length = 0;
 	dl_bool_t isString = dl_false;
+
 	e = duckVM_isString(duckVM, &isString);
 	if (e) goto cleanup;
 	if (!isString) {
 		e = dl_error_invalidValue;
+		// Add a helpful error message for the user.
 		(eError
 		 = duckVM_error_pushRuntime(duckVM,
 		                            DL_STR("print: Argument is not a string.")));
@@ -52,17 +56,16 @@ dl_error_t callback_println(duckVM_t *duckVM) {
 	}
 	// stack: string
 
-	dl_uint8_t *string = NULL;
-	dl_size_t string_length = 0;
 	e = duckVM_copyString(duckVM, &string, &string_length);
 	if (e) goto cleanup;
+	// Keep the stack balanced; consume all arguments we were passed.
 	e = duckVM_pop(duckVM);
 	if (e) goto cleanup;
 	// stack: EMPTY
 
 	/* The macro below is shorthand for
 	   `for (dl_ptrdiff_t i = 0; (dl_size_t) i < string_length; i++)` */
-	DL_DOTIMES (i, string_length) {
+	DL_DOTIMES(i, string_length) {
 		putchar(string[i]);
 	}
 	putchar('\n');
@@ -74,7 +77,13 @@ dl_error_t callback_println(duckVM_t *duckVM) {
 	if (e) goto cleanup;
 	// stack: string_length
 
- cleanup: return e;
+ cleanup:
+	if (string != NULL) {
+		// You can use C's `free` instead if not using DuckLib's allocator.
+		eError = dl_free(duckVM->memoryAllocation, (void **) &string);
+		if (eError) e = eError;
+	}
+	return e;
 }
 
 
@@ -84,11 +93,12 @@ int main(void) {
 
 	duckLisp_t duckLisp;
 	duckVM_t duckVM;
+
+	// You only need this if using the DuckLib allocator!
+
 	dl_memoryAllocation_t duckLispMemoryAllocation;
 	const size_t duckLisp_memory_size = 10000000;
 	void *duckLisp_memory = NULL;
-
-	// You only need this if using the DuckLib allocator!
 
 	// Allocate a big hunk of memory to use as the heap.
 	duckLisp_memory = malloc(duckLisp_memory_size);
@@ -133,9 +143,7 @@ int main(void) {
 		goto cleanup;
 	}
 
-	// Duck-lisp doesn't have any I/O right now, so just do some calculations
-	// and return the result.
-	dl_uint8_t source[] = "(println \"Hello, world!\")";
+	dl_uint8_t source[] = "(println \"Mary had a little llama.\")";
 	size_t source_length = sizeof(source)/sizeof(*source) - 1;
 
 	uint8_t *bytecode = NULL;
@@ -153,7 +161,7 @@ int main(void) {
 	};
 	const dl_size_t callbacks_length = sizeof(callbacks)/sizeof(*callbacks);
 
-	DL_DOTIMES(i, callbacks_length) {
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < callbacks_length; i++) {
 		e = duckLisp_linkCFunction(&duckLisp,
 		                           callbacks[i].callback,
 		                           callbacks[i].name,
