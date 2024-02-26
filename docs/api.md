@@ -2,10 +2,10 @@
 
 ## Acronyms
 
-DL: Duck-lisp
-AST: Abstract syntax tree
-HLA: High-level assembly (a certain data structure that exists only in duck-lisp)
-VM: Virtual machine, specifically DL's bytecode interpreter.
+DL: Duck-lisp  
+AST: Abstract syntax tree  
+HLA: High-level assembly (a certain data structure that exists only in duck-lisp)  
+VM: Virtual machine, specifically DL's bytecode interpreter.  
 
 ## Model
 
@@ -79,48 +79,30 @@ Next define a helper function for error handling. All this function does is fetc
 
 ```c
 // Print compilation errors.
-dl_error_t serialize_errors(char *message,
-                            dl_memoryAllocation_t *ma,
-                            dl_array_t *errors,
-                            dl_uint8_t *source,
-                            size_t source_length){
-	dl_error_t e = dl_error_ok;
+dl_error_t print_errors(char *message, dl_array_t *errors){
+	puts(message);
 
-	printf("%s\n", message);
-
-	dl_uint8_t *errorString = NULL;
-	dl_size_t errorString_length = 0;
-	e = duckLisp_serialize_errors(ma,
-	                              &errorString,
-	                              &errorString_length,
-	                              errors,
-	                              source,
-	                              source_length);
-	if (e) {
-		printf("Error serialization failed.\n");
-		goto cleanup;
-	}
+	// This casts `void *` to `dl_uint8_t *`.
+	dl_uint8_t *errorString = errors->elements;
+	dl_size_t errorString_length = errors->elements_length;
 
 	for (size_t i = 0; i < errorString_length; i++) {
 		putchar(errorString[i]);
 	}
 	putchar('\n');
 
-	errorString_length = 0;
-	free(errorString);
-	errorString = NULL;
-
-	e = dl_error_invalidValue;
-
- cleanup: return e;
+	return dl_error_invalidValue;
 }
 ```
 
-At the start of `main`, declare a variable to keep returned error codes in.
+At the start of `main`, declare a variable to keep returned error codes in, a variable for the compiler's state, and a variable for the VM's state.
 
 ```c
 	// Many functions return DuckLib error codes.
 	dl_error_t e = dl_error_ok;
+
+	duckLisp_t duckLisp;
+	duckVM_t duckVM;
 ```
 
 The language is split across two files. As noted above, the compiler is in one file and the virtual machine is in the other. This makes it easier to compile source code ahead of time and run it later, potentially on entirely different CPU architectures. We will follow that process here as well. First we will compile duck-lisp code to bytecode, then we will pass it to the VM and execute it.
@@ -130,9 +112,12 @@ If you insist on using the DuckLib allocator, then you have to set it up. There 
 ```c
 	// You only need this if using the DuckLib allocator!
 
-	// Allocate a big hunk of memory to use as the heap.
+	dl_memoryAllocation_t duckLispMemoryAllocation;
 	const size_t duckLisp_memory_size = 10000000;
-	void *duckLisp_memory = malloc(duckLisp_memory_size);
+	void *duckLisp_memory = NULL;
+
+	// Allocate a big hunk of memory to use as the heap.
+	duckLisp_memory = malloc(duckLisp_memory_size);
 	if (duckLisp_memory == NULL) {
 		printf("malloc failed.\n");
 		// You can use your own error handling mechanism here, but this is my
@@ -140,7 +125,6 @@ If you insist on using the DuckLib allocator, then you have to set it up. There 
 		e = dl_error_invalidValue;
 		goto cleanup;
 	}
-	dl_memoryAllocation_t duckLispMemoryAllocation;
 	// `dl_memoryFit_best` means to find a chunk of memory that most closely
 	// fits the specified size.
 	e = dl_memory_init(&duckLispMemoryAllocation,
@@ -156,8 +140,6 @@ If you insist on using the DuckLib allocator, then you have to set it up. There 
 Now we can initialize the compiler.
 
 ```c
-	duckLisp_t duckLisp;
-
 	// Pass `NULL` as the second argument if not using DuckLib allocator.
 	// Limit the maximum number of objects allocated in the compile-time VM to
 	// 100.
@@ -165,11 +147,22 @@ Now we can initialize the compiler.
 	// 100. This last parameter only exists if you built with inference enabled.
 	e = duckLisp_init(&duckLisp, &duckLispMemoryAllocation, 100, 100);
 	if (e) {
-		e = serialize_errors("Failed to initialize duck-lisp.",
-		                     duckLisp.memoryAllocation,
-		                     &duckLisp.errors,
-		                     NULL,
-		                     0);
+		e = print_errors("Failed to initialize duck-lisp compiler.",
+		                 &duckLisp.errors);
+		goto cleanup;
+	}
+```
+
+Initialize the VM as well.
+
+```c
+	// Limit the maximum number of objects allocated in the VM to 10.
+	const size_t objectHeap_size = 10;
+
+	// Pass `NULL` as the second argument if not using DuckLib allocator.
+	e = duckVM_init(&duckVM, &duckLispMemoryAllocation, objectHeap_size);
+	if (e) {
+		printf("Failed to initialize duck-lisp VM\n");
 		goto cleanup;
 	}
 ```
@@ -195,60 +188,45 @@ Run the compiler.
 	                                           source_length,
 	                                           DL_STR("No file"));
 	if (loadError) {
-		e = serialize_errors("Compilation failed.",
-		                     duckLisp.memoryAllocation,
-		                     &duckLisp.errors,
-		                     source,
-		                     source_length);
+		e = print_errors("Compilation failed.", &duckLisp.errors);
 		goto cleanup;
 	}
 ```
 
-The macro `DL_STR` is used above to simplify passing a string literal to a function. The macro expands to the string literal and the string literal's length (minus the null terminator) separated by a comma. This consumes two parameter slots. "No file" is passed as the file name argument and the length, 7, is passed as the length.
+The macro `DL_STR` is used above to simplify passing a string literal to the compilation function. The macro expands to the string literal and the string literal's length (minus the null terminator) separated by a comma. This consumes two parameter slots. "No file" is passed as the file name argument and the length, 7, is passed as the length.
 
-Assuming compilation succeeds, you will have a bit of bytecode ready to be executed. If you so desire, you may now run `duckLisp_quit` to destroy the compiler. It is not needed during bytecode execution.
+Assuming compilation succeeds, you will have an array of bytecode ready to be executed. If you so desire, you may now run `duckLisp_quit` to destroy the compiler. It is not needed during bytecode execution.
 
-Create the virtual machine.
-
-```c
-	duckVM_t duckVM;
-
-	// Limit the maximum number of objects allocated in the VM to 10.
-	const size_t objectHeap_size = 10;
-
-	// Pass `NULL` as the second argument if not using DuckLib allocator.
-	e = duckVM_init(&duckVM, &duckLispMemoryAllocation, objectHeap_size);
-	if (e) {
-		printf("Failed to initialize duck-lisp\n");
-		goto cleanup;
-	}
-```
-
-And finally, run the bytecode.
+Finally, run the bytecode.
 
 ```c
-	duckVM_object_t returnValue;
 	dl_error_t runtimeError = duckVM_execute(&duckVM,
-	                                         &returnValue,
 	                                         bytecode,
 	                                         bytecode_length);
 	if (runtimeError) {
-		e = serialize_errors("VM execution failed.",
-		                     duckVM.memoryAllocation,
-		                     &duckVM.errors,
-		                     NULL,
-		                     0);
+		e = print_errors("VM execution failed.", &duckVM.errors);
 		goto cleanup;
 	}
 
-	if (returnValue.type != duckVM_object_type_integer) {
+	dl_bool_t isInteger;
+	// Make sure object on the top of the stack is an integer.
+	e = duckVM_isInteger(&duckVM, &isInteger);
+	if (e) goto cleanup;
+	if (!isInteger) {
 		printf("Returned object is not an integer.\n");
 		e = dl_error_invalidValue;
 		goto cleanup;
 	}
+	dl_ptrdiff_t returnedInteger;
+	// Copy the object off the stack as an integer.
+	e = duckVM_copySignedInteger(&duckVM, &returnedInteger);
+	if (e) goto cleanup;
+	// Pop return value to balance the stack.
+	e = duckVM_pop(&duckVM);
+	if (e) goto cleanup;
 
 	// Adjust format string for your platform. The result should be 36.
-	printf("VM: %li\n", returnValue.value.integer);
+	printf("VM: %li\n", returnedInteger);
 ```
 
 Now clean everything up.
@@ -265,11 +243,13 @@ Now clean everything up.
 	return e != 0;
 ```
 
-## Callbacks
+### Callbacks
 
 The language is running, but there's no I/O other than the source code and the return value. Let's define a C function that can be called from duck-lisp.
 
-A C callback pops arguments off the stack and pushes a single return value on the stack. Every function must return a value. When in doubt what to return, return nil.
+A C callback pops arguments off the stack then pushes a single return value on the stack. Every function must return a value. When in doubt what to return, return nil.
+
+#### hello-world
 
 To start with, let's write the simplest useful function possible.
 
@@ -280,41 +260,58 @@ dl_error_t callback_helloWorld(duckVM_t *duckVM) {
 }
 ```
 
-Both the compiler and the VM need to be aware of this function. Place the code below before `duckLisp_loadString` is called. Calls to `hello-world` can be compiled once this is done. `hello-world` can also be called at compile-time. Speaking of compile time code, if all duck-lisp code is placed inside a `comptime` form, then there is no need to create a VM since the compiler will evaulate all the code at compile-time.
+Both the compiler and the VM need to be aware of this function. Place the code below before `duckLisp_loadString` is called. Calls to `hello-world` can be compiled once this is done. `hello-world` can also be called at compile-time.
 
 ```c
-	dl_uint8_t callbackName[] = "hello-world";
-	dl_size_t callbackName_length = (sizeof(callbackName)/sizeof(*callbackName)
-	                                 - 1);
-	e = duckLisp_linkCFunction(&duckLisp,
-	                           callback_helloWorld,
-	                           DL_STR("hello-world"),
-	                           // `hello-world` doesn't accept arguments.
-	                           // These two arguments are not required if
-	                           // parenthesis inference is disabled.
-	                           DL_STR("()"));
-	if (e) {
-		printf("Failed to register C callback with compiler.\n");
-		goto cleanup;
+	struct {
+		dl_uint8_t *name;
+		dl_size_t name_length;
+		dl_error_t (*callback)(duckVM_t *);
+		dl_uint8_t *type;
+		dl_size_t type_length;
+	} callbacks[] = {
+		{DL_STR("hello-world"), callback_helloWorld, DL_STR("()")},
+	};
+	const dl_size_t callbacks_length = sizeof(callbacks)/sizeof(*callbacks);
+
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < callbacks_length; i++) {
+		e = duckLisp_linkCFunction(&duckLisp,
+		                           callbacks[i].callback,
+		                           callbacks[i].name,
+		                           callbacks[i].name_length,
+		                           // These two arguments are not required if
+		                           // parenthesis inference is disabled.
+		                           callbacks[i].type,
+		                           callbacks[i].type_length);
+		if (e) {
+			printf("Failed to register C callback \"%s\" with compiler.\n",
+			       callbacks[i].name);
+			goto cleanup;
+		}
 	}
 ```
 
-Now pass the callback to the VM. Place this code before `duckVM_execute` is called. The VM doesn't know the name of the callback. All it knows about is an integer ID and the callback itself. The compiler *does* know the name of the callback, so we have to ask it for the callback's unique ID that it was assigned and pass that to the VM.
+The `callbacks` array of structs is not required, but it will be more convenient later when we add more C functions.
+
+Now pass the callback to the VM. Place the code below code before `duckVM_execute` is called. The VM doesn't know the name of the callback. All it knows about is an integer ID and the callback itself. The compiler knows both the name of the callback and the unique ID it assigned, so we ask it for the ID and pass that to the VM.
 
 ```c
-	ptrdiff_t callback_id = duckLisp_symbol_nameToValue(&duckLisp,
-	                                                    callbackName,
-	                                                    callbackName_length);
-	if (callback_id == -1) {
-		printf("\"%s\" could not be found in the compiler's global environment.\n",
-		       callbackName);
-		e = dl_error_invalidValue;
-		goto cleanup;
-	}
-	e = duckVM_linkCFunction(&duckVM, callback_id, callback_helloWorld);
-	if (e) {
-		printf("Failed to register C callback with VM.\n");
-		goto cleanup;
+	DL_DOTIMES(i, callbacks_length) {
+		ptrdiff_t callback_id = duckLisp_symbol_nameToValue(&duckLisp,
+		                                                    callbacks[i].name,
+		                                                    (callbacks[i]
+		                                                     .name_length));
+		if (callback_id == -1) {
+			printf("\"%s\" could not be found in the compiler's environment.\n",
+			       callbacks[i].name);
+			e = dl_error_invalidValue;
+			goto cleanup;
+		}
+		e = duckVM_linkCFunction(&duckVM, callback_id, callbacks[i].callback);
+		if (e) {
+			printf("Failed to register C callback with VM.\n");
+			goto cleanup;
+		}
 	}
 ```
 
@@ -324,16 +321,142 @@ The final step is to change the duck-lisp source code string to this:
 	dl_uint8_t source[] = "(hello-world)";
 ```
 
-Now let's try a variant that's a little more useful. We will pop a string off the stack, print it, then return the length of the string.,
+The binary should now print out "Hello, world!".
 
-And that's everything there is to know about duck-lisp!
+#### println
 
-Actually it's just too convoluted to write here.
+Now let's try a variant that's a little more useful: `println`. We will pop a string off the stack, print it, and return the length of that string.
 
-I need to fix that.
+Write out the function boilerplate.
 
+```c
+dl_error_t callback_println(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
 
-## Conventions
+ cleanup: return e;
+}
+```
+
+Also define some variables we will use inside the function.
+
+```c
+	dl_uint8_t *string = NULL;
+	dl_size_t string_length = 0;
+	dl_bool_t isString = dl_false;
+```
+
+The reason we define them at the top is so that managing `string`'s memory is easier when an error occurs.
+
+In duck-lisp script, the function we are writing would have a definition similar to this:
+
+```lisp
+(defun println (value)
+  ...  ; Printing function goes here.
+  (length value))
+```
+
+It is passed one value and returns one value. So when the C function is entered, there will be at least one object already on the stack, and that topmost object is the function's argument.
+
+Our `println` function only accepts strings, so the first thing we need to do is check if the object is a string. If it's not a string then the function will throw an error.
+
+```c
+	e = duckVM_isString(duckVM, &isString);
+	if (e) goto cleanup;
+	if (!isString) {
+		e = dl_error_invalidValue;
+		// Add a helpful error message for the user.
+		(eError
+		 = duckVM_error_pushRuntime(duckVM,
+		                            DL_STR("print: Argument is not a string.")));
+		if (eError) e = eError;
+		goto cleanup;
+	}
+```
+
+And now we copy the string out of the stack object and into a variable.
+
+```c
+	e = duckVM_copyString(duckVM, &string, &string_length);
+	if (e) goto cleanup;
+	// Keep the stack balanced; consume all arguments we were passed.
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+```
+
+And now we have the string. Unfortunately the string isn't null terminated, so we have to print it character-by-character.
+
+```c
+	/* The macro below is shorthand for
+	   `for (dl_ptrdiff_t i = 0; (dl_size_t) i < string_length; i++)` */
+	DL_DOTIMES(i, string_length) {
+		putchar(string[i]);
+	}
+	putchar('\n');
+```
+
+And now to return the length of the string. Pushing values in duck-lisp is a little odd. First you push the object of the correct type onto the stack, then with a separate API call you set its value.
+
+```c
+	e = duckVM_pushInteger(duckVM);
+	if (e) goto cleanup;
+	e = duckVM_setInteger(duckVM, string_length);
+	if (e) goto cleanup;
+```
+
+Now the bulk of the function is written. All we have to do now is free the string. The code below replaces the current cleanup code.
+
+```c
+ cleanup:
+	if (string != NULL) {
+		// You can use C's `free` instead if not using DuckLib's allocator.
+		eError = dl_free(duckVM->memoryAllocation, (void **) &string);
+		if (eError) e = eError;
+	}
+	return e;
+```
+
+Now in `main`, modify the list of callbacks to add `println`.
+
+```c
+	struct {
+		dl_uint8_t *name;
+		dl_size_t name_length;
+		dl_error_t (*callback)(duckVM_t *);
+		dl_uint8_t *type;
+		dl_size_t type_length;
+	} callbacks[] = {
+		{DL_STR("hello-world"), callback_helloWorld, DL_STR("()")},
+		{DL_STR("println"), callback_println, DL_STR("(I)")},
+	};
+```
+
+Change the DL script to use the new function.
+
+```c
+	dl_uint8_t source[] = "(println \"Mary had a little llama.\")";
+```
+
+Now compile and run it. It should print out "Mary had a little llama" and "VM: 24".
+
+#### div-mod
+
+For multiple arguments, the function would read and pop multiple objects off the stack.
+
+For multiple return values, the function would push several objects on the stack, then bind them together into a data structure that is stored on the heap.
+
+`div-mod` could be defined in duck-lisp as shown below, but we will implement it as a C function.
+
+```lisp
+(defun div-mod (n d)
+  (cons (/ n d)
+        ;; `mod' is defined in "library.dl".
+        (mod n d)))
+```
+
+To simplify the example, we will use C's `%` operator instead of implementing true modulo.
+
+## API Conventions
 
 An error is nearly always indicated with a return value of the type `dl_error_t`. If the return type of a function is `void`, then the function should always succeed.
 
