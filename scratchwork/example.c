@@ -50,7 +50,7 @@ dl_error_t callback_println(duckVM_t *duckVM) {
 		// Add a helpful error message for the user.
 		(eError
 		 = duckVM_error_pushRuntime(duckVM,
-		                            DL_STR("print: Argument is not a string.")));
+		                            DL_STR("println: Argument is not a string.")));
 		if (eError) e = eError;
 		goto cleanup;
 	}
