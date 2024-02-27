@@ -379,9 +379,11 @@ dl_error_t duckVM_pushRest(duckVM_t *duckVM);
 /* Set the first element of the sequence at the specified stack index to the value of the object at the top of the
    stack.
    This operation fails on nil, strings, and closures. */
+dl_error_t duckVM_setCar(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
 dl_error_t duckVM_setFirst(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
 /* Set the CDR of the list at the specified stack index to the value of the object at the top of the stack.
    Only conses support this operation. */
+dl_error_t duckVM_setCdr(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
 dl_error_t duckVM_setRest(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
 /* Get the specified element of the sequence on top of the stack, and push it on top of the stack.
    Lists:Push the indexed element on top of the stack.
