@@ -23,7 +23,7 @@ Duck-lisp is designed with extensibility as one of its primary goals. It is easy
 6. Check for and handle compile errors.
 7. Destroy the compiler.
 
-The compilation step is easy. Pass source code to the `duckLisp_loadString` function and bytecode pops out. If an error occured, then print the error messages.
+The compilation step is easy. Pass source code to the `duckLisp_loadString` function and bytecode pops out. If an error occurred, then print the error messages.
 
 Now for the complicated part. There are three ways to extend the compiler.
 
