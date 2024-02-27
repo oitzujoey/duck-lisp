@@ -604,7 +604,7 @@ Leave the `cleanup` section of the function as it is since there is no memory th
 Add `div-mod` to the callbacks array.
 
 ```c
-struct {
+	struct {
 		dl_uint8_t *name;
 		dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
