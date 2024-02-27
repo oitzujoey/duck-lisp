@@ -249,7 +249,7 @@ The language is running, but there's no I/O other than the source code and the r
 
 A C callback pops arguments off the stack then pushes a single return value on the stack. Every function must return a value. When in doubt what to return, return nil.
 
-#### hello-world
+#### hello-world and setup for callbacks
 
 To start with, let's write the simplest useful function possible.
 
@@ -368,7 +368,7 @@ Our `println` function only accepts strings, so the first thing we need to do is
 		// Add a helpful error message for the user.
 		(eError
 		 = duckVM_error_pushRuntime(duckVM,
-		                            DL_STR("print: Argument is not a string.")));
+		                            DL_STR("println: Argument is not a string.")));
 		if (eError) e = eError;
 		goto cleanup;
 	}
@@ -443,7 +443,7 @@ Now compile and run it. It should print out "Mary had a little llama" and "VM: 2
 
 For multiple arguments, the function would read and pop multiple objects off the stack.
 
-For multiple return values, the function would push several objects on the stack, then bind them together into a data structure that is stored on the heap.
+For multiple return values, the function would push several objects on the stack, while bind them together into a data structure that is stored on the heap.
 
 `div-mod` could be defined in duck-lisp as shown below, but we will implement it as a C function.
 
@@ -454,7 +454,180 @@ For multiple return values, the function would push several objects on the stack
         (mod n d)))
 ```
 
-To simplify the example, we will use C's `%` operator instead of implementing true modulo.
+To simplify the example, we will use C's `%` operator instead of implementing true modulo. The function will only accept and return integers.
+
+Just like with `println`, start with the function boilerplate.
+
+```c
+dl_error_t callback_divMod(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+ cleanup: return e;
+}
+```
+
+The stack is invisible. It is not necessarily obvious when quickly looking at the code what a series of stack operations will do. Because this is a somewhat complicated function, I will add comments that show the state of the stack, for my benefit and yours.
+
+We start with two objects on the stack.
+
+```c
+	// stack: dividend divisor
+```
+
+The divisor is the second argument. It is on top of the stack.
+
+Just like with `println`, fetch the integers and pop them off the stack. They have to be popped off one at a time because the API only allows copying the object on top of the stack.
+
+First fetch the second argument.
+
+```c
+	// Check type of divisor (second argument).
+	{
+		dl_bool_t isInteger;
+		e = duckVM_isInteger(duckVM, &isInteger);
+		if (e) goto cleanup;
+		if (!isInteger) {
+			e = dl_error_invalidValue;
+			(eError
+			 = duckVM_error_pushRuntime(duckVM,
+			                            DL_STR("div-mod: Divisor is not an integer.")));
+			if (eError) e = eError;
+			goto cleanup;
+		}
+	}
+	// Fetch divisor.
+	dl_ptrdiff_t divisor;
+	e = duckVM_copySignedInteger(duckVM, &divisor);
+	if (e) goto cleanup;
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: dividend
+```
+
+Then fetch the first argument.
+
+```c
+	// Check type of dividend (first argument).
+	{
+		dl_bool_t isInteger;
+		e = duckVM_isInteger(duckVM, &isInteger);
+		if (e) goto cleanup;
+		if (!isInteger) {
+			e = dl_error_invalidValue;
+			(eError
+			 = duckVM_error_pushRuntime(duckVM,
+			                            DL_STR("div-mod: Dividend is not an integer.")));
+			if (eError) e = eError;
+			goto cleanup;
+		}
+	}
+	// Fetch divisor.
+	dl_ptrdiff_t dividend;
+	e = duckVM_copySignedInteger(duckVM, &dividend);
+	if (e) goto cleanup;
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: EMPTY
+```
+
+Perform the arithmetic.
+
+```c
+	// Do the interesting operations.
+	dl_ptrdiff_t quotient = dividend / divisor;
+	dl_ptrdiff_t remainder = dividend % divisor;
+```
+
+And now build the data structure that will be returned. In this case it will be a simple cons cell with the quotient as the CAR and the remainder as the CDR.
+
+First push the cons.
+
+```c
+	// Push the cons that will bind the quotient and remainder together.
+	e = duckVM_pushCons(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons NIL NIL)
+```
+
+Then push the quotient.
+
+```c
+	// Push the quotient.
+	e = duckVM_pushInteger(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons NIL NIL) 0
+	e = duckVM_setInteger(duckVM, quotient);
+	if (e) goto cleanup;
+	// stack: (cons NIL NIL) quotient
+```
+
+Set the CAR of the cons. `duckVM_setCar` accepts a stack index, which is the index of the cons cell. Both positive and negative indices are accepted. A positive index is relative to the bottom of the stack, which a negative index is relative to the end of the stack. 0 points to the first index of the stack and -1 points to the top of the stack. Positive indices turn out to be rarely useful. In this case the cons is just below the top of the stack, so the index is -2.
+
+```c
+	// Assign the quotient to the CAR of the cons.
+	// -2 is the index of the cons.
+	e = duckVM_setCar(duckVM, -2);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL) quotient
+```
+
+Balance the stack.
+
+```c
+	// Pop the quotient, which now has a safe copy in the cons.
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL)
+```
+
+Now place the remainder in the cons.
+
+```c
+	// Do the same for the remainder.
+	e = duckVM_pushInteger(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL) 0
+	e = duckVM_setInteger(duckVM, remainder);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL) remainder
+	e = duckVM_setCdr(duckVM, -2);
+	if (e) goto cleanup;
+	// stack: (cons quotient remainder) remainder
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient remainder)
+```
+
+Leave the `cleanup` section of the function as it is since there is no memory that needs to be freed.
+
+Add `div-mod` to the callbacks array.
+
+```c
+struct {
+		dl_uint8_t *name;
+		dl_size_t name_length;
+		dl_error_t (*callback)(duckVM_t *);
+		dl_uint8_t *type;
+		dl_size_t type_length;
+	} callbacks[] = {
+		{DL_STR("hello-world"), callback_helloWorld, DL_STR("()")},
+		{DL_STR("println"), callback_println, DL_STR("(I)")},
+		{DL_STR("div-mod"), callback_divMod, DL_STR("(I I)")},
+	};
+```
+
+Rewrite the duck-lisp script to use the new function.
+
+```c
+	dl_uint8_t source[] = "\
+(()\
+ var result (div-mod 661 491)\
+ + car result\
+   cdr result)";
+```
+
+Recompile and run, and the result should be "VM: 171".
 
 ## API Conventions
 

@@ -86,6 +86,99 @@ dl_error_t callback_println(duckVM_t *duckVM) {
 	return e;
 }
 
+dl_error_t callback_divMod(duckVM_t *duckVM) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	// stack: dividend divisor
+
+	// Check type of divisor (second argument).
+	{
+		dl_bool_t isInteger;
+		e = duckVM_isInteger(duckVM, &isInteger);
+		if (e) goto cleanup;
+		if (!isInteger) {
+			e = dl_error_invalidValue;
+			(eError
+			 = duckVM_error_pushRuntime(duckVM,
+			                            DL_STR("div-mod: Divisor is not an integer.")));
+			if (eError) e = eError;
+			goto cleanup;
+		}
+	}
+	// Fetch divisor.
+	dl_ptrdiff_t divisor;
+	e = duckVM_copySignedInteger(duckVM, &divisor);
+	if (e) goto cleanup;
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: dividend
+
+	// Check type of dividend (first argument).
+	{
+		dl_bool_t isInteger;
+		e = duckVM_isInteger(duckVM, &isInteger);
+		if (e) goto cleanup;
+		if (!isInteger) {
+			e = dl_error_invalidValue;
+			(eError
+			 = duckVM_error_pushRuntime(duckVM,
+			                            DL_STR("div-mod: Dividend is not an integer.")));
+			if (eError) e = eError;
+			goto cleanup;
+		}
+	}
+	// Fetch divisor.
+	dl_ptrdiff_t dividend;
+	e = duckVM_copySignedInteger(duckVM, &dividend);
+	if (e) goto cleanup;
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: EMPTY
+
+	// Do the interesting operations.
+	dl_ptrdiff_t quotient = dividend / divisor;
+	dl_ptrdiff_t remainder = dividend % divisor;
+
+	// Push the cons that will bind the quotient and remainder together.
+	e = duckVM_pushCons(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons NIL NIL)
+
+	// Push the quotient.
+	e = duckVM_pushInteger(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons NIL NIL) 0
+	e = duckVM_setInteger(duckVM, quotient);
+	if (e) goto cleanup;
+	// stack: (cons NIL NIL) quotient
+	// Assign the quotient to the CAR of the cons.
+	// -2 is the index of the cons.
+	e = duckVM_setCar(duckVM, -2);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL) quotient
+	// Pop the quotient, which now has a safe copy in the cons.
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL)
+
+	// Do the same for the remainder.
+	e = duckVM_pushInteger(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL) 0
+	e = duckVM_setInteger(duckVM, remainder);
+	if (e) goto cleanup;
+	// stack: (cons quotient NIL) remainder
+	e = duckVM_setCdr(duckVM, -2);
+	if (e) goto cleanup;
+	// stack: (cons quotient remainder) remainder
+	e = duckVM_pop(duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient remainder)
+
+ cleanup: return e;
+}
+
 
 int main(void) {
 	// Many functions return DuckLib error codes.
@@ -143,7 +236,11 @@ int main(void) {
 		goto cleanup;
 	}
 
-	dl_uint8_t source[] = "(println \"Mary had a little llama.\")";
+	dl_uint8_t source[] = "\
+(()\
+ var result (div-mod 661 491)\
+ + car result\
+   cdr result)";
 	size_t source_length = sizeof(source)/sizeof(*source) - 1;
 
 	uint8_t *bytecode = NULL;
@@ -158,6 +255,7 @@ int main(void) {
 	} callbacks[] = {
 		{DL_STR("hello-world"), callback_helloWorld, DL_STR("()")},
 		{DL_STR("println"), callback_println, DL_STR("(I)")},
+		{DL_STR("div-mod"), callback_divMod, DL_STR("(I I)")},
 	};
 	const dl_size_t callbacks_length = sizeof(callbacks)/sizeof(*callbacks);
 
