@@ -245,6 +245,14 @@ defmacro x () () "Llama comma"  println x
 
 In the last case, `x` acts like a Common Lisp symbol macro despite it being defined as a normal macro.
 
+This can sometimes be useful for creating an alias, such as in the case of `nil`, which can be defined as:
+
+```lisp
+defmacro nil () () ()
+```
+
+Now anywhere `nil` is used a literal `()` will be inserted. `nil` is not allocated on the stack as a variable named `nil` would be.
+
 ## Potential improvements
 
 * Create separate declaration environments for compile-time and runtime identifiers.
