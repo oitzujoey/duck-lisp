@@ -494,8 +494,22 @@ bvar duckLisp-object-type-type type-of type-of ()
                (incq i))
         (car list))
 
-(bdefun elt (list n)
-        (nth n list))
+(bdefun set-nth (n list value)
+        (var i 0)
+        (while (< i n)
+               (pop list)
+               (incq i))
+        (set-car list value))
+
+(bdefun elt (sequence n)
+        (cond vector? sequence
+              (get-vector-element sequence n)
+              (nth n sequence)))
+
+(bdefun set-elt (sequence n value)
+        (cond vector? sequence
+              (set-vector-element sequence n value)
+              (set-nth n sequence value)))
 
 (bdefun last (list)
         (while (cdr list)
@@ -603,6 +617,121 @@ bvar duckLisp-object-type-type type-of type-of ()
 
 (defmacro until (condition &rest body) (I &rest 1 I)
   ` (while (not , condition) ,@ body))
+
+
+(comptime
+ (defun gensym (&rest -1 name)
+   (if name
+       (intern (concatenate car name (gensym)))
+       (gensym)))
+ ())
+
+
+(comptime
+ (defun extend-set (pattern body)
+   var lvalue cadr pattern
+   var value-name caddr pattern
+   var function-name car lvalue
+   var function-args cdr lvalue
+   #(` (__defmacro
+        (, (intern (concatenate "__set-" function-name)))
+        ((,@ function-args) (, value-name))
+        (,@ body))))
+ ())
+
+
+(defmacro extend (pattern &rest body) (L &rest 1 I)
+  var function-name car pattern
+  (funcall (switch function-name
+             ' set  #extend-set
+             ` __error "extend: Unknown extendable function.")
+           pattern
+           body))
+
+
+;; `setf' in most lisps.
+;; var l (list 1 2 3)
+;; set (elt l 1) 5
+;; l  ; => (1 5 3)
+(defmacro set (lvalue value) (I I)
+  (switch type-of lvalue
+    duckLisp-object-type-symbol
+    ` setq (, lvalue) (, value)
+    duckLisp-object-type-list
+    (()
+     var function-name first lvalue
+     var function-args rest lvalue
+
+     ` ((, (intern (concatenate "__set-" function-name))) ,@ function-args , value))
+    ` __error "set: lvalue may only be a symbol or an expression."))
+
+#(extend (set (car sequence) value)
+  (` (set-car (, sequence) (, value))))
+#(extend (set (cdr sequence) value)
+  (` (set-cdr (, sequence) (, value))))
+#(extend (set (elt sequence index) value)
+  (` (set-elt (, sequence) (, index) (, value))))
+#(extend (set (composite-value composite) value)
+  (` (set-composite-value (, composite) (, value))))
+#(extend (set (composite-function composite) value)
+  (` (set-composite-function (, composite) (, value))))
+
+
+;; Define a class.
+;; (defclass table (x y)
+;;   var v make-vector (* x y) nil
+;;   make-instance table-type (vector v x y) nil)
+;; This will define the following:
+;;   the type `table-type';
+;;   the type checking function `table?';
+;;   the constructor `table'.
+;; The name, parameters, and body define the constructor.
+(defmacro defclass (name parameters &rest body) (L L &rest 1 I)
+  var v (gensym "v")
+  ` #(noscope
+      (var (, (intern (concatenate name "-type"))) (make-type))
+      (defun (, (intern (concatenate name "?"))) ((, v))
+        (= (, (intern (concatenate name "-type"))) (type-of (, v))))
+      (defun (, name) (, parameters)
+        (,@ body))))
+(declare defclass (L L &rest 1 I)
+         (
+          (var name (infer-and-get-next-argument))
+          (var parameters (infer-and-get-next-argument))
+          (when (not = (type-of parameters) (type-of ()))
+            setq parameters (list parameters))
+          ;; Declare type.
+          (declare-identifier (concatenate name "-type") (quote #I))
+          ;; Declare type checking function.
+          (declare-identifier (concatenate name "?") (quote #(I)))
+          ;; Declare constructor.
+          (var type ())
+          (
+           (var parameters parameters)
+           (while parameters
+                  (if (if (= (quote #&rest) (car parameters))
+                          true
+                          (= (type-of car parameters) (type-of 0)))
+                      (setq type (cons car parameters type))
+                      (setq type (cons (quote #I) type)))
+                  (setq parameters (cdr parameters))))
+          (
+           (var type2 type)
+           (setq type ())
+           (while type2
+                  (setq type (cons (car type2) type))
+                  (setq type2 (cdr type2))))
+          (declaration-scope
+           (while parameters
+                  var parameter car parameters
+                  (when (when (= (type-of parameter) (type-of quote #a))
+                          (not (= (quote #&rest) parameter)))
+                    (declare-identifier parameter (quote #I)))
+                  (setq parameters (cdr parameters)))
+           (declare-identifier (quote #self) type)
+           (infer-and-get-next-argument))
+          (declare-identifier name type)))
+
 
 comptime println "</comptime library.hna>"
 println "</library.hna>"
