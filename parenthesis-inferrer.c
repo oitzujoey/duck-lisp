@@ -1476,11 +1476,11 @@ static dl_error_t inferArgument(inferrerState_t *state,
 				/* Undeclared */
 				e = inferrerState_log(state, DL_STR("::Undeclared\x1B[0m\n"));
 				if (e) goto cleanup;
-				e = duckLisp_error_pushInference(state, DL_STR("Undeclared identifier. See inference log.\n"));
-				if (e) goto cleanup;
 				e = infer_compoundExpression(state, fileName, fileName_length, compoundExpression, infer);
 				if (e) goto cleanup;
 				if (infer) {
+					e = duckLisp_error_pushInference(state, DL_STR("Undeclared identifier. See inference log.\n"));
+					if (e) goto cleanup;
 					e = dl_error_invalidValue;
 					goto cleanup;
 				}
