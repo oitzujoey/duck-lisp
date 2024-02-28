@@ -1079,7 +1079,6 @@ int eval(duckLisp_t *duckLisp,
 	dl_error_t eError = dl_error_ok;
 
 	char tempChar;
-	/* dl_size_t tempDlSize; */
 
 	dl_array_t sourceCode;
 
@@ -1100,11 +1099,6 @@ int eval(duckLisp_t *duckLisp,
 
 	/* Compile functions. */
 
-	/* printf(COLOR_CYAN); */
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* puts(COLOR_NORMAL); */
-
 	dl_error_t loadError;
 	dl_error_t runtimeError;
 	unsigned char *bytecode = dl_null;
@@ -1120,48 +1114,6 @@ int eval(duckLisp_t *duckLisp,
 	                                fileName,
 	                                fileName_length);
 
-	/* e = dl_memory_checkHealth(*duckLisp->memoryAllocation); */
-	/* if (e) { */
-	/* 	printf(COLOR_RED "Memory health check failed. (%s)\n" COLOR_NORMAL, dl_errorString[e]); */
-	/* } */
-
-	printf(COLOR_CYAN);
-
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
-
-	/* // Note: The memSize/eleSize trick only works with the "fit" strategy. */
-	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
-	/* 	printf("Scope %lli: locals\n", i); */
-	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].locals_trie); */
-	/* } */
-	/* putchar('\n'); */
-	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
-	/* 	printf("Scope %lli: statics\n", i); */
-	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].statics_trie); */
-	/* } */
-	/* putchar('\n'); */
-	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
-	/* 	printf("Scope %lli: generators\n", i); */
-	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].generators_trie); */
-	/* } */
-	/* putchar('\n'); */
-	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
-	/* 	printf("Scope %lli: functions (1: callback  2: script  3: generator)\n", i); */
-	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].functions_trie); */
-	/* } */
-	/* putchar('\n'); */
-	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < duckLisp->scope_stack.elements_memorySize / duckLisp->scope_stack.element_size; i++) { */
-	/* 	printf("Scope %lli: labels\n", i); */
-	/* 	/\**\/ dl_trie_print_compact(((duckLisp_scope_t *) duckLisp->scope_stack.elements)[i].labels_trie); */
-	/* } */
-
-	printf(COLOR_NORMAL);
-
-	if (loadError) {
-		printf(COLOR_RED "Error loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
-	}
-
 #ifdef USE_PARENTHESIS_INFERENCE
 	if (loadError) {
 		DL_DOTIMES(i, duckLisp->inferrerLog.elements_length) {
@@ -1169,6 +1121,10 @@ int eval(duckLisp_t *duckLisp,
 		}
 	}
 #endif /* USE_PARENTHESIS_INFERENCE */
+
+	if (loadError) {
+		printf(COLOR_RED "Error loading string. (%s)\n" COLOR_NORMAL, dl_errorString[loadError]);
+	}
 
 	{
 		dl_uint8_t *errorString = duckLisp->errors.elements;
@@ -1178,17 +1134,11 @@ int eval(duckLisp_t *duckLisp,
 			putchar(errorString[i]);
 		}
 		printf(COLOR_NORMAL);
-		(void) free(errorString);
-		if (e) goto cleanup;
 	}
-	/* printf(COLOR_CYAN); */
-	/* /\**\/ dl_memory_usage(&tempDlSize, *duckLisp->memoryAllocation); */
-	/* printf("Compiler memory usage: %llu/%llu (%llu%%)\n", tempDlSize, duckLisp->memoryAllocation->size, 100*tempDlSize/duckLisp->memoryAllocation->size); */
-	/* puts(COLOR_NORMAL); */
 
 	if (loadError) {
 		/* putchar('\n'); */
-		printf(COLOR_RED "Failed to compile source.\n" COLOR_NORMAL);
+		printf(COLOR_RED "\nFailed to compile source.\n" COLOR_NORMAL);
 		e = loadError;
 		goto cleanup;
 	}
