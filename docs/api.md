@@ -631,6 +631,6 @@ Recompile and run, and the result should be "VM: 171".
 
 ## API Conventions
 
-An error is nearly always indicated with a return value of the type `dl_error_t`. If the return type of a function is `void`, then the function should always succeed.
+An error is nearly always indicated with a return value of the type `dl_error_t`. If the return type of a function is `void`, then the function should always succeed. All uses of functions should either assign the result to a variable or place a marker indicating that the function does not return an error. The marker is either a `(void)` or a `/**/` placed to the left of the function call.
 
 Strings may or may not be null terminated. Don't ever depend on them being null terminated. A length value is always passed around with the string instead. It is acceptable to pass a null-terminated string to duck-lisp, but be sure the length you pass does not include the null terminator. The literal string "abc" has a length of three, not four.
