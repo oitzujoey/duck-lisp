@@ -1369,11 +1369,7 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	eError = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
 	if (eError) e = eError;
 	if (e) goto cleanup;
-	/* Pop return value. */
-	if (duckVM_stackLength(&duckLisp->vm)) {
-		e = duckVM_pop(&duckLisp->vm);
-		if (e) goto cleanup;
-	}
+	/* Don't pop because we're yielding. */
 
 	/* Save macro program. */
 	if (lastCompileState == &compileState->runtimeCompileState) {

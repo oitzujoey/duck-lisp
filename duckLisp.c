@@ -2160,10 +2160,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	                  dl_true);
 	if (e) goto cleanup;
 
-	/* printf("AST: "); */
-	/* e = ast_print_compoundExpression(*duckLisp, ast); putchar('\n'); */
-	if (e) goto cleanup;
-
 	/* Compile AST to bytecode. */
 
 	duckLisp_compileState_t compileState;

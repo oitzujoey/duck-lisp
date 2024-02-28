@@ -2520,6 +2520,8 @@ To prevent the user from touching `duckVM_object_t` I have to keep `duckVM_execu
 My current code expects a return value to be popped off. Now that will have to be done manually.
 Yields don't pop anything off. I think that remains the same.
 
+Doesn't this make yields and halts exactly the same?
+
 
 
 Todo:
@@ -2531,6 +2533,7 @@ Todo:
     Fix error handling? — L
         C: Fix generator error reporting. — L
         C: Fix VM error reporting? — M?
+        C: Allow user to retrieve *all* disassembly.
     Optimization? Should probably save for hypothetical DL2.
         C: Hash tables/Tries? — M
         C: Switch to stack VM? — M
