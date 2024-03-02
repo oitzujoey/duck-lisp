@@ -1,0 +1,23 @@
+(include "../scripts/library.hna")
+
+;; It seems the best way to do OOP is like CLOS. The annoying part about this is that methods are global, and the Hanabi
+;; syntax doesn't work well when the same function needs to be used with different arities. So the better way to go
+;; about it I think is to treat all methods in the same way that C++ treats overloaded operators. The function should
+;; *always* do the same thing (unlike in C++) and it always has the same arity (like in C++).
+
+(defun unwrap v v)
+
+(defclass table (x y)
+  var v make-vector (* x y) nil
+  make-instance table-type (vector v x y) nil)
+
+
+
+
+(defun unwrap v
+  (if table? v
+      (funcall (lambda v composite-value v) v)
+      unwrap v))
+
+println unwrap table 2 3 1
+println table-type

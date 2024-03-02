@@ -1,0 +1,9 @@
+(include "../scripts/library.hna")
+
+var l (list 1 2 3)
+set elt l 1 5
+set car l 3
+set cdr cdr l 12
+println l
+set l 4
+println l
