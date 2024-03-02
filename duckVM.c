@@ -524,6 +524,13 @@ static dl_error_t stack_get(duckVM_t *duckVM, duckVM_object_t *element, dl_ptrdi
 	return dl_array_get(&duckVM->stack, element, index);
 }
 
+static dl_error_t stack_set(duckVM_t *duckVM, duckVM_object_t *element, dl_ptrdiff_t index) {
+	if (index < 0) {
+		index = duckVM->stack.elements_length + index;
+	}
+	return dl_array_set(&duckVM->stack, element, index);
+}
+
 static dl_error_t call_stack_push(duckVM_t *duckVM,
                                   dl_uint8_t *ip,
                                   duckVM_object_t *bytecode,
@@ -5354,7 +5361,7 @@ dl_size_t duckVM_stackLength(duckVM_t *duckVM) {
 /* Push an existing stack object onto the top of the stack. */
 dl_error_t duckVM_push(duckVM_t *duckVM, dl_ptrdiff_t stack_index) {
 	duckVM_object_t object;
-	dl_error_t e = dl_array_get(&duckVM->stack, &object, stack_index);
+	dl_error_t e = stack_get(duckVM, &object, stack_index);
 	if (e) return e;
 	return stack_push(duckVM, &object);
 }
@@ -5376,7 +5383,8 @@ dl_error_t duckVM_copyFromTop(duckVM_t *duckVM, dl_ptrdiff_t destination_stack_i
 		duckVM_object_t object;
 		e = dl_array_getTop(&duckVM->stack, &object);
 		if (e) break;
-		e = dl_array_set(&duckVM->stack, &object, destination_stack_index);
+		e = stack_set(duckVM, &object, destination_stack_index);
+		if (e) break;
 	} while (0);
 	return e;
 }
@@ -5580,7 +5588,7 @@ dl_error_t duckVM_copyFloat(duckVM_t *duckVM, double *value) {
 
 /* Strings */
 
-/* Push a string onto the top of the stack. */
+/* Push a string onto the top of the stack. Strings are immutable, which is why there isn't a `duckVM_setString`. */
 dl_error_t duckVM_pushString(duckVM_t *duckVM, dl_uint8_t *string, dl_size_t string_length) {
 	dl_error_t e = dl_error_ok;
 	do {

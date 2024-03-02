@@ -303,7 +303,7 @@ dl_error_t duckVM_setFloat(duckVM_t *duckVM, double value);
 dl_error_t duckVM_copyFloat(duckVM_t *duckVM, double *value);
 
 /* Strings */
-/* Push a string onto the top of the stack. */
+/* Push a string onto the top of the stack. Strings are immutable, which is why there isn't a `duckVM_setString`. */
 dl_error_t duckVM_pushString(duckVM_t *duckVM, dl_uint8_t *string, dl_size_t string_length);
 /* Copy a string off the top of the stack into the provided variable. The user must free the string using the VM's
    allocator. */
