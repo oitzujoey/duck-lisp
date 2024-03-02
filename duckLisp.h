@@ -103,14 +103,6 @@ Variables
 =========
 */
 
-// typedef enum {
-// 	duckLisp_error_code_none = 0,
-// 	duckLisp_error_code_notAnExpression,
-// 	duckLisp_error_code_extraOpenParenthesis,
-// 	duckLisp_error_code_unexpectedEndOfFile,
-// 	duckLisp_error_code_syntax
-// } duckLisp_error_code_t;
-
 typedef enum {
 	duckLisp_functionType_none = 0,
 	duckLisp_functionType_c,
@@ -216,6 +208,8 @@ typedef struct {
 	void *userData;
 } duckLisp_t;
 
+/* An instruction class is the instruction name, but without any size information. This is used to indicate the
+   instruction type in the high-level assembly array. */
 typedef enum {
 	duckLisp_instructionClass_nop = 0,
 	duckLisp_instructionClass_pushString,
@@ -280,8 +274,10 @@ typedef enum {
 	duckLisp_instructionClass_internalNop,
 } duckLisp_instructionClass_t;
 
-// Max number of instructions must be 256.
-// Order must be 8→16→32 otherwise there will be optimization problems.
+/* These are the opcodes. Unlike instruction classes they include size information. e.g. add16 takes two sixteen bit
+   stack indices and uses the objects at those locations as the operands. */
+/* Max number of instructions must be 256. */
+/* Order should be 8→16→32 otherwise the new code may cause bugs in the peephole optimizer. */
 typedef enum {
 	duckLisp_instruction_nop = 0,
 
@@ -507,19 +503,13 @@ typedef enum {
 	duckLisp_instructionArgClass_type_none,
 	duckLisp_instructionArgClass_type_integer,
 	duckLisp_instructionArgClass_type_doubleFloat,
+	/* "index" could probably be removed. It should be known what the argument type is from the context. In fact, do I
+	   even need this enum if that is the case? */
 	duckLisp_instructionArgClass_type_index,
 	duckLisp_instructionArgClass_type_string,
 } duckLisp_instructionArgClass_type_t;
 
-typedef enum {
-	duckLisp_instructionArg_type_none,
-	duckLisp_instructionArg_type_integer8,
-	duckLisp_instructionArg_type_integer16,
-	duckLisp_instructionArg_type_index8,
-	duckLisp_instructionArg_type_index16,
-	duckLisp_instructionArg_type_string,
-} duckLisp_instructionArg_type_t;
-
+/* This is the struct used for each argument of each element of high-level assembly. */
 typedef struct {
 	union {
 		dl_ptrdiff_t integer;
@@ -533,14 +523,15 @@ typedef struct {
 	duckLisp_instructionArgClass_type_t type;
 } duckLisp_instructionArgClass_t;
 
+/* This is the struct used for each element of high-level assembly. */
 typedef struct duckLisp_instructionObject_s {
 	duckLisp_instructionClass_t instructionClass;
 	dl_array_t args;  /* dl_array_t:duckLisp_instructionArgClass_t */
 } duckLisp_instructionObject_t;
 
-/* Parser functions */
 
 
+/* Initialize an instance of the compiler. */
 dl_error_t duckLisp_init(duckLisp_t *duckLisp,
                          dl_memoryAllocation_t *memoryAllocation,
                          dl_size_t maxComptimeVmObjects
@@ -549,22 +540,29 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
                          dl_size_t maxInferenceVmObjects
 #endif /* USE_PARENTHESIS_INFERENCE */
                          );
+/* Free an instance of the compiler. */
 void DECLSPEC duckLisp_quit(duckLisp_t *duckLisp);
 
+/* Internal function that is needed for compiling AST. Should probably hide. */
 void DECLSPEC duckLisp_compileState_init(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState);
+/* Internal function that is needed for compiling AST. Should probably hide. */
 dl_error_t DECLSPEC duckLisp_compileState_quit(duckLisp_t *duckLisp, duckLisp_compileState_t *compileState);
 
+/* Report a compile-time error when the position of the error in the source code is unknown. */
 dl_error_t DECLSPEC duckLisp_error_pushRuntime(duckLisp_t *duckLisp,
                                                const dl_uint8_t *message,
                                                const dl_size_t message_length);
+/* Check if the number of arguments in the form matches what is expected. Throw an error otherwise. */
 dl_error_t DECLSPEC duckLisp_checkArgsAndReportError(duckLisp_t *duckLisp, duckLisp_ast_expression_t astExpression,
                                                      const dl_size_t numArgs,
                                                      const dl_bool_t variadic);
+/* Check the type of an error to make sure it is what was expected. Throw an error otherwise. */
 dl_error_t DECLSPEC duckLisp_checkTypeAndReportError(duckLisp_t *duckLisp,
                                                      duckLisp_ast_identifier_t functionName,
                                                      duckLisp_ast_compoundExpression_t astCompoundExpression,
                                                      const duckLisp_ast_type_t type);
 
+/* Get the top of the scope stack for the current sub-compile-state. */
 dl_error_t duckLisp_scope_getTop(duckLisp_t *duckLisp,
                                  duckLisp_subCompileState_t *subCompileState,
                                  duckLisp_scope_t *scope);
@@ -601,79 +599,26 @@ dl_error_t duckLisp_scope_getLabelFromName(duckLisp_subCompileState_t *subCompil
                                            const dl_uint8_t *name,
                                            dl_size_t name_length);
 
+/* Increment the locals length in the current sub-compile-state. */
 void duckLisp_localsLength_increment(duckLisp_compileState_t *compileState);
+/* Decrement the locals length in the current sub-compile-state. */
 void duckLisp_localsLength_decrement(duckLisp_compileState_t *compileState);
+/* Get the locals length for the current sub-compile-state. */
 dl_size_t duckLisp_localsLength_get(duckLisp_compileState_t *compileState);
 
+/* Create a unique identifier name that is unlikely (but not impossible! D:) to be referenced by the author of a
+   duck-lisp script. */
 dl_error_t duckLisp_gensym(duckLisp_t *duckLisp, duckLisp_ast_identifier_t *identifier);
 dl_error_t duckLisp_register_label(duckLisp_t *duckLisp,
                                    duckLisp_subCompileState_t *subCompileState,
                                    dl_uint8_t *name,
                                    const dl_size_t name_length);
 
-dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
-                                duckLisp_ast_compoundExpression_t *ast,
-                                duckVM_object_t *object,
-                                dl_bool_t useExprs);
+/* Convert an AST into a data structure made out of duckVM objects. */
 dl_error_t duckLisp_astToObject(duckLisp_t *duckLisp,
                                 duckVM_t *duckVM,
                                 duckVM_object_t *object,
                                 duckLisp_ast_compoundExpression_t ast);
-
-dl_error_t duckLisp_emit_pop(duckLisp_t *duckLisp,
-                             duckLisp_compileState_t *compileState,
-                             dl_array_t *assembly,
-                             const dl_size_t count);
-dl_error_t duckLisp_emit_not(duckLisp_t *duckLisp,
-                             duckLisp_compileState_t *compileState,
-                             dl_array_t *assembly,
-                             const dl_ptrdiff_t index);
-dl_error_t duckLisp_emit_add(duckLisp_t *duckLisp,
-                             duckLisp_compileState_t *compileState,
-                             dl_array_t *assembly,
-                             const dl_ptrdiff_t destination_index,
-                             const dl_ptrdiff_t source_index);
-dl_error_t duckLisp_emit_greater(duckLisp_t *duckLisp,
-                                 duckLisp_compileState_t *compileState,
-                                 dl_array_t *assembly,
-                                 const dl_ptrdiff_t source_index1,
-                                 const dl_ptrdiff_t source_index2);
-dl_error_t duckLisp_emit_less(duckLisp_t *duckLisp,
-                              duckLisp_compileState_t *compileState,
-                              dl_array_t *assembly,
-                              const dl_ptrdiff_t source_index1,
-                              const dl_ptrdiff_t source_index2);
-dl_error_t duckLisp_emit_move(duckLisp_t *duckLisp,
-                              duckLisp_compileState_t *compileState,
-                              dl_array_t *assembly,
-                              const dl_ptrdiff_t destination_index,
-                              const dl_ptrdiff_t source_index);
-dl_error_t duckLisp_emit_pushInteger(duckLisp_t *duckLisp,
-                                     duckLisp_compileState_t *compileState,
-                                     dl_array_t *assembly,
-                                     dl_ptrdiff_t *stackIndex,
-                                     const dl_ptrdiff_t integer);
-dl_error_t duckLisp_emit_pushIndex(duckLisp_t *duckLisp,
-                                   duckLisp_compileState_t *compileState,
-                                   dl_array_t *assembly,
-                                   const dl_ptrdiff_t index);
-dl_error_t DECLSPEC duckLisp_emit_pushString(duckLisp_t *duckLisp,
-                                             duckLisp_compileState_t *compileState,
-                                             dl_array_t *bytecodeBuffer,
-                                             dl_ptrdiff_t *stackIndex,
-                                             dl_uint8_t *string,
-                                             dl_size_t string_length);
-dl_error_t duckLisp_emit_brnz(duckLisp_t *duckLisp,
-                              duckLisp_compileState_t *compileState,
-                              dl_array_t *assembly,
-                              dl_uint8_t *label,
-                              dl_size_t label_length,
-                              int pops);
-dl_error_t duckLisp_emit_jump(duckLisp_t *duckLisp,
-                              duckLisp_compileState_t *compileState,
-                              dl_array_t *assembly,
-                              dl_uint8_t *label,
-                              dl_size_t label_length);
 
 dl_error_t duckLisp_consToExprAST(duckLisp_t *duckLisp,
                                   duckLisp_ast_compoundExpression_t *ast,
@@ -687,22 +632,6 @@ dl_error_t duckLisp_objectToAST(duckLisp_t *duckLisp,
                                 dl_bool_t useExprs);
 
 
-dl_error_t duckLisp_generator_noscope(duckLisp_t *duckLisp,
-                                      duckLisp_compileState_t *compileState,
-                                      dl_array_t *assembly,
-                                      duckLisp_ast_expression_t *expression);
-dl_error_t duckLisp_generator_expression(duckLisp_t *duckLisp,
-                                         duckLisp_compileState_t *compileState,
-                                         dl_array_t *assembly,
-                                         duckLisp_ast_expression_t *expression);
-dl_error_t duckLisp_generator_createVar(duckLisp_t *duckLisp,
-                                        duckLisp_compileState_t *compileState,
-                                        dl_array_t *assembly,
-                                        duckLisp_ast_expression_t *expression);
-dl_error_t duckLisp_generator_lambda(duckLisp_t *duckLisp,
-                                     duckLisp_compileState_t *compileState,
-                                     dl_array_t *assembly,
-                                     duckLisp_ast_expression_t *expression);
 
 dl_error_t duckLisp_compile_compoundExpression(duckLisp_t *duckLisp,
                                                duckLisp_compileState_t *compileState,
@@ -722,19 +651,27 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
                                        dl_ptrdiff_t *index);
 
 dl_error_t duckLisp_instructionObject_quit(duckLisp_t *duckLisp, duckLisp_instructionObject_t *instruction);
+/* Assemble the high-level assembly array to bytecode. I think `compileState` is required for the number of labels. I
+   should change that. */
 dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *bytecode,
                              dl_array_t *assembly);
+/* Initialize the high-level assembly array. */
 void duckLisp_assembly_init(duckLisp_t *duckLisp, dl_array_t *assembly);
+/* Free the high-level assembly array. */
 dl_error_t duckLisp_assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly);
+/* Compile an AST. I should probably make `compileState` not required. */
 dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
                                duckLisp_compileState_t *compileState,
                                dl_array_t *bytecode,
 							   duckLisp_ast_compoundExpression_t astCompoundexpression);
 
+/* Intern an identifier name as a symbol. */
 dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const dl_uint8_t *name, const dl_size_t name_length);
+/* Get the ID of a symbol from its name. */
 dl_ptrdiff_t duckLisp_symbol_nameToValue(const duckLisp_t *duckLisp, const dl_uint8_t *name, const dl_size_t name_length);
+/* Compile duck-lisp source code. */
 dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 #ifdef USE_PARENTHESIS_INFERENCE
                                const dl_bool_t parenthesisInferenceEnabled,
@@ -746,10 +683,12 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
                                const dl_uint8_t *fileName,
                                const dl_size_t fileName_length);
 
+/* Push a scope on top of the current scope stack. */
 dl_error_t DECLSPEC duckLisp_pushScope(duckLisp_t *duckLisp,
                                        duckLisp_compileState_t *compileState,
                                        duckLisp_scope_t *scope,
                                        dl_bool_t is_function);
+/* Pop a scope off of the top of the current scope stack. */
 dl_error_t DECLSPEC duckLisp_popScope(duckLisp_t *duckLisp,
                                       duckLisp_compileState_t *compileState,
                                       duckLisp_scope_t *scope);
@@ -798,6 +737,7 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
 #endif /* USE_PARENTHESIS_INFERENCE */
                                   );
 
+/* Disassemble bytecode into a string. */
 dl_error_t duckLisp_disassemble(dl_uint8_t **string,
                                 dl_size_t *string_length,
                                 dl_memoryAllocation_t *memoryAllocation,

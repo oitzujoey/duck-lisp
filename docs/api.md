@@ -27,9 +27,9 @@ The compilation step is easy. Pass source code to the `duckLisp_loadString` func
 
 Now for the complicated part. There are three ways to extend the compiler.
 
-Parser actions are functions that are run when parsing duck-lisp code. If the first parenthesized expression matches the parser action's name, then the function is run. The arguments are `duckLisp_t` (the compiler's context) and `duckLisp_ast_compoundExpression_t` (the current AST node that matches the action's name). It might be possible to safely modify the passed AST, but I don't make any guarantee that it won't break something. Modify the `duckLisp_t` argument as you see fit.
+Parser actions are functions that are run when parsing duck-lisp code. If the first parenthesized expression matches the parser action's name, then the function is run. The arguments are `duckLisp_t` (the compiler's context) and `duckLisp_ast_compoundExpression_t` (the current AST node that matches the action's name). An example of how this would be used is an `include` keyword. The parser action associated with that keyword would open the file specified in the argument of `include`, then replace the `include` form with the CST of that file.
 
-Generators are run during compilation of the AST to HLA. In fact, generators _are_ the compiler. Your generators are injected into the compiler alongside the native generators and are treated exactly the same as other generators. If you need to carry data around with the main compiler context, you can store it in the `userData` field of `duckLisp_t`. Your generator is run when the AST node's function name matches the name of the generator. Generators are passed the `duckLisp_t` compiler context, the `duckLisp_compileState_t` scope data structure, the HLA array, and the current `duckLisp_ast_compoundExpression_t` AST node. You may modify the AST node (and all other arguments), but you may leak memory or cause a double free if you aren't careful.
+Generators are run during compilation of the AST to HLA. In fact, generators _are_ the compiler. Your generators are injected into the compiler alongside the native generators and are treated exactly the same as other generators. If you need to carry data around with the main compiler context, you can store it in the `userData` field of `duckLisp_t`. Your generator is run when the AST node's function name matches the name of the generator. Generators are passed the `duckLisp_t` compiler context, the `duckLisp_compileState_t` scope data structure, the HLA array, and the current `duckLisp_ast_compoundExpression_t` AST node. You may modify the AST node (and all other arguments), but you may leak memory or cause a double free if you aren't careful. One use of generators could be to define a macro-like keyword from C.
 
 User-defined C functions that you intend to call from duck-lisp code must be loaded into the compiler before compilation takes place. This is so that the compiler knows the C functions being called are defined, and so that compile-time duck-lisp code is able to call these functions during compilation. C functions are discussed in depth in the "VM model" section. Of the three extension mechanisms in the compiler, C functions are by far the easiest to use.
 
@@ -628,6 +628,10 @@ Rewrite the duck-lisp script to use the new function.
 ```
 
 Recompile and run, and the result should be "VM: 171".
+
+## Advanced usage
+
+This is not complete documentation. It may also change in the future. I have put nowhere near as much effort into the compiler's API as I put in the VM's API. For futher "documentation", I suggest looking at "scratchwork/duckLisp-dev.c" and possibly the duck-lisp code that is integrated into the Hidey-Chess project.
 
 ## API Conventions
 

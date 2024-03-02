@@ -27,6 +27,7 @@ SOFTWARE.
 #include "duckLisp.h"
 #include "duckVM.h"
 #include "parser.h"
+#include "generators.h"
 
 
 /* This contains the parenthesis inferrer for duck-lisp. When Forth-like syntax mode is enabled the raw AST from the
