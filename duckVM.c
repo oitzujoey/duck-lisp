@@ -622,6 +622,110 @@ dl_bool_t duckVM_listIsCyclic(duckVM_object_t *rootCons) {
 }
 
 
+dl_error_t duckVM_instruction_prepareForFuncall(duckVM_t *duckVM,
+                                                duckVM_object_t *functionObject,
+                                                dl_uint8_t numberOfArgs) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+
+	do {
+		duckVM_object_t restListObject;
+		while (functionObject->type == duckVM_object_type_composite) {
+			*functionObject = *functionObject->value.composite->value.internalComposite.function;
+		}
+		if (functionObject->type == duckVM_object_type_function) {
+			break;
+		}
+		else if (functionObject->type != duckVM_object_type_closure) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->funcall: Object is not a callback or closure."));
+			if (!e) e = eError;
+			break;
+		}
+		if (functionObject->value.closure.variadic) {
+			if (numberOfArgs < functionObject->value.closure.arity) {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->funcall: Too few arguments."));
+				if (!e) e = eError;
+				break;
+			}
+			/* Create list. */
+			/* The original version of this did something really dirty though it didn't look like it. It popped
+			   multiple objects off the stack, then allocated a bunch more on the heap. This is fine 99.999% of the
+			   time, but since the stack is the root the garbage collector uses to trace memory, it was possible to
+			   trigger collection of the object (and possibly all its children) during one of those allocations.
+			   Moral of the story: Never perform an allocation if you have an allocated object disconnected from the
+			   stack. */
+			/* First push the new object on the stack to register it with the collector. */
+			restListObject.value.list = dl_null;
+			restListObject.type = duckVM_object_type_list;
+			e = stack_push(duckVM, &restListObject);
+			if (e) break;
+			{
+				duckVM_object_t nil;
+				nil.value.list = dl_null;
+				nil.type = duckVM_object_type_list;
+				e = stack_push(duckVM, &nil);
+				if (e) break;
+			}
+			dl_size_t args_length = (numberOfArgs - functionObject->value.closure.arity);
+			duckVM_object_t *lastConsPtr = dl_null;
+			DL_DOTIMES(k, args_length) {
+				duckVM_object_t cons;
+				duckVM_object_t *consPtr = dl_null;
+				duckVM_object_t object;
+				duckVM_object_t *objectPtr = dl_null;
+				/* Reverse order, because lisp lists are backwards. */
+				object = DL_ARRAY_GETADDRESS(duckVM->stack,
+				                             duckVM_object_t,
+				                             duckVM->stack.elements_length - 3 - k);
+				e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
+				if (e) break;
+				cons.type = duckVM_object_type_cons;
+				cons.value.cons.car = objectPtr;
+				cons.value.cons.cdr = lastConsPtr;
+				/* Make visible to collector before allocating another. */
+				DL_ARRAY_GETADDRESS(duckVM->stack,
+				                    duckVM_object_t,
+				                    duckVM->stack.elements_length - 1).value.list = objectPtr;
+				e = duckVM_gclist_pushObject(duckVM, &consPtr, cons);
+				if (e) break;
+				/* Make visible to collector before allocating another. The object just created is linked in the
+				   cons. */
+				DL_ARRAY_GETADDRESS(duckVM->stack,
+				                    duckVM_object_t,
+				                    duckVM->stack.elements_length - 2).value.list = consPtr;
+				lastConsPtr = consPtr;
+			}
+			if (e) break;
+			/* Pop the temporary object. */
+			e = stack_pop(duckVM, dl_null);
+			if (e) break;
+			/* Copy the list to the proper position. */
+			restListObject.value.list = lastConsPtr;
+			DL_ARRAY_GETADDRESS(duckVM->stack,
+			                    duckVM_object_t,
+			                    (duckVM->stack.elements_length - 1 - args_length)) = restListObject;
+			/* Pop all objects other than the list. */
+			e = stack_pop_multiple(duckVM, args_length);
+			if (e) break;
+		}
+		else {
+			if (functionObject->value.closure.arity != numberOfArgs) {
+				e = dl_error_invalidValue;
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_execute->funcall: Incorrect number of arguments."));
+				if (!e) e = eError;
+				break;
+			}
+		}
+	} while (0);
+	return e;
+}                
+
+
 int duckVM_executeInstruction(duckVM_t *duckVM,
                               duckVM_object_t *bytecode,
                               unsigned char **ipPtr,
@@ -1197,9 +1301,8 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		uint8 = *(ip++);
 		e = dl_array_get(&duckVM->stack, &object1, duckVM->stack.elements_length - ptrdiff1);
 		if (e) break;
-		while (object1.type == duckVM_object_type_composite) {
-			object1 = *object1.value.composite->value.internalComposite.function;
-		}
+		e = duckVM_instruction_prepareForFuncall(duckVM, &object1, uint8);
+		if (e) break;
 		if (object1.type == duckVM_object_type_function) {
 			e = object1.value.function.callback(duckVM);
 			if (e) {
@@ -1216,81 +1319,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			                                  DL_STR("duckVM_execute->funcall: Object is not a callback or closure."));
 			if (!e) e = eError;
 			break;
-		}
-		if (object1.value.closure.variadic) {
-			if (uint8 < object1.value.closure.arity) {
-				e = dl_error_invalidValue;
-				eError = duckVM_error_pushRuntime(duckVM,
-				                                  DL_STR("duckVM_execute->funcall: Too few arguments."));
-				if (!e) e = eError;
-				break;
-			}
-			/* Create list. */
-			/* The original version of this did something really dirty though it didn't look like it. It popped
-			   multiple objects off the stack, then allocated a bunch more on the heap. This is fine 99.999% of the
-			   time, but since the stack is the root the garbage collector uses to trace memory, it was possible to
-			   trigger collection of the object (and possibly all its children) during one of those allocations.
-			   Moral of the story: Never perform an allocation if you have an allocated object disconnected from the
-			   stack. */
-			/* First push the new object on the stack to register it with the collector. */
-			object2.value.list = dl_null;
-			object2.type = duckVM_object_type_list;
-			e = stack_push(duckVM, &object2);
-			if (e) break;
-			object3.value.list = dl_null;
-			object3.type = duckVM_object_type_list;
-			e = stack_push(duckVM, &object3);
-			if (e) break;
-			dl_size_t args_length = (uint8 - object1.value.closure.arity);
-			duckVM_object_t *lastConsPtr = dl_null;
-			DL_DOTIMES(k, args_length) {
-				duckVM_object_t cons;
-				duckVM_object_t *consPtr = dl_null;
-				duckVM_object_t object;
-				duckVM_object_t *objectPtr = dl_null;
-				/* Reverse order, because lisp lists are backwards. */
-				object = DL_ARRAY_GETADDRESS(duckVM->stack,
-				                             duckVM_object_t,
-				                             duckVM->stack.elements_length - 3 - k);
-				e = duckVM_gclist_pushObject(duckVM, &objectPtr, object);
-				if (e) break;
-				cons.type = duckVM_object_type_cons;
-				cons.value.cons.car = objectPtr;
-				cons.value.cons.cdr = lastConsPtr;
-				/* Make visible to collector before allocating another. */
-				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckVM_object_t,
-				                    duckVM->stack.elements_length - 1).value.list = objectPtr;
-				e = duckVM_gclist_pushObject(duckVM, &consPtr, cons);
-				if (e) break;
-				/* Make visible to collector before allocating another. The object just created is linked in the
-				   cons. */
-				DL_ARRAY_GETADDRESS(duckVM->stack,
-				                    duckVM_object_t,
-				                    duckVM->stack.elements_length - 2).value.list = consPtr;
-				lastConsPtr = consPtr;
-			}
-			if (e) break;
-			/* Pop the temporary object. */
-			e = stack_pop(duckVM, dl_null);
-			if (e) break;
-			/* Copy the list to the proper position. */
-			object2.value.list = lastConsPtr;
-			DL_ARRAY_GETADDRESS(duckVM->stack,
-			                    duckVM_object_t,
-			                    (duckVM->stack.elements_length - 1 - args_length)) = object2;
-			/* Pop all objects other than the list. */
-			e = stack_pop_multiple(duckVM, args_length);
-			if (e) break;
-		}
-		else {
-			if (object1.value.closure.arity != uint8) {
-				e = dl_error_invalidValue;
-				eError = duckVM_error_pushRuntime(duckVM,
-				                                  DL_STR("duckVM_execute->funcall: Incorrect number of arguments."));
-				if (!e) e = eError;
-				break;
-			}
 		}
 		/* Call. */
 		e = call_stack_push(duckVM, ip, bytecode, &object1.value.closure.upvalue_array->value.upvalue_array);
