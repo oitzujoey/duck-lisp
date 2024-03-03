@@ -4513,12 +4513,23 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 	return e;
 }
 
-dl_error_t duckVM_execute(duckVM_t *duckVM, dl_uint8_t *bytecode, dl_size_t bytecode_length) {
+dl_error_t duckVM_executeWithIp(duckVM_t *duckVM,
+                                dl_uint8_t *bytecode,
+                                dl_ptrdiff_t ipOffset,
+                                dl_size_t bytecode_length) {
 	dl_error_t e = dl_error_ok;
 
 	duckVM_halt_mode_t halt = duckVM_halt_mode_run;
 	/* Why a reference to bytecode? So it can be switched out with other bytecodes by `duckVM_executeInstruction`. */
 	duckVM_object_t *bytecodeObject;
+	dl_uint8_t *ip = dl_null;
+	if ((ipOffset < 0) || (bytecode_length <= (dl_size_t) ipOffset)) {
+		dl_error_t eError = dl_error_ok;
+		e = dl_error_invalidValue;
+		eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_executeWithIp: IP out of bounds."));
+		if (eError) e = eError;
+		goto cleanup;
+	}
 	{
 		duckVM_object_t temp;
 		temp.type = duckVM_object_type_bytecode;
@@ -4527,7 +4538,7 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, dl_uint8_t *bytecode, dl_size_t byte
 		e = duckVM_gclist_pushObject(duckVM, &bytecodeObject, temp);
 		if (e) goto cleanup;
 	}
-	dl_uint8_t *ip = bytecodeObject->value.bytecode.bytecode;
+	ip = &bytecodeObject->value.bytecode.bytecode[ipOffset];
 	if (bytecode_length == 0) {
 		halt = duckVM_halt_mode_abort;
 		goto cleanup;
@@ -4539,6 +4550,10 @@ dl_error_t duckVM_execute(duckVM_t *duckVM, dl_uint8_t *bytecode, dl_size_t byte
 	duckVM->currentBytecode = dl_null;
 
  cleanup: return e;
+}
+
+dl_error_t duckVM_execute(duckVM_t *duckVM, dl_uint8_t *bytecode, dl_size_t bytecode_length) {
+	return duckVM_executeWithIp(duckVM, bytecode, 0, bytecode_length);
 }
 
 dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (*callback)(duckVM_t *)) {
@@ -5394,7 +5409,6 @@ dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type) {
 	dl_error_t e = dl_error_ok;
 
 	duckVM_object_t object;
-
 	e = dl_array_getTop(&duckVM->stack, &object);
 	if (e) return e;
 	*type = object.type;
