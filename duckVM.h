@@ -248,11 +248,6 @@ dl_error_t duckVM_garbageCollect(duckVM_t *duckVM);
 /* Reset the VM, but retain global variables and the contents of the heap. */
 dl_error_t duckVM_softReset(duckVM_t *duckVM);
 
-/* Fetch a global object. */
-dl_error_t duckVM_getGlobal(const duckVM_t *duckVM, duckVM_object_t *global, const dl_ptrdiff_t key);
-/* Create a new global object, or overwrite the global object if it already exists. */
-dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_object_t *object);
-
 
 /* Functions intended for C callbacks */
 
@@ -273,7 +268,14 @@ dl_error_t duckVM_copyFromTop(duckVM_t *duckVM, dl_ptrdiff_t destination_stack_i
 /* Return the type of the object on the top of the stack. */
 dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type);
 /* Call the object at the given index as a function. */
-dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t function_stack_index);
+dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t stackIndex, dl_uint8_t numberOfArgs);
+
+/* Global variables */
+
+/* Push the specified global variable onto the stack. */
+dl_error_t duckVM_pushGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key);
+/* Set the specified global variable to the value of the object on top of the stack. */
+dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key);
 
 /* Type-specific operations */
 

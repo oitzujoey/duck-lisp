@@ -517,6 +517,10 @@ static dl_error_t stack_pop_multiple(duckVM_t *duckVM, dl_size_t pops) {
 	return e;
 }
 
+static dl_error_t stack_getTop(duckVM_t *duckVM, duckVM_object_t *element) {
+	return dl_array_getTop(&duckVM->stack, element);
+}
+
 static dl_error_t stack_get(duckVM_t *duckVM, duckVM_object_t *element, dl_ptrdiff_t index) {
 	if (index < 0) {
 		index = duckVM->stack.elements_length + index;
@@ -622,9 +626,9 @@ dl_bool_t duckVM_listIsCyclic(duckVM_object_t *rootCons) {
 }
 
 
-dl_error_t duckVM_instruction_prepareForFuncall(duckVM_t *duckVM,
-                                                duckVM_object_t *functionObject,
-                                                dl_uint8_t numberOfArgs) {
+static dl_error_t duckVM_instruction_prepareForFuncall(duckVM_t *duckVM,
+                                                       duckVM_object_t *functionObject,
+                                                       dl_uint8_t numberOfArgs) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
@@ -4659,15 +4663,19 @@ dl_error_t duckVM_softReset(duckVM_t *duckVM) {
 	return e;
 }
 
-dl_error_t duckVM_getGlobal(const duckVM_t *duckVM, duckVM_object_t *global, const dl_ptrdiff_t key) {
+/* Push the specified global variable onto the stack. */
+dl_error_t duckVM_pushGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key) {
 	duckVM_object_t *globalPointer = dl_null;
 	dl_error_t e = duckVM_global_get(duckVM, &globalPointer, key);
 	if (e) return e;
-	*global = *globalPointer;
-	return dl_error_ok;
+	return stack_push(duckVM, globalPointer);
 }
 
-dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key, duckVM_object_t *object) {
+/* Set the specified global variable to the value of the object on top of the stack. */
+dl_error_t duckVM_setGlobal(duckVM_t *duckVM, const dl_ptrdiff_t key) {
+	duckVM_object_t *object = dl_null;
+	dl_error_t e = stack_getTop(duckVM, object);
+	if (e) return e;
 	return duckVM_global_set(duckVM, object, key);
 }
 
@@ -5444,8 +5452,49 @@ dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type) {
 	return e;
 }
 
-/* /\* Call the object at the given index as a function. *\/ */
-/* dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t function_stack_index); */
+/* Call the object at the given index as a function. */
+dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t stackIndex, dl_uint8_t numberOfArgs) {
+	dl_error_t e = dl_error_ok;
+	dl_error_t eError = dl_error_ok;
+	do {
+
+		duckVM_object_t functionObject;
+		e = stack_get(duckVM, &functionObject, stackIndex);
+		if (e) break;
+		e = duckVM_instruction_prepareForFuncall(duckVM, &functionObject, numberOfArgs);
+		if (e) break;
+		if (functionObject.type == duckVM_object_type_function) {
+			/* Call callback. */
+			e = functionObject.value.function.callback(duckVM);
+			if (e) {
+				eError = duckVM_error_pushRuntime(duckVM,
+				                                  DL_STR("duckVM_instruction_funcall: C callback returned error."));
+				if (!e) e = eError;
+				break;
+			}
+			break;
+		}
+		else if (functionObject.type != duckVM_object_type_closure) {
+			e = dl_error_invalidValue;
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_instruction_funcall: Object is not a callback or closure."));
+			if (!e) e = eError;
+			break;
+		}
+
+		{
+			/* Call bytecode. */
+			duckVM_bytecode_t bytecode = functionObject.value.closure.bytecode->value.bytecode;
+			dl_uint8_t bytecode_offset = functionObject.value.closure.name;
+			/* stack: function *args */
+			e = duckVM_executeWithIp(duckVM, bytecode.bytecode, bytecode_offset, bytecode.bytecode_length);
+			if (e) break;
+			/* stack: returnValue */
+		}
+
+	} while (0);
+	return e;
+}
 
 
 /* Type-specific operations */
