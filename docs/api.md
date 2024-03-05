@@ -243,7 +243,7 @@ Now clean everything up.
 	return e != 0;
 ```
 
-### Callbacks
+### Calling C functions from duck-lisp
 
 The language is running, but there's no I/O other than the source code and the return value. Let's define a C function that can be called from duck-lisp.
 
@@ -450,7 +450,7 @@ For multiple return values, the function would push several objects on the stack
 ```lisp
 (defun div-mod (n d)
   (cons (/ n d)
-        ;; `mod' is defined in "library.dl".
+        ;; `mod' is defined in "library.hna".
         (mod n d)))
 ```
 
@@ -628,6 +628,137 @@ Rewrite the duck-lisp script to use the new function.
 ```
 
 Recompile and run, and the result should be "VM: 171".
+
+### Calling duck-lisp functions from C
+
+First, define a duck-lisp function. A C function that has been passed into the VM will work as well.
+
+```lisp
+(defun div-mod (n d)
+  var quotient (/ n d)
+  cons quotient
+       - n (* quotient d))
+```
+
+This creates an anonymous function and places it in the local variable named `div-mod`. Unfortunately, local functions cannot be accessed by name from the VM API, so we will have to make this function global.
+
+```lisp
+global div-mod #div-mod
+```
+
+Assuming you have compiled the above script into bytecode, the next step is to execute it once. Pop the return value since we aren't interested it at the moment.
+
+```c
+	// Execute the bytecode to define the global function.
+	dl_error_t runtimeError = duckVM_execute(&duckVM,
+	                                         bytecode,
+	                                         bytecode_length);
+	if (runtimeError) {
+		e = print_errors("VM execution failed.", &duckVM.errors);
+		goto cleanup;
+	}
+	// We don't care about the result.
+	e = duckVM_pop(&duckVM);
+	if (e) goto cleanup;
+```
+
+The VM doesn't actually refer to globals by name. It instead refers to them by their symbol ID. The compiler instance that compiled this script needs to be queried for the ID.
+
+```c
+ 	dl_ptrdiff_t key = duckLisp_symbol_nameToValue(&duckLisp,
+	                                               DL_STR("div-mod"));
+```
+
+It is possible for that function call to fail. If it does it will return -1. I suggest you ignore it and pass it directly to `duckVM_pushGlobal`, which will fail if passed -1.
+
+```c
+	e = duckVM_pushGlobal(&duckVM, key);
+	if (e) {
+		printf("Could not find global function \"div-mod\".\n");
+		goto cleanup;
+	}
+	// stack: div-mod
+```
+
+The global function is now on the top of the stack.
+
+Push the function arguments on the stack.
+
+```c
+	// Push the arguments in the order you would normally pass them in a
+	// duck-lisp script.
+	e = duckVM_pushInteger(&duckVM);
+	if (e) goto cleanup;
+	// stack: div-mod 0
+	e = duckVM_setInteger(&duckVM, 661);
+	if (e) goto cleanup;
+	// stack: div-mod 661
+	e = duckVM_pushInteger(&duckVM);
+	if (e) goto cleanup;
+	// stack: div-mod 661 0
+	e = duckVM_setInteger(&duckVM, 491);
+	if (e) goto cleanup;
+	// stack: div-mod 661 491
+```
+
+Now we can call the function. `duckVM_call` requires the stack index of the function it is calling and the number of arguments we passed.
+
+```c
+	runtimeError = duckVM_call(&duckVM, -3, 2);
+	if (runtimeError) {
+		e = print_errors("VM call failed.", &duckVM.errors);
+		goto cleanup;
+	}
+	// stack: return-value
+```
+
+We have the result. Now to destructure it.
+
+```c
+	e = duckVM_pushCar(&duckVM);
+	if (e) goto cleanup;
+	// stack: (cons car cdr) car
+	dl_bool_t isInteger;
+	e = duckVM_isInteger(&duckVM, &isInteger);
+	if (e) goto cleanup;
+	if (!isInteger) {
+		printf("Car of returned object is not an integer.\n");
+		e = dl_error_invalidValue;
+		goto cleanup;
+	}
+	// stack: (cons quotient cdr) quotient
+	dl_ptrdiff_t quotient;
+	e = duckVM_copySignedInteger(&duckVM, &quotient);
+	if (e) goto cleanup;
+	e = duckVM_pop(&duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient cdr)
+
+	e = duckVM_pushCdr(&duckVM);
+	if (e) goto cleanup;
+	// stack: (cons quotient cdr) cdr
+	e = duckVM_isInteger(&duckVM, &isInteger);
+	if (e) goto cleanup;
+	if (!isInteger) {
+		printf("Cdr of returned object is not an integer.\n");
+		e = dl_error_invalidValue;
+		goto cleanup;
+	}
+	// stack: (cons quotient remainder) remainder
+	dl_ptrdiff_t remainder;
+	e = duckVM_copySignedInteger(&duckVM, &remainder);
+	if (e) goto cleanup;
+	e = duckVM_popSeveral(&duckVM, 2);
+	if (e) goto cleanup;
+	// stack: EMPTY
+```
+
+And finally, print the result.
+
+```c
+	// Adjust format string for your platform. The result should be 36.
+	printf("VM: %li . %li\n", quotient, remainder);
+```
 
 ## Advanced usage
 
