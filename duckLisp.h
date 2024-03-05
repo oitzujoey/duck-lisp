@@ -267,7 +267,6 @@ typedef enum {
 	duckLisp_instructionClass_symbolId,
 	duckLisp_instructionClass_pop,
 	duckLisp_instructionClass_return,
-	duckLisp_instructionClass_yield,
 	duckLisp_instructionClass_halt,
 	duckLisp_instructionClass_nil,
 	duckLisp_instructionClass_pseudo_label,
@@ -493,7 +492,6 @@ typedef enum {
 	duckLisp_instruction_return16,
 	duckLisp_instruction_return32,
 
-	duckLisp_instruction_yield,
 	duckLisp_instruction_halt,
 
 	duckLisp_instruction_nil,

@@ -2533,7 +2533,7 @@ Todo:
     Fix error handling? — L
         C: Fix generator error reporting. — L
         C: Fix VM error reporting? — M?
-        C: Allow user to retrieve *all* disassembly.
+        C: Allow user to retrieve *all* disassembly. — M
     Optimization? Should probably save for hypothetical DL2.
         C: Hash tables/Tries? — M
         C: Switch to stack VM? — M
@@ -2542,13 +2542,9 @@ Todo:
         C: Add option to strip symbols of their name in the runtime bytecode. — S
     Document — L
         SQUISH: Document C API — M
-        SQUISH: Document inference algorithm — M
         SQUISH: Write overview of VM?
-        SQUISH: Document usage of memory allocator. — M
     Clean up. — M
         C: Add max recursion depths. — S
-        C: Don't pop return value off of stack. — S
-        C: Return errors as a single string. — S
     Test on ARM — S
     Test on Windows — M
     Clean up. — S

@@ -3263,8 +3263,6 @@ dl_error_t duckLisp_instructionClass_prettyPrint(dl_array_t *string_array,
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pop"));
 	case duckLisp_instructionClass_return:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_return"));
-	case duckLisp_instructionClass_yield:
-		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_yield"));
 	case duckLisp_instructionClass_halt:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_halt"));
 	case duckLisp_instructionClass_nil:

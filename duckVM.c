@@ -4519,10 +4519,6 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		break;
 
-	case duckLisp_instruction_yield:
-		*halt = duckVM_halt_mode_yield;
-		break;
-
 	case duckLisp_instruction_halt:
 		*halt = duckVM_halt_mode_halt;
 		break;
@@ -4571,11 +4567,8 @@ dl_error_t duckVM_executeWithIp(duckVM_t *duckVM,
 		if (e) goto cleanup;
 	}
 	ip = &bytecodeObject->value.bytecode.bytecode[ipOffset];
-	if (bytecode_length == 0) {
-		halt = duckVM_halt_mode_abort;
-		goto cleanup;
-	}
 	duckVM->currentBytecode = bytecodeObject;
+	if (bytecode_length == 0) goto cleanup;
 	do {
 		e = duckVM_executeInstruction(duckVM, bytecodeObject, &ip, &halt);
 	} while (!e && (halt == duckVM_halt_mode_run));

@@ -2957,7 +2957,6 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 		{duckLisp_instruction_return8, DL_STR("return.8 1")},
 		{duckLisp_instruction_return16, DL_STR("return.16 2")},
 		{duckLisp_instruction_return32, DL_STR("return.32 4")},
-		{duckLisp_instruction_yield, DL_STR("yield")},
 		{duckLisp_instruction_halt, DL_STR("halt")},
 		{duckLisp_instruction_nil, DL_STR("nil")},
 	};

@@ -1310,7 +1310,7 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 
 	duckLisp_subCompileState_t *lastCompileState = compileState->currentCompileState;
 	dl_array_t macroBytecode;
-	duckLisp_instruction_t yieldInstruction = duckLisp_instruction_yield;
+	duckLisp_instruction_t haltInstruction = duckLisp_instruction_halt;
 	/**/ dl_array_init(&macroBytecode, duckLisp->memoryAllocation, sizeof(char), dl_array_strategy_double);
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 4, dl_true);
@@ -1350,7 +1350,7 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	e = duckLisp_assemble(duckLisp, compileState, &macroBytecode, &compileState->comptimeCompileState.assembly);
 	if (e) goto cleanup;
 
-	e = dl_array_pushElement(&macroBytecode, &yieldInstruction);
+	e = dl_array_pushElement(&macroBytecode, &haltInstruction);
 	if (e) goto cleanup;
 
 	e = duckLisp_assembly_quit(duckLisp, &compileState->comptimeCompileState.assembly);
@@ -1369,7 +1369,7 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	eError = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
 	if (eError) e = eError;
 	if (e) goto cleanup;
-	/* Don't pop because we're yielding. */
+	/* Don't pop. We want to keep the return value. */
 
 	/* Save macro program. */
 	if (lastCompileState == &compileState->runtimeCompileState) {

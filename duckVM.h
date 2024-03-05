@@ -223,9 +223,7 @@ typedef dl_error_t (*duckVM_gclist_destructor_t)(duckVM_gclist_t *, duckVM_objec
 
 typedef enum {
 	duckVM_halt_mode_run,
-	duckVM_halt_mode_yield,
 	duckVM_halt_mode_halt,
-	duckVM_halt_mode_abort,
 } duckVM_halt_mode_t;
 
 
