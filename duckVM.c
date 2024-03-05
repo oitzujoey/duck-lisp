@@ -5291,7 +5291,13 @@ dl_error_t duckVM_isComposite(duckVM_t *duckVM, dl_bool_t *result) {
 }
 
 dl_error_t duckVM_isCons(duckVM_t *duckVM, dl_bool_t *result) {
-	return templateForIsThing(duckVM, result, duckVM_object_type_cons);
+	dl_error_t e = dl_error_ok;
+	duckVM_object_t object;
+	e = dl_array_getTop(&duckVM->stack, &object);
+	if (e) return e;
+	*result = ((object.type == duckVM_object_type_list)
+	           && (dl_null != object.value.list));
+	return e;
 }
 
 dl_error_t duckVM_isVector(duckVM_t *duckVM, dl_bool_t *result) {
@@ -5311,7 +5317,8 @@ dl_error_t duckVM_isNil(duckVM_t *duckVM, dl_bool_t *result) {
 	duckVM_object_t object;
 	e = dl_array_getTop(&duckVM->stack, &object);
 	if (e) return e;
-	*result = ((object.type == duckVM_object_type_list) && (dl_null == object.value.list));
+	*result = ((object.type == duckVM_object_type_list)
+	           && (dl_null == object.value.list));
 	return e;
 }
 
