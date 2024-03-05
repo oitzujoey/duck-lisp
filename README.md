@@ -41,7 +41,7 @@ Duck-lisp is your typical hobby lisp with one or two twists. I started this proj
 ### Building
 
 ```bash
-git clone --recurse-submodules https://github.com/oitzujoey/duck-lisp
+git clone https://github.com/oitzujoey/duck-lisp
 cd duck-lisp/scratchwork
 mkdir build && cd build
 cmake ..
