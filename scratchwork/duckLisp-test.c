@@ -514,10 +514,9 @@ dl_error_t runTest(const unsigned char *fileBaseName, dl_uint8_t *text, size_t t
 
 	if (e) {
 		puts("disassembly {");
-		unsigned char *string = dl_null;
-		dl_size_t length = 0;
-		duckLisp_disassemble(&string, &length, &ma, bytecode, bytecode_length);
-		printf("%s", string);
+		dl_array_t string;
+		duckLisp_disassemble(&string, &ma, bytecode, bytecode_length);
+		printf("%s", (char *) string.elements);
 		puts("}");
 		printf(COLOR_RED "FAIL" COLOR_NORMAL " %s\n", fileBaseName);
 	}

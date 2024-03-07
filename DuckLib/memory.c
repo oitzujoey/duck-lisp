@@ -586,12 +586,9 @@ dl_error_t dl_memory_reserveTableEntries(dl_memoryAllocation_t *memoryAllocation
 #ifdef MEMCHECK
 			VALGRIND_MAKE_MEM_UNDEFINED(tempMemory, memoryAllocation->blockList[newBlock].block_size);
 #endif /* MEMCHECK */
-			error = dl_memcopy(tempMemory,
-			                   memoryAllocation->blockList,
-			                   memoryAllocation->blockList_length * sizeof(dl_memoryBlock_t));
-			if (error) {
-				goto l_cleanup;
-			}
+			(void) dl_memcopy(tempMemory,
+			                  memoryAllocation->blockList,
+			                  memoryAllocation->blockList_length * sizeof(dl_memoryBlock_t));
 #ifdef MEMCHECK
 			VALGRIND_MAKE_MEM_NOACCESS(memoryAllocation->blockList, memoryAllocation->blockList_length * sizeof(dl_memoryBlock_t));
 #endif /* MEMCHECK */

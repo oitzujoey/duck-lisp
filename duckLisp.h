@@ -205,7 +205,10 @@ typedef struct {
 	duckLisp_datalog_t datalog;
 #endif /* USE_DATALOGGING */
 
+	dl_array_t disassemblies;  /* dl_array_t:dl_uint8_t* */
+
 	void *userData;
+	dl_bool_t disassemble;
 } duckLisp_t;
 
 /* An instruction class is the instruction name, but without any size information. This is used to indicate the
@@ -736,8 +739,7 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
                                   );
 
 /* Disassemble bytecode into a string. */
-dl_error_t duckLisp_disassemble(dl_uint8_t **string,
-                                dl_size_t *string_length,
+dl_error_t duckLisp_disassemble(dl_array_t *string,
                                 dl_memoryAllocation_t *memoryAllocation,
                                 const dl_uint8_t *bytecode,
                                 const dl_size_t length);
