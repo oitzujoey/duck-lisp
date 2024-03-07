@@ -576,9 +576,7 @@ dl_error_t dl_memory_reserveTableEntries(dl_memoryAllocation_t *memoryAllocation
 			// Find a larger memory block for the table.
 			error = dl_memory_findBlock(memoryAllocation, &newBlock, (memoryAllocation->blockList_length + entries_left) * sizeof(dl_memoryBlock_t),
 			                            memoryAllocation->fit);
-			if (error) {
-				goto l_cleanup;
-			}
+			if (error) goto cleanup;
 			
 			// Copy block list to new location.
 			tempMemory = memoryAllocation->blockList[newBlock].block;
@@ -586,12 +584,9 @@ dl_error_t dl_memory_reserveTableEntries(dl_memoryAllocation_t *memoryAllocation
 #ifdef MEMCHECK
 			VALGRIND_MAKE_MEM_UNDEFINED(tempMemory, memoryAllocation->blockList[newBlock].block_size);
 #endif /* MEMCHECK */
-			error = dl_memcopy(tempMemory,
-			                   memoryAllocation->blockList,
-			                   memoryAllocation->blockList_length * sizeof(dl_memoryBlock_t));
-			if (error) {
-				goto l_cleanup;
-			}
+			(void) dl_memcopy(tempMemory,
+			                  memoryAllocation->blockList,
+			                  memoryAllocation->blockList_length * sizeof(dl_memoryBlock_t));
 #ifdef MEMCHECK
 			VALGRIND_MAKE_MEM_NOACCESS(memoryAllocation->blockList, memoryAllocation->blockList_length * sizeof(dl_memoryBlock_t));
 #endif /* MEMCHECK */
@@ -627,7 +622,7 @@ dl_error_t dl_memory_reserveTableEntries(dl_memoryAllocation_t *memoryAllocation
 			}
 			if (extraBlock == -1) {
 				error = dl_error_cantHappen;
-				goto l_cleanup;
+				goto cleanup;
 			}
 			
 			memoryAllocation->blockList[extraBlock].block = (unsigned char *) blockListEntry->block
@@ -660,9 +655,7 @@ dl_error_t dl_memory_reserveTableEntries(dl_memoryAllocation_t *memoryAllocation
 	}
 	
 	error = dl_error_ok;
-	l_cleanup:
-	
-	return error;
+ cleanup: return error;
 }
 
 // New block will be at the address (*block)->nextBlock after the function returns.
