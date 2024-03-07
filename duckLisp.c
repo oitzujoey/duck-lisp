@@ -1973,12 +1973,6 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 
 	duckLisp->gensym_number = 0;
 
-	duckLisp->disassemble = dl_false;
-	(void) dl_array_init(&duckLisp->disassemblies,
-	                     duckLisp->memoryAllocation,
-	                     sizeof(dl_array_t),
-	                     dl_array_strategy_double);
-
 	duckLisp->userData = dl_null;
 
 	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
@@ -2075,16 +2069,6 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 	e = dl_array_quit(&duckLisp->errors);
 	e = dl_trie_quit(&duckLisp->parser_actions_trie);
 	e = dl_array_quit(&duckLisp->parser_actions_array);
-
-	duckLisp->disassemble = dl_false;
-	DL_DOTIMES(i, duckLisp->disassemblies.elements_length) {
-		dl_array_t disassembly;
-		e = dl_array_get(&duckLisp->disassemblies, &disassembly, i);
-		if (e) break;
-		e = dl_array_quit(&disassembly);
-	}
-	e = dl_array_quit(&duckLisp->disassemblies);
-
 	(void) e;
 }
 
@@ -2184,19 +2168,6 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 	if (e) goto cleanup;
 	e = duckLisp_compileState_quit(duckLisp, &compileState);
 	if (e) goto cleanup;
-
-	/* Save disassembly. */
-	if (duckLisp->disassemble) {
-		dl_array_t string;
-		(void) dl_array_init(&string, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
-		e = duckLisp_disassemble(&string,
-		                         duckLisp->memoryAllocation,
-		                         bytecodeArray.elements,
-		                         bytecodeArray.elements_length);
-		if (e) goto cleanup;
-		e = dl_array_pushElement(&duckLisp->disassemblies, &string);
-		if (e) goto cleanup;
-	}
 
 	*bytecode = ((unsigned char*) bytecodeArray.elements);
 	*bytecode_length = bytecodeArray.elements_length;

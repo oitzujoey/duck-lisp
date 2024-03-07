@@ -1099,8 +1099,6 @@ int eval(duckLisp_t *duckLisp,
 
 	/* Compile functions. */
 
-	duckLisp->disassemble = g_disassemble;
-
 	dl_error_t loadError;
 	dl_error_t runtimeError;
 	unsigned char *bytecode = dl_null;
@@ -1145,17 +1143,12 @@ int eval(duckLisp_t *duckLisp,
 		goto cleanup;
 	}
 
-	if (duckLisp->disassemble) {
-		DL_DOTIMES(i, duckLisp->disassemblies.elements_length) {
-			dl_array_t disassembly;
-			e = dl_array_get(&duckLisp->disassemblies, &disassembly, i);
-			if (e) goto cleanup;
-			printf("Disassembly #%ld\n", i);
-			printf("%s", (char *) disassembly.elements);
-			e = dl_array_quit(&disassembly);
-			if (e) goto cleanup;
-		}
-		e = dl_array_clear(&duckLisp->disassemblies);
+	if (g_disassemble) {
+		dl_uint8_t *disassembly = NULL;
+		dl_size_t length = 0;
+		duckLisp_disassemble(&disassembly, &length, duckLisp->memoryAllocation, bytecode, bytecode_length);
+		printf("%s", disassembly);
+		e = dl_free(duckLisp->memoryAllocation, (void **) &disassembly);
 		if (e) goto cleanup;
 		putchar('\n');
 	}

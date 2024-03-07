@@ -2782,7 +2782,8 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 }
 
 
-dl_error_t duckLisp_disassemble(dl_array_t *string,
+dl_error_t duckLisp_disassemble(dl_uint8_t **string,
+                                dl_size_t *string_length,
                                 dl_memoryAllocation_t *memoryAllocation,
                                 const dl_uint8_t *bytecode,
                                 const dl_size_t length) {
@@ -3170,7 +3171,7 @@ dl_error_t duckLisp_disassemble(dl_array_t *string,
 	e = dl_array_pushElements(&disassembly, DL_STR("DISASSEMBLY END\n"));
 	if (e) goto cleanup;
 
-	/* Push a null so we can print using `puts` or `printf`. */
+	/* Push a return. */
 	e = dl_array_pushElements(&disassembly, "\0", 1);
 	if (e) goto cleanup;
 
@@ -3178,7 +3179,8 @@ dl_error_t duckLisp_disassemble(dl_array_t *string,
 	e = dl_realloc(memoryAllocation, &disassembly.elements, disassembly.elements_length * disassembly.element_size);
 	if (e) goto cleanup;
 
-	*string = disassembly;
+	*string = disassembly.elements;
+	*string_length = disassembly.elements_length;
 
  cleanup:
 	eError = DL_FREE(memoryAllocation, &template_array);

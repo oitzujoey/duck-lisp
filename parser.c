@@ -1345,7 +1345,12 @@ dl_error_t duckLisp_ast_compoundExpression_quit(dl_memoryAllocation_t *memoryAll
 	default:
 		e = dl_error_shouldntHappen;
 	}
+	if (e) goto cleanup;
+
+ cleanup:
+
 	compoundExpression->type = duckLisp_ast_type_none;
+
 	return e;
 }
 

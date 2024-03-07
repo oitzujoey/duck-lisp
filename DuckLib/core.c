@@ -18,11 +18,13 @@ const dl_uint8_t *dl_errorString[] = {
 };
 
 #ifdef USE_STDLIB
-void dl_memcopy(void *destination, const void *source, dl_size_t size) {
+dl_error_t dl_memcopy(void *destination, const void *source, dl_size_t size) {
 	(void) memmove(destination, source, size);
+	return dl_error_ok;
 }
 #else /* USE_STDLIB */
-void dl_memcopy(void *destination, const void *source, dl_size_t size) {
+dl_error_t dl_memcopy(void *destination, const void *source, dl_size_t size) {
+	dl_error_t error = dl_error_ok;
 	const dl_uint8_t *s;
 
 	if (destination > source) {
@@ -37,6 +39,11 @@ void dl_memcopy(void *destination, const void *source, dl_size_t size) {
 			*d = *s;
 		}
 	}
+
+	error = dl_error_ok;
+//	l_cleanup:
+
+	return error;
 }
 #endif /* USE_STDLIB */
 
