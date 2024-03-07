@@ -2782,8 +2782,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 }
 
 
-dl_error_t duckLisp_disassemble(dl_uint8_t **string,
-                                dl_size_t *string_length,
+dl_error_t duckLisp_disassemble(dl_array_t *string,
                                 dl_memoryAllocation_t *memoryAllocation,
                                 const dl_uint8_t *bytecode,
                                 const dl_size_t length) {
@@ -3138,6 +3137,13 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 					if (e) goto cleanup;
 					break;
 				}
+				case 'f': {
+					format++;
+					--format_length;
+					bytecode_index += 8;
+					/* Do float here. */
+					break;
+				}
 				case ' ': {
 					format++;
 					--format_length;
@@ -3179,8 +3185,7 @@ dl_error_t duckLisp_disassemble(dl_uint8_t **string,
 	e = dl_realloc(memoryAllocation, &disassembly.elements, disassembly.elements_length * disassembly.element_size);
 	if (e) goto cleanup;
 
-	*string = disassembly.elements;
-	*string_length = disassembly.elements_length;
+	*string = disassembly;
 
  cleanup:
 	eError = DL_FREE(memoryAllocation, &template_array);

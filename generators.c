@@ -1247,7 +1247,15 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 		if (e) goto cleanup;
 		(void) duckLisp_assembly_init(duckLisp, &compileState->currentCompileState->assembly);
 
-		/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length)); */
+		/* Save disassembly. */
+		if (duckLisp->disassemble) {
+			dl_array_t string;
+			(void) dl_array_init(&string, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+			e = duckLisp_disassemble(&string, duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length);
+			if (e) goto cleanup;
+			e = dl_array_pushElement(&duckLisp->disassemblies, &string);
+			if (e) goto cleanup;
+		}
 
 		e = duckVM_execute(&duckLisp->vm, bytecode.elements, bytecode.elements_length);
 		returnValue = DL_ARRAY_GETTOPADDRESS(duckLisp->vm.stack, duckVM_object_t);
@@ -1357,9 +1365,18 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	if (e) goto cleanup;
 	(void) duckLisp_assembly_init(duckLisp, &compileState->comptimeCompileState.assembly);
 
-	/* puts(duckLisp_disassemble(duckLisp->memoryAllocation, */
-	/*                           macroBytecode.elements, */
-	/*                           macroBytecode.elements_length)); */
+	/* Save disassembly. */
+	if (duckLisp->disassemble) {
+		dl_array_t string;
+		(void) dl_array_init(&string, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+		e = duckLisp_disassemble(&string,
+		                         duckLisp->memoryAllocation,
+		                         macroBytecode.elements,
+		                         macroBytecode.elements_length);
+		if (e) goto cleanup;
+		e = dl_array_pushElement(&duckLisp->disassemblies, &string);
+		if (e) goto cleanup;
+	}
 
 	e = duckVM_execute(&duckLisp->vm, macroBytecode.elements, macroBytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,
@@ -3637,18 +3654,17 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	e = dl_array_pushElement(&bytecode, &haltInstruction);
 	if (e) goto cleanupArrays;
 
-	/* Execute macro. */
+	/* Save disassembly. */
+	if (duckLisp->disassemble) {
+		dl_array_t string;
+		(void) dl_array_init(&string, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+		e = duckLisp_disassemble(&string, duckLisp->memoryAllocation, bytecode.elements, bytecode.elements_length);
+		if (e) goto cleanupArrays;
+		e = dl_array_pushElement(&duckLisp->disassemblies, &string);
+		if (e) goto cleanupArrays;
+	}
 
-	/* { */
-	/* 	char *string = dl_null; */
-	/* 	dl_size_t string_length = 0; */
-	/* 	duckLisp_disassemble(&string, */
-	/* 	                     &string_length, */
-	/* 	                     duckLisp->memoryAllocation, */
-	/* 	                     bytecode.elements, */
-	/* 	                     bytecode.elements_length); */
-	/* 	puts(string); */
-	/* } */
+	/* Execute macro. */
 
 	e = duckVM_execute(&duckLisp->vm, bytecode.elements, bytecode.elements_length);
 	eError = dl_array_pushElements(&duckLisp->errors,

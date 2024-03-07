@@ -205,6 +205,9 @@ typedef struct {
 	duckLisp_datalog_t datalog;
 #endif /* USE_DATALOGGING */
 
+	dl_bool_t disassemble;
+	dl_array_t disassemblies;  /* dl_array_t:dl_uint8_t* */
+
 	void *userData;
 } duckLisp_t;
 
@@ -736,8 +739,7 @@ dl_error_t duckLisp_linkCFunction(duckLisp_t *duckLisp,
                                   );
 
 /* Disassemble bytecode into a string. */
-dl_error_t duckLisp_disassemble(dl_uint8_t **string,
-                                dl_size_t *string_length,
+dl_error_t duckLisp_disassemble(dl_array_t *string,
                                 dl_memoryAllocation_t *memoryAllocation,
                                 const dl_uint8_t *bytecode,
                                 const dl_size_t length);
