@@ -796,6 +796,32 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		break;
 
+	case duckLisp_instruction_pushCompressedSymbol32:
+		size2 = *(ip++);
+		size2 = *(ip++) + (size2 << 8);
+		size2 = *(ip++) + (size2 << 8);
+		size2 = *(ip++) + (size2 << 8);
+		parsedBytecode = dl_true;
+		/* Fall through */
+	case duckLisp_instruction_pushCompressedSymbol16:
+		if (!parsedBytecode) {
+			size2 = *(ip++);
+			size2 = *(ip++) + (size2 << 8);
+			parsedBytecode = dl_true;
+		}
+		/* Fall through */
+	case duckLisp_instruction_pushCompressedSymbol8:
+		if (!parsedBytecode) {
+			size2 = *(ip++);
+		}
+		(void) duckVM_object_makeCompressedSymbol(&object1, size2);
+		e = stack_push(duckVM, &object1);
+		if (e) {
+			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-compressed-symbol: stack_push failed."));
+			if (!e) e = eError;
+		}
+		break;
+
 	case duckLisp_instruction_pushString32:
 		size1 = *(ip++);
 		size1 = *(ip++) + (size1 << 8);
@@ -4721,6 +4747,14 @@ dl_error_t duckVM_object_makeString(duckVM_t *duckVM,
  cleanup: return e;
 }
 
+void duckVM_object_makeCompressedSymbol(duckVM_object_t *symbolOut, dl_size_t id) {
+	duckVM_object_t symbol;
+	symbol.type = duckVM_object_type_symbol;
+	symbol.value.symbol.internalString = dl_null;
+	symbol.value.symbol.id = id;
+	*symbolOut = symbol;
+}
+
 dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
                                     duckVM_object_t *symbolOut,
                                     dl_size_t id,
@@ -5730,6 +5764,18 @@ dl_error_t duckVM_pushSymbol(duckVM_t *duckVM, dl_size_t id, dl_uint8_t *name, d
 	return e;
 }
 
+/* Push a symbol with an ID but no name onto the top of the stack. */
+dl_error_t duckVM_pushCompressedSymbol(duckVM_t *duckVM, dl_size_t id) {
+	dl_error_t e = dl_error_ok;
+	do {
+		duckVM_object_t object;
+		(void) duckVM_object_makeCompressedSymbol(&object, id);
+		e = duckVM_object_push(duckVM, &object);
+		if (e) break;
+	} while (0);
+	return e;
+}
+
 /* Push the name string of the symbol on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t *name_length) {
 	dl_error_t e = dl_error_ok;
@@ -5746,12 +5792,19 @@ dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t 
 			if (eError) e = eError;
 			break;
 		}
-		e = duckVM_symbol_getInternalString(object.value.symbol, &internal_string);
-		if (e) break;
-		e = DL_MALLOC(duckVM->memoryAllocation, name, internal_string.value_length, dl_uint8_t);
-		if (e) break;
-		(void) dl_memcopy_noOverlap(*name, internal_string.value, internal_string.value_length);
-		*name_length = internal_string.value_length;
+		if (object.value.symbol.internalString != dl_null) {
+			e = duckVM_symbol_getInternalString(object.value.symbol, &internal_string);
+			if (e) break;
+			e = DL_MALLOC(duckVM->memoryAllocation, name, internal_string.value_length, dl_uint8_t);
+			if (e) break;
+			(void) dl_memcopy_noOverlap(*name, internal_string.value, internal_string.value_length);
+			*name_length = internal_string.value_length;
+		}
+		else {
+			*name = dl_null;
+			name_length = 0;
+			/* OK: This is symbol "compression". */
+		}
 	} while (0);
 	return e;
 }
