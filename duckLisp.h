@@ -205,8 +205,10 @@ typedef struct {
 	duckLisp_datalog_t datalog;
 #endif /* USE_DATALOGGING */
 
-	dl_bool_t disassemble;
+	dl_bool_t disassemble;  /* Set to enable generation of disassembly. */
 	dl_array_t disassemblies;  /* dl_array_t:dl_uint8_t* */
+
+	dl_bool_t stripSymbolNames;  /* Set to make the string for each symbol empty. */
 
 	void *userData;
 } duckLisp_t;

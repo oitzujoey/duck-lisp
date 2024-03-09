@@ -312,6 +312,8 @@ dl_error_t duckVM_copyString(duckVM_t *duckVM, dl_uint8_t **string, dl_size_t *s
 /* Symbols */
 /* Push a symbol onto the top of the stack. */
 dl_error_t duckVM_pushSymbol(duckVM_t *duckVM, dl_size_t id, dl_uint8_t *name, dl_size_t name_length);
+/* Push a symbol with an ID but no name onto the top of the stack. */
+dl_error_t duckVM_pushCompressedSymbol(duckVM_t *duckVM, dl_size_t id);
 /* Push the name string of the symbol on the top of the stack onto the top of the stack. */
 dl_error_t duckVM_copySymbolName(duckVM_t *duckVM, dl_uint8_t **name, dl_size_t *name_length);
 /* Push the ID of the symbol on the top of the stack onto the top of the stack. */
@@ -445,6 +447,7 @@ dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
                                     dl_size_t id,
                                     dl_uint8_t *string,
                                     dl_size_t string_length);
+void duckVM_object_makeCompressedSymbol(duckVM_object_t *symbolOut, dl_size_t id);
 duckVM_object_t duckVM_object_makeList(duckVM_object_t *cons);
 duckVM_object_t duckVM_object_makeCons(duckVM_object_t *car, duckVM_object_t *cdr);
 duckVM_object_t duckVM_object_makeClosure(dl_ptrdiff_t name,

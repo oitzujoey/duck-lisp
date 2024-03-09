@@ -1149,7 +1149,7 @@ int eval(duckLisp_t *duckLisp,
 			dl_array_t disassembly;
 			e = dl_array_get(&duckLisp->disassemblies, &disassembly, i);
 			if (e) goto cleanup;
-			printf("Disassembly #%ld\n", i);
+			printf("Disassembly #%ld\n", i + 1);
 			printf("%s", (char *) disassembly.elements);
 			e = dl_array_quit(&disassembly);
 			if (e) goto cleanup;

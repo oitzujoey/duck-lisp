@@ -324,6 +324,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			    || (class == duckLisp_instructionClass_pushDoubleFloat)
 			    || (class == duckLisp_instructionClass_pushIndex)
 			    || (class == duckLisp_instructionClass_pushSymbol)
+			    || (class == duckLisp_instructionClass_pushCompressedSymbol)
 			    || (class == duckLisp_instructionClass_pushUpvalue)
 			    || (class == duckLisp_instructionClass_pushClosure)
 			    || (class == duckLisp_instructionClass_pushVaClosure)
@@ -359,6 +360,9 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 						break;
 					case duckLisp_instructionClass_pushSymbol:
 						puts("PUSH SYMBOL");
+						break;
+					case duckLisp_instructionClass_pushCompressedSymbol:
+						puts("PUSH COMPRESSED SYMBOL");
 						break;
 					case duckLisp_instructionClass_pushUpvalue:
 						puts("PUSH UPVALUE");
@@ -655,6 +659,50 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 				}
 				e = dl_array_pushElements(&currentArgs, args[2].value.string.value, args[2].value.string.value_length);
 				if (e) goto cleanup;
+				break;
+			}
+			else {
+				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class[es]. Aborting."));
+				if (eError) {
+					e = eError;
+				}
+				goto cleanup;
+			}
+			break;
+		}
+		case duckLisp_instructionClass_pushCompressedSymbol: {
+			dl_bool_t sign;
+			unsigned long long absolute[2];
+			sign = args[0].value.integer < 0;
+			absolute[0] = sign ? -args[0].value.integer : args[0].value.integer;
+			sign = args[1].value.integer < 0;
+			absolute[1] = sign ? -args[1].value.integer : args[1].value.integer;
+			absolute[0] = dl_max(absolute[0], absolute[1]);
+
+			if ((args[0].type == duckLisp_instructionArgClass_type_integer) &&
+			    (args[1].type == duckLisp_instructionArgClass_type_integer) &&
+			    (args[2].type == duckLisp_instructionArgClass_type_string)) {
+				if (absolute[0] < 0x100LU) {
+					currentInstruction.byte = duckLisp_instruction_pushCompressedSymbol8;
+					byte_length = 1;
+				}
+				else if (absolute[0] < 0x10000LU) {
+					currentInstruction.byte = duckLisp_instruction_pushCompressedSymbol16;
+					byte_length = 2;
+				}
+				else {
+					currentInstruction.byte = duckLisp_instruction_pushCompressedSymbol32;
+					byte_length = 4;
+				}
+				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+				if (e) {
+					goto cleanup;
+				}
+				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
+					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.integer
+					                                                    >> 8*(byte_length - n - 1))
+					                                                   & 0xFFU);
+				}
 				break;
 			}
 			else {
@@ -2805,6 +2853,9 @@ dl_error_t duckLisp_disassemble(dl_array_t *string,
 		{duckLisp_instruction_pushSymbol8, DL_STR("symbol.8 1 1 s1")},
 		{duckLisp_instruction_pushSymbol16, DL_STR("symbol.16 2 2 s1")},
 		{duckLisp_instruction_pushSymbol32, DL_STR("symbol.32 4 4 s1")},
+		{duckLisp_instruction_pushCompressedSymbol8, DL_STR("compressed-symbol.8 1 1 s1")},
+		{duckLisp_instruction_pushCompressedSymbol16, DL_STR("compressed-symbol.16 2 2 s1")},
+		{duckLisp_instruction_pushCompressedSymbol32, DL_STR("compressed-symbol.32 4 4 s1")},
 		{duckLisp_instruction_pushBooleanFalse, DL_STR("false")},
 		{duckLisp_instruction_pushBooleanTrue, DL_STR("true")},
 		{duckLisp_instruction_pushInteger8, DL_STR("integer.8 1")},

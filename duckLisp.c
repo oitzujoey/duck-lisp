@@ -3194,6 +3194,8 @@ dl_error_t duckLisp_instructionClass_prettyPrint(dl_array_t *string_array,
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushIndex"));
 	case duckLisp_instructionClass_pushSymbol:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushSymbol"));
+	case duckLisp_instructionClass_pushCompressedSymbol:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushCompressedSymbol"));
 	case duckLisp_instructionClass_pushUpvalue:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushUpvalue"));
 	case duckLisp_instructionClass_pushClosure:
