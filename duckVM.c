@@ -796,28 +796,29 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 		break;
 
-	case duckLisp_instruction_pushCompressedSymbol32:
+	case duckLisp_instruction_pushStrippedSymbol32:
 		size2 = *(ip++);
 		size2 = *(ip++) + (size2 << 8);
 		size2 = *(ip++) + (size2 << 8);
 		size2 = *(ip++) + (size2 << 8);
 		parsedBytecode = dl_true;
 		/* Fall through */
-	case duckLisp_instruction_pushCompressedSymbol16:
+	case duckLisp_instruction_pushStrippedSymbol16:
 		if (!parsedBytecode) {
 			size2 = *(ip++);
 			size2 = *(ip++) + (size2 << 8);
 			parsedBytecode = dl_true;
 		}
 		/* Fall through */
-	case duckLisp_instruction_pushCompressedSymbol8:
+	case duckLisp_instruction_pushStrippedSymbol8:
 		if (!parsedBytecode) {
 			size2 = *(ip++);
 		}
 		(void) duckVM_object_makeCompressedSymbol(&object1, size2);
 		e = stack_push(duckVM, &object1);
 		if (e) {
-			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_execute->push-compressed-symbol: stack_push failed."));
+			eError = duckVM_error_pushRuntime(duckVM,
+			                                  DL_STR("duckVM_execute->push-stripped-symbol: stack_push failed."));
 			if (!e) e = eError;
 		}
 		break;

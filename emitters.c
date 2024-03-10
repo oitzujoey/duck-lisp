@@ -966,9 +966,7 @@ dl_error_t duckLisp_emit_pushSymbol(duckLisp_t *duckLisp,
 	                   dl_array_strategy_double);
 
 	// Write instruction.
-	instruction.instructionClass = (duckLisp->stripSymbolNames
-	                                ? duckLisp_instructionClass_pushCompressedSymbol
-	                                : duckLisp_instructionClass_pushSymbol);
+	instruction.instructionClass = duckLisp_instructionClass_pushSymbol;
 
 	// Write string length.
 

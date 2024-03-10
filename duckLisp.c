@@ -1212,7 +1212,8 @@ dl_error_t duckLisp_assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly) {
 dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
                                duckLisp_compileState_t *compileState,
                                dl_array_t *bytecode,  /* dl_array_t:dl_uint8_t */
-                               duckLisp_ast_compoundExpression_t astCompoundexpression) {
+                               duckLisp_ast_compoundExpression_t astCompoundexpression,
+                               dl_bool_t stripSymbolNames) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -1385,7 +1386,7 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	/* printf("}\n"); */
 	/* } */
 
-	e = duckLisp_assemble(duckLisp, compileState, bytecode, assembly);
+	e = duckLisp_assemble(duckLisp, compileState, bytecode, assembly, stripSymbolNames);
 	if (e) goto cleanup;
 
 	/* * * * * *
@@ -1393,8 +1394,6 @@ dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
 	 * * * * * */
 
  cleanup:
-
-	/* putchar('\n'); */
 
 	eError = duckLisp_compileState_quit(duckLisp, compileState);
 	if (eError) e = eError;
@@ -1979,6 +1978,8 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                     sizeof(dl_array_t),
 	                     dl_array_strategy_double);
 
+	duckLisp->stripSymbolNames = dl_false;
+
 	duckLisp->userData = dl_null;
 
 	for (dl_ptrdiff_t i = 0; generators[i].name != dl_null; i++) {
@@ -2083,6 +2084,7 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 		if (e) break;
 		e = dl_array_quit(&disassembly);
 	}
+	duckLisp->stripSymbolNames = dl_false;
 	e = dl_array_quit(&duckLisp->disassemblies);
 
 	(void) e;
@@ -2180,7 +2182,7 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	duckLisp_compileState_t compileState;
 	duckLisp_compileState_init(duckLisp, &compileState);
-	e = duckLisp_compileAST(duckLisp, &compileState, &bytecodeArray, ast);
+	e = duckLisp_compileAST(duckLisp, &compileState, &bytecodeArray, ast, duckLisp->stripSymbolNames);
 	if (e) goto cleanup;
 	e = duckLisp_compileState_quit(duckLisp, &compileState);
 	if (e) goto cleanup;
@@ -3194,8 +3196,8 @@ dl_error_t duckLisp_instructionClass_prettyPrint(dl_array_t *string_array,
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushIndex"));
 	case duckLisp_instructionClass_pushSymbol:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushSymbol"));
-	case duckLisp_instructionClass_pushCompressedSymbol:
-		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushCompressedSymbol"));
+	case duckLisp_instructionClass_pushStrippedSymbol:
+		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushStrippedSymbol"));
 	case duckLisp_instructionClass_pushUpvalue:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushUpvalue"));
 	case duckLisp_instructionClass_pushClosure:

@@ -1037,7 +1037,7 @@ static dl_error_t compileAndAddDeclaration(inferrerState_t *state,
 		duckLisp_compileState_t compileState;
 
 		(void) duckLisp_compileState_init(&state->duckLisp, &compileState);
-		e = duckLisp_compileAST(&state->duckLisp, &compileState, &bytecodeArray, scriptAst);
+		e = duckLisp_compileAST(&state->duckLisp, &compileState, &bytecodeArray, scriptAst, dl_false);
 		if (e) goto cleanup;
 		e = duckLisp_compileState_quit(&state->duckLisp, &compileState);
 		if (e) goto cleanup;

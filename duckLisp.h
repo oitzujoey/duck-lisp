@@ -223,7 +223,7 @@ typedef enum {
 	duckLisp_instructionClass_pushDoubleFloat,
 	duckLisp_instructionClass_pushIndex,
 	duckLisp_instructionClass_pushSymbol,
-	duckLisp_instructionClass_pushCompressedSymbol,
+	duckLisp_instructionClass_pushStrippedSymbol,
 	duckLisp_instructionClass_pushUpvalue,
 	duckLisp_instructionClass_pushClosure,
 	duckLisp_instructionClass_pushVaClosure,
@@ -307,9 +307,9 @@ typedef enum {
 	duckLisp_instruction_pushSymbol16,
 	duckLisp_instruction_pushSymbol32,
 
-	duckLisp_instruction_pushCompressedSymbol8,
-	duckLisp_instruction_pushCompressedSymbol16,
-	duckLisp_instruction_pushCompressedSymbol32,
+	duckLisp_instruction_pushStrippedSymbol8,
+	duckLisp_instruction_pushStrippedSymbol16,
+	duckLisp_instruction_pushStrippedSymbol32,
 
 	duckLisp_instruction_pushUpvalue8,
 	duckLisp_instruction_pushUpvalue16,
@@ -664,7 +664,8 @@ dl_error_t duckLisp_instructionObject_quit(duckLisp_t *duckLisp, duckLisp_instru
 dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *bytecode,
-                             dl_array_t *assembly);
+                             dl_array_t *assembly,
+                             dl_bool_t stripSymbolNames);
 /* Initialize the high-level assembly array. */
 void duckLisp_assembly_init(duckLisp_t *duckLisp, dl_array_t *assembly);
 /* Free the high-level assembly array. */
@@ -672,8 +673,9 @@ dl_error_t duckLisp_assembly_quit(duckLisp_t *duckLisp, dl_array_t *assembly);
 /* Compile an AST. I should probably make `compileState` not required. */
 dl_error_t duckLisp_compileAST(duckLisp_t *duckLisp,
                                duckLisp_compileState_t *compileState,
-                               dl_array_t *bytecode,
-							   duckLisp_ast_compoundExpression_t astCompoundexpression);
+                               dl_array_t *bytecode,  /* dl_array_t:dl_uint8_t */
+                               duckLisp_ast_compoundExpression_t astCompoundexpression,
+                               dl_bool_t stripSymbolNames);
 
 /* Intern an identifier name as a symbol. */
 dl_error_t duckLisp_symbol_create(duckLisp_t *duckLisp, const dl_uint8_t *name, const dl_size_t name_length);

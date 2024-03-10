@@ -230,7 +230,8 @@ int jumpLink_less(const void *l, const void *r, const void *context) {
 dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
                              duckLisp_compileState_t *compileState,
                              dl_array_t *bytecode,
-                             dl_array_t *assembly) {
+                             dl_array_t *assembly,
+                             dl_bool_t stripSymbolNames) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 	dl_array_t eString;
@@ -324,7 +325,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			    || (class == duckLisp_instructionClass_pushDoubleFloat)
 			    || (class == duckLisp_instructionClass_pushIndex)
 			    || (class == duckLisp_instructionClass_pushSymbol)
-			    || (class == duckLisp_instructionClass_pushCompressedSymbol)
+			    || (class == duckLisp_instructionClass_pushStrippedSymbol)
 			    || (class == duckLisp_instructionClass_pushUpvalue)
 			    || (class == duckLisp_instructionClass_pushClosure)
 			    || (class == duckLisp_instructionClass_pushVaClosure)
@@ -466,6 +467,10 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 
 		e = dl_array_clear(&currentArgs);
 		if (e) goto cleanup;
+
+		if (stripSymbolNames && instruction.instructionClass == duckLisp_instructionClass_pushSymbol) {
+			instruction.instructionClass = duckLisp_instructionClass_pushStrippedSymbol;
+		}
 
 		switch (instruction.instructionClass) {
 		case duckLisp_instructionClass_internalNop: {
@@ -670,7 +675,7 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			}
 			break;
 		}
-		case duckLisp_instructionClass_pushCompressedSymbol: {
+		case duckLisp_instructionClass_pushStrippedSymbol: {
 			dl_bool_t sign;
 			unsigned long long absolute[2];
 			sign = args[0].value.integer < 0;
@@ -683,15 +688,15 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			    (args[1].type == duckLisp_instructionArgClass_type_integer) &&
 			    (args[2].type == duckLisp_instructionArgClass_type_string)) {
 				if (absolute[0] < 0x100LU) {
-					currentInstruction.byte = duckLisp_instruction_pushCompressedSymbol8;
+					currentInstruction.byte = duckLisp_instruction_pushStrippedSymbol8;
 					byte_length = 1;
 				}
 				else if (absolute[0] < 0x10000LU) {
-					currentInstruction.byte = duckLisp_instruction_pushCompressedSymbol16;
+					currentInstruction.byte = duckLisp_instruction_pushStrippedSymbol16;
 					byte_length = 2;
 				}
 				else {
-					currentInstruction.byte = duckLisp_instruction_pushCompressedSymbol32;
+					currentInstruction.byte = duckLisp_instruction_pushStrippedSymbol32;
 					byte_length = 4;
 				}
 				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
@@ -2853,9 +2858,9 @@ dl_error_t duckLisp_disassemble(dl_array_t *string,
 		{duckLisp_instruction_pushSymbol8, DL_STR("symbol.8 1 1 s1")},
 		{duckLisp_instruction_pushSymbol16, DL_STR("symbol.16 2 2 s1")},
 		{duckLisp_instruction_pushSymbol32, DL_STR("symbol.32 4 4 s1")},
-		{duckLisp_instruction_pushCompressedSymbol8, DL_STR("compressed-symbol.8 1 1 s1")},
-		{duckLisp_instruction_pushCompressedSymbol16, DL_STR("compressed-symbol.16 2 2 s1")},
-		{duckLisp_instruction_pushCompressedSymbol32, DL_STR("compressed-symbol.32 4 4 s1")},
+		{duckLisp_instruction_pushStrippedSymbol8, DL_STR("stripped-symbol.8 1 1 s1")},
+		{duckLisp_instruction_pushStrippedSymbol16, DL_STR("stripped-symbol.16 2 2 s1")},
+		{duckLisp_instruction_pushStrippedSymbol32, DL_STR("stripped-symbol.32 4 4 s1")},
 		{duckLisp_instruction_pushBooleanFalse, DL_STR("false")},
 		{duckLisp_instruction_pushBooleanTrue, DL_STR("true")},
 		{duckLisp_instruction_pushInteger8, DL_STR("integer.8 1")},

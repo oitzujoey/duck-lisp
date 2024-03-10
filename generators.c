@@ -1237,7 +1237,11 @@ dl_error_t duckLisp_generator_comptime(duckLisp_t *duckLisp,
 		                          compAssembly.elements_length);
 		if (e) goto cleanup;
 
-		e = duckLisp_assemble(duckLisp, compileState, &bytecode, &compileState->currentCompileState->assembly);
+		e = duckLisp_assemble(duckLisp,
+		                      compileState,
+		                      &bytecode,
+		                      &compileState->currentCompileState->assembly,
+		                      dl_false);
 		if (e) goto cleanup;
 
 		e = dl_array_pushElement(&bytecode, &haltInstruction);
@@ -1355,7 +1359,11 @@ dl_error_t duckLisp_generator_defmacro(duckLisp_t *duckLisp,
 	e = duckLisp_generator_defun(duckLisp, compileState, &compileState->comptimeCompileState.assembly, expression);
 	if (e) goto cleanup;
 
-	e = duckLisp_assemble(duckLisp, compileState, &macroBytecode, &compileState->comptimeCompileState.assembly);
+	e = duckLisp_assemble(duckLisp,
+	                      compileState,
+	                      &macroBytecode,
+	                      &compileState->comptimeCompileState.assembly,
+	                      dl_false);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElement(&macroBytecode, &haltInstruction);
@@ -3648,7 +3656,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Assemble. */
 
-	e = duckLisp_assemble(duckLisp, compileState, &bytecode, &argumentAssembly);
+	e = duckLisp_assemble(duckLisp, compileState, &bytecode, &argumentAssembly, dl_false);
 	if (e) goto cleanupArrays;
 
 	e = dl_array_pushElement(&bytecode, &haltInstruction);
