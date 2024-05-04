@@ -433,12 +433,32 @@ bvar duckLisp-object-type-type type-of type-of ()
         reversed-list)
 (bdefun nreverse (list) reverse list)
 
+(bdefun min (&rest 2 values)
+        (var min-value (first values))
+        (pop values)
+        (while (not (null? values))
+               (var value (first values))
+               (when (< value min-value)
+                 (setq min-value value))
+               (pop values))
+        min-value)
+
+(bdefun max (&rest 2 values)
+        (var max-value (first values))
+        (pop values)
+        (while (not (null? values))
+          (var value (first values))
+          (when (> value max-value)
+            (setq max-value value))
+          (pop values))
+        max-value)
+
 (defmacro and (&rest args) (&rest 2 I)
-  (if args
-	  (list ' if (car args)
-              (apply #self (cdr args))
-              false)
-	  true))
+          (if args
+	          (list ' if (car args)
+                      (apply #self (cdr args))
+                      false)
+	          true))
 
 (defmacro or (&rest args) (&rest 2 I)
   (if args
@@ -527,6 +547,22 @@ bvar duckLisp-object-type-type type-of type-of ()
                                          appended-list))
                (pop list2))
         (nreverse appended-list))
+
+(bdefun remove-if* (fun list)
+        (unless (null? list)
+          (if (funcall fun (car list))
+              (self fun (cdr list))
+              (cons (car list)
+                    (self fun (cdr list))))))
+bdefun remove-if (fun list) remove-if* fun list
+
+(bdefun remove-if-not* (fun list)
+        (unless (null? list)
+          (if (not (funcall fun (car list)))
+              (self fun (cdr list))
+              (cons (car list)
+                    (self fun (cdr list))))))
+bdefun remove-if-not (fun list) remove-if-not* fun list
 
 (bdefun mapcar* (fun list)
         (unless (null? list)
