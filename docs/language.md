@@ -2,7 +2,7 @@
 
 Welcome to duck-lisp!
 
-I intend for you to read this manual top-down, but sometimes I felt the need to use advanced concepts before they are defined. You may need to skip around or reread sections to properly understand the manual.
+I intend for you to read this manual top-down, but sometimes I felt the need to use advanced concepts before they were defined. You may need to skip around or reread sections to properly understand the manual.
 
 ## Syntax
 
