@@ -629,6 +629,19 @@ Rewrite the duck-lisp script to use the new function.
 
 Recompile and run, and the result should be "VM: 171".
 
+#### garbage-collect
+
+One last callback, because this one can be useful:
+
+```c
+dl_error_t callback_garbageCollect(duckVM_t *duckVM) {
+	// Force the garbage collector to run.
+	dl_error_t e = duckVM_garbageCollect(duckVM);
+	if (e) return e;
+	return duckVM_pushNil(duckVM);
+}
+```
+
 ### Calling duck-lisp functions from C
 
 First, define a duck-lisp function. A C function that has been passed into the VM will work as well.
@@ -762,10 +775,28 @@ And finally, print the result.
 
 ## Advanced usage
 
-This is not complete documentation. It may also change in the future. I have put nowhere near as much effort into the compiler's API as I put in the VM's API. For futher "documentation", I suggest looking at "scratchwork/duckLisp-dev.c" and possibly the duck-lisp code that is integrated into the Hidey-Chess project.
+This is not complete documentation. The API may also change in the future. I have put nowhere near as much effort into the compiler's API as I put in the VM's API. For futher "documentation", I suggest looking at "scratchwork/duckLisp-dev.c" and possibly the duck-lisp code that is integrated into the Hidey-Chess project.
+
+### User-defined data types
+
+Users can define their own native data types.
+
+I am not going to go into much detail at the moment.
+
+A user-defined type requires a constructor, a marker, and a destructor. Constructors are a well-known concept. They are functions that create an object from a specification. Destructors are also fairly well-known from languages like C++. When an object is destroyed during a garbage collection, the destructor is run and deallocates any memory and resources that were allocated during the lifetime of the object. I have never seen marking functions discussed. A marker is run the by garbage collector to determine if the user-defined type references any other objects under control of the collector.
+
+The constructor is the most straightforward to make. It's a normal C callback that builds a user-defined object.
+
+The destructor is also pretty intuitive. It is called exactly once for each object that is destroyed. The object to be destroyed is passed as an argument. The garbage collector's context is passed as well, but I haven't needed to use that. The destructor should deallocate any resources not under the garbage collector's oversight so that memory and other resources aren't leaked.
+
+I've found the marker simple to write, though it is a bit unusual. Like the destructor, the garbage collector context and the current user-defined object are passed as arguments. An additional "dispatch" array of object pointers is passed as well. Any duckVM objects referenced by the user-defined object must be pushed into the dispatch array so that they aren't inadvertently collected.
+
+If your object never references any other objects, then you don't need a marker and you can pass `NULL` in place of your marking function. If your object doesn't allocate any resources, then you don't need a destructor and you can pass `NULL` in its place.
+
+A user-defined object is created using `duckVM_object_makeUser(data, marker, destructor)`. A `duckVM_object_t` is returned. Push the result onto the heap and you have your own object. You might notice that an object type was never passed to `duckVM_object_makeUser`. That's because all user-defined types are the same type: `duckVM_object_type_user`. This is the biggest complexity. If you want to create more than one object type then you need to simulate it. The `data` argument is declared as `void *` so you can shove whatever data you want in it. I suggest pointing `data` to a tagged union. Unfortunately, because user-defined types are distinguished by hacks like this, the VM can't tell the difference between different user-defined types. This means `type-of` will return the same type for *all* your custom objects. This is certainly fixable, but for now a workaround is to wrap the user-defined object in a composite object. The way I would create a constructor for this system would be to write a duck-lisp function that calls the C constructor for the user-defined object and wraps it in a composite. So there would be a C constructor and a duck-lisp constructor that calls the C constructor.
 
 ## API Conventions
 
-An error is nearly always indicated with a return value of the type `dl_error_t`. If the return type of a function is `void`, then the function should always succeed. All uses of functions should either assign the result to a variable or place a marker indicating that the function does not return an error. The marker is either a `(void)` or a `/**/` placed to the left of the function call.
+An error is nearly always indicated with a return value of the type `dl_error_t`. If the return type of a function is `void`, then the function should always succeed. All uses of functions should either assign the result to a variable or place a marker indicating that the function does not return an error. The marker is either a `(void)` or a `/**/` placed to the left of the function call. An unannotated unused function call is almost certainly a bug and should be reported.
 
 Strings may or may not be null terminated. Don't ever depend on them being null terminated. A length value is always passed around with the string instead. It is acceptable to pass a null-terminated string to duck-lisp, but be sure the length you pass does not include the null terminator. The literal string "abc" has a length of three, not four.
