@@ -891,10 +891,10 @@ dl_error_t duckLispDev_callback_writeFile(duckVM_t *duckVM) {
 	return e;
 }
 
-/* `#include`, but for duck-lisp. The top level is assumed to be inferred. Assuming the top level *is* inferred, then it
-   can include normal duck-lisp files or inferred duck-lisp files. After that, there are two rules for inclusion:
-   inferred files may include normal duck-lisp files or inferred duck-lisp files, and normal duck-lisp files may only
-   include normal duck-lisp files. */
+/* `#include`, but for duck-lisp. The original file is assumed to be inferred. Assuming that top-level file *is*
+   inferred, then it can include normal duck-lisp files or inferred duck-lisp files. After that, there are two rules for
+   inclusion: inferred files may include normal duck-lisp files or inferred duck-lisp files, and normal duck-lisp files
+   may only include normal duck-lisp files. */
 dl_error_t duckLispDev_action_include(duckLisp_t *duckLisp, duckLisp_ast_compoundExpression_t *compoundExpression) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
