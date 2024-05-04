@@ -785,11 +785,11 @@ I am not going to go into much detail at the moment.
 
 A user-defined type requires a constructor, a marker, and a destructor. Constructors are a well-known concept. They are functions that create an object from a specification. Destructors are also fairly well-known from languages like C++. When an object is destroyed during a garbage collection, the destructor is run and deallocates any memory and resources that were allocated during the lifetime of the object. I have never seen marking functions discussed. A marker is run the by garbage collector to determine if the user-defined type references any other objects under control of the collector.
 
-The constructor is the most straightforward to make. It's a normal C callback that builds a user-defined object.
+* The constructor is the most straightforward to make. It's a normal C callback that builds a user-defined object.
 
-The destructor is also pretty intuitive. It is called exactly once for each object that is destroyed. The object to be destroyed is passed as an argument. The garbage collector's context is passed as well, but I haven't needed to use that. The destructor should deallocate any resources not under the garbage collector's oversight so that memory and other resources aren't leaked.
+* The destructor is also pretty intuitive. It is called exactly once for each object that is destroyed. The object to be destroyed is passed as an argument. The garbage collector's context is passed as well, but I haven't needed to use that. The destructor should deallocate any resources not under the garbage collector's oversight so that memory and other resources aren't leaked.
 
-I've found the marker simple to write, though it is a bit unusual. Like the destructor, the garbage collector context and the current user-defined object are passed as arguments. An additional "dispatch" array of object pointers is passed as well. Any duckVM objects referenced by the user-defined object must be pushed into the dispatch array so that they aren't inadvertently collected.
+* I've found the marker simple to write, though it is a bit unusual. Like the destructor, the garbage collector context and the current user-defined object are passed as arguments. An additional "dispatch" array of object pointers is passed as well. Any duckVM objects referenced by the user-defined object must be pushed into the dispatch array so that they aren't inadvertently collected.
 
 If your object never references any other objects, then you don't need a marker and you can pass `NULL` in place of your marking function. If your object doesn't allocate any resources, then you don't need a destructor and you can pass `NULL` in its place.
 
