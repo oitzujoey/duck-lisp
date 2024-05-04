@@ -781,7 +781,7 @@ This is not complete documentation. The API may also change in the future. I hav
 
 Users can define their own native data types.
 
-I am not going to go into much detail at the moment.
+I am not providing code here at the moment.
 
 A user-defined type requires a constructor, a marker, and a destructor. Constructors are a well-known concept. They are functions that create an object from a specification. Destructors are also fairly well-known from languages like C++. When an object is destroyed during a garbage collection, the destructor is run and deallocates any memory and resources that were allocated during the lifetime of the object. I have never seen marking functions discussed. A marker is run the by garbage collector to determine if the user-defined type references any other objects under control of the collector.
 
