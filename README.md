@@ -16,6 +16,7 @@ Duck-lisp is your typical hobby lisp with one or two twists. I started this proj
 * Compilation with the C standard library is optional
 * Tested on x64 (Linux) and ARM (Linux)
 * A simplified VM has been used on an ATmega328P, and the full VM runs on an LPC1769.
+* C99 minimum
 
 ### Planned features
 
