@@ -246,7 +246,7 @@ dl_error_t duckLispDev_callback_print(duckVM_t *duckVM) {
 			if (e) goto cleanup;
 			if (nil) {
 				/* stack: (() cdr) () */
-				printf("(nil)");
+				printf("nil");
 			}
 			else if (type == duckVM_object_type_cons) {
 				/* stack: ((caar cdar) cdr) (caar cdar) */
