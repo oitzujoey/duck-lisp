@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021, 2022, 2023 Joseph Herguth
+Copyright (c) 2021, 2022, 2023, 2024 Joseph Herguth
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -232,8 +232,6 @@ static void scope_init(duckLisp_t *duckLisp, duckLisp_scope_t *scope, dl_bool_t 
 	/**/ dl_trie_init(&scope->functionLocals_trie, duckLisp->memoryAllocation, -1);
 	/**/ dl_trie_init(&scope->functions_trie, duckLisp->memoryAllocation, -1);
 	scope->functions_length = 0;
-	/**/ dl_trie_init(&scope->macros_trie, duckLisp->memoryAllocation, -1);
-	scope->macros_length = 0;
 	/**/ dl_trie_init(&scope->labels_trie, duckLisp->memoryAllocation, -1);
 	scope->function_scope = is_function;
 	scope->scope_uvs = dl_null;
@@ -249,8 +247,6 @@ static dl_error_t scope_quit(duckLisp_t *duckLisp, duckLisp_scope_t *scope) {
 	/**/ dl_trie_quit(&scope->functionLocals_trie);
 	/**/ dl_trie_quit(&scope->functions_trie);
 	scope->functions_length = 0;
-	/**/ dl_trie_quit(&scope->macros_trie);
-	scope->macros_length = 0;
 	/**/ dl_trie_quit(&scope->labels_trie);
 	scope->function_scope = dl_false;
 	if (scope->scope_uvs != dl_null) {
@@ -1939,7 +1935,6 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp,
 	                             sizeof(dl_error_t (*)(duckLisp_t*, duckLisp_ast_expression_t*)),
 	                             dl_array_strategy_double);
 	/**/ dl_trie_init(&duckLisp->generators_trie, duckLisp->memoryAllocation, -1);
-	duckLisp->generators_length = 0;
 	/**/ dl_trie_init(&duckLisp->callbacks_trie, duckLisp->memoryAllocation, -1);
 #ifdef USE_PARENTHESIS_INFERENCE
 	(void) dl_array_init(&duckLisp->parenthesisInferrerTypes_array,
@@ -2050,7 +2045,6 @@ void duckLisp_quit(duckLisp_t *duckLisp) {
 	duckLisp->gensym_number = 0;
 	e = dl_array_quit(&duckLisp->generators_stack);
 	/**/ dl_trie_quit(&duckLisp->generators_trie);
-	duckLisp->generators_length = 0;
 	/**/ dl_trie_quit(&duckLisp->callbacks_trie);
 #ifdef USE_PARENTHESIS_INFERENCE
 	DL_DOTIMES(i, duckLisp->parenthesisInferrerTypes_array.elements_length) {
@@ -2360,7 +2354,6 @@ dl_error_t duckLisp_addGenerator(duckLisp_t *duckLisp,
 	                   name_length,
 	                   duckLisp->generators_stack.elements_length);
 	if (e) goto cleanup;
-	duckLisp->generators_length++;
 	e = dl_array_pushElement(&duckLisp->generators_stack, &callback);
 	if (e) goto cleanup;
 
@@ -2684,22 +2677,6 @@ dl_error_t duckLisp_scope_prettyPrint(dl_array_t *string_array, duckLisp_scope_t
 	e = dl_array_pushElements(string_array, DL_STR(", "));
 	if (e) goto cleanup;
 
-	e = dl_array_pushElements(string_array, DL_STR("macros_trie = "));
-	if (e) goto cleanup;
-	e = dl_trie_prettyPrint(string_array, scope.macros_trie);
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR(", "));
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR("macros_length = "));
-	if (e) goto cleanup;
-	e = dl_string_fromSize(string_array, scope.macros_length);
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR(", "));
-	if (e) goto cleanup;
-
 	e = dl_array_pushElements(string_array, DL_STR("labels_trie = "));
 	if (e) goto cleanup;
 	e = dl_trie_prettyPrint(string_array, scope.labels_trie);
@@ -2922,14 +2899,6 @@ dl_error_t duckLisp_prettyPrint(dl_array_t *string_array, duckLisp_t duckLisp) {
 	e = dl_array_pushElements(string_array, DL_STR("generators_trie = "));
 	if (e) goto cleanup;
 	e = dl_trie_prettyPrint(string_array, duckLisp.generators_trie);
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR(", "));
-	if (e) goto cleanup;
-
-	e = dl_array_pushElements(string_array, DL_STR("generators_length = "));
-	if (e) goto cleanup;
-	e = dl_string_fromSize(string_array, duckLisp.generators_length);
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(string_array, DL_STR(", "));

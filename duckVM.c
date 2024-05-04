@@ -1389,8 +1389,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			break;
 		}
 		while ((uint8 < object1.value.closure.arity) && (rest.value.list != dl_null)) {
-			if ((rest.value.list->type != duckVM_object_type_cons)
-			    || rest.value.list->type != duckVM_object_type_cons) {
+			if (rest.value.list->type != duckVM_object_type_cons) {
 				e = dl_error_invalidValue;
 				eError = duckVM_error_pushRuntime(duckVM,
 				                                  DL_STR("duckVM_execute->apply: Object pointed to by list root is not a list."));
@@ -1398,8 +1397,17 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 				break;
 			}
 			/* (push (car rest) stack) */
-			e = stack_push(duckVM, rest.value.list->value.cons.car);
-			if (e) break;
+			{
+				duckVM_object_t *car = rest.value.list->value.cons.car;
+				if ((car == dl_null) || (car->type == duckVM_object_type_cons)) {
+					duckVM_object_t list = duckVM_object_makeList(car);
+					e = stack_push(duckVM, &list);
+				}
+				else {
+					e = stack_push(duckVM, car);
+				}
+				if (e) break;
+			}
 			/* (setf rest (cdr rest)) */
 			rest.value.list = rest.value.list->value.cons.cdr;
 			uint8++;
