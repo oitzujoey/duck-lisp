@@ -1179,8 +1179,6 @@ int eval(duckLisp_t *duckLisp,
 			putchar(errorString[i]);
 		}
 		printf(COLOR_NORMAL);
-		(void) free(errorString);
-		if (e) goto cleanup;
 	}
 	if (e) goto cleanup;
 	if (runtimeError) {
