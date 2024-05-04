@@ -2,7 +2,7 @@
 
 ## Why use a bytecode virtual machine?
 
-Bytecode VMs are known to be fast and portable. JIT is faster, and reasonably portable with LLVM, but then it wouldn't run on platforms like AVR microcontrollers. I also don't want to have to keep up to date with the frequent LLVM releases.
+Bytecode VMs are known to be fast and portable. JIT is faster, and reasonably portable with LLVM, but then it wouldn't run on platforms like AVR microcontrollers. I also don't want to have to keep up to date with the frequent LLVM releases. Bytecode is reasonably hard to reverse engineer since most symbols are stripped.
 
 ## Why did you call it "duck-lisp"?
 

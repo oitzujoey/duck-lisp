@@ -49,13 +49,34 @@ The compiler has several systems that have strict separation from the rest of th
       Generators
       Emitters
       Assembler
+      Disassembler
     VM
+      Dispatch
+      Garbage collector
 
 Some of this separation is natural, the parser and assembler are naturally distinct from the rest of the compiler, while others such as generators, emitters, and the inferrer are divided to improve extensibility or portability.
 
 The Inferrer is separate from the parser and generators because it is designed to be relatively easy to remove and insert onto the backend of a foreign parser. How practical it is to transplant the inferrer remains to be seen.
 
 Generators are compilers that are usually dedicated to a single keyword. They accept the compiler state and AST and return HLA. Emitters are compilers that are dedicated to a single class of bytecode instruction. The emitted instruction class and associated arguments are used by the assembler to generate the final bytecode. These two divisions provide two benefits. The first is that the mappings of generators to keywords and emitters to instruction classes is a reasonably nice model. The second is that it makes the compiler more modular, providing users with the possibility of injecting their own generators to extend the language without modifying the compiler itself.
+
+
+
+## Influences and comparisons to other languages
+
+JavaScript: `var`
+
+C: scopes
+
+Obviously duck-lisp is a lisp, but all lisps are different. Duck-lisp has traditional lisp features like cons cells, symbols, and unhygienic macros, but it also has some features from Scheme and Common Lisp such as lexical scope and vectors.
+
+Lox had little influence on the language aside from the closure implementation (which Lox pulled from Lua). I used Crafting Interpreters as more of a reference than a tutorial. Duck-lisp would have been a better language if I had paid attention to the implementation of Lox's garbage collector and compiler architecture. I believe Lox uses a sort of incremental parser (like Lua) that starts emitting bytecode soon after parsing begins. Duck-lisp parses everything first and *then* compiles it. Lox's parsing architecture might have complicated macros if duck-lisp used it, but I think macros would still be practical to implement.
+
+Forth had a little influence in the parenthesis inferrer. Forth "infers parentheses" at runtime. Therefore its syntax can be very dynamic. Duck-lisp must infer parentheses at compiletime. Therefore its syntax must be static. Hmm… static… static types!
+
+Lua was my inspiration for the current VM API. All objects stay on the stack. Never let an object out of sight of the garbage collector. I probably should have paid more attention to the Lua compiler's API.
+
+
 
 ## Walkthrough of compilation process
 
@@ -147,3 +168,18 @@ halt
 ```
 
 The second set of peephole optimizations is run which is to minimize the size of branch instructions. Since there are no branch instructions in this example, the above code is final. The compilation is finished.
+
+
+
+
+## Modules
+
+### Parser
+
+The parser is a recursive descent parser with infinite backtracking. When a new form is encountered the parsers for individual form types are tried in a pre-defined order until one works. For example, the integer parser might be called first, then the floating point parser, then the string parser, etc.
+
+## Macros
+
+I have found little information online about how to implement macros in a bytecode compiler. Macros should be simple in a tree-walk interpreter, but a bytecode compiler must convert the AST into objects, pass them to the VM, then convert the returned objects back to AST. An additional complexity is that the compiler has to keep track of the environment that the macros run and and the environment that the emitted bytecode will run in.
+
+More information here: https://www.origamiparade.com/programming-projects/programming-languages/lisp/implementing-macros/
