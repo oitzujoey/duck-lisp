@@ -1,0 +1,78 @@
+(include "../scripts/library.hna")
+
+;; https://www.wolframcloud.com/obj/online-courses/an-elementary-introduction-to-the-wolfram-language/06-making-tables.html
+
+(defmacro table (range-binding form) (L I)
+  var variable (gensym)
+  var start 0
+  var end 0
+  var increment 1
+  var dolist false
+  var range-list nil
+  (when (and list? range-binding
+             = 1 length range-binding)
+    set range-binding car range-binding)
+  (if list? range-binding
+      (()
+       set variable first range-binding
+       set end second range-binding
+       set range-list second range-binding
+       (if list? range-list
+           set dolist true
+           (when >= length range-binding 3
+                 set start second range-binding
+                 set end third range-binding
+                 (when = 4 length range-binding
+                       set increment fourth range-binding))))
+      set end range-binding)
+  var result (gensym "result")
+  var gend (gensym "end")
+  var gincrement (gensym "increment")
+  var grange-list (gensym "range-list")
+  (if dolist
+      (` (()
+          #(var (, result) ())
+          #(var (, variable) ())
+          #(var (, grange-list) (, range-list))
+          (while (, grange-list)
+                 set (, variable) car (, grange-list)
+                 push (, form) (, result)
+                 pop (, grange-list))
+          reverse (, result)))
+      (` (()
+          #(var (, result) ())
+          #(var (, variable) (, start))
+          #(var (, gend) (, end))
+          #(var (, gincrement) (, increment))
+          (while < (, variable) (, gend)
+                 push (, form) (, result)
+                 (incq (, variable) (, gincrement)))
+          reverse (, result)))))
+(declare table (L I)
+         (()
+          var range-binding infer-and-get-next-argument
+          (when = (type-of ()) type-of range-binding
+                (when < 1 length range-binding
+                 var variable car range-binding
+                 (declaration-scope
+                  declare-identifier variable quote #I
+                  infer-and-get-next-argument)))))
+
+println table 5 2
+println table (n 0 5) n
+println table (n 0 10) 1+ n
+(defun range (first &rest -1 second)
+  var start 0
+  var end first
+  (when second
+    set start first
+    set end (car second))
+  table (n start end) n)
+println (range 1 11)
+println table (n 0 5) (range 0 1+ n)
+println table (n 3) * 10 n
+println table (n 3) (range * 10 1+ n)
+println table (n 4 10) n
+println table (n 4 10 2) n
+println table (n (list 2 5 4 3)) n
+println table (20) 5
