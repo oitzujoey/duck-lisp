@@ -2,6 +2,8 @@
 #ifndef DUCKLIB_CORE_H
 #define DUCKLIB_CORE_H
 
+#include <stddef.h>
+
 #ifndef DECLSPEC
 #  if defined(_WIN32)
 #    if defined(EXPORTING_DUCKLIB)
@@ -18,8 +20,8 @@ typedef unsigned char dl_bool_t;
 #define dl_false ((dl_bool_t) 0)
 #define dl_true ((dl_bool_t) 1)
 
-typedef unsigned long dl_size_t;
-typedef long dl_ptrdiff_t;
+typedef size_t dl_size_t;
+typedef ptrdiff_t dl_ptrdiff_t;
 
 typedef unsigned char dl_uint8_t;
 typedef unsigned short dl_uint16_t;
