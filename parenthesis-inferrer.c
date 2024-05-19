@@ -1174,14 +1174,11 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 		if ((dl_size_t) *type_index < type.type.value.expression.positionalSignatures_length) {
 			if ((dl_size_t) *expression_index >= expression->compoundExpressions_length) {
 				e = dl_error_invalidValue;
-				(eError
-				 = duckLisp_error_pushInference(state,
-				                                DL_STR("Too few arguments for declared identifier.")));
+				eError = duckLisp_error_pushInference(state, DL_STR("Too few arguments for declared identifier."));
 				if (eError) e = eError;
 				goto cleanup;
 			}
-			inferrerTypeSignature_t argSignature = (type.type.value.expression.positionalSignatures
-			                                        [*type_index]);
+			inferrerTypeSignature_t argSignature = type.type.value.expression.positionalSignatures[*type_index];
 			if (argSignature.type == inferrerTypeSignature_type_symbol) {
 				dl_ptrdiff_t lastIndex = *expression_index;
 				e = inferArgument(state,
@@ -1200,15 +1197,13 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 			}
 			else {
 				e = dl_error_invalidValue;
-				(eError
-				 = duckLisp_error_pushInference(state,
-				                                DL_STR("Nested expression types are not yet supported.")));
+				eError = duckLisp_error_pushInference(state, DL_STR("Nested expression types are not yet supported."));
 				if (eError) e = eError;
 			}
 		}
 		else {
-			// This does not need to be incremental, but it does need to be treated as the parg, and pargs
-			// are inferred incrementally.
+			// This does not need to be incremental, but it does need to be treated as the parg, and pargs are inferred
+			// incrementally.
 			if (type.type.value.expression.variadic) {
 				if (!parenthesized && (0 > type.type.value.expression.defaultRestLength)) {
 					e = dl_error_invalidValue;
@@ -1245,15 +1240,20 @@ static dl_error_t inferIncrementally(inferrerState_t *state,
 					}
 					else {
 						e = dl_error_invalidValue;
-						(eError
-						 = duckLisp_error_pushInference(state,
-						                                DL_STR("Nested expression types are not yet supported.")));
+						eError = duckLisp_error_pushInference(state,
+						                                      DL_STR("Nested expression types are not yet supported."));
 						if (eError) e = eError;
 					}
 				}
 			}
 		}
 		(*type_index)++;
+	}
+	else {
+		e = dl_error_invalidValue;
+		eError = duckLisp_error_pushInference(state, DL_STR("Attempted to grab nonexistent argument."));
+		if (eError) e = eError;
+		goto cleanup;
 	}
 
  cleanup: return e;
@@ -1761,6 +1761,7 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	if (e) goto preDefinitionCleanup;
 
 	inferrerState_t *state = context.state;
+	/* dl_array_t *log = state->log; */
 	const dl_uint8_t *fileName = context.fileName;
 	const dl_size_t fileName_length = context.fileName_length;
 	inferrerType_t type = context.type;
