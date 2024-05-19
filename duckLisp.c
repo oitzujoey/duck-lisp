@@ -2549,7 +2549,7 @@ dl_error_t duckLisp_ast_expression_prettyPrint(dl_array_t *string_array, duckLis
 	DL_DOTIMES(i, expression.compoundExpressions_length) {
 		e = duckLisp_ast_compoundExpression_prettyPrint(string_array, expression.compoundExpressions[i]);
 		if (e) goto cleanup;
-		if ((dl_size_t) i == expression.compoundExpressions_length - 1) {
+		if ((dl_size_t) i != expression.compoundExpressions_length - 1) {
 			e = dl_array_pushElements(string_array, DL_STR(", "));
 			if (e) goto cleanup;
 		}
