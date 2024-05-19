@@ -1,0 +1,10 @@
+(include "../scripts/library.hna")
+
+(enum pawn rook knight bishop queen king)
+
+println pawn
+println rook
+println knight
+println bishop
+println queen
+println king
