@@ -769,6 +769,23 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
           (declare-identifier name type)))
 
 
+;; Define all names passed to this macro as local variables, with the integer value of each variable being one greater
+;; than the previous, starting from 0.
+(defmacro enum (&rest identifiers) (&rest -1 L)
+  var defs ` (noscope)
+  var number 0
+  (dolist identifier identifiers
+    push ` (#var , identifier , number) defs
+    incq number)
+  reverse defs)
+(declare enum (&rest -1 L)
+         (()
+          var identifiers (infer-and-get-next-argument)
+          (while identifiers
+                 declare-identifier (car identifiers) quote #I
+                 setq identifiers cdr identifiers)))
+
+
 comptime println "</comptime library.hna>"
 println "</library.hna>"
 
