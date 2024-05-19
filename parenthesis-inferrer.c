@@ -1761,6 +1761,7 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	if (e) goto preDefinitionCleanup;
 
 	inferrerState_t *state = context.state;
+	dl_memoryAllocation_t *ma = state->memoryAllocation;
 	/* dl_array_t *log = state->log; */
 	const dl_uint8_t *fileName = context.fileName;
 	const dl_size_t fileName_length = context.fileName_length;
@@ -1776,6 +1777,9 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	duckLisp_t *duckLisp = &state->duckLisp;
 
 	/* infer */
+
+	dl_ptrdiff_t originalTypeIndex = *type_index;
+	dl_ptrdiff_t originalExpressionIndex = *expression_index;
 
 	e = inferIncrementally(state,
 	                       fileName,
@@ -1793,8 +1797,34 @@ static dl_error_t callback_inferAndGetNextArgument(duckVM_t *vm) {
 	/* AndGetNextArgument */
 
 	duckVM_object_t object;
-	e = duckLisp_astToObject(duckLisp, vm, &object, expression->compoundExpressions[*expression_index - 1]);
-	if (e) goto postDefinitionCleanup;
+	if (type.type.value.expression.variadic
+	    && ((dl_size_t) originalTypeIndex == type.type.value.expression.positionalSignatures_length)) {
+		/* Create new compound expression that contains the elements from index originalExpressionindex to index
+		   *expression_index-1. Be sure to free it. */
+		/* Alloc. */
+		dl_size_t length = *expression_index - originalExpressionIndex;
+		duckLisp_ast_compoundExpression_t ce;
+		ce.type = duckLisp_ast_type_expression;
+		e = DL_MALLOC(ma, &ce.value.expression.compoundExpressions, length, duckLisp_ast_compoundExpression_t);
+		if (e) goto postDefinitionCleanup;
+		do {
+			(void) dl_memcopy_noOverlap(ce.value.expression.compoundExpressions,
+			                            &expression->compoundExpressions[originalExpressionIndex],
+			                            length * sizeof(duckLisp_ast_compoundExpression_t));
+			ce.value.expression.compoundExpressions_length = length;
+			/* Convert. */
+			e = duckLisp_astToObject(duckLisp, vm, &object, ce);
+			if (e) break;
+		} while (0);
+		/* Free. */
+		dl_error_t eError = DL_FREE(ma, &ce.value.expression.compoundExpressions);
+		if (eError) e = eError;
+		if (e) goto postDefinitionCleanup;
+	}
+	else {
+		e = duckLisp_astToObject(duckLisp, vm, &object, expression->compoundExpressions[*expression_index - 1]);
+		if (e) goto postDefinitionCleanup;
+	}
 
 	e = duckVM_object_push(vm, &object);
 	if (e) goto postDefinitionCleanup;
