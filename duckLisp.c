@@ -3177,7 +3177,7 @@ dl_error_t duckLisp_instructionClass_prettyPrint(dl_array_t *string_array,
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_pushGlobal"));
 	case duckLisp_instructionClass_setUpvalue:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setUpvalue"));
-	case duckLisp_instructionClass_setStatic:
+	case duckLisp_instructionClass_setGlobal:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_setStatic"));
 	case duckLisp_instructionClass_releaseUpvalues:
 		return dl_array_pushElements(string_array, DL_STR("duckLisp_instructionClass_releaseUpvalues"));

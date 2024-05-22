@@ -2523,6 +2523,9 @@ Yields don't pop anything off. I think that remains the same.
 Doesn't this make yields and halts exactly the same?
 
 
+Found an annoying and funny bug. I found it in one of the Hidey-Chess DL instances. It wasn't reproducible in duckLisp-dev. I noticed that when I defined a global function and then called an innocent C callback like `print`, the VM would segfault. I went through the typical process of finding the minimum code that would crash and found that the names of the parameters determined whether it crashed or not. "(x y)" was fine. "(r g)" and "(p q)" were not. The dissassembly looked OK. A closure was created, then a global to contain it, then the global was pushed, then `print` was called. The `push-*` and `pop` instructions were balanced. Finally, I printed out the name of the global (as a symbol) just to make sure it looked right. "f→260". Looks fine. I looked back at the disassembly. `global.8 04`. Globals are indexed by their ID, so the argument to `global` should also be 260. But 260 is greater than 255, so it doesn't fit in 8 bits. Its hex representation is 0x104, or 0x04 when coerced to an 8-bit integer. It turns out there's no support in the compiler for globals with symbol IDs over 8 bits. There isn't even an instruction for that. I guess I assumed that it was unlikely that there would be more than 256 globals, with the plan of indexing them by the order they were created in, but later I changed my mind and indexed them by symbol ID and there definitely can be more than 256 symbols. The ID of `print` was 0x03. The value of `f` when I wasn't printing it was 0x103. So `print` would get overwritten with a closure, and when that closure was called as a C function it naturally segfaulted. I think I couldn't reproduce it in duckLisp-dev because it has more C callbacks then Hidey-Chess does, raising the ID of `f` higher than in Hidey-Chess.
+
+
 
 Todo:
     Finish parenthesis inference?

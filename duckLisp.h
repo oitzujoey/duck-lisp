@@ -222,7 +222,7 @@ typedef enum {
 	duckLisp_instructionClass_pushVaClosure,
 	duckLisp_instructionClass_pushGlobal,
 	duckLisp_instructionClass_setUpvalue,
-	duckLisp_instructionClass_setStatic,
+	duckLisp_instructionClass_setGlobal,
 	duckLisp_instructionClass_releaseUpvalues,
 	duckLisp_instructionClass_funcall,
 	duckLisp_instructionClass_apply,
@@ -317,12 +317,16 @@ typedef enum {
 	duckLisp_instruction_pushVaClosure32,
 
 	duckLisp_instruction_pushGlobal8,
+	duckLisp_instruction_pushGlobal16,
+	duckLisp_instruction_pushGlobal32,
 
 	duckLisp_instruction_setUpvalue8,
 	duckLisp_instruction_setUpvalue16,
 	duckLisp_instruction_setUpvalue32,
 
-	duckLisp_instruction_setStatic8,
+	duckLisp_instruction_setGlobal8,
+	duckLisp_instruction_setGlobal16,
+	duckLisp_instruction_setGlobal32,
 
 	duckLisp_instruction_releaseUpvalues8,
 	duckLisp_instruction_releaseUpvalues16,

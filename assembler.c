@@ -753,24 +753,26 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			break;
 		}
 		case duckLisp_instructionClass_pushGlobal: {
-			switch (args[0].type) {
-			case duckLisp_instructionArgClass_type_index:
+			if (((unsigned long) args[0].value.index < 0x100UL)
+			    && ((unsigned long) args[1].value.index < 0x100UL)) {
 				currentInstruction.byte = duckLisp_instruction_pushGlobal8;
 				byte_length = 1;
-				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
-				if (e) goto cleanup;
-				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
-					DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.integer
-					                                                    >> 8*(byte_length - n - 1))
-					                                                   & 0xFFU);
-				}
-				break;
-			default:
-				eError = duckLisp_error_pushRuntime(duckLisp, DL_STR("Invalid argument class. Aborting."));
-				if (eError) {
-					e = eError;
-				}
-				goto cleanup;
+			}
+			else if (((unsigned int) args[0].value.index < 0x10000UL)
+			         && ((unsigned int) args[1].value.index < 0x10000UL)) {
+				currentInstruction.byte = duckLisp_instruction_pushGlobal16;
+				byte_length = 2;
+			}
+			else {
+				currentInstruction.byte = duckLisp_instruction_pushGlobal32;
+				byte_length = 4;
+			}
+			e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
+			if (e) goto cleanup;
+			for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
+				DL_ARRAY_GETADDRESS(currentArgs, dl_uint8_t, n) = ((args[0].value.integer
+				                                                    >> 8*(byte_length - n - 1))
+				                                                   & 0xFFU);
 			}
 			break;
 		}
@@ -818,11 +820,23 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			}
 			break;
 		}
-		case duckLisp_instructionClass_setStatic: {
+		case duckLisp_instructionClass_setGlobal: {
 			if (args[0].type == duckLisp_instructionArgClass_type_index) {
-				currentInstruction.byte = duckLisp_instruction_setStatic8;
+				if (((unsigned long) args[0].value.index < 0x100UL)
+				    && ((unsigned long) args[1].value.index < 0x100UL)) {
+					currentInstruction.byte = duckLisp_instruction_setGlobal8;
+					byte_length = 1;
+				}
+				else if (((unsigned int) args[0].value.index < 0x10000UL)
+				         && ((unsigned int) args[1].value.index < 0x10000UL)) {
+					currentInstruction.byte = duckLisp_instruction_setGlobal16;
+					byte_length = 2;
+				}
+				else {
+					currentInstruction.byte = duckLisp_instruction_setGlobal32;
+					byte_length = 4;
+				}
 				dl_ptrdiff_t offset = 0;
-				byte_length = 1;
 				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
 				if (e) goto cleanup;
 				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
@@ -831,7 +845,6 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 					                                                   & 0xFFU);
 				}
 				offset += byte_length;
-				byte_length = 1;
 				e = dl_array_pushElements(&currentArgs, dl_null, byte_length);
 				if (e) goto cleanup;
 				for (dl_ptrdiff_t n = 0; (dl_size_t) n < byte_length; n++) {
@@ -2880,10 +2893,14 @@ dl_error_t duckLisp_disassemble(dl_array_t *string,
 		{duckLisp_instruction_pushVaClosure16, DL_STR("variadic-closure.16 2 1 4 V2")},
 		{duckLisp_instruction_pushVaClosure32, DL_STR("variadic-closure.32 4 1 4 V2")},
 		{duckLisp_instruction_pushGlobal8, DL_STR("global.8 1")},
+		{duckLisp_instruction_pushGlobal16, DL_STR("global.8 2")},
+		{duckLisp_instruction_pushGlobal32, DL_STR("global.8 4")},
 		{duckLisp_instruction_setUpvalue8, DL_STR("set-upvalue.8 1 1")},
 		{duckLisp_instruction_setUpvalue16, DL_STR("set-upvalue.16 1 2")},
 		{duckLisp_instruction_setUpvalue32, DL_STR("set-upvalue.32 1 4")},
-		{duckLisp_instruction_setStatic8, DL_STR("set-global.8 1 1")},
+		{duckLisp_instruction_setGlobal8, DL_STR("set-global.8 1 1")},
+		{duckLisp_instruction_setGlobal16, DL_STR("set-global.16 2 2")},
+		{duckLisp_instruction_setGlobal32, DL_STR("set-global.32 4 4")},
 		{duckLisp_instruction_funcall8, DL_STR("funcall.8 1 1")},
 		{duckLisp_instruction_funcall16, DL_STR("funcall.16 2 1")},
 		{duckLisp_instruction_funcall32, DL_STR("funcall.32 4 1")},

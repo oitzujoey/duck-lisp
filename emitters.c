@@ -777,7 +777,7 @@ dl_error_t duckLisp_emit_setStatic(duckLisp_t *duckLisp,
 	e = duckLisp_emit_binaryOperator(duckLisp,
 	                                 compileState,
 	                                 assembly,
-	                                 duckLisp_instructionClass_setStatic,
+	                                 duckLisp_instructionClass_setGlobal,
 	                                 argument0,
 	                                 argument1);
 	duckLisp_localsLength_decrement(compileState);

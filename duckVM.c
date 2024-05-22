@@ -1184,9 +1184,25 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 
 		break;
 
-	case duckLisp_instruction_pushGlobal8:
-		{
+	case duckLisp_instruction_pushGlobal32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		parsedBytecode = dl_true;
+		/* Fall through */
+	case duckLisp_instruction_pushGlobal16:
+		if (!parsedBytecode) {
 			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			parsedBytecode = dl_true;
+		}
+		/* Fall through */
+	case duckLisp_instruction_pushGlobal8:
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++);
+		}
+		{
 			duckVM_object_t *global;
 			e = duckVM_global_get(duckVM, &global, ptrdiff1);
 			if (e) {
@@ -1305,19 +1321,40 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 			}
 		}
 		break;
-	case duckLisp_instruction_setStatic8:
-		{
+
+	case duckLisp_instruction_setGlobal32:
+		ptrdiff1 = *(ip++);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+		ptrdiff2 = *(ip++);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+		parsedBytecode = dl_true;
+		/* Fall through */
+	case duckLisp_instruction_setGlobal16:
+		if (!parsedBytecode) {
+			ptrdiff1 = *(ip++);
+			ptrdiff1 = *(ip++) + (ptrdiff1 << 8);
+			ptrdiff2 = *(ip++);
+			ptrdiff2 = *(ip++) + (ptrdiff2 << 8);
+			parsedBytecode = dl_true;
+		}
+		/* Fall through */
+	case duckLisp_instruction_setGlobal8:
+		if (!parsedBytecode) {
 			ptrdiff1 = *(ip++);
 			ptrdiff2 = *(ip++);
-			e = duckVM_gclist_pushObject(duckVM,
-			                             &objectPtr1,
-			                             DL_ARRAY_GETADDRESS(duckVM->stack,
-			                                                 duckVM_object_t,
-			                                                 duckVM->stack.elements_length - ptrdiff1));
-			if (e) break;
-			e = duckVM_global_set(duckVM, objectPtr1, ptrdiff2);
-			if (e) break;
 		}
+		e = duckVM_gclist_pushObject(duckVM,
+		                             &objectPtr1,
+		                             DL_ARRAY_GETADDRESS(duckVM->stack,
+		                                                 duckVM_object_t,
+		                                                 duckVM->stack.elements_length - ptrdiff1));
+		if (e) break;
+		e = duckVM_global_set(duckVM, objectPtr1, ptrdiff2);
+		if (e) break;
 		break;
 
 	case duckLisp_instruction_funcall32:
