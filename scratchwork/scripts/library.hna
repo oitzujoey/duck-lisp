@@ -801,29 +801,8 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
                  setq identifiers cdr identifiers)))
 
 
-
-(defun sequence-remove-duplicates (elements)
-  var new-list nil
-  (while elements
-    var element car elements
-    var purged true
-    (while purged
-      set purged false
-      var last-cons elements
-      var tail-elements cdr elements
-      (while tail-elements
-        (when = element (car tail-elements)
-              set (cdr last-cons) (cdr tail-elements)
-              set purged true)
-        pop tail-elements
-        pop last-cons))
-    push pop elements new-list)
-  new-list)
-
-
 ;; `mset', because `set' is taken for assignment. Maybe I should have called `set' `assign' like Verilog does?
-(defclass mset (&rest -1 elements)
-  make-instance mset-type (sequence-remove-duplicates elements) nil)
+(defclass mset (&rest -1 elements) nil)
 
 (defun mset-to-list (mset)
   composite-value mset)
@@ -838,13 +817,15 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
 (defun element? (sequence value)
   sequence-element? sequence value)
 
+(defun mset-= (&rest 2 sets) nil)
+
 (defun element? (object value)
   (if mset? object
       (()
        var list composite-value object
        var element? false
        (dolist element list
-               (when = element value
+               (when mset-= element value
                      set element? true))
        element?)
       element? object value))
@@ -869,6 +850,29 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
            equal)
           false)
       (apply #= sets)))
+set #mset-= #=
+
+(defun mset-remove-duplicates (elements)
+  var new-list nil
+  (while elements
+    var element car elements
+    var purged true
+    (while purged
+      set purged false
+      var last-cons elements
+      var tail-elements cdr elements
+      (while tail-elements
+        (when = element (car tail-elements)
+              set (cdr last-cons) (cdr tail-elements)
+              set purged true)
+        pop tail-elements
+        pop last-cons))
+    push pop elements new-list)
+  new-list)
+
+set #mset (lambda (&rest -1 elements)
+            make-instance mset-type (mset-remove-duplicates elements) nil)
+
 
 (defun union (&rest 2 sets)
   (when (apply #operator-and (mapcar #mset? sets))
@@ -911,7 +915,9 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
   (dolist element list
           (unless first
             set list-string concatenate list-string " ")
-          set list-string concatenate list-string  pretty-format element
+          set list-string concatenate list-string (if mset? element
+                                                      self element
+                                                      pretty-format element)
           set first false)
   (concatenate "{" list-string "}"))
 
