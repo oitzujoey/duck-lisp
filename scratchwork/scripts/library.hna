@@ -225,7 +225,10 @@ bdefun + (a &rest 1 b) (if b
 bdefun - (a &rest 1 b) (if b
                            - a (apply #self b)
                            a)
-bdefun = (a b) = a b
+(bdefun = (a &rest 1 b)
+        (if b
+            = a (apply #self b)
+            a))
 bdefun < (a b) < a b
 bdefun > (a b) > a b
 bdefun symbol-string (symbol) symbol-string symbol
@@ -476,6 +479,20 @@ bvar duckLisp-object-type-type type-of type-of ()
             (and (string? value) (not value))
             (and (integer? value) (not value))))
 
+(defun operator-and (&rest 2 args)
+  var result true
+  (while args
+    (unless pop args
+            setq result false))
+  result)
+
+(defun operator-or (&rest 2 args)
+  var result false
+  (while args
+    (when pop args
+          setq result true))
+  result)
+
 ;; This is not the traditional lisp cond.
 ;;   (cond first-condition first-body
 ;;         second-condition second-body
@@ -536,16 +553,14 @@ bvar duckLisp-object-type-type type-of type-of ()
                (pop list))
         list)
 
-(bdefun append (list1 list2)
+(bdefun append (&rest 2 lists)
         (var appended-list ())
-        (while (not (null? list1))
-               (setq appended-list (cons (car list1)
-                                         appended-list))
-               (pop list1))
-        (while (not (null? list2))
-               (setq appended-list (cons (car list2)
-                                         appended-list))
-               (pop list2))
+        (while lists
+          var current-list pop lists
+          (while (not (null? current-list))
+            (setq appended-list (cons (car current-list)
+                                      appended-list))
+            (pop current-list)))
         (nreverse appended-list))
 
 (bdefun remove-if* (fun list)
@@ -784,6 +799,135 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
           (while identifiers
                  declare-identifier (car identifiers) quote #I
                  setq identifiers cdr identifiers)))
+
+
+
+(defun sequence-remove-duplicates (elements)
+  var new-list nil
+  (while elements
+    var element car elements
+    var purged true
+    (while purged
+      set purged false
+      var last-cons elements
+      var tail-elements cdr elements
+      (while tail-elements
+        (when = element (car tail-elements)
+              set (cdr last-cons) (cdr tail-elements)
+              set purged true)
+        pop tail-elements
+        pop last-cons))
+    push pop elements new-list)
+  new-list)
+
+
+;; `mset', because `set' is taken for assignment. Maybe I should have called `set' `assign' like Verilog does?
+(defclass mset (&rest -1 elements)
+  make-instance mset-type (sequence-remove-duplicates elements) nil)
+
+(defun mset-to-list (mset)
+  composite-value mset)
+
+(defun sequence-element? (sequence value)
+  var element? false
+  (dosequence element sequence
+              (when = element value
+                    set element? true))
+  element?)
+
+(defun element? (sequence value)
+  sequence-element? sequence value)
+
+(defun element? (object value)
+  (if mset? object
+      (()
+       var list composite-value object
+       var element? false
+       (dolist element list
+               (when = element value
+                     set element? true))
+       element?)
+      element? object value))
+
+(defun mset-length (set)
+  length composite-value set)
+
+(defun length (object)
+  (if mset? object
+      mset-length object
+      length object))
+
+(defun = (&rest 2 sets)
+  (if (apply #operator-and (mapcar #mset? sets))
+      (if (apply #= (mapcar #length sets))
+          (()
+           var equal true
+           var first-set pop sets
+           (dolist element  composite-value first-set
+                   (unless (apply #operator-and (mapcar (lambda mset  element? mset element) sets))
+                     set equal false))
+           equal)
+          false)
+      (apply #= sets)))
+
+(defun union (&rest 2 sets)
+  (when (apply #operator-and (mapcar #mset? sets))
+    (apply #mset (apply #append (mapcar #composite-value sets)))))
+
+(defun intersection (&rest 2 sets)
+  (when (apply #operator-and (mapcar #mset? sets))
+    var last-filtered-list pop sets
+    (dolist mset sets
+            var new-filtered-list nil
+            (dolist element  composite-value mset
+                    (when element? last-filtered-list element
+                          push element new-filtered-list))
+            set last-filtered-list new-filtered-list)
+    (apply #mset last-filtered-list)))
+
+(defun list-pretty-format (pretty-format list)
+  var list-string ""
+  var first true
+  (dolist element list
+          (unless first
+            set list-string concatenate list-string " ")
+          set list-string concatenate list-string  (funcall #pretty-format element)
+          set first false)
+  (concatenate "(" list-string ")"))
+
+(defun integer-pretty-format integer
+  (make-string (list (elt "0123456789" integer))))
+
+(defun pretty-format (object)
+  (cond
+   list? object  list-pretty-format #self object
+   integer? object  integer-pretty-format object
+   object))
+
+(defun mset-pretty-format (mset)
+  var list composite-value mset
+  var list-string ""
+  var first true
+  (dolist element list
+          (unless first
+            set list-string concatenate list-string " ")
+          set list-string concatenate list-string  pretty-format element
+          set first false)
+  (concatenate "{" list-string "}"))
+
+(defun pretty-format (object)
+  (if mset? object
+      mset-pretty-format object
+      pretty-format object))
+
+(defun println (&rest 1 values)
+  set values (mapcar (lambda value
+                       (if mset? value
+                           mset-pretty-format value
+                           value))
+                     values)
+  (apply #println values))
+
 
 
 comptime println "</comptime library.hna>"
