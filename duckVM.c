@@ -47,10 +47,12 @@ dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message,
 
 dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
                               dl_memoryAllocation_t *memoryAllocation,
+                              duckVM_t *duckVM,
                               const dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
 
 	gclist->memoryAllocation = memoryAllocation;
+	gclist->duckVM = duckVM;
 
 
 	e = dl_malloc(gclist->memoryAllocation,
@@ -451,7 +453,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation
 	                   duckVM->memoryAllocation,
 	                   sizeof(dl_ptrdiff_t),
 	                   dl_array_strategy_double);
-	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, maxObjects);
+	e = duckVM_gclist_init(&duckVM->gclist, duckVM->memoryAllocation, duckVM, maxObjects);
 	if (e) goto cleanup;
 	duckVM->duckLisp = dl_null;
 	duckVM->userData = dl_null;

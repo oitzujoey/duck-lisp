@@ -43,6 +43,7 @@ typedef struct duckVM_gclist_s {
 	dl_size_t freeObjects_length;
 	dl_array_strategy_t strategy;
 	dl_memoryAllocation_t *memoryAllocation;
+	struct duckVM_s *duckVM;
 } duckVM_gclist_t;
 
 typedef struct {
