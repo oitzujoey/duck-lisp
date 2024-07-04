@@ -6020,7 +6020,7 @@ dl_error_t duckVM_setCompositeValue(duckVM_t *duckVM, dl_ptrdiff_t stack_index) 
 		duckVM_object_t *heap_value = dl_null;
 		e = dl_array_getTop(&duckVM->stack, &value);
 		if (e) break;
-		e = dl_array_get(&duckVM->stack, &composite, stack_index);
+		e = stack_get(duckVM, &composite, stack_index);
 		if (e) break;
 		if (duckVM_object_type_composite != composite.type) {
 			e = dl_error_invalidValue;
@@ -6033,7 +6033,7 @@ dl_error_t duckVM_setCompositeValue(duckVM_t *duckVM, dl_ptrdiff_t stack_index) 
 		if (e) break;
 		composite.value.composite->value.internalComposite.value = heap_value;
 	} while (0);
-        return e;
+	return e;
 }
 
 /* Set the function slot of the composite at the specified index to the value at the top of the stack. */
@@ -6615,12 +6615,10 @@ dl_error_t duckVM_pushElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index) {
 	return e;
 }
 
-/* Set the specified element of the sequence on top of the stack to the value at the specified stack index.
+/* Set the specified element of the sequence at the specified stack index to the value on top of the stack.
    Lists:
-     Nil: Push nil on top of the stack.
-     Cons: Push the CAR on top of the stack if this is the cons referenced by the index.
-   Vectors: Push the indexed element on top of the stack.
-   Strings: Push the indexed byte on top of the stack as an integer.
+     Cons: Set the CAR to the value on top of the stack if this is the cons referenced by the index.
+   Vectors: Set the indexed element to the value on top of the stack.
    This operation fails on lists and vectors that are shorter than the sequence index, and strings and closures. */
 dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_ptrdiff_t stack_index) {
 	dl_error_t e = dl_error_ok;
@@ -6634,7 +6632,7 @@ dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_p
 		if (e) break;
 		e = duckVM_allocateHeapObject(duckVM, &value_pointer, value);
 		if (e) break;
-		e = dl_array_get(&duckVM->stack, &sequence, stack_index);
+		e = stack_get(duckVM, &sequence, stack_index);
 		if (e) break;
 		type = sequence.type;
 		switch (type) {
@@ -6651,7 +6649,7 @@ dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_p
 				break;
 			}
 			break;
-		}{
+			/* This looks like a bug: */ }{
 			duckVM_object_t *element_pointer = sequence.value.list;
 			DL_DOTIMES(k, sequence_index) {
 				if (element_pointer) {
@@ -6698,7 +6696,7 @@ dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_p
 		}
 		case duckVM_object_type_vector: {
 			duckVM_vector_t vector = sequence.value.vector;
-			e = duckVM_vector_setElement(vector, value_pointer, stack_index);
+			e = duckVM_vector_setElement(vector, value_pointer, sequence_index);
 			if (e) break;
 			break;
 		}
@@ -6711,7 +6709,7 @@ dl_error_t duckVM_setElement(duckVM_t *duckVM, dl_ptrdiff_t sequence_index, dl_p
 		}
 		case duckVM_object_type_closure: {
 			duckVM_closure_t closure = sequence.value.closure;
-			e = duckVM_closure_setUpvalue(duckVM, closure, value_pointer, stack_index);
+			e = duckVM_closure_setUpvalue(duckVM, closure, value_pointer, sequence_index);
 			if (e) break;
 			break;
 		}

@@ -261,7 +261,7 @@ dl_error_t duckVM_push(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
 dl_error_t duckVM_pop(duckVM_t *duckVM);
 /* Pop the specified number of objects off of the stack. */
 dl_error_t duckVM_popSeveral(duckVM_t *duckVM, dl_size_t number_to_pop);
-/* Copy a stack object from one position to another, overwriting the destination object. */
+/* Copy a stack object from the top of the stack to another position, overwriting the destination object. */
 dl_error_t duckVM_copyFromTop(duckVM_t *duckVM, dl_ptrdiff_t destination_stack_index);
 /* Return the type of the object on the top of the stack. */
 dl_error_t duckVM_typeOf(duckVM_t *duckVM, duckVM_object_type_t *type);
