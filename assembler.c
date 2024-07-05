@@ -753,13 +753,11 @@ dl_error_t duckLisp_assemble(duckLisp_t *duckLisp,
 			break;
 		}
 		case duckLisp_instructionClass_pushGlobal: {
-			if (((unsigned long) args[0].value.index < 0x100UL)
-			    && ((unsigned long) args[1].value.index < 0x100UL)) {
+			if ((unsigned long) args[0].value.index < 0x100UL) {
 				currentInstruction.byte = duckLisp_instruction_pushGlobal8;
 				byte_length = 1;
 			}
-			else if (((unsigned int) args[0].value.index < 0x10000UL)
-			         && ((unsigned int) args[1].value.index < 0x10000UL)) {
+			else if ((unsigned int) args[0].value.index < 0x10000UL) {
 				currentInstruction.byte = duckLisp_instruction_pushGlobal16;
 				byte_length = 2;
 			}
