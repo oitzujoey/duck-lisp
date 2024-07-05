@@ -869,9 +869,9 @@ dl_error_t dl_realloc(dl_memoryAllocation_t *memoryAllocation, void **memory, dl
 		VALGRIND_MAKE_MEM_UNDEFINED(memoryAllocation->blockList[newBlock].block, size);
 		VALGRIND_MAKE_MEM_DEFINED(*memory, memoryAllocation->blockList[currentBlock].block_size);
 #endif /* MEMCHECK */
-		error = dl_memcopy(memoryAllocation->blockList[newBlock].block,
-		                   *memory,
-		                   dl_min(size, memoryAllocation->blockList[currentBlock].block_size));
+		dl_memcopy(memoryAllocation->blockList[newBlock].block,
+		           *memory,
+		           dl_min(size, memoryAllocation->blockList[currentBlock].block_size));
 		if (error) {
 			goto l_cleanup;
 		}
