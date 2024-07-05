@@ -175,6 +175,16 @@ static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_objec
 					if (e) goto cleanup;
 				}
 			}
+			else if (object->type == duckVM_object_type_composite) {
+				e = dl_array_pushElement(&dispatchStack, &object->value.composite);
+				if (e) goto cleanup;
+			}
+			else if (object->type == duckVM_object_type_internalComposite) {
+				e = dl_array_pushElement(&dispatchStack, &object->value.internalComposite.value);
+				if (e) goto cleanup;
+				e = dl_array_pushElement(&dispatchStack, &object->value.internalComposite.function);
+				if (e) goto cleanup;
+			}
 			else if (object->type == duckVM_object_type_user) {
 				if (object->value.user.marker) {
 					/* User-provided marking function */
@@ -3942,23 +3952,31 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		if (e) break;
 
 		{
+			/* Allocate internal composite. */
 			dl_size_t type = object1.value.type;
 			object1.type = duckVM_object_type_internalComposite;
-			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
+			/* Type. */
+			object1.value.internalComposite.type = type;
+			object1.value.internalComposite.value = dl_null;
+			object1.value.internalComposite.function = dl_null;
+			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object1);
 			if (e) break;
+			/* Link composite and internal composite to the stack. */
 			object1.type = duckVM_object_type_composite;
 			object1.value.composite = objectPtr1;
+			e = stack_push(duckVM, &object1);
+			if (e) break;
+			/* Value. */
 			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object2);
 			if (e) break;
-			e = duckVM_gclist_pushObject(duckVM, &objectPtr2, object3);
+			(DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t).value.composite
+			 ->value.internalComposite.value) = objectPtr1;
+			/* Function. */
+			e = duckVM_gclist_pushObject(duckVM, &objectPtr1, object3);
 			if (e) break;
-			object1.value.composite->value.internalComposite.type = type;
-			object1.value.composite->value.internalComposite.value = objectPtr1;
-			object1.value.composite->value.internalComposite.function = objectPtr2;
+			(DL_ARRAY_GETTOPADDRESS(duckVM->stack, duckVM_object_t).value.composite
+			 ->value.internalComposite.function) = objectPtr1;
 		}
-
-		e = stack_push(duckVM, &object1);
-		if (e) break;
 		break;
 
 	case duckLisp_instruction_compositeValue32:
