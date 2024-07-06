@@ -22,11 +22,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+/*
+This duck-lisp wrapper acts as the human interface to the LPC1769 microcontroller. The compile-time bytecode is executed
+on the host (this computer) and the runtime bytecode is executed on the microcontroller. The microcontroller must be
+connected to a serial port. Since this project is for *me* and *me* alone, the serial port is hard coded.
+*/
+
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+#include <stdbool.h>
 #include "../DuckLib/core.h"
 #include "../duckLisp.h"
 #include "../duckVM.h"
@@ -53,6 +65,10 @@ SOFTWARE.
 #define B_COLOR_WHITE     "\x1B[47m"
 
 dl_bool_t g_disassemble = dl_false;
+
+#define BAUD B9600
+
+int g_serialPort = -1;
 
 typedef enum {
 	duckLispDev_user_type_none,
@@ -674,6 +690,15 @@ dl_error_t duckLispDev_destructor_openFile(duckVM_gclist_t *gclist, struct duckL
 	return e;
 }
 
+void duckLispDev_marker_openFile(duckVM_gclist_t *gclist, struct duckLisp_object_s *object) {
+	puts("MARK");
+	if (object->value.user.data) {
+		duckLisp_object_t *internalObject = object->value.user.data;
+		// Mark the internal object.
+		/**/ duckVM_gclist_markObject(gclist, internalObject);
+	}
+}
+
 dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
@@ -735,6 +760,7 @@ dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
 		goto cleanup;
 	}
 	internal.type = duckLisp_object_type_user;
+	internal.value.user.marker = dl_null;
 	internal.value.user.destructor = duckLispDev_destructor_openFile;
 	internal.value.user.data = malloc(sizeof(duckLispDev_user_t));
 	if (internal.value.user.data == NULL) {
@@ -749,6 +775,7 @@ dl_error_t duckLispDev_callback_openFile(duckVM_t *duckVM) {
 	if (e) goto cleanup;
 
 	ret.type = duckLisp_object_type_user;
+	ret.value.user.marker = duckLispDev_marker_openFile;
 	ret.value.user.destructor = dl_null;
 	ret.value.user.data = internalPointer;
 
@@ -930,14 +957,6 @@ dl_error_t duckLispDev_generator_include(duckLisp_t *duckLisp,
 	fileName.value = expression->compoundExpressions[1].value.string.value;
 	fileName.value_length = expression->compoundExpressions[1].value.string.value_length;
 
-	printf(COLOR_YELLOW);
-	printf("(include \"");
-	DL_DOTIMES(i, fileName.value_length) {
-		putchar(fileName.value[i]);
-	}
-	printf("\")\n");
-	printf(COLOR_NORMAL);
-
 	e = dl_malloc(duckLisp->memoryAllocation, (void **) &cFileName, (fileName.value_length + 1) * sizeof(char));
 	if (e) goto cleanup;
 	/**/ dl_memcopy_noOverlap(cFileName, fileName.value, fileName.value_length);
@@ -1040,7 +1059,7 @@ int eval(duckLisp_t *duckLisp,
 	/* Fetch script. */
 
 	// Provide implicit progn.
-	e = dl_array_pushElements(&sourceCode, DL_STR("(() "));
+	e = dl_array_pushElements(&sourceCode, DL_STR("((include \"../scripts/hal.dl\") "));
 	if (e) goto cleanup;
 
 	e = dl_array_pushElements(&sourceCode, source, source_length);
@@ -1130,27 +1149,53 @@ int eval(duckLisp_t *duckLisp,
 		putchar('\n');
 	}
 
-	/* /\* Print bytecode in hex. *\/ */
-	/* for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) { */
-	/* 	unsigned char byte = bytecode[i]; */
-	/* 	putchar(dl_nybbleToHexChar(byte >> 4)); */
-	/* 	putchar(dl_nybbleToHexChar(byte)); */
-	/* } */
-	/* putchar('\n'); */
+	/* Print bytecode in hex. */
+	for (dl_ptrdiff_t i = 0; (dl_size_t) i < bytecode_length; i++) {
+		unsigned char byte = bytecode[i];
+		putchar(dl_nybbleToHexChar(byte >> 4));
+		putchar(dl_nybbleToHexChar(byte));
+	}
+	putchar('\n');
 
-	/* putchar('\n'); */
-	/* puts(COLOR_CYAN "VM: {" COLOR_NORMAL); */
+	tcflush(g_serialPort, TCIOFLUSH);
 
-	runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length);
-	e = print_errors(&duckVM->errors, dl_null);
-	if (e) goto cleanup;
-	if (runtimeError) {
-		printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[runtimeError]);
-		e = runtimeError;
-		goto cleanupBytecode;
+	printf("bytecode length: %llu\n", bytecode_length);
+	{
+		uint8_t lengthBuffer[4];
+		DL_DOTIMES(j, 4) {
+			lengthBuffer[j] = (bytecode_length>>8*j) & 0xFF;
+		}
+		write(g_serialPort, lengthBuffer, 4);
+	}
+	write(g_serialPort, bytecode, bytecode_length);
+
+	{
+		bool finished = false;
+		uint8_t buffer[256] = {0};
+		while (!finished) {
+			ssize_t bytesRead = 0;
+			bytesRead = read(g_serialPort, buffer, 256);
+			DL_DOTIMES(j, bytesRead) {
+				putchar(buffer[j]);
+			}
+			finished = !bytesRead;
+		}
+		puts("");
 	}
 
- cleanupBytecode:
+	(void) return_value;
+	(void) duckVM;
+	(void) runtimeError;
+	/* runtimeError = duckVM_execute(duckVM, return_value, bytecode, bytecode_length); */
+	/* e = print_errors(&duckVM->errors, dl_null); */
+	/* if (e) goto cleanup; */
+	/* if (runtimeError) { */
+	/* 	printf(COLOR_RED "\nVM returned error. (%s)\n" COLOR_NORMAL, dl_errorString[runtimeError]); */
+	/* 	e = runtimeError; */
+	/* 	goto cleanupBytecode; */
+	/* } */
+
+ /* cleanupBytecode: */
 	eError = dl_free(duckLisp->memoryAllocation, (void **) &bytecode);
 	if (!e) e = eError;
 
@@ -1243,19 +1288,63 @@ int main(int argc, char *argv[]) {
 		const dl_size_t name_length;
 		dl_error_t (*callback)(duckVM_t *);
 	} callbacks[] = {
-		{DL_STR("print"),           duckLispDev_callback_print},
-		{DL_STR("print-stack"),     duckLispDev_callback_printStack},
-		{DL_STR("garbage-collect"), duckLispDev_callback_garbageCollect},
-		{DL_STR("disassemble"),     duckLispDev_callback_toggleAssembly},
-		{DL_STR("quicksort-hoare"), duckLispDev_callback_quicksort_hoare},
-		{DL_STR("print-uv-stack"),  duckLispDev_callback_printUpvalueStack},
-		{DL_STR("open-file"),       duckLispDev_callback_openFile},
-		{DL_STR("close-file"),      duckLispDev_callback_closeFile},
-		{DL_STR("fgetc"),           duckLispDev_callback_fgetc},
+		{DL_STR("print"),                       duckLispDev_callback_print},
+		{DL_STR("print-stack"),                 duckLispDev_callback_printStack},
+		{DL_STR("garbage-collect"),             duckLispDev_callback_garbageCollect},
+		{DL_STR("disassemble"),                 duckLispDev_callback_toggleAssembly},
+		{DL_STR("quicksort-hoare"),             duckLispDev_callback_quicksort_hoare},
+		{DL_STR("print-uv-stack"),              duckLispDev_callback_printUpvalueStack},
+		{DL_STR("open-file"),                   duckLispDev_callback_openFile},
+		{DL_STR("close-file"),                  duckLispDev_callback_closeFile},
+		{DL_STR("fgetc"),                       duckLispDev_callback_fgetc},
+		{DL_STR("peek"),                        dl_null},
+		{DL_STR("poke"),                        dl_null},
+		{DL_STR("µcode-address-set-direction"), dl_null},
+		{DL_STR("µcode-address-read"),          dl_null},
+		{DL_STR("µcode-address-write"),         dl_null},
+		{DL_STR("µcode-data-set-direction"),    dl_null},
+		{DL_STR("µcode-data-read"),             dl_null},
+		{DL_STR("µcode-data-write"),            dl_null},
+		{DL_STR("write-µcode-buffer-oe"),       dl_null},
+		{DL_STR("write-µcode-state-oe"),        dl_null},
+		{DL_STR("write-µcode-oe"),              dl_null},
+		{DL_STR("write-µcode-we"),              dl_null},
+		{DL_STR("write-clock"),                 dl_null},
 		{dl_null, 0,                dl_null}
 	};
 
 	/* Initialization. */
+
+	const char *serialPortName = "/dev/ttyUSB2";
+	g_serialPort = open(serialPortName, O_RDWR | O_NOCTTY);
+	if (g_serialPort == -1) {
+		e = dl_error_shouldntHappen;
+		printf(COLOR_RED "Failed to open %s\n" COLOR_NORMAL, serialPortName);
+		goto cleanup;
+	}
+
+	struct termios tty;
+	if (tcgetattr(g_serialPort, &tty) != 0) {
+		e = dl_error_shouldntHappen;
+		printf("tcgetattr failed.\n");
+		goto cleanup;
+	}
+	// EVEN PARITY
+	tty.c_cflag &= ~CSTOPB & ~CSIZE & ~CRTSCTS & ~PARODD;
+	tty.c_cflag |= PARENB | CS8 | CREAD | CLOCAL;
+	tty.c_lflag &= ~ICANON & ~ECHO & ~ECHOE & ~ECHONL & ~ISIG;
+	tty.c_iflag &= ~(IXON | IXOFF | IXANY | IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+	tty.c_oflag &= ~(OPOST | ONLCR);
+	tty.c_cc[VTIME] = 20;
+	tty.c_cc[VMIN] = 0;
+	cfsetispeed(&tty, BAUD);
+	cfsetospeed(&tty, BAUD);
+
+	if (tcsetattr(g_serialPort, TCSANOW, &tty) != 0) {
+		e = dl_error_shouldntHappen;
+		printf("tcsetattr TCSANOW failed.\n");
+		goto cleanup;
+	}
 
 	if ((argc != 1) && (argc != 2)) {
 		printf(COLOR_YELLOW
@@ -1358,7 +1447,6 @@ int main(int argc, char *argv[]) {
 		ssize_t length = 0;
 		printf("(disassemble)  Toggle disassembly of forms.\n");
 		while (1) {
-			duckLisp_object_t return_value;
 			if (duckVM.stack.elements_length > 0) {
 				printf(COLOR_YELLOW
 				       "A runtime error has occured. Use (print-stack) to inspect the stack, or press\n"
@@ -1368,25 +1456,8 @@ int main(int argc, char *argv[]) {
 			}
 			printf("> ");
 			if ((length = getline(&line, &buffer_length, stdin)) < 0) break;
-			e = eval(&duckLisp, &duckVM, &return_value, line, length);
+			e = eval(&duckLisp, &duckVM, dl_null, line, length);
 			free(line); line = NULL;
-			e = duckVM_push(&duckVM, &return_value);
-			e = duckLispDev_callback_print(&duckVM);
-			e = duckVM_pop(&duckVM, dl_null);
-
-			puts(COLOR_CYAN);
-			/**/ dl_memory_usage(&tempDlSize, *duckLisp.memoryAllocation);
-			printf("Compiler memory usage: %llu/%llu (%llu%%)\n",
-			       tempDlSize,
-			       duckLisp.memoryAllocation->size,
-			       100*tempDlSize/duckLisp.memoryAllocation->size);
-			/**/ dl_memory_usage(&tempDlSize, *duckVM.memoryAllocation);
-			printf("VM memory usage: %llu/%llu (%llu%%)\n",
-			       tempDlSize,
-			       duckVM.memoryAllocation->size,
-			       100*tempDlSize/duckVM.memoryAllocation->size);
-			puts(COLOR_NORMAL);
-
 		}
 	}
 
@@ -1431,6 +1502,10 @@ int main(int argc, char *argv[]) {
 		/**/ free(duckLispMemory); duckLispMemory = NULL;
 	}
 	printf(COLOR_NORMAL);
+
+	if (g_serialPort != -1) {
+		/**/ close(g_serialPort);
+	}
 
 	return e;
 }
