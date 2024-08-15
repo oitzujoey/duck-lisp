@@ -86,7 +86,7 @@ Examples and other junk can be found in the scratchwork directory.
 ```
 
 
-## Usage
+## Index
 
 "docs/language.md" contains a brief description of the language.  
 "docs/language-reference.md" contains a description of all duck-lisp keywords.  
