@@ -110,3 +110,8 @@ Examples and other junk can be found in the scratchwork directory.
 Typical usage of the language only requires including "duckLisp.h" and "duckVM.h". Adding new user-defined generators that generate bytecode requires "emitters.h". Some user-defined generators may want to call existing generators, which are declared in "generators.h". Function declarations for the reader can be found in "parser.h".
 
 Examples on how to extend the language can be found in `scratchwork/duckLisp-dev.c`.
+
+
+## Contact
+
+https://matrix.to/#/#duck-lisp-space:matrix.org
