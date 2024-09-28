@@ -903,7 +903,7 @@ int duckVM_executeInstruction(duckVM_t *duckVM,
 		}
 
 		ptrdiff1 = (((dl_size_t) ptrdiff1 > size1)
-		            ? -((((dl_ptrdiff_t) size1)<<1)+0x2 - ptrdiff1)
+		            ? (dl_ptrdiff_t) (~size1 | (dl_size_t) ptrdiff1)
 		            : ptrdiff1);
 		object1 = duckVM_object_makeInteger(ptrdiff1);
 		e = stack_push(duckVM, &object1);
