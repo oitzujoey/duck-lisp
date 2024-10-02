@@ -5585,8 +5585,19 @@ dl_error_t duckVM_call(duckVM_t *duckVM, dl_ptrdiff_t stackIndex, dl_uint8_t num
 
 		{
 			/* Call bytecode. */
-			duckVM_bytecode_t bytecode = functionObject.value.closure.bytecode->value.bytecode;
-			dl_uint8_t bytecode_offset = functionObject.value.closure.name;
+			dl_uint8_t shim_bytecode[] = {duckLisp_instruction_halt};
+			duckVM_object_t shim_bytecode_object[] = {duckVM_object_makeBytecode(shim_bytecode,
+			                                                                     sizeof(shim_bytecode) / sizeof(*shim_bytecode))};
+			dl_uint8_t *shim_ip = shim_bytecode;
+
+			duckVM_object_t *bytecode_object = functionObject.value.closure.bytecode;
+			duckVM_bytecode_t bytecode = bytecode_object->value.bytecode;
+			dl_ptrdiff_t bytecode_offset = functionObject.value.closure.name;
+			e = call_stack_push(duckVM,
+			                    shim_ip,
+			                    shim_bytecode_object,
+			                    &functionObject.value.closure.upvalue_array->value.upvalue_array);
+			if (e) break;
 			/* stack: function *args */
 			e = duckVM_executeWithIp(duckVM, bytecode.bytecode, bytecode_offset, bytecode.bytecode_length);
 			if (e) break;
