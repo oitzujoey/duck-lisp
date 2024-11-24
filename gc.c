@@ -86,23 +86,12 @@ dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
 	return e;
 }
 
-static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
-
+static void duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	(void) free(gclist->freeObjects);
 	gclist->freeObjects_length = 0;
-
-
 	(void) free(gclist->objects);
-	e = eError ? eError : e;
 	gclist->objects_length = 0;
-
-
 	(void) free(gclist->objectInUse);
-	e = eError ? eError : e;
-
-	return e;
 }
 
 static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_object_t *object, dl_bool_t stack) {
