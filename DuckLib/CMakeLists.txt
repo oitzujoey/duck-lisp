@@ -1,4 +1,4 @@
-add_library(DuckLib core.c array.c string.c)
+add_library(DuckLib core.c array.c)
 
 target_include_directories(DuckLib
 	INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}

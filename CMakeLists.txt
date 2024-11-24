@@ -14,7 +14,6 @@ endif()
 add_library(DuckLib STATIC
             DuckLib/core.c
             DuckLib/array.c
-            DuckLib/string.c
             )
 
 if(MSVC)

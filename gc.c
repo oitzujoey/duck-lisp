@@ -25,7 +25,6 @@ SOFTWARE.
 #include "gc.h"
 #include "DuckLib/array.h"
 #include "DuckLib/core.h"
-#include "DuckLib/string.h"
 #include <stdlib.h>
 
 
