@@ -41,20 +41,12 @@ typedef struct duckVM_gclist_s {
 typedef struct duckVM_s {
 	dl_array_t errors;  /* Runtime errors. */
 	dl_array_t stack;  /* dl_array_t:duckVM_object_t For data. */
-	/* Addressed by symbol number. */
+	/* Addressed by symbol ID. */
 	dl_array_t globals;  /* duckVM_object_t * */
 	dl_array_t globals_map;  /* dl_ptrdiff_t */
 	duckVM_gclist_t gclist;
-	dl_size_t nextUserType;
-	void *userData;
 } duckVM_t;
 
-
-typedef struct {
-	dl_size_t id;
-	dl_uint8_t *name;
-	dl_size_t name_length;
-} duckVM_symbol_t;
 
 typedef struct duckVM_object_s * duckVM_list_t;
 
@@ -78,17 +70,13 @@ typedef enum {
   duckVM_object_type_bool,
   duckVM_object_type_integer,
   duckVM_object_type_float,
+  /* This always points to a cons or is nil. */
   duckVM_object_type_list,
-  duckVM_object_type_symbol,
-  duckVM_object_type_composite,
   /* User-defined type */
   duckVM_object_type_user,
 
   /* These types should never appear on the stack. */
   duckVM_object_type_cons,
-
-  /* This is... you guessed it... the last entry in the enum. */
-  duckVM_object_type_last,
 } duckVM_object_type_t;
 
 typedef struct duckVM_object_s {
@@ -96,7 +84,6 @@ typedef struct duckVM_object_s {
 		dl_bool_t boolean;
 		dl_ptrdiff_t integer;
 		double floatingPoint;
-		duckVM_symbol_t symbol;
 		duckVM_list_t list;
 		duckVM_cons_t cons;
 		duckVM_user_t user;

@@ -31,6 +31,7 @@ SOFTWARE.
 /* Error reporting */
 /*******************/
 
+// `message` is written to the end of the `errors` string.
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
 	e = dl_array_pushElements(&duckVM->errors, DL_STR("\n"));
@@ -94,40 +95,54 @@ static void duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	(void) free(gclist->objectInUse);
 }
 
+// Trace objects, marking them as "in use" when we reach them.
 static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_object_t *object, dl_bool_t stack) {
 	dl_error_t e = dl_error_ok;
 
-	/* Array of pointers that need to be traced. */
+	/* Array of pointers that need to be traced. This is to simulate the recursive algorithm we used before. */
 	dl_array_t dispatchStack;
 	(void) dl_array_init(&dispatchStack, sizeof(duckVM_object_t *), dl_array_strategy_double);
 
 	while (dl_true) {
 		// Bug: It is possible for object - gclist->objects to be negative during an OOM condition.
-		if (object && (stack
-		               || !gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)])) {
+		/* The object must not be NULL.
+		   The object must be on the stack or not have already been marked as in-use. This is to avoid an infinitely
+		   traversing a cycle of conses. */
+		if (object && (stack || !gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)])) {
 			if (!stack) {
+				/* The object should not be on the stack because the garbage collector doesn't manage memory that is on
+				   the stack, because the stack is an array of objects, not pointers to objects on the heap. */
+				// Mark in-use.
 				gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
 			}
+
 			if (object->type == duckVM_object_type_list) {
+				// Lists are a pointer to a chain of conses (or nil/NULL).
 				e = dl_array_pushElement(&dispatchStack, &object->value.list);
 				if (e) goto cleanup;
 			}
 			else if (object->type == duckVM_object_type_cons) {
+				// Trace the CAR.
 				e = dl_array_pushElement(&dispatchStack, &object->value.cons.car);
 				if (e) goto cleanup;
+				// Trace the CDR.
 				e = dl_array_pushElement(&dispatchStack, &object->value.cons.cdr);
 				if (e) goto cleanup;
 			}
 			else if (object->type == duckVM_object_type_user) {
 				if (object->value.user.marker) {
-					/* User-provided marking function */
+					/* Call the user-provided marking function */
 					e = object->value.user.marker(gclist, &dispatchStack, object);
 					if (e) goto cleanup;
 				}
 			}
+			/* Object types that don't point to any other objects are simply ignored. They have 0 pointers we need to
+			   trace. So we get integers, floats, and bools for free. */
+
 			/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 		}
 
+		// Fetch the next live object to trace.
 		e = dl_array_popElement(&dispatchStack, &object);
 		if (e == dl_error_bufferUnderflow) {
 			e = dl_error_ok;
@@ -135,6 +150,7 @@ static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_objec
 		}
 		if (e) goto cleanup;
 
+		// We are no longer tracing the stack. If we were, we are now tracing the stack's children.
 		stack = dl_false;
 	}
 
@@ -146,17 +162,19 @@ static dl_error_t duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckVM_objec
 static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	dl_error_t e = dl_error_ok;
 
-	/* Clear the in use flags. */
 	duckVM_gclist_t *gclistPointer = &duckVM->gclist;
 	duckVM_gclist_t gclistCopy = duckVM->gclist;
 
+	/* Clear the in-use flags. */
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < gclistCopy.objects_length; i++) {
 		gclistCopy.objectInUse[i] = dl_false;
 	}
 
-	/* Mark the cells in use. */
+	/* Mark the objects in use by chasing their pointers. */
 
 	/* Stack */
+	/* Stack objects aren't on the heap, but we start the trace from the stack. This doesn't and can't mark any of the
+	   stack objects as free or in use. */
 	DL_DOTIMES(i, duckVM->stack.elements_length) {
 		e = duckVM_gclist_markObject(gclistPointer,
 		                             &DL_ARRAY_GETADDRESS(duckVM->stack, duckVM_object_t, i),
@@ -165,6 +183,8 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	}
 
 	/* Globals */
+	/* Unlike the stack, globals are stored on the heap. Each global in the list and its children will be marked as
+	   in-use. */
 	DL_DOTIMES(i, duckVM->globals.elements_length) {
 		duckVM_object_t *object = DL_ARRAY_GETADDRESS(duckVM->globals, duckVM_object_t *, i);
 		if (object != dl_null) {
@@ -174,83 +194,75 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 	}
 
 	/* Free cells if not marked. */
+	// Clear the free-array.
 	gclistPointer->freeObjects_length = 0;  /* This feels horribly inefficient. (That's 'cause it is.) */
 	for (dl_ptrdiff_t i = 0; (dl_size_t) i < gclistCopy.objects_length; i++) {
+		/* For each object in the heap array, check if it is in use. If it isn't, put a pointer to that object in the
+		   free-array. */
 		if (!gclistCopy.objectInUse[i]) {
 			duckVM_object_t *objectPointer = &gclistCopy.objects[i];
 			gclistCopy.freeObjects[gclistPointer->freeObjects_length++] = objectPointer;
 			duckVM_object_t object = *objectPointer;
 			duckVM_object_type_t type = object.type;
-			if ((type == duckVM_object_type_symbol)
-			         /* Prevent multiple frees. */
-			         && (object.value.symbol.name != dl_null)) {
-				(void) free(objectPointer->value.symbol.name);
-			}
-			else if ((type == duckVM_object_type_user)
-			         && (object.value.user.destructor != dl_null)) {
+			/* This is the time to run destructors. If this object points to any memory allocated with malloc, free it
+			   now. If it points to any other heap objects, ignore them, since the garbage collector will eventually
+			   free those objects too if it hasn't done so already. So if you have a string object, free the character
+			   array that the object points to. */
+
+			/* Run the user-provided destructor if this is the user-defined object type. */
+			if ((type == duckVM_object_type_user) && (object.value.user.destructor != dl_null)) {
 				e = object.value.user.destructor(gclistPointer, objectPointer);
 				if (e) goto cleanup;
 				objectPointer->value.user.destructor = dl_null;
 			}
 		}
 	}
-
- cleanup:
-	return e;
+ cleanup: return e;
 }
 
+/* Allocate an object on the heap.
+   Accepts `objectIn`, an object, which is then copied into the heap. `*objectOut` is a
+   pointer to the new clone that lives in the heap. */
 dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **objectOut, duckVM_object_t objectIn) {
 	dl_error_t e = dl_error_ok;
 	dl_error_t eError = dl_error_ok;
 
 	duckVM_gclist_t *gclist = &duckVM->gclist;
 
-	// Try once
+	// Check if there's space on the heap.
 	if (gclist->freeObjects_length == 0) {
-		// STOP THE WORLD
+		// No space. Garbage collect, since maybe there's some unreachable objects that we could reuse.
 		e = duckVM_gclist_garbageCollect(duckVM);
 		if (e) {
 			eError = duckVM_error_pushRuntime(duckVM, DL_STR("duckVM_gclist_pushObject: Garbage collection failed."));
-			if (!e) e = eError;
+			if (eError) e = eError;
 			goto cleanup;
 		}
 
-		// Try twice
+		// Check for space again. There will be space unless the heap is in fact at max capacity.
 		if (gclist->freeObjects_length == 0) {
 			e = dl_error_outOfMemory;
 			eError = duckVM_error_pushRuntime(duckVM,
 			                                  DL_STR("duckVM_gclist_pushObject: Garbage collection failed. Out of memory."));
-			if (!e) e = eError;
+			if (eError) e = eError;
 			goto cleanup;
 		}
 	}
 
+	// Allocate an object on the heap.
 	duckVM_object_t *heapObject = gclist->freeObjects[--gclist->freeObjects_length];
+	// The heap object is now allocated.
+	// Copy the object to the heap.
 	*heapObject = objectIn;
-	if (objectIn.type == duckVM_object_type_symbol) {
-		if (objectIn.value.symbol.name_length > 0) {
-			heapObject->value.symbol.name = malloc(objectIn.value.symbol.name_length * sizeof(dl_uint8_t));
-			if (heapObject->value.symbol.name == NULL) {
-				eError = duckVM_error_pushRuntime(duckVM,
-				                                  DL_STR("duckVM_gclist_pushObject: String allocation failed."));
-				if (!e) e = eError;
-				goto cleanup;
-			}
-			(void) dl_memcopy_noOverlap(heapObject->value.symbol.name,
-			                            objectIn.value.symbol.name,
-			                            objectIn.value.symbol.name_length);
-		}
-		else {
-			heapObject->value.symbol.name = dl_null;
-			heapObject->value.symbol.name_length = 0;
-		}
-		if (e) goto cleanup;
-	}
+
+	/* In the real duckVM garbage collector, we would now make copies of some fields so that we don't reference memory
+	   that is not managed by the garbage collector. For example, in the case of a symbol or string we would make a copy
+	   of the string. It's a bit more complicated than that. */
+
+	// Pass the pointer to the heap object back to the caller.
 	*objectOut = heapObject;
 
- cleanup:
-
-	return e;
+ cleanup: return e;
 }
 
 
@@ -259,9 +271,6 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **objectOu
 /*************************************/
 
 dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
-	dl_error_t e = dl_error_ok;
-
-	duckVM->nextUserType = duckVM_object_type_last;
 	(void) dl_array_init(&duckVM->errors, sizeof(dl_uint8_t), dl_array_strategy_double);
 	(void) dl_array_init(&duckVM->stack, sizeof(duckVM_object_t), dl_array_strategy_double);
 	(void) dl_array_init(&duckVM->globals,
@@ -270,12 +279,7 @@ dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	(void) dl_array_init(&duckVM->globals_map,
 	                     sizeof(dl_ptrdiff_t),
 	                     dl_array_strategy_double);
-	e = duckVM_gclist_init(&duckVM->gclist, duckVM, maxObjects);
-	if (e) goto cleanup;
-	duckVM->userData = dl_null;
-
- cleanup:
-	return e;
+	return duckVM_gclist_init(&duckVM->gclist, duckVM, maxObjects);
 }
 
 void duckVM_quit(duckVM_t *duckVM) {
@@ -286,7 +290,6 @@ void duckVM_quit(duckVM_t *duckVM) {
 	e = duckVM_gclist_garbageCollect(duckVM);
 	(void) duckVM_gclist_quit(&duckVM->gclist);
 	(void) dl_array_quit(&duckVM->errors);
-	duckVM->userData = dl_null;
 	(void) e;
 }
 
