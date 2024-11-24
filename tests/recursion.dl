@@ -1,5 +1,0 @@
-(__= 55 (__funcall (__lambda (top)
-                             (__if top
-                                   (__+ top (self (__- top 1)))
-                                   0))
-                   10))

@@ -1,9 +1,0 @@
-(include "../scripts/library.hna")
-
-(defmacro leaky-print (v) (I)
-          ` apply #println (list (symbol-string ` , v) ": " , v))
-
-var list ' (1 2 3 4 5)
-(()
- (dolist element list
-         leaky-print element))

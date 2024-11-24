@@ -1,1 +1,0 @@
-(__= "hello" (__quote "hello"))

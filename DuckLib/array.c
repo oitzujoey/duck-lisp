@@ -1,12 +1,9 @@
 
 #include "array.h"
+#include <stdlib.h>
 
-void dl_array_init(dl_array_t *array,
-                   dl_memoryAllocation_t *memoryAllocation,
-                   dl_size_t element_size,
-                   dl_array_strategy_t strategy) {
+void dl_array_init(dl_array_t *array, dl_size_t element_size, dl_array_strategy_t strategy) {
 	dl_array_t newArray;
-	newArray.memoryAllocation = memoryAllocation;
 	newArray.element_size = element_size;
 	newArray.elements_length = 0;
 	newArray.elements_memorySize = 0;
@@ -15,24 +12,14 @@ void dl_array_init(dl_array_t *array,
 	*array = newArray;
 }
 
-dl_error_t dl_array_quit(dl_array_t *array) {
-	dl_error_t e = dl_error_ok;
-	
+void dl_array_quit(dl_array_t *array) {
 	if (array->elements != dl_null) {
-		e = dl_free(array->memoryAllocation, &array->elements);
-		if (e) {
-			goto l_cleanup;
-		}
+		(void) free(array->elements);
 	}
 	array->elements_length = 0;
-	array->memoryAllocation = dl_null;
 	array->element_size = 0;
 	array->elements_memorySize = 0;
 	array->strategy = 0;
-	
-	l_cleanup:
-	
-	return e;
 }
 
 dl_error_t dl_array_pushElement(dl_array_t *array, void *element) {
@@ -43,14 +30,20 @@ dl_error_t dl_array_pushElement(dl_array_t *array, void *element) {
 
 	/* Add space for a new element. */
 	if (localArray.strategy == dl_array_strategy_fit) {
-		e = dl_realloc(localArray.memoryAllocation, &localArray.elements, newLengthSize);
-		if (e) goto cleanup;
+		localArray.elements = realloc(localArray.elements, newLengthSize);
+		if (localArray.elements == NULL) {
+			e = dl_error_outOfMemory;
+			goto cleanup;
+		}
 		localArray.elements_memorySize = newLengthSize;
 	}
 	else {
 		if (newLengthSize > localArray.elements_memorySize) {
-			e = dl_realloc(localArray.memoryAllocation, &localArray.elements, 2 * newLengthSize);
-			if (e) goto cleanup;
+			localArray.elements = realloc(localArray.elements, 2 * newLengthSize);
+			if (localArray.elements == NULL) {
+				e = dl_error_outOfMemory;
+				goto cleanup;
+			}
 			localArray.elements_memorySize = 2 * newLengthSize;
 		}
 	}
@@ -85,14 +78,20 @@ dl_error_t dl_array_pushElements(dl_array_t *array, const void *elements, dl_siz
 	// Add space for new elements.
 	switch (array->strategy) {
 	case dl_array_strategy_fit:
-		e = dl_realloc(array->memoryAllocation, &array->elements, (array->elements_length + elements_length) * array->element_size);
-		if (e) goto cleanup;
+		array->elements = realloc(array->elements, (array->elements_length + elements_length) * array->element_size);
+		if (array->elements == NULL) {
+			e = dl_error_outOfMemory;
+			goto cleanup;
+		}
 		array->elements_memorySize = (array->elements_length + elements_length) * array->element_size;
 		break;
 	case dl_array_strategy_double:
 		while ((array->elements_length + elements_length) * array->element_size > array->elements_memorySize) {
-			e = dl_realloc(array->memoryAllocation, &array->elements, 2 * (array->elements_length + elements_length) * array->element_size);
-			if (e) goto cleanup;
+			array->elements = realloc(array->elements, 2 * (array->elements_length + elements_length) * array->element_size);
+			if (array->elements == NULL) {
+				e = dl_error_outOfMemory;
+				goto cleanup;
+			}
 			array->elements_memorySize = 2 * (array->elements_length + elements_length) * array->element_size;
 		}
 		break;
@@ -225,10 +224,12 @@ Keeps arrayDestination's allocator the same. After all, it's easy enough to copy
 dl_error_t dl_array_copy(dl_array_t *arrayDestination, dl_array_t arraySource) {
 	dl_error_t e = dl_error_ok;
 	
-	e = dl_free(arrayDestination->memoryAllocation, &arrayDestination->elements);
-	if (e) goto cleanup;
-	e = dl_malloc(arrayDestination->memoryAllocation, &arrayDestination->elements, arraySource.elements_memorySize);
-	if (e) goto cleanup;
+	(void) free(arrayDestination->elements);
+	arrayDestination->elements = malloc(arraySource.elements_memorySize);
+	if (arrayDestination->elements == NULL) {
+		e = dl_error_outOfMemory;
+		goto cleanup;
+	}
 	
 	arrayDestination->elements_length = arraySource.elements_length;
 	// arrayDestination->memoryAllocation = dl_null;
@@ -252,14 +253,25 @@ dl_error_t dl_array_append(dl_array_t *arrayDestination, dl_array_t *arraySource
 	// Add space for new elements.
 	switch (arrayDestination->strategy) {
 	case dl_array_strategy_fit:
-		e = dl_realloc(arrayDestination->memoryAllocation, &arrayDestination->elements, (arrayDestination->elements_length + arraySource->elements_length) * arrayDestination->element_size);
-		if (e) goto cleanup;
+		arrayDestination->elements = realloc(arrayDestination->elements,
+		                                     ((arrayDestination->elements_length + arraySource->elements_length)
+		                                      * arrayDestination->element_size));
+		if (arrayDestination->elements == NULL) {
+			e = dl_error_outOfMemory;
+			goto cleanup;
+		}
 		arrayDestination->elements_memorySize = (arrayDestination->elements_length + arraySource->elements_length) * arrayDestination->element_size;
 		break;
 	case dl_array_strategy_double:
 		while ((arrayDestination->elements_length + arraySource->elements_length) * arrayDestination->element_size > arrayDestination->elements_memorySize) {
-			e = dl_realloc(arrayDestination->memoryAllocation, &arrayDestination->elements, 2 * (arrayDestination->elements_length + arraySource->elements_length) * arrayDestination->element_size);
-			if (e) goto cleanup;
+			arrayDestination->elements = realloc(arrayDestination->elements,
+			                                     (2
+			                                      * (arrayDestination->elements_length + arraySource->elements_length)
+			                                      * arrayDestination->element_size));
+			if (arrayDestination->elements == NULL) {
+				e = dl_error_outOfMemory;
+				goto cleanup;
+			}
 			arrayDestination->elements_memorySize = 2 * (arrayDestination->elements_length + arraySource->elements_length) * arrayDestination->element_size;
 		}
 		break;
@@ -279,21 +291,9 @@ dl_error_t dl_array_append(dl_array_t *arrayDestination, dl_array_t *arraySource
  cleanup: return e;
 }
 
-dl_error_t dl_array_clear(dl_array_t *array) {
-	dl_error_t e = dl_error_ok;
-	
-	if (array->elements_length == 0) {
-		return e;
-	}
-	
+void dl_array_clear(dl_array_t *array) {
+	if (array->elements_length == 0) return;	
 	array->elements_length = 0;
 	array->elements_memorySize = 0;
-	e = dl_free(array->memoryAllocation, (void **) &array->elements);
-	if (e) {
-		goto l_cleanup;
-	}
-	
-	l_cleanup:
-	
-	return e;
+	(void) free(array->elements);
 }

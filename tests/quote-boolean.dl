@@ -1,3 +1,0 @@
-(__when (__= true (__quote true))
-        (__when (__= false (__quote false))
-                true))

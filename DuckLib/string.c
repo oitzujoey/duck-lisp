@@ -60,10 +60,9 @@ dl_error_t dl_string_fromBool(dl_array_t *result, dl_bool_t boolean) {
 
 dl_error_t dl_string_fromUint8(dl_array_t *result, dl_uint8_t integer) {
 	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
 
 	dl_array_t reversedResult;
-	(void) dl_array_init(&reversedResult, result->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+	(void) dl_array_init(&reversedResult, sizeof(dl_uint8_t), dl_array_strategy_double);
 
 	if (integer == 0) {
 		dl_uint8_t tempChar = '0';
@@ -86,8 +85,7 @@ dl_error_t dl_string_fromUint8(dl_array_t *result, dl_uint8_t integer) {
 	}
 
  cleanup:
-	eError = dl_array_quit(&reversedResult);
-	if (eError) e = eError;
+	(void) dl_array_quit(&reversedResult);
 	return e;
 }
 
@@ -170,10 +168,9 @@ dl_error_t dl_string_toPtrdiff(dl_ptrdiff_t *result, const dl_uint8_t *string, c
 
 dl_error_t dl_string_fromPtrdiff(dl_array_t *result, dl_ptrdiff_t ptrdiff) {
 	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
 
 	dl_array_t reversedResult;
-	(void) dl_array_init(&reversedResult, result->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+	(void) dl_array_init(&reversedResult, sizeof(dl_uint8_t), dl_array_strategy_double);
 
 	if (ptrdiff == 0) {
 		dl_uint8_t tempChar = '0';
@@ -207,17 +204,15 @@ dl_error_t dl_string_fromPtrdiff(dl_array_t *result, dl_ptrdiff_t ptrdiff) {
 	}
 
  cleanup:
-	eError = dl_array_quit(&reversedResult);
-	if (eError) e = eError;
+	(void) dl_array_quit(&reversedResult);
 	return e;
 }
 
 dl_error_t dl_string_fromSize(dl_array_t *result, dl_size_t sz) {
 	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
 
 	dl_array_t reversedResult;
-	(void) dl_array_init(&reversedResult, result->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+	(void) dl_array_init(&reversedResult, sizeof(dl_uint8_t), dl_array_strategy_double);
 
 	if (sz == 0) {
 		dl_uint8_t tempChar = '0';
@@ -240,8 +235,7 @@ dl_error_t dl_string_fromSize(dl_array_t *result, dl_size_t sz) {
 	}
 
  cleanup:
-	eError = dl_array_quit(&reversedResult);
-	if (eError) e = eError;
+	(void) dl_array_quit(&reversedResult);
 	return e;
 }
 

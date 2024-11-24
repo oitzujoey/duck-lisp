@@ -1,8 +1,0 @@
-(__when (__= 3 (__length (__list 1 2 3)))
-        (__when (__= 3 (__length (__cons 1 (__cons 2 (__cons 3 4)))))
-                (__when (__= 0 (__length ()))
-                        (__when (__= 3 (__length (__vector 1 2 3)))
-                                (__when (__= 0 (__length (__vector)))
-                                        (__when (__= 3 (__length "123"))
-                                                (__when (__= 0 (__length ""))
-                                                        true)))))))

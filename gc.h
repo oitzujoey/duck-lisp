@@ -26,14 +26,7 @@ SOFTWARE.
 #define DUCKVM_H
 
 #include "DuckLib/core.h"
-#include "DuckLib/memory.h"
 #include "DuckLib/array.h"
-
-typedef enum {
-	duckVM_upvalue_type_stack_index,
-	duckVM_upvalue_type_heap_object,
-	duckVM_upvalue_type_heap_upvalue
-} duckVM_upvalue_type_t;
 
 typedef struct duckVM_gclist_s {
 	struct duckVM_object_s *objects;
@@ -42,68 +35,26 @@ typedef struct duckVM_gclist_s {
 	dl_size_t objects_length;
 	dl_size_t freeObjects_length;
 	dl_array_strategy_t strategy;
-	dl_memoryAllocation_t *memoryAllocation;
 	struct duckVM_s *duckVM;
 } duckVM_gclist_t;
 
-typedef struct {
-	dl_uint8_t *ip;
-	struct duckVM_object_s *bytecode;
-} duckVM_callFrame_t;
-
 typedef struct duckVM_s {
-	dl_memoryAllocation_t *memoryAllocation;
 	dl_array_t errors;  /* Runtime errors. */
 	dl_array_t stack;  /* dl_array_t:duckVM_object_t For data. */
-	dl_array_t call_stack;  /* duckVM_callFrame_t */
-	/* I'm lazy and I don't want to bother with correct GC. */
-	struct duckVM_object_s *currentBytecode;
-	dl_array_t upvalue_stack;  /* duckVM_upvalue_t * */
-	dl_array_t upvalue_array_call_stack;  /* duckVM_upvalueArray_t */
 	/* Addressed by symbol number. */
 	dl_array_t globals;  /* duckVM_object_t * */
 	dl_array_t globals_map;  /* dl_ptrdiff_t */
 	duckVM_gclist_t gclist;
 	dl_size_t nextUserType;
-	void *duckLisp;
-#ifdef USE_PARENTHESIS_INFERENCE
-	void *inferrerContext;
-#endif /* USE_PARENTHESIS_INFERENCE */
 	void *userData;
 } duckVM_t;
 
 
-/* Should never appear on the stack */
-typedef struct {
-	dl_uint8_t *value;
-	dl_size_t value_length;
-} duckVM_internalString_t;
-
-typedef struct {
-	struct duckVM_object_s *internalString;
-	dl_ptrdiff_t offset;
-	dl_size_t length;
-} duckVM_string_t;
-
 typedef struct {
 	dl_size_t id;
-	struct duckVM_object_s *internalString;
+	dl_uint8_t *name;
+	dl_size_t name_length;
 } duckVM_symbol_t;
-
-typedef struct {
-	dl_error_t (*callback)(duckVM_t *);
-} duckVM_function_t;
-
-typedef struct {
-	/* `name` might not be a good name. It is the index of the function. */
-	dl_ptrdiff_t name;
-	/* The *entire* bytecode the function is defined in. In most cases the function is a small part of the
-	   code. */
-	struct duckVM_object_s *bytecode;
-	struct duckVM_object_s *upvalue_array;
-	dl_uint8_t arity;
-	dl_bool_t variadic;
-} duckVM_closure_t;
 
 typedef struct duckVM_object_s * duckVM_list_t;
 
@@ -112,49 +63,6 @@ typedef struct {
 	struct duckVM_object_s *car;
 	struct duckVM_object_s *cdr;
 } duckVM_cons_t;
-
-/* Should never appear on the stack */
-typedef struct {
-	union {
-		dl_ptrdiff_t stack_index;
-		struct duckVM_object_s *heap_object;
-		struct duckVM_object_s *heap_upvalue;
-	} value;
-	duckVM_upvalue_type_t type;
-} duckVM_upvalue_t;
-
-/* Should never appear on the stack */
-typedef struct {
-	struct duckVM_object_s **upvalues;
-	dl_size_t length;
-} duckVM_upvalueArray_t;
-
-/* Should never appear on the stack */
-typedef struct {
-	struct duckVM_object_s **values;
-	dl_size_t length;
-	dl_bool_t initialized;
-} duckVM_internalVector_t;
-
-typedef struct {
-	struct duckVM_object_s *internal_vector;
-	dl_ptrdiff_t offset;
-} duckVM_vector_t;
-
-/* Should never appear on the stack */
-typedef struct {
-	dl_uint8_t *bytecode;
-	dl_size_t bytecode_length;
-} duckVM_bytecode_t;
-
-/* Should never appear on the stack */
-typedef struct {
-	dl_size_t type;
-	struct duckVM_object_s *value;
-	struct duckVM_object_s *function;
-} duckVM_internalComposite_t;
-
-typedef struct duckVM_object_s * duckVM_composite_t;
 
 typedef struct {
 	void *data;
@@ -170,12 +78,8 @@ typedef enum {
   duckVM_object_type_bool,
   duckVM_object_type_integer,
   duckVM_object_type_float,
-  duckVM_object_type_string,
   duckVM_object_type_list,
   duckVM_object_type_symbol,
-  duckVM_object_type_function,
-  duckVM_object_type_closure,
-  duckVM_object_type_vector,
   duckVM_object_type_type,
   duckVM_object_type_composite,
   /* User-defined type */
@@ -183,12 +87,6 @@ typedef enum {
 
   /* These types should never appear on the stack. */
   duckVM_object_type_cons,
-  duckVM_object_type_upvalue,
-  duckVM_object_type_upvalueArray,
-  duckVM_object_type_internalVector,
-  duckVM_object_type_bytecode,
-  duckVM_object_type_internalComposite,
-  duckVM_object_type_internalString,
 
   /* This is... you guessed it... the last entry in the enum. */
   duckVM_object_type_last,
@@ -199,21 +97,10 @@ typedef struct duckVM_object_s {
 		dl_bool_t boolean;
 		dl_ptrdiff_t integer;
 		double floatingPoint;
-		duckVM_internalString_t internalString;
-		duckVM_string_t string;
 		duckVM_symbol_t symbol;
-		duckVM_function_t function;
-		duckVM_closure_t closure;
 		duckVM_list_t list;
 		duckVM_cons_t cons;
-		duckVM_upvalue_t upvalue;
-		duckVM_upvalueArray_t upvalue_array;
-		duckVM_internalVector_t internal_vector;
-		duckVM_vector_t vector;
-		duckVM_bytecode_t bytecode;
 		dl_size_t type;
-		duckVM_internalComposite_t internalComposite;
-		duckVM_composite_t composite;
 		duckVM_user_t user;
 	} value;
 	duckVM_object_type_t type;
@@ -222,23 +109,13 @@ typedef struct duckVM_object_s {
 
 typedef dl_error_t (*duckVM_gclist_destructor_t)(duckVM_gclist_t *, duckVM_object_t *);
 
-typedef enum {
-	duckVM_halt_mode_run,
-	duckVM_halt_mode_halt,
-} duckVM_halt_mode_t;
-
-
 
 /* VM management */
 
 /* Initialize the VM. */
-dl_error_t duckVM_init(duckVM_t *duckVM, dl_memoryAllocation_t *memoryAllocation, dl_size_t maxObjects);
+dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects);
 /* Destroy the VM. This will free up any external resources that the VM is currently using. */
 void duckVM_quit(duckVM_t *duckVM);
-/* Execute bytecode. */
-dl_error_t duckVM_execute(duckVM_t *duckVM, dl_uint8_t *bytecode, dl_size_t bytecode_length);
-/* Pass a C callback to the VM. `key` can be found by querying the compiler. */
-dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (*callback)(duckVM_t *));
 
 /* Empty the stack. */
 dl_error_t duckVM_popAll(duckVM_t *duckVM);
@@ -328,40 +205,11 @@ dl_error_t duckVM_pushExistingType(duckVM_t *duckVM, dl_size_t type);
 /* Copy a type off the top of the stack into the provided variable. */
 dl_error_t duckVM_copyType(duckVM_t *duckVM, dl_size_t *type);
 
-/* Composites */
-/* Push a composite value with the specified type onto the top of the stack. The value and function slots are set to
-   nil. */
-dl_error_t duckVM_pushComposite(duckVM_t *duckVM, dl_size_t type);
-/* Push the type slot of the composite on the top of the stack onto the top of the stack. */
-dl_error_t duckVM_copyCompositeType(duckVM_t *duckVM, dl_size_t *type);
-/* Push the function slot of the composite on the top of the stack onto the top of the stack. */
-dl_error_t duckVM_pushCompositeValue(duckVM_t *duckVM);
-/* Push the function slot of the composite on the top of the stack onto the top of the stack. */
-dl_error_t duckVM_pushCompositeFunction(duckVM_t *duckVM);
-/* Set the value slot of the composite on the top of the stack to the value at the specified stack index. */
-dl_error_t duckVM_setCompositeValue(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
-/* Set the function slot of the composite on the top of the stack to the value at the specified stack index. */
-dl_error_t duckVM_setCompositeFunction(duckVM_t *duckVM, dl_ptrdiff_t stack_index);
-
 /* Lists -- See sequence operations below that operate on these objects. */
 /* Push nil onto the stack. */
 dl_error_t duckVM_pushNil(duckVM_t *duckVM);
 /* Push a cons onto the stack with both CAR and CDR set to nil. */
 dl_error_t duckVM_pushCons(duckVM_t *duckVM);
-
-/* Vectors -- See sequence operations below that operate on these objects. */
-/* Push a vector with the specified length onto the stack with each element to nil. */
-dl_error_t duckVM_pushVector(duckVM_t *duckVM, dl_size_t length);
-
-/* Closures -- See sequence operations below that operate on these objects. */
-/* Copy the "name" of the closure into the provided variable. Note that different closures may share the same "name". */
-dl_error_t duckVM_copyClosureName(duckVM_t *duckVM, dl_ptrdiff_t *name);
-/* Push the closure's bytecode object on the top of the stack. */
-dl_error_t duckVM_pushClosureBytecode(duckVM_t *duckVM);
-/* Copy the arity of the closure into the provided variable. */
-dl_error_t duckVM_copyClosureArity(duckVM_t *duckVM, dl_uint8_t *arity);
-/* Return whether or not the closure is variadic in the provided variable. */
-dl_error_t duckVM_copyClosureIsVariadic(duckVM_t *duckVM, dl_bool_t *is_variadic);
 
 /* Sequences */
 /* These are operations for lists, vectors, strings, and closures. Not all sequence types support all operations. */
@@ -443,8 +291,7 @@ dl_error_t duckVM_object_makeString(duckVM_t *duckVM,
                                     duckVM_object_t *stringOut,
                                     dl_uint8_t *stringIn,
                                     dl_size_t stringIn_length);
-dl_error_t duckVM_object_makeSymbol(duckVM_t *duckVM,
-                                    duckVM_object_t *symbolOut,
+dl_error_t duckVM_object_makeSymbol(duckVM_object_t *symbolOut,
                                     dl_size_t id,
                                     dl_uint8_t *string,
                                     dl_size_t string_length);
@@ -457,47 +304,14 @@ duckVM_object_t duckVM_object_makeClosure(dl_ptrdiff_t name,
                                           dl_uint8_t arity,
                                           dl_bool_t variadic);
 
-dl_error_t duckVM_closure_getUpvalueArray(duckVM_closure_t closure, duckVM_upvalueArray_t *upvalueArray);
-dl_error_t duckVM_closure_setUpvalue(duckVM_t *duckVM,
-                                     duckVM_closure_t closure,
-                                     duckVM_object_t *object,
-                                     dl_ptrdiff_t index);
-dl_error_t duckVM_upvalueArray_getUpvalue(duckVM_t *duckVM,
-                                          duckVM_upvalueArray_t upvalueArray,
-                                          duckVM_object_t *object,
-                                          dl_ptrdiff_t index);
-dl_error_t duckVM_upvalueArray_setUpvalue(duckVM_t *duckVM,
-                                          duckVM_upvalueArray_t upvalueArray,
-                                          duckVM_object_t *object,
-                                          dl_ptrdiff_t index);
-
 
 /* Pretty printing functions for debugging. */
 
-dl_error_t duckVM_upvalue_type_prettyPrint(dl_array_t *string_array, duckVM_upvalue_type_t type);
 dl_error_t duckVM_gclist_prettyPrint(dl_array_t *string_array, duckVM_gclist_t gclist);
-dl_error_t duckVM_callFrame_prettyPrint(dl_array_t *string_array, duckVM_callFrame_t callFrame);
 dl_error_t duckVM_prettyPrint(dl_array_t *string_array, duckVM_t duckVM);
-dl_error_t duckVM_internalString_prettyPrint(dl_array_t *string_array, duckVM_internalString_t internalString);
-dl_error_t duckVM_string_prettyPrint(dl_array_t *string_array, duckVM_string_t string);
 dl_error_t duckVM_symbol_prettyPrint(dl_array_t *string_array, duckVM_symbol_t symbol);
-dl_error_t duckVM_function_prettyPrint(dl_array_t *string_array, duckVM_function_t function);
-dl_error_t duckVM_closure_prettyPrint(dl_array_t *string_array, duckVM_closure_t closure, duckVM_t duckVM);
 dl_error_t duckVM_list_prettyPrint(dl_array_t *string_array, duckVM_list_t list, duckVM_t duckVM);
 dl_error_t duckVM_cons_prettyPrint(dl_array_t *string_array, duckVM_cons_t cons, duckVM_t duckVM);
-dl_error_t duckVM_upvalue_prettyPrint(dl_array_t *string_array, duckVM_upvalue_t upvalue, duckVM_t duckVM);
-dl_error_t duckVM_upvalueArray_prettyPrint(dl_array_t *string_array,
-                                           duckVM_upvalueArray_t upvalueArray,
-                                           duckVM_t duckVM);
-dl_error_t duckVM_internalVector_prettyPrint(dl_array_t *string_array,
-                                             duckVM_internalVector_t internalVector,
-                                             duckVM_t duckVM);
-dl_error_t duckVM_vector_prettyPrint(dl_array_t *string_array, duckVM_vector_t vector, duckVM_t duckVM);
-dl_error_t duckVM_bytecode_prettyPrint(dl_array_t *string_array, duckVM_bytecode_t bytecode);
-dl_error_t duckVM_internalComposite_prettyPrint(dl_array_t *string_array,
-                                                duckVM_internalComposite_t internalComposite,
-                                                duckVM_t duckVM);
-dl_error_t duckVM_composite_prettyPrint(dl_array_t *string_array, duckVM_composite_t composite, duckVM_t duckVM);
 dl_error_t duckVM_user_prettyPrint(dl_array_t *string_array, duckVM_user_t user);
 dl_error_t duckVM_object_type_prettyPrint(dl_array_t *string_array, duckVM_object_type_t object_type);
 dl_error_t duckVM_object_prettyPrint(dl_array_t *string_array, duckVM_object_t object, duckVM_t duckVM);

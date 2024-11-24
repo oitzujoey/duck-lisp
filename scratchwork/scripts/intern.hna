@@ -1,7 +1,0 @@
-declare print (I)
-
-(defmacro quote-interned-string (string)
-  (list (quote #quote)
-        (intern (concatenate string (gensym)))))
-
-print (quote-interned-string "Hello")

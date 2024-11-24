@@ -1,6 +1,0 @@
-(
- (__var x 4)
- (__unless false
-         ()
-         (__setq x 5))
- (__= x 5))
