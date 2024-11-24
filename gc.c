@@ -27,19 +27,23 @@ SOFTWARE.
 #include "DuckLib/core.h"
 #include <stdlib.h>
 
+/*******************/
+/* Error reporting */
+/*******************/
 
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const dl_uint8_t *message, const dl_size_t message_length) {
 	dl_error_t e = dl_error_ok;
-
-	if (duckVM->errors.elements_length > 0) {
-		e = dl_array_pushElements(&duckVM->errors, DL_STR("\n"));
-		if (e) goto cleanup;
-	}
+	e = dl_array_pushElements(&duckVM->errors, DL_STR("\n"));
+	if (e) goto cleanup;
 	e = dl_array_pushElements(&duckVM->errors, message, message_length);
 	if (e) goto cleanup;
-
  cleanup: return e;
 }
+
+
+/**********************/
+/* Garbage collection */
+/**********************/
 
 dl_error_t duckVM_gclist_init(duckVM_gclist_t *gclist,
                               duckVM_t *duckVM,
@@ -260,6 +264,10 @@ dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckVM_object_t **objectOu
 	return e;
 }
 
+
+/*************************************/
+/* Remaining duckVM data structures. */
+/*************************************/
 
 dl_error_t duckVM_init(duckVM_t *duckVM, dl_size_t maxObjects) {
 	dl_error_t e = dl_error_ok;
