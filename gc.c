@@ -627,10 +627,6 @@ dl_error_t duckVM_isSymbol(duckVM_t *duckVM, dl_bool_t *result) {
 	return templateForIsThing(duckVM, result, duckVM_object_type_symbol);
 }
 
-dl_error_t duckVM_isType(duckVM_t *duckVM, dl_bool_t *result) {
-	return templateForIsThing(duckVM, result, duckVM_object_type_type);
-}
-
 dl_error_t duckVM_isComposite(duckVM_t *duckVM, dl_bool_t *result) {
 	return templateForIsThing(duckVM, result, duckVM_object_type_composite);
 }
@@ -1004,55 +1000,6 @@ dl_error_t duckVM_copySymbolId(duckVM_t *duckVM, dl_size_t *id) {
 			break;
 		}
 		*id = object.value.symbol.id;
-	} while (0);
-	return e;
-}
-
-
-/* Types */
-
-/* Create a new unique type and push it onto the top of the stack. */
-dl_error_t duckVM_pushNewType(duckVM_t *duckVM) {
-	dl_error_t e = dl_error_ok;
-	do {
-		duckVM_object_t object;
-		object.type = duckVM_object_type_type;
-		object.value.type = duckVM->nextUserType++;
-		e = stack_push(duckVM, &object);
-		if (e) break;
-	} while (0);
-	return e;
-}
-
-/* Push the specified type onto the top of the stack. */
-dl_error_t duckVM_pushExistingType(duckVM_t *duckVM, dl_size_t type) {
-	dl_error_t e = dl_error_ok;
-	do {
-		duckVM_object_t object;
-		object.type = duckVM_object_type_type;
-		object.value.type = type;
-		e = duckVM_object_push(duckVM, &object);
-		if (e) break;
-	} while (0);
-	return e;
-}
-
-/* Copy a type off the top of the stack into the provided variable. */
-dl_error_t duckVM_copyType(duckVM_t *duckVM, dl_size_t *type) {
-	dl_error_t e = dl_error_ok;
-	dl_error_t eError = dl_error_ok;
-	do {
-		duckVM_object_t object;
-		e = dl_array_getTop(&duckVM->stack, &object);
-		if (e) break;
-		if (duckVM_object_type_type != object.type) {
-			e = dl_error_invalidValue;
-			eError = duckVM_error_pushRuntime(duckVM,
-			                                  DL_STR("duckVM_copyType: Not a type."));
-			if (eError) e = eError;
-			break;
-		}
-		*type = object.value.type;
 	} while (0);
 	return e;
 }

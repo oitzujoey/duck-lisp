@@ -80,7 +80,6 @@ typedef enum {
   duckVM_object_type_float,
   duckVM_object_type_list,
   duckVM_object_type_symbol,
-  duckVM_object_type_type,
   duckVM_object_type_composite,
   /* User-defined type */
   duckVM_object_type_user,
@@ -100,7 +99,6 @@ typedef struct duckVM_object_s {
 		duckVM_symbol_t symbol;
 		duckVM_list_t list;
 		duckVM_cons_t cons;
-		dl_size_t type;
 		duckVM_user_t user;
 	} value;
 	duckVM_object_type_t type;
