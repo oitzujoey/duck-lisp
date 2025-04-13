@@ -1,0 +1,24 @@
+(include "../scripts/library.hna")
+
+var x 4
+println x
+inc x
+println x
+(println)
+
+var x (list* 1 2 3)
+println x
+inc car x
+println x
+inc cdr cdr x
+println x
+inc elt x 1
+println x
+(println)
+
+(inc car x 2)
+println x
+(inc cdr cdr x 3)
+println x
+(inc elt x 1 4)
+println x
