@@ -2527,6 +2527,125 @@ Found an annoying and funny bug. I found it in one of the Hidey-Chess DL instanc
 
 
 
+Project's nearly over, but I don't really have anywhere to put this, so these notes are going here:
+
+Relevant paper: https://tdop.github.io/
+The second example provides a lisp code generator that is implemented using a configuration script for the parser. Pretty much exactly what I'm doing, though I've also got to do some type checking because of parenthesis inference in function calls.
+
+defun union (A B) mset-operator x : (or (∈ B x) (∈ A x))
+defun intersection (A B) mset-operator x : (and (∈ B x) (∈ A x))
+
+def union(A B): {x: x ∈ A or x ∈ B}
+def intersection(A B): {x: x ∈ A and x ∈ B}
+def relative_complement(A B): {x: x ∈ A and x ∉ B}
+
+declare (def L L L &rest 1 I)
+declare_punctuation {
+declare_punctuation }
+(declare_operator ({ I }) curly_braces)
+declare_punctuation :
+(declare_operator (L : I) colon 'root left_associative)
+(declare_operator (I and I) and (> colon) left_associative)
+declare_punctuation ∈
+(declare_operator (I ∈ I) element_of (> and) left_associative)
+declare_punctuation ∉
+(declare_operator (I ∉ I) not_an_element_of (= element_of) left_associative)
+
+def relative_complement(A B): {x: x ∈ A and x ∉ B}
+;; Emitted: (def relative_complement (A B) : (curly_braces (colon x (and (element_of x A) (not_an_element_of x B)))))
+
+
+;; DL (rewritten from Tcl):
+(defun find (basedir filter-script)
+       (when null? basedir
+             set basedir ".")
+       var oldwd (pwd)
+       cd basedir
+       var cwd (pwd)
+       var filenames (glob "*" ".*" ' nocomplain)
+       var files nil
+       var filt length filterScript
+       (dosequence filename filenames {
+                   (when (or not filt
+                             (eval filter-script (list filename)))
+                         set files append files (file-join cwd filename))
+                   (if isdirectory? filename
+                       set files concatenate files (find filename filter-script)))
+       cd oldwd
+       files)
+
+## Tcl:
+proc find {{basedir .} {filterScript {}}} {
+    set oldwd [pwd]
+    cd $basedir
+    set cwd [pwd]
+    set filenames [glob -nocomplain * .*]
+    set files {}
+    set filt [string length $filterScript]
+    foreach filename $filenames {
+        if {!$filt || [eval $filterScript [list $filename]]} {
+            lappend files [file join $cwd $filename]
+        }
+        if {[file isdirectory $filename]} {
+            set files [concat $files [find $filename $filterScript]]
+        }
+    }
+    cd $oldwd
+    return $files
+}
+
+// Abomination:
+def (find basedir:"." filterScript:nil) {
+    var oldwd: (pwd)  // Could use `def`, but then people from Python might get confused.
+    with cd basedir {
+        let {cwd: (pwd)
+             filenames: (glob nocomplain:true "*" ".*")
+             filt: length filterScript} {  // Parentheses for function calls and curly braces for structure.
+            foreach filename: filenames {
+                when !filt || (eval filterScript [filename]) {
+                    files ..= (file-join cwd filename)
+                }
+                when isdirectory? filename {
+                    files ..= (find filename filterScript)
+                }
+            }
+        }
+    }
+    files
+}
+
+;; This is pretty ugly. Maybe transpile it into valid DL?
+(def (find (: basedir ".") (: filterScript nil)) ; May have a problem here. Is the argument `(find basedir:"." filterScript:nil)` inferred?
+     (curly_braces
+      (var (: oldwd (pwd)))             ; Could use `def`, but then people from Python might get confused.
+      (with (cd basedir)
+            (curly_braces
+             (let (curly_braces (colon cwd (pwd))
+                                (colon filenames (glob nocomplain:true "*" ".*"))
+                                (colon filt length filterScript})) ; Parentheses for function calls and curly braces for structure.
+               (curly_braces
+                (foreach (: filename filenames) 
+                         (when (logical_or (logical_not filt) (eval filterScript (list filename)))
+                           (curly_braces
+                            (..= files (file-join cwd filename))))
+                         (when (isdirectory? filename)
+                           (curly_braces
+                            (..= files (find filename filterScript)))))))))
+      files))
+
+
+Operator declarations could be scoped.
+Error messages should be automatically generated for each operator.
+Ideally, complicated operator combinations such as "{…}" would be automatically split into individual operator definitions.
+I think I can modify the parser declaratively given the Pratt paper looks like it is doing that.
+I need to figure out how to do declarations with declarative scripts. I do not currently know how to do that for macros that take multiple forms as in `var a: 1` and `var {a: 1, b: 2}`. Maybe I can use a sort of pattern matching?
+Statements can be terminated with semicolons. This could be useful for things like elif-statements.
+
+If everything is statically typed, then I can get a lot of syntactic benefits like array access like `array[index]`.
+
+
+
+
 Todo:
     Finish parenthesis inference?
         C: Add support for nested types — L

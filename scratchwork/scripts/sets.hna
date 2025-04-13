@@ -1,50 +1,107 @@
 (include "../scripts/library.hna")
 
+defun ∈ (set value) element? set value
+defun ∉ (set value) not element? set value
+defun ∪ arguments (apply #union  composite-value arguments)
+defun ∩ arguments (apply #intersection  composite-value arguments)
+
+
+(defmacro mset-operator (binding-operator set variable : expression) (L L L L I)
+          (if (and (= : ' :)
+                   (= ' ∈ binding-operator)
+                   symbol? variable)
+              (()
+               (var collection-list (gensym "collection-list"))
+               (var new-list (gensym "new-list"))
+               #(` (()
+                    (__var (, collection-list) (composite-value (, set)))
+                    (__var (, variable) ())
+                    (__var (, new-list) ())
+                    (__while (, collection-list)
+                             (__setq (, variable) (__car (, collection-list)))
+                             (__when (, expression)
+                                     (__setq (, new-list) (__cons (, variable) (, new-list))))
+                             (__setq (, collection-list) (__cdr (, collection-list))))
+                    (__apply mset (, new-list)))))
+              ` (__error "Binding must be of the form `(∈ variable set)'.")))
+(declare mset-operator (L L L L I)
+         (()
+          var binding-operator (infer-and-get-next-argument)
+          (infer-and-get-next-argument)
+          var variable (infer-and-get-next-argument)
+          var : (infer-and-get-next-argument)
+          (when (if = : quote #:
+                    (if = quote #∈ binding-operator
+                        (if = type-of variable type-of quote #:
+                            true
+                            false)
+                        false)
+                    false)
+            (declaration-scope
+             declare-identifier variable quote #I
+             (infer-and-get-next-argument)))))
+
+;; defun union (A B) mset-operator x : (or (∈ B x) (∈ A x))
+;; defun intersection (A B) mset-operator x : (and (∈ B x) (∈ A x))
+
+;; def union(A B): {x: x ∈ A or x ∈ B}
+;; def intersection(A B): {x: x ∈ A and x ∈ B}
+;; def relative_complement(A B): {x: x ∈ A and x ∉ B}
+
+
+
+
 var a (mset 7 7 7 7 6 9 8 7)
-(println "a: " a)
-(println "a contains 3? " element? a 3)
-(println "a contains 5? " element? a 5)
+(println "a = " a)
+;; (println "a contains 3? " element? a 3)
+;; (println "a contains 5? " element? a 5)
 var b (mset 3 5 6 4 7)
-(println "b: " b)
-(println "b contains 5? " element? b 5)
-(println "b contains 7? " element? b 7)
+(println "b = " b)
+;; (println "b contains 5? " element? b 5)
+;; (println "b contains 7? " element? b 7)
 var c union a b
 (println "c = ∪ {a b}: " c)
-(println "c contains 3? " element? c 3)
-(println "c contains 5? " element? c 5)
-(println "c contains 7? " element? c 7)
+;; (println "c contains 3? " element? c 3)
+;; (println "c contains 5? " element? c 5)
+;; (println "c contains 7? " element? c 7)
 var d intersection a b
 (println "d = ∩ {a b}: " d)
-(println "d contains 3? " element? d 3)
-(println "d contains 5? " element? d 5)
-(println "d contains 7? " element? d 7)
-(println "a = b? " = a b)
-(println "a = c? " = a c)
-(println "b = c? " = b c)
-(println "a = a? " = a a)
-(println "b = b? " = b b)
-(println "c = c? " = c c)
-(println "b = reversed b? " = b (apply #mset (reverse composite-value b)))
+;; (println "d contains 3? " element? d 3)
+;; (println "d contains 5? " element? d 5)
+;; (println "d contains 7? " element? d 7)
+;; (println "a = b? " = a b)
+;; (println "a = c? " = a c)
+;; (println "b = c? " = b c)
+;; (println "a = a? " = a a)
+;; (println "b = b? " = b b)
+;; (println "c = c? " = c c)
+;; (println "b = reversed b? " = b (apply #mset (reverse composite-value b)))
 
 var e (mset 5 3 9 1 6 5 7 5 6 5)
-(println "e: " e)
+(println "e = " e)
 
 var f (mset 3 5 9 6 6 6 9 4 4 8)
-(println "f: " f)
+(println "f = " f)
 
 var g (mset a b e f)
 (println "g = {a b e f}: " g)
 
-defun ∈ (set value) element? set value
-defun ∪ arguments (apply #union  composite-value arguments)
-defun ∩ arguments (apply #intersection  composite-value arguments)
-
-(println "a ∈ g: " ∈ g a)
-(println "b ∈ g: " ∈ g b)
-(println "c ∈ g: " ∈ g c)
-(println "d ∈ g: " ∈ g d)
-(println "e ∈ g: " ∈ g e)
-(println "f ∈ g: " ∈ g f)
+;; (println "a ∈ g: " ∈ g a)
+;; (println "b ∈ g: " ∈ g b)
+;; (println "c ∈ g: " ∈ g c)
+;; (println "d ∈ g: " ∈ g d)
+;; (println "e ∈ g: " ∈ g e)
+;; (println "f ∈ g: " ∈ g f)
 
 (println "∪ g: " ∪ g)
 (println "∩ g: " ∩ g)
+
+(println "{}: " (mset))
+(println "length {a b c}: " length (mset a b c))
+(println "{{} {{}} {{} {{}}}}: " (mset (mset) (mset (mset)) (mset (mset) (mset (mset)))))
+
+
+
+defun - (A B) mset-operator ∈ A x : ∉ B x
+println - a b
+println - b a

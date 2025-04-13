@@ -688,6 +688,15 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
         (, (intern (concatenate "__set-" function-name)))
         ((,@ function-args) (, value-name))
         (,@ body))))
+ (defun extend-inc (pattern body)
+   var lvalue cadr pattern
+   var value-name caddr pattern
+   var function-name car lvalue
+   var function-args cdr lvalue
+   #(` (__defmacro
+        (, (intern (concatenate "__inc-" function-name)))
+        ((,@ function-args) (, value-name))
+        (,@ body))))
  ())
 
 
@@ -695,6 +704,7 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
   var function-name car pattern
   (funcall (switch function-name
              ' set  #extend-set
+             ' inc  #extend-inc
              ` __error "extend: Unknown extendable function.")
            pattern
            body))
@@ -704,6 +714,7 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
 ;; var l (list 1 2 3)
 ;; set (elt l 1) 5
 ;; l  ; => (1 5 3)
+;; Bug: Evaluates lvalue then rvalue.
 (defmacro set (lvalue value) (I I)
   (switch type-of lvalue
     duckLisp-object-type-symbol
@@ -717,7 +728,7 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
     ` __error "set: lvalue may only be a symbol or an expression."))
 
 #(extend (set (car sequence) value)
-  (` (set-car (, sequence) (, value))))
+         (` (set-car (, sequence) (, value))))
 #(extend (set (cdr sequence) value)
   (` (set-cdr (, sequence) (, value))))
 #(extend (set (elt sequence index) value)
@@ -726,6 +737,40 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
   (` (set-composite-value (, composite) (, value))))
 #(extend (set (composite-function composite) value)
   (` (set-composite-function (, composite) (, value))))
+
+;; var l (list 1 2 3)
+;; inc (elt l 1)
+;; l  ; => (1 3 3)
+;; Bug: Evaluates lvalue then rvalue.
+(defmacro inc (lvalue &rest rvalue) (I &rest 0 I)
+          var increment  if (null? rvalue) 1 (car rvalue)
+          (switch type-of lvalue
+                  duckLisp-object-type-symbol
+                  ` (incq (, lvalue) (, increment))
+                  duckLisp-object-type-list
+                  (()
+                   var function-name first lvalue
+                   var function-args rest lvalue
+
+                   ` ((, (intern (concatenate "__inc-" function-name))) ,@ function-args , increment))
+                  ` __error "inc: lvalue may only be a symbol or an expression."))
+
+(defun inc-car (lvalue &rest 0 rvalue)
+  var increment  if (null? rvalue) 1 (car rvalue)
+  set car lvalue  + increment car lvalue)
+(defun inc-cdr (lvalue &rest 0 rvalue)
+  var increment  if (null? rvalue) 1 (car rvalue)
+  set cdr lvalue  + increment cdr lvalue)
+(defun inc-elt (lvalue index &rest 0 rvalue)
+  var increment  if (null? rvalue) 1 (car rvalue)
+  set (elt lvalue index) + increment (elt lvalue index))
+
+#(extend (inc (car sequence) value)
+         (` (inc-car (, sequence) (, value))))
+#(extend (inc (cdr sequence) value)
+         (` (inc-cdr (, sequence) (, value))))
+#(extend (inc (elt sequence index) value)
+         (` (inc-elt (, sequence) (, index) (, value))))
 
 
 ;; Define a class.
@@ -738,13 +783,13 @@ bdefun remove-if-not (fun list) remove-if-not* fun list
 ;;   the constructor `table'.
 ;; The name, parameters, and body define the constructor.
 (defmacro defclass (name parameters &rest body) (L L &rest 1 I)
-  var v (gensym "v")
-  ` #(noscope
-      (var (, (intern (concatenate name "-type"))) (make-type))
-      (defun (, (intern (concatenate name "?"))) ((, v))
-        (= (, (intern (concatenate name "-type"))) (type-of (, v))))
-      (defun (, name) (, parameters)
-        (,@ body))))
+          var v (gensym "v")
+          ` #(noscope
+              (var (, (intern (concatenate name "-type"))) (make-type))
+              (defun (, (intern (concatenate name "?"))) ((, v))
+                (= (, (intern (concatenate name "-type"))) (type-of (, v))))
+              (defun (, name) (, parameters)
+                (,@ body))))
 (declare defclass (L L &rest 1 I)
          (
           (var name (infer-and-get-next-argument))

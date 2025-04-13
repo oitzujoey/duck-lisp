@@ -1,9 +1,8 @@
-(defun factorial-helper (n acc)
-  (unless (= n 1)
-    (setq acc (self (- n 1) (* n acc))))
-  acc)
-
 (defun factorial (n)
+  (defun factorial-helper (n acc)
+    (unless (= n 1)
+      (setq acc (self (- n 1) (* n acc))))
+    acc)
   (factorial-helper n 1))
 (var x 5)
 (var y (factorial x))

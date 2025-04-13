@@ -1,37 +1,48 @@
 (include "../scripts/library.hna")
 
+
+(defun factorial-1 (n)
+  (defun factorial-helper (n acc)
+    (unless = n 1
+            set acc (self (- n 1) (* n acc)))
+    acc)
+  factorial-helper n 1)
+
+
 (defun factorial0 (n)
-  (funcall
-   (lambda (n acc)
-     (unless = n 1
-             setq acc (self (1- n) (* n acc)))
-     acc)
-   n
-   1))
+  (funcall (lambda (n acc)
+             (unless = n 1
+                     set acc  self (1- n) (* n acc))
+             acc)
+           n
+           1))
+
 
 defun factorial1 n
   funcall lambda pair
             noscope
               unless = car pair
                        1
-                set-cdr pair
-                        self cons 1- car pair
-                                  * car pair
-                                    cdr pair
+                set cdr pair
+                    self cons 1- car pair
+                              * car pair
+                                cdr pair
               cdr pair
           cons n
                1
 
-defun factorial2 n funcall lambda pair cdr cons unless = car pair 1 set-cdr pair self cons 1- car pair * car pair cdr
+
+defun factorial2 n funcall lambda pair cdr cons unless = car pair 1 set cdr pair self cons 1- car pair * car pair cdr
 pair cdr pair cons n 1
 
 
 (defun factorial3 (n)
   var acc 1
   (while > n 0
-         setq acc (* n acc)
-         setq n (1- n))
+         set acc  * n acc
+         set n  1- n)
   acc)
+
 
 defun factorial4 n
   noscope
@@ -39,14 +50,17 @@ defun factorial4 n
       var acc 1
       while > n 0
         noscope
-          setq acc * n acc
-          setq n 1- n
+          set acc  * n acc
+          set n  1- n
     acc
 
-defun factorial5 n noscope noscope var acc 1 while > n 0 noscope setq acc * n acc setq n 1- n acc
+
+defun factorial5 n noscope noscope var acc 1 while > n 0 noscope set acc * n acc set n 1- n acc
 
 
 defun factorial6 n 120
+
+
 
 
 (()
@@ -56,6 +70,7 @@ defun factorial6 n 120
                                  (symbol-string (car c)))
                          " — "
                          c)))
+ p factorial-1 5
  p factorial0 5
  p factorial1 5
  p factorial2 5
