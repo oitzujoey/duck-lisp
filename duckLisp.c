@@ -7304,6 +7304,11 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	duckLisp_subCompileState_t *lastSubCompileState = compileState->currentCompileState;
 	dl_ptrdiff_t functionIndex = -1;
 	/**/ dl_array_init(&bytecode, duckLisp->memoryAllocation, sizeof(dl_uint8_t), dl_array_strategy_double);
+	dl_array_t argumentAssembly;
+	/**/ dl_array_init(&argumentAssembly,
+	                   duckLisp->memoryAllocation,
+	                   sizeof(duckLisp_instructionObject_t),
+	                   dl_array_strategy_fit);
 
 	e = duckLisp_checkArgsAndReportError(duckLisp, *expression, 1, dl_true);
 	if (e) goto cleanupArrays;
@@ -7317,7 +7322,8 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	compileState->currentCompileState = &compileState->comptimeCompileState;
 	dl_size_t lastLocalsLength = getLocalsLength(compileState);
-	compileState->currentCompileState->locals_length = duckLisp->vm.stack.elements_length;
+	dl_size_t vmLastLocalsLength = duckLisp->vm.stack.elements_length;
+	compileState->currentCompileState->locals_length = vmLastLocalsLength;
 
 	e = duckLisp_scope_getMacroFromName(compileState->currentCompileState,
 	                                    &functionIndex,
@@ -7327,6 +7333,35 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Generate bytecode for arguments. */
 
+	// This does not work properly if inside a `__comptime'. The arguments are built into an AST and then compiled to
+	// the comptime state. This corrupts the current HLA. The HLA is compiled to bytecode and executed from the
+	// beginning, which is from the stuff that was in the `__comptime' before the macro was compiled.
+	//
+	// Print "HERE" five times and then do who knows what.
+	//
+	// (__comptime
+	//  (__global x 4))
+	// (__comptime
+	//  (print "HERE\n")
+	//  (__defun f () (print "THERE\n"))
+	//  (comment This is a macro call)
+	//  (__if (__= x 4)
+	//        (
+	//         (__setq x 3)
+	//         (f))
+	//        (__if (__= x 3)
+	//              (
+	//               (__setq x 2)
+	//               (f))
+	//              (__if (__= x 2)
+	//                    (
+	//                     (__setq x 1)
+	//                     (f))
+	//                    (__if (__= x 1)
+	//                          (
+	//                           (__setq x 0)
+	//                           (f))
+	//                          ())))))
 	{
 		dl_size_t outerStartStack_length = getLocalsLength(compileState);
 		duckLisp_ast_compoundExpression_t quote;
@@ -7347,7 +7382,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 			e = duckLisp_compile_compoundExpression(duckLisp,
 			                                        compileState,
-			                                        &compileState->currentCompileState->assembly,
+			                                        &argumentAssembly,
 			                                        expression->compoundExpressions[0].value.identifier.value,
 			                                        expression->compoundExpressions[0].value.identifier.value_length,
 			                                        &quote,
@@ -7358,14 +7393,14 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 			e = duckLisp_emit_move(duckLisp,
 			                       compileState,
-			                       &compileState->currentCompileState->assembly,
+			                       &argumentAssembly,
 			                       innerStartStack_length,
 			                       getLocalsLength(compileState) - 1);
 			if (e) goto cleanupArguments;
 			if (getLocalsLength(compileState) - innerStartStack_length - 1 > 0) {
 				e = duckLisp_emit_pop(duckLisp,
 				                      compileState,
-				                      &compileState->currentCompileState->assembly,
+				                      &argumentAssembly,
 				                      getLocalsLength(compileState) - innerStartStack_length - 1);
 				if (e) goto cleanupArguments;
 			}
@@ -7380,7 +7415,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 		/* } */
 		e = duckLisp_emit_funcall(duckLisp,
 		                          compileState,
-		                          &compileState->currentCompileState->assembly,
+		                          &argumentAssembly,
 		                          functionIndex,
 		                          expression->compoundExpressions_length - 1);
 		if (e) goto cleanupArguments;
@@ -7398,7 +7433,7 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* Assemble. */
 
-	e = duckLisp_assemble(duckLisp, compileState, &bytecode, &compileState->currentCompileState->assembly);
+	e = duckLisp_assemble(duckLisp, compileState, &bytecode, &argumentAssembly);
 	if (e) goto cleanupArrays;
 
 	e = dl_array_pushElement(&bytecode, &yieldInstruction);
@@ -7417,11 +7452,6 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	e = dl_array_popElements(&duckLisp->vm.errors, dl_null, duckLisp->vm.errors.elements_length);
 	if (e) goto cleanupArrays;
 
-	e = dl_array_popElements(&compileState->currentCompileState->assembly,
-	                         dl_null,
-	                         compileState->currentCompileState->assembly.elements_length);
-	if (e) goto cleanupArrays;
-
 	/* Compile macro expansion. */
 
 	e = duckLisp_objectToAST(duckLisp, &ast, &return_value, dl_true);
@@ -7429,9 +7459,10 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 
 	/* duckLisp_ast_print(duckLisp, ast); */
 
-	e = duckVM_pop(&duckLisp->vm, dl_null);
-	if (e) goto cleanupArrays;
-	/**/ decrementLocalsLength(compileState);
+	while (duckLisp->vm.stack.elements_length > vmLastLocalsLength) {
+		e = duckVM_pop(&duckLisp->vm, dl_null);
+		if (e) goto cleanupArrays;
+	}
 
 	compileState->currentCompileState->locals_length = lastLocalsLength;
 	compileState->currentCompileState = lastSubCompileState;
@@ -7453,6 +7484,9 @@ dl_error_t duckLisp_generator_macro(duckLisp_t *duckLisp,
 	if (!e) e = eError;
 
  cleanupArrays:
+
+	eError = dl_array_quit(&argumentAssembly);
+	if (eError) e = eError;
 
 	eError = dl_array_quit(&bytecode);
 	if (eError) e = eError;
@@ -7881,6 +7915,8 @@ dl_error_t duckLisp_compile_expression(duckLisp_t *duckLisp,
 
 static dl_error_t instructionObject_quit(duckLisp_t *duckLisp, duckLisp_instructionObject_t *instruction) {
 	dl_error_t e = dl_error_ok;
+
+	(void) duckLisp;
 
 	DL_DOTIMES(j, instruction->args.elements_length) {
 		duckLisp_instructionArgClass_t arg = DL_ARRAY_GETADDRESS(instruction->args,
@@ -10707,7 +10743,7 @@ dl_error_t duckLisp_init(duckLisp_t *duckLisp) {
 	}
 
 	duckLisp->vm.memoryAllocation = duckLisp->memoryAllocation;
-	error = duckVM_init(&duckLisp->vm, 10000);
+	error = duckVM_init(&duckLisp->vm, 100000);
 	if (error) goto cleanup;
 
 	duckLisp->vm.duckLisp = duckLisp;
@@ -10895,6 +10931,9 @@ dl_error_t duckLisp_loadString(duckLisp_t *duckLisp,
 
 	*bytecode = ((unsigned char*) bytecodeArray.elements);
 	*bytecode_length = bytecodeArray.elements_length;
+
+	e = duckVM_softReset(&duckLisp->vm);
+	if (e) goto cleanup;
 
  cleanup:
 	return e;

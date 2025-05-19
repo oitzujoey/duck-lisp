@@ -172,6 +172,7 @@ typedef struct duckLisp_object_s {
 		struct {
 			void *data;
 			dl_error_t (*destructor)(duckVM_gclist_t *, struct duckLisp_object_s *);
+			void (*marker)(duckVM_gclist_t *, struct duckLisp_object_s *);
 		} user;
 	} value;
 	duckLisp_object_type_t type;
@@ -201,6 +202,7 @@ dl_error_t duckVM_linkCFunction(duckVM_t *duckVM, dl_ptrdiff_t key, dl_error_t (
 
 /* Functions for C callbacks */
 dl_error_t duckVM_error_pushRuntime(duckVM_t *duckVM, const char *message, const dl_size_t message_length);
+void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object);
 dl_error_t duckVM_gclist_pushObject(duckVM_t *duckVM, duckLisp_object_t **objectOut, duckLisp_object_t objectIn);
 dl_error_t duckVM_garbageCollect(duckVM_t *duckVM);
 /* void duckVM_getArgLength(duckVM_t *duckVM, dl_size_t *length); */

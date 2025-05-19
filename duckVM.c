@@ -108,7 +108,7 @@ static dl_error_t duckVM_gclist_quit(duckVM_gclist_t *gclist) {
 	return e;
 }
 
-static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
+void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t *object) {
 	// Bug: It is possible for object - gclist->objects to be negative during an OOM condition.
 	if (object && !gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)]) {
 		gclist->objectInUse[(dl_ptrdiff_t) (object - gclist->objects)] = dl_true;
@@ -156,6 +156,25 @@ static void duckVM_gclist_markObject(duckVM_gclist_t *gclist, duckLisp_object_t 
 				/**/ duckVM_gclist_markObject(gclist, object->value.symbol.internalString);
 			}
 		}
+		else if (object->type == duckLisp_object_type_composite) {
+			if (object->value.composite) {
+				/**/ duckVM_gclist_markObject(gclist, object->value.composite);
+			}
+		}
+		else if (object->type == duckLisp_object_type_internalComposite) {
+			if (object->value.internalComposite.value) {
+				/**/ duckVM_gclist_markObject(gclist, object->value.internalComposite.value);
+			}
+			if (object->value.internalComposite.function) {
+				/**/ duckVM_gclist_markObject(gclist, object->value.internalComposite.function);
+			}
+		}
+		else if (object->type == duckLisp_object_type_user) {
+			if (object->value.user.marker) {
+				/* User-provided marking function */
+				/**/ object->value.user.marker(gclist, object);
+			}
+		}
 		/* else ignore, since the stack is the root of GC. Would cause a cycle (infinite loop) if we handled it. */
 	}
 }
@@ -189,6 +208,12 @@ static dl_error_t duckVM_gclist_garbageCollect(duckVM_t *duckVM) {
 		}
 		else if (object->type == duckLisp_object_type_symbol) {
 			/**/ duckVM_gclist_markObject(&duckVM->gclist, object->value.symbol.internalString);
+		}
+		else if (object->type == duckLisp_object_type_composite) {
+			/**/ duckVM_gclist_markObject(&duckVM->gclist, object->value.composite);
+		}
+		else if ((object->type == duckLisp_object_type_user) && (object->value.user.marker)) {
+			/**/ object->value.user.marker(&duckVM->gclist, object);
 		}
 		/* Don't check for conses, upvalues, upvalue arrays, or internal vectors since they should never be on the
 		   stack. */
